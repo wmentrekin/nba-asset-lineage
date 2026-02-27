@@ -1,0 +1,61 @@
+version: 1
+name: processed_tables
+tables:
+  events:
+    path: data/processed/events.csv
+    primary_key: [event_id]
+    required_columns:
+      - event_id
+      - event_key
+      - event_date
+      - event_type
+      - event_label
+      - description
+      - source_id
+      - source_name
+      - source_url
+  assets:
+    path: data/processed/assets.csv
+    primary_key: [asset_id]
+    required_columns:
+      - asset_id
+      - asset_key
+      - asset_type
+      - subtype
+      - team_code
+      - team_name
+  asset_segments:
+    path: data/processed/asset_segments.csv
+    primary_key: [edge_id]
+    required_columns:
+      - edge_id
+      - asset_id
+      - asset_key
+      - asset_type
+      - subtype
+      - source_node_id
+      - target_node_id
+      - start_date
+      - end_date
+      - is_active_at_end
+      - player_name
+      - contract_expiry_year
+      - average_annual_salary
+      - acquisition_method
+      - original_team
+      - pick_year
+      - pick_number
+      - protections_raw
+      - protections_structured
+      - swap_conditions_raw
+      - swap_conditions_structured
+      - prior_transactions
+  event_asset_links:
+    path: data/processed/event_asset_links.csv
+    required_columns:
+      - event_id
+      - event_key
+      - asset_id
+      - asset_key
+      - action
+      - direction

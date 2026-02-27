@@ -1,0 +1,81 @@
+version: 1
+name: raw_manual_inputs
+description: >
+  User-curated, source-backed transaction records for Memphis assets. These tables are immutable source pulls or manually curated extracts.
+tables:
+  initial_assets:
+    path: data/raw/manual/initial_assets.csv
+    primary_key: [asset_key]
+    required_columns:
+      - asset_key
+      - asset_type
+      - subtype
+      - player_name
+      - contract_expiry_year
+      - average_annual_salary
+      - acquisition_method
+      - original_team
+      - pick_year
+      - pick_number
+      - protections_raw
+      - protections_structured
+      - swap_conditions_raw
+      - swap_conditions_structured
+      - start_date
+      - source_id
+  events:
+    path: data/raw/manual/events.csv
+    primary_key: [event_key]
+    required_columns:
+      - event_key
+      - event_date
+      - event_type
+      - event_label
+      - description
+      - source_id
+    constraints:
+      event_type:
+        enum:
+          - trade
+          - draft_pick
+          - contract_signing
+          - extension
+          - re_signing
+          - conversion
+          - waiver
+  event_assets:
+    path: data/raw/manual/event_assets.csv
+    required_columns:
+      - event_key
+      - action
+      - asset_key
+      - asset_type
+      - subtype
+      - player_name
+      - contract_expiry_year
+      - average_annual_salary
+      - acquisition_method
+      - original_team
+      - pick_year
+      - pick_number
+      - protections_raw
+      - protections_structured
+      - swap_conditions_raw
+      - swap_conditions_structured
+      - prior_transactions
+    constraints:
+      action:
+        enum:
+          - acquire
+          - relinquish
+          - modify
+          - terminate
+  sources:
+    path: data/raw/manual/sources.csv
+    primary_key: [source_id]
+    required_columns:
+      - source_id
+      - source_name
+      - source_url
+      - retrieved_date
+      - notes

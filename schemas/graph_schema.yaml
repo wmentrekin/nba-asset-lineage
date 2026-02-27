@@ -1,0 +1,45 @@
+version: 1
+name: graph_exports
+description: >
+  Directed multigraph where events are nodes and assets are temporal edges.
+files:
+  graphml:
+    path: data/exports/memphis_asset_lineage.graphml
+  nodes_csv:
+    path: data/exports/nodes.csv
+    primary_key: [node_id]
+    required_columns:
+      - node_id
+      - node_type
+      - label
+      - event_type
+      - event_date
+      - description
+      - source_name
+      - source_url
+  edges_csv:
+    path: data/exports/edges.csv
+    primary_key: [edge_id]
+    required_columns:
+      - edge_id
+      - source_node_id
+      - target_node_id
+      - asset_id
+      - asset_key
+      - asset_type
+      - subtype
+      - start_date
+      - end_date
+      - is_active_at_end
+      - player_name
+      - contract_expiry_year
+      - average_annual_salary
+      - acquisition_method
+      - original_team
+      - pick_year
+      - pick_number
+      - protections_raw
+      - protections_structured
+      - swap_conditions_raw
+      - swap_conditions_structured
+      - prior_transactions

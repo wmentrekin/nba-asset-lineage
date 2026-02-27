@@ -1,0 +1,26 @@
+[tools]
+python = "3.11"
+
+[tasks.setup]
+description = "Create virtual environment and install package"
+run = "python -m pip install -e ."
+
+[tasks.ingest]
+description = "Run ingestion stage"
+run = "python pipelines/ingest/run.py"
+
+[tasks.normalize]
+description = "Run normalization stage"
+run = "python pipelines/normalize/run.py"
+
+[tasks.build_graph]
+description = "Run graph build stage"
+run = "python pipelines/build_graph/run.py"
+
+[tasks.pipeline]
+description = "Run full pipeline"
+run = "python run_pipeline.py"
+
+[tasks.visualize]
+description = "Generate interactive HTML graph from exported CSVs"
+run = "python pipelines/visualize/run.py"

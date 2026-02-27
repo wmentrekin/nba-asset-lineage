@@ -1,0 +1,47 @@
+asset_key,asset_type,subtype,player_name,contract_expiry_year,average_annual_salary,acquisition_method,original_team,pick_year,pick_number,protections_raw,protections_structured,swap_conditions_raw,swap_conditions_structured,start_date,source_id
+player_ja_morant,full_roster,player_contract,Ja Morant,2024,12.12,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_desmond_bane,full_roster,player_contract,Desmond Bane,2024,2.13,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_dillon_brooks,full_roster,player_contract,Dillon Brooks,2023,11.4,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_jaren_jackson_jr,full_roster,player_contract,Jaren Jackson Jr.,2026,26.4,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_steven_adams,full_roster,player_contract,Steven Adams,2023,17.9,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_brandon_clarke,full_roster,player_contract,Brandon Clarke,2024,4.34,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_deanthony_melton,full_roster,player_contract,De'Anthony Melton,2024,8.0,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_tyus_jones,full_roster,player_contract,Tyus Jones,2023,8.37,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_kyle_anderson,full_roster,player_contract,Kyle Anderson,2022,9.5,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_xavier_tillman,full_roster,player_contract,Xavier Tillman,2024,1.78,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_ziaire_williams,full_roster,player_contract,Ziaire Williams,2025,4.81,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_santi_aldama,full_roster,player_contract,Santi Aldama,2025,2.0,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_john_konchar,full_roster,player_contract,John Konchar,2023,2.18,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_danny_green,full_roster,player_contract,Danny Green,2022,10.0,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_killian_tillie,full_roster,player_contract,Killian Tillie,2023,1.56,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_tyrell_terry,two_way,player_contract,Tyrell Terry,2022,,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+player_yves_pons,two_way,player_contract,Yves Pons,2022,,carryover_2021_22,,,,,,,,2022-05-14,src_realgm_playoff_2022
+pick_2022_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2022,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2022_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2022,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2023_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2023,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2023_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2023,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2024_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2024,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2024_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2024,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2025_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2025,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2025_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2025,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2026_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2026,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2026_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2026,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2027_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2027,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2027_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2027,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2028_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2028,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2028_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2028,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2029_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2029,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2029_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2029,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2030_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2030,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2030_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2030,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2031_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2031,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2031_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2031,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2032_1_mem,future_draft_pick,first_round,,,,owned_pick_start_state,MEM,2032,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2032_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2032,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2023_2_min,future_draft_pick,second_round,,,,owned_pick_start_state,MIN,2023,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2024_2_lal,future_draft_pick,second_round,,,,owned_pick_start_state,LAL,2024,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2024_1_gsw,future_draft_pick,first_round,,,,owned_pick_start_state,GSW,2024,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2024_2_mem_or_tor,future_draft_pick,second_round,,,,owned_pick_start_state,MEM/TOR,2024,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2025_2_nop,future_draft_pick,second_round,,,,owned_pick_start_state,NOP,2025,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2028_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2028,,,,,,2022-05-14,src_realgm_txn_2022
+pick_2029_2_mem,future_draft_pick,second_round,,,,owned_pick_start_state,MEM,2029,,,,,,2022-05-14,src_realgm_txn_2022

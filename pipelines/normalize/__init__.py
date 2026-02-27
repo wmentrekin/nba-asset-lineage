@@ -1,0 +1,1 @@
+"""Normalize stage entrypoint."""

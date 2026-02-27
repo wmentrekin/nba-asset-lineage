@@ -1,0 +1,1 @@
+"""Visualization stage entrypoint."""

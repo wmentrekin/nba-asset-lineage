@@ -1,0 +1,1 @@
+"""Build graph stage entrypoint."""

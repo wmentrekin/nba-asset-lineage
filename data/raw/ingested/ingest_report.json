@@ -1,0 +1,15 @@
+{
+  "copied_files": [
+    "initial_assets.csv",
+    "events.csv",
+    "event_assets.csv",
+    "sources.csv"
+  ],
+  "created_templates": [],
+  "end_date": "2026-02-26",
+  "ingested_raw_dir": "/Users/wentrekin/Documents/nba-asset-lineage/data/raw/ingested",
+  "manual_raw_dir": "/Users/wentrekin/Documents/nba-asset-lineage/data/raw/manual",
+  "notes": "Non-API scraping is intentionally excluded from automated ingestion. Populate data/raw/manual/*.csv using approved sources.",
+  "start_date": "2022-05-14",
+  "team_code": "MEM"
+}

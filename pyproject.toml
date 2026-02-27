@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nba-asset-lineage"
+version = "0.1.0"
+description = "Deterministic NBA asset lineage pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+nba-asset-ingest = "pipelines.ingest.run:main"
+nba-asset-normalize = "pipelines.normalize.run:main"
+nba-asset-build-graph = "pipelines.build_graph.run:main"
+nba-asset-visualize = "pipelines.visualize.run:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["nba_asset_lineage*"]

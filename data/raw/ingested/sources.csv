@@ -1,0 +1,12 @@
+source_id,source_name,source_url,retrieved_date,notes
+src_bref_mem_2023_txn,Basketball-Reference Memphis 2022-23 Transactions,https://www.basketball-reference.com/teams/MEM/2023_transactions.html,2026-02-27,Primary source for trade dates/details Jul 2022-Jun 2023.
+src_bref_mem_2024_txn,Basketball-Reference Memphis 2023-24 Transactions,https://www.basketball-reference.com/teams/MEM/2024_transactions.html,2026-02-27,Primary source for trade dates/details Jul 2023-Jun 2024.
+src_bref_mem_2025_txn,Basketball-Reference Memphis 2024-25 Transactions,https://www.basketball-reference.com/teams/MEM/2025_transactions.html,2026-02-27,Primary source for trade dates/details Jul 2024-Jun 2025.
+src_bref_mem_2026_txn,Basketball-Reference Memphis 2025-26 Transactions,https://www.basketball-reference.com/teams/MEM/2026_transactions.html,2026-02-27,Primary source for trade dates/details Jul 2025-Feb 2026.
+src_realgm_playoff_2022,RealGM Memphis 2022 Playoff Roster,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Rosters/Playoff/2022,2026-02-26,Used as base roster reference for initial post-playoff state.
+src_realgm_txn_2022,RealGM Memphis Transaction History 2022,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Transaction-History/2022,2026-02-26,Used for June 2022 draft-night transactions.
+src_realgm_txn_2023,RealGM Memphis Transaction History 2023,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Transaction-History/2023,2026-02-26,Used for Jul 2022-Jun 2023 transactions.
+src_realgm_txn_2024,RealGM Memphis Transaction History 2024,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Transaction-History/2024,2026-02-26,Used for Jul 2023-Jun 2024 transactions.
+src_realgm_txn_2025,RealGM Memphis Transaction History 2025,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Transaction_History/2025,2026-02-26,Used for Jul 2024-Jun 2025 transactions.
+src_realgm_txn_2026,RealGM Memphis Transaction History Current,https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/15/Transaction_History,2026-02-26,"Used for Jul 2025-Feb 2026 transactions, including Jaren Jackson Jr. trade context."
+src_spotrac_mem_contracts,Spotrac Memphis Contracts,https://www.spotrac.com/nba/memphis-grizzlies/contracts/,2026-02-26,Used for AAV field where available; unresolved values left blank for manual completion.
