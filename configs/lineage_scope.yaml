@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "franchise_id": "grizzlies",
+  "scope_name": "vancouver_to_memphis_full_history",
+  "start_date": "1995-06-23",
+  "end_date": "rolling",
+  "notes": "Full franchise lineage starting the day before the 1995 expansion draft. Timeline includes Vancouver Grizzlies era and Memphis Grizzlies era.",
+  "operating_team_timeline": [
+    {
+      "operating_team_id": "VAN",
+      "team_name": "Vancouver Grizzlies",
+      "era_start": "1995-06-23",
+      "era_end": "2001-06-30"
+    },
+    {
+      "operating_team_id": "MEM",
+      "team_name": "Memphis Grizzlies",
+      "era_start": "2001-07-01",
+      "era_end": null
+    }
+  ],
+  "allowed_event_types": [
+    "trade",
+    "draft_pick",
+    "waiver",
+    "contract_signing",
+    "extension",
+    "re_signing",
+    "conversion"
+  ],
+  "source_system_priority": [
+    "nba_com",
+    "basketball_reference",
+    "realgm",
+    "spotrac"
+  ]
+}

@@ -1,81 +1,29 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
-RAW_DIR = DATA_DIR / "raw"
-PROCESSED_DIR = DATA_DIR / "processed"
-EXPORTS_DIR = DATA_DIR / "exports"
+CONFIGS_DIR = ROOT / "configs"
 SCHEMAS_DIR = ROOT / "schemas"
+SQL_DIR = ROOT / "sql"
 
-MANUAL_RAW_DIR = RAW_DIR / "manual"
-INGESTED_RAW_DIR = RAW_DIR / "ingested"
+# Medallion layout.
+BRONZE_DIR = DATA_DIR / "bronze"
+BRONZE_RAW_DIR = BRONZE_DIR / "raw"
+BRONZE_CHECKPOINTS_DIR = BRONZE_DIR / "checkpoints"
 
-DEFAULT_TEAM_CODE = "MEM"
-DEFAULT_TEAM_NAME = "Memphis Grizzlies"
-DEFAULT_START_DATE = "2022-05-14"
-DEFAULT_END_DATE = "2026-02-26"
+SILVER_DIR = DATA_DIR / "silver"
+GOLD_DIR = DATA_DIR / "gold"
+GOLD_EXPORTS_DIR = GOLD_DIR / "exports"
 
-START_STATE_NODE_PREFIX = "state_start"
-END_STATE_NODE_PREFIX = "state_end"
+DEFAULT_FRANCHISE_ID = "grizzlies"
+DEFAULT_START_DATE = "1995-06-23"
+DEFAULT_END_DATE = date.today().isoformat()
+DEFAULT_SCOPE_CONFIG_PATH = CONFIGS_DIR / "lineage_scope.yaml"
 
-EXPECTED_RAW_FILES = {
-    "initial_assets.csv": [
-        "asset_key",
-        "asset_type",
-        "subtype",
-        "player_name",
-        "contract_expiry_year",
-        "average_annual_salary",
-        "acquisition_method",
-        "original_team",
-        "pick_year",
-        "pick_number",
-        "protections_raw",
-        "protections_structured",
-        "swap_conditions_raw",
-        "swap_conditions_structured",
-        "start_date",
-        "source_id",
-    ],
-    "events.csv": [
-        "event_key",
-        "event_date",
-        "event_type",
-        "event_label",
-        "description",
-        "source_id",
-    ],
-    "event_assets.csv": [
-        "event_key",
-        "action",
-        "asset_key",
-        "asset_type",
-        "subtype",
-        "player_name",
-        "contract_expiry_year",
-        "average_annual_salary",
-        "acquisition_method",
-        "original_team",
-        "pick_year",
-        "pick_number",
-        "protections_raw",
-        "protections_structured",
-        "swap_conditions_raw",
-        "swap_conditions_structured",
-        "prior_transactions",
-    ],
-    "sources.csv": [
-        "source_id",
-        "source_name",
-        "source_url",
-        "retrieved_date",
-        "notes",
-    ],
-}
-
-ALLOWED_EVENT_TYPES = {
+DEFAULT_ALLOWED_EVENT_TYPES = {
     "trade",
     "draft_pick",
     "contract_signing",
@@ -85,9 +33,10 @@ ALLOWED_EVENT_TYPES = {
     "waiver",
 }
 
-ALLOWED_ACTIONS = {
+DEFAULT_ALLOWED_ACTIONS = {
     "acquire",
     "relinquish",
     "modify",
     "terminate",
+    "transform",
 }

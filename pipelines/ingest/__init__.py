@@ -1,1 +1,0 @@
-"""Ingest stage entrypoint."""

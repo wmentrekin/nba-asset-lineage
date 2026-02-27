@@ -5,20 +5,18 @@ import sys
 from datetime import date
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from nba_asset_lineage.scope import load_scope_config
 from nba_asset_lineage.settings import DEFAULT_SCOPE_CONFIG_PATH
-from nba_asset_lineage.stages.bronze_ingest import run_bronze_ingest
 from nba_asset_lineage.stages.gold_publish import run_gold_publish
-from nba_asset_lineage.stages.silver_transform import run_silver_transform
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run franchise-wide medallion pipeline scaffold")
+    parser = argparse.ArgumentParser(description="Run gold publish scaffold")
     parser.add_argument("--scope-config", type=Path, default=DEFAULT_SCOPE_CONFIG_PATH)
     parser.add_argument("--run-mode", choices=["full", "incremental"], default="full")
     parser.add_argument("--as-of-date", default=date.today().isoformat())
@@ -37,9 +35,6 @@ def main() -> int:
         "run_mode": args.run_mode,
         "as_of_date": args.as_of_date,
     }
-
-    run_bronze_ingest(context)
-    run_silver_transform(context)
     run_gold_publish(context)
     return 0
 

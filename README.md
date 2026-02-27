@@ -1,30 +1,37 @@
 # nba-asset-lineage
 
-Deterministic Python pipeline for modeling Memphis Grizzlies asset evolution as a directed multigraph.
+Franchise-wide NBA asset lineage pipeline for the Grizzlies organization (Vancouver + Memphis), using a medallion architecture:
+
+- Bronze: raw source ingestion
+- Silver: canonical events/assets/lineage normalization
+- Gold: export-ready graph artifacts
 
 ## Scope
 
-- Team scope: Memphis-owned assets only (`MEM`)
-- Time window: `2022-05-14` through `2026-02-26` (inclusive)
-- Asset types: `player`, `full_roster`, `two_way`, `future_draft_pick`
-- Event types: `trade`, `draft_pick`, `contract_signing`, `extension`, `re_signing`, `conversion`, `waiver`
+- Franchise scope: `grizzlies`
+- Start date: `1995-06-23` (day before 1995 expansion draft)
+- End date: rolling (configured in `configs/lineage_scope.yaml`)
 
 ## Repository Structure
 
 ```
 nba-asset-lineage/
+├── configs/
+│   └── lineage_scope.yaml
 ├── data/
-│   ├── raw/
-│   │   ├── manual/
-│   │   └── ingested/
-│   ├── processed/
-│   └── exports/
-├── schemas/
+│   ├── bronze/
+│   │   ├── raw/
+│   │   └── checkpoints/
+│   ├── silver/
+│   └── gold/
+│       └── exports/
 ├── pipelines/
-│   ├── ingest/
-│   ├── normalize/
-│   ├── build_graph/
+│   ├── bronze_ingest/
+│   ├── silver_transform/
+│   ├── gold_publish/
 │   └── visualize/
+├── sql/
+│   └── migrations/
 ├── src/
 │   └── nba_asset_lineage/
 ├── run_pipeline.py
@@ -33,38 +40,38 @@ nba-asset-lineage/
 └── README.md
 ```
 
-## Data Source Policy
+## Local DB Credentials
 
-Approved sources:
+Store credentials only in local `.env` (gitignored):
 
-- NBA.com transaction logs
-- Basketball-Reference
-- Spotrac
-- RealGM trade/draft pick trackers
+```bash
+cp .env.example .env
+```
 
-Automated non-API scraping is **not enabled** in this initial implementation. Populate `data/raw/manual/*.csv` using approved, validly licensed source data. This enforces explicit review before any free-data scraping path is added.
+Required variables:
 
-## Raw Input Contract
+- `NBA_ASSET_DB_HOST`
+- `NBA_ASSET_DB_PORT`
+- `NBA_ASSET_DB_NAME`
+- `NBA_ASSET_DB_USER`
+- `NBA_ASSET_DB_PASSWORD`
+- `NBA_ASSET_DB_SSLMODE`
 
-Fill these files in `data/raw/manual/`:
+Optional:
 
-- `initial_assets.csv`
-- `events.csv`
-- `event_assets.csv`
-- `sources.csv`
+- `DATABASE_URL`
 
-Column requirements are documented in:
+## Supabase Migration
 
-- `schemas/raw_manual_schema.yaml`
+After your base table bootstrap, apply franchise-scope migration:
 
-## Pipeline Stages
+- `sql/migrations/0002_franchise_scope.sql`
 
-1. `ingest`: validates/copies manual raw files into `data/raw/ingested/`
-2. `normalize`: builds deterministic IDs and asset segments in `data/processed/`
-3. `build_graph`: emits graph-shaped node/edge tables in `data/processed/`
-4. `export`: writes final GraphML and CSV artifacts in `data/exports/`
+This adds:
 
-Each stage is independently runnable and idempotent.
+- `franchise_id` and `operating_team_id` columns to Silver tables
+- `silver.franchise_team_eras` mapping table
+- franchise/time indexes for full-history querying
 
 ## Run With Mise
 
@@ -76,51 +83,16 @@ mise run pipeline
 Stage-by-stage:
 
 ```bash
-mise run ingest
-mise run normalize
-mise run build_graph
+mise run bronze
+mise run silver
+mise run gold
 mise run visualize
 ```
 
-## Run Without Mise
+## Current Status
 
-```bash
-python -m pip install -e .
-python run_pipeline.py --start-date 2022-05-14 --end-date 2026-02-26 --team-code MEM
-```
-
-## Outputs
-
-Mandatory outputs are written to `data/exports/`:
-
-- `memphis_asset_lineage.graphml`
-- `nodes.csv`
-- `edges.csv`
-- `graph_view.html` (interactive visualization)
-
-## Quick Visualization
-
-Generate an interactive HTML graph:
-
-```bash
-mise run visualize
-```
-
-Then open:
-
-- `data/exports/graph_view.html`
-
-The HTML viewer supports:
-
-- date-range filtering
-- event-type filtering
-- click-to-inspect node and edge attributes
-
-## Assumptions Implemented
-
-- Date-level cadence only (no timezone or intraday ordering)
-- End date is inclusive (`2026-02-26`)
-- Voided/rescinded transactions excluded
-- Cash/exceptions/overseas rights excluded
-- Pick protections/swaps stored as both raw text and structured text fields
-- Asset IDs are deterministic and stable across modifications
+- Medallion stage scaffolding is implemented and idempotent.
+- Bronze/Silver/Gold loaders are not implemented yet.
+- Visualization currently expects gold exports at:
+  - `data/gold/exports/nodes.csv`
+  - `data/gold/exports/edges.csv`

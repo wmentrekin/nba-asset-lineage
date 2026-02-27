@@ -14,10 +14,11 @@ dependencies = [
 ]
 
 [project.scripts]
-nba-asset-ingest = "pipelines.ingest.run:main"
-nba-asset-normalize = "pipelines.normalize.run:main"
-nba-asset-build-graph = "pipelines.build_graph.run:main"
+nba-asset-bronze = "pipelines.bronze_ingest.run:main"
+nba-asset-silver = "pipelines.silver_transform.run:main"
+nba-asset-gold = "pipelines.gold_publish.run:main"
 nba-asset-visualize = "pipelines.visualize.run:main"
+nba-asset-pipeline = "run_pipeline:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

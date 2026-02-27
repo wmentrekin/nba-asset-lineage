@@ -1,0 +1,12 @@
+{
+  "as_of_date": "2026-02-27",
+  "end_date": "rolling",
+  "franchise_id": "grizzlies",
+  "notes": "Bronze loaders not implemented yet. This scaffold reserves filesystem layout and run metadata.",
+  "run_mode": "full",
+  "scope_config_path": "/Users/wentrekin/Documents/nba-asset-lineage/configs/lineage_scope.yaml",
+  "stage": "bronze_ingest",
+  "start_date": "1995-06-23",
+  "status": "scaffold_ready",
+  "updated_at_utc": "2026-02-27T19:49:28.611425+00:00"
+}

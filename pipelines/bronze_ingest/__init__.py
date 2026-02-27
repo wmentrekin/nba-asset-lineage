@@ -1,0 +1,1 @@
+"""Bronze ingest stage entrypoint."""

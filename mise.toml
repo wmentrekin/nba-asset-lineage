@@ -5,20 +5,20 @@ python = "3.11"
 description = "Create virtual environment and install package"
 run = "python -m pip install -e ."
 
-[tasks.ingest]
-description = "Run ingestion stage"
-run = "python pipelines/ingest/run.py"
+[tasks.bronze]
+description = "Run bronze ingest scaffold"
+run = "python pipelines/bronze_ingest/run.py"
 
-[tasks.normalize]
-description = "Run normalization stage"
-run = "python pipelines/normalize/run.py"
+[tasks.silver]
+description = "Run silver transform scaffold"
+run = "python pipelines/silver_transform/run.py"
 
-[tasks.build_graph]
-description = "Run graph build stage"
-run = "python pipelines/build_graph/run.py"
+[tasks.gold]
+description = "Run gold publish scaffold"
+run = "python pipelines/gold_publish/run.py"
 
 [tasks.pipeline]
-description = "Run full pipeline"
+description = "Run medallion pipeline scaffold"
 run = "python run_pipeline.py"
 
 [tasks.visualize]
