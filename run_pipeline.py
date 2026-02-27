@@ -22,6 +22,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scope-config", type=Path, default=DEFAULT_SCOPE_CONFIG_PATH)
     parser.add_argument("--run-mode", choices=["full", "incremental"], default="full")
     parser.add_argument("--as-of-date", default=date.today().isoformat())
+    parser.add_argument("--source-system", default="manual")
+    parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
 
@@ -36,6 +38,8 @@ def main() -> int:
         "end_date": scope.end_date,
         "run_mode": args.run_mode,
         "as_of_date": args.as_of_date,
+        "source_system": args.source_system,
+        "dry_run": "true" if args.dry_run else "false",
     }
 
     run_bronze_ingest(context)
