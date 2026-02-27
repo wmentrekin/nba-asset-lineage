@@ -1,0 +1,140 @@
+version: 1
+as_of_date: 2026-02-27
+purpose: >
+  Source governance catalog for Bronze ingestion. Defines allowed use posture,
+  auth requirements, and known coverage limits before any adapter is implemented.
+
+sources:
+  nba_com:
+    display_name: "NBA.com / stats.nba.com / data.nba.net"
+    source_type: "official_public_web_endpoints"
+    requires_api_key: false
+    allowed_for_pipeline: true
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://www.nba.com/termsofuse"
+    usage_constraints:
+      - "NBA Statistics usage is limited to legitimate news reporting or private, non-commercial purposes."
+      - "Comprehensive, regularly updated stats databases require prior consent per Terms section on NBA Statistics."
+      - "Attribution to NBA.com is required when using/publishing NBA Statistics."
+    known_coverage:
+      transactions:
+        status: "not_officially_documented"
+        note: >
+          Public transactions UI exists, but official machine-readable historical boundary
+          is not explicitly documented in a canonical NBA developer document.
+      draft_history:
+        status: "available_via_stats_endpoint"
+        note: "DraftHistory endpoint exists in nba_api endpoint docs."
+      contracts:
+        status: "not_available"
+        note: "No contract/AAV endpoint in nba_api stats endpoint catalog."
+      pick_protections_swaps:
+        status: "partial"
+        note: >
+          Structured, canonical pick-obligation feeds are not clearly documented as a
+          complete official machine-readable endpoint.
+
+  nba_api:
+    display_name: "swar/nba_api wrapper"
+    source_type: "client_library"
+    requires_api_key: false
+    allowed_for_pipeline: true
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://github.com/swar/nba_api"
+      - "https://nba-api-sbang.readthedocs.io/en/latest/"
+    usage_constraints:
+      - "Library is MIT, but underlying data usage still governed by NBA.com Terms."
+      - "Stats endpoint catalog does not include transaction or contract endpoints."
+    known_coverage:
+      transactions:
+        status: "not_in_stats_endpoint_catalog"
+      contracts:
+        status: "not_in_stats_endpoint_catalog"
+      draft_history:
+        status: "available"
+
+  balldontlie:
+    display_name: "balldontlie"
+    source_type: "third_party_api"
+    requires_api_key: true
+    allowed_for_pipeline: true
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://docs.balldontlie.io/"
+      - "https://www.balldontlie.io/terms.html"
+    usage_constraints:
+      - "Must use official API with API key; automated scraping outside API is prohibited."
+      - "Rate limits depend on tier (Free: 5 req/min)."
+      - "Contract endpoints require GOAT tier."
+      - "Redistribution/caching/database use is restricted by their Terms."
+    known_coverage:
+      historical_depth:
+        status: "documented"
+        note: "Docs state 1946-current."
+      contracts:
+        status: "available_paid"
+        note: "Team contracts, player contracts, and contract aggregates endpoints."
+
+  sports_reference:
+    display_name: "Sports-Reference / Basketball-Reference"
+    source_type: "website"
+    requires_api_key: false
+    allowed_for_pipeline: false
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://www.sports-reference.com/termsofuse.html"
+      - "https://www.sports-reference.com/data_use.html"
+      - "https://www.sports-reference.com/bot-traffic.html"
+    usage_constraints:
+      - "No official API due to licensing/business model."
+      - "Automated access is tightly constrained; creating substitute databases/services is restricted."
+    known_coverage:
+      official_api:
+        status: "not_available"
+        note: "Sports-Reference explicitly states they do not provide an API."
+
+  sportsdata_io:
+    display_name: "SportsDataIO"
+    source_type: "commercial_api"
+    requires_api_key: true
+    allowed_for_pipeline: "optional_paid"
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://sportsdata.io/developers/api-documentation/nba"
+      - "https://sportsdata.io/terms-of-service"
+      - "https://sportsdata.io/help/historical-data-integration-guide"
+    usage_constraints:
+      - "API key and subscription required for live/production accurate data."
+      - "Historical coverage varies by league and is tied to provider tracking start year."
+    known_coverage:
+      contracts:
+        status: "likely_available_via_paid_feeds"
+        note: "Requires account-specific product validation."
+      historical_depth:
+        status: "variable"
+        note: "Provider states historical years vary by league."
+
+decisions:
+  current_default_source_stack:
+    - "nba_com"
+    - "nba_api"
+  optional_enrichment_sources:
+    - "balldontlie"
+    - "sportsdata_io"
+  blocked_sources_for_automation:
+    - "sports_reference"
+
+open_items:
+  - id: "coverage_boundary_nba_transactions"
+    description: >
+      Determine exact min/max dates available from NBA transaction feeds used in adapters.
+      Must be measured empirically during adapter development and written to metadata.
+  - id: "contracts_source_selection"
+    description: >
+      Choose between balldontlie GOAT tier and SportsDataIO (paid) for contract AAV coverage.
+  - id: "pick_obligation_strategy"
+    description: >
+      Define how protections/swaps are sourced and validated when no single official structured
+      endpoint provides complete historical obligations.

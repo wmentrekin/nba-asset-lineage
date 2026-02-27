@@ -1,0 +1,40 @@
+version: 1
+name: bronze_raw_contract
+description: >
+  Canonical filesystem contract for bronze ingest before writing to Supabase bronze tables.
+
+inputs:
+  events:
+    path_glob: data/bronze/raw/events/**/*.{jsonl,json}
+    required_fields:
+      - source_event_ref
+    optional_fields:
+      - source_system
+      - event_date_raw
+      - event_type_raw
+      - source_url
+      - source_payload
+  assets:
+    path_glob: data/bronze/raw/assets/**/*.{jsonl,json}
+    required_fields:
+      - source_asset_ref
+    optional_fields:
+      - source_system
+      - asset_type_raw
+      - effective_date_raw
+      - source_payload
+  event_asset_links:
+    path_glob: data/bronze/raw/event_asset_links/**/*.{jsonl,json}
+    required_fields:
+      - source_event_ref
+      - source_asset_ref
+    optional_fields:
+      - source_system
+      - action_raw
+      - direction_raw
+      - effective_date_raw
+      - source_payload
+
+notes:
+  - For convenience, source_payload defaults to the entire raw row object if omitted.
+  - source_system defaults to CLI --source-system if omitted.
