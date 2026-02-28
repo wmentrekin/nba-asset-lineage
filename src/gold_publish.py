@@ -1,15 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
-from nba_asset_lineage.files import ensure_dir, write_json
-from nba_asset_lineage.settings import GOLD_DIR, GOLD_EXPORTS_DIR
 
-
-def run_gold_publish(context: dict[str, str]) -> None:
-    ensure_dir(GOLD_DIR)
-    ensure_dir(GOLD_EXPORTS_DIR)
-
+def run_gold_publish(context: dict[str, str]) -> dict[str, object]:
     manifest = {
         "stage": "gold_publish",
         "status": "scaffold_ready",
@@ -22,4 +17,5 @@ def run_gold_publish(context: dict[str, str]) -> None:
         "notes": "Gold export generation not implemented yet. Target outputs: graph nodes/edges JSON, GraphML, and storyline-ready slices.",
         "updated_at_utc": datetime.now(timezone.utc).isoformat(),
     }
-    write_json(GOLD_DIR / "gold_stage_manifest.json", manifest)
+    print(json.dumps(manifest, sort_keys=True))
+    return manifest

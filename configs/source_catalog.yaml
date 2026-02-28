@@ -5,6 +5,37 @@ purpose: >
   auth requirements, and known coverage limits before any adapter is implemented.
 
 sources:
+  sportradar:
+    display_name: "Sportradar NBA API"
+    source_type: "commercial_api"
+    requires_api_key: true
+    allowed_for_pipeline: true
+    terms_review_status: "reviewed"
+    terms_urls:
+      - "https://developer.sportradar.com/basketball/docs/nba-ig-overview"
+      - "https://developer.sportradar.com/basketball/reference/nba-daily-transfers"
+      - "https://developer.sportradar.com/basketball/docs/basketball-ig-account-maintenance"
+    usage_constraints:
+      - "API key is required via x-api-key authentication."
+      - "Trial and production access differ in quota/rate and available coverage."
+      - "Usage, storage, and redistribution must follow account license terms."
+    known_coverage:
+      transactions:
+        status: "available"
+        note: "Daily Transfers provides effective_date, transaction_code/type, and team movement metadata."
+      contracts:
+        status: "partial"
+        note: "Player/Team profile salary is available, but this is current base annual salary (not full-contract AAV)."
+      draft_history:
+        status: "available"
+        note: "Draft Summary and Draft Trades provide pick and future_pick objects."
+      pick_protections_swaps:
+        status: "not_documented"
+        note: "Mapped endpoints do not document full structured protections/swap conditions."
+      historical_depth:
+        status: "limited"
+        note: "Sportradar NBA historical data is documented back to the 2013 season."
+
   nba_com:
     display_name: "NBA.com / stats.nba.com / data.nba.net"
     source_type: "official_public_web_endpoints"
@@ -118,6 +149,7 @@ sources:
 
 decisions:
   current_default_source_stack:
+    - "sportradar"
     - "nba_com"
     - "nba_api"
   optional_enrichment_sources:
@@ -138,3 +170,7 @@ open_items:
     description: >
       Define how protections/swaps are sourced and validated when no single official structured
       endpoint provides complete historical obligations.
+  - id: "bronze_schema_evolution"
+    description: >
+      Revisit Bronze raw schema and contracts after final source mix is chosen so required raw
+      fields reflect actual endpoint payloads and provenance requirements.

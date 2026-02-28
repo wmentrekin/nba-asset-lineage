@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from nba_asset_lineage.files import ensure_dir, read_csv
-from nba_asset_lineage.settings import GOLD_EXPORTS_DIR
+from files import ensure_dir, read_csv
+from settings import DEFAULT_EXPORTS_DIR
 
 
 def _sorted_event_types(nodes: list[dict[str, str]]) -> list[str]:
@@ -391,8 +391,8 @@ def write_visualization_html(
     nodes_path: Path | None = None,
     edges_path: Path | None = None,
 ) -> Path:
-    resolved_nodes_path = nodes_path or (GOLD_EXPORTS_DIR / "nodes.csv")
-    resolved_edges_path = edges_path or (GOLD_EXPORTS_DIR / "edges.csv")
+    resolved_nodes_path = nodes_path or (DEFAULT_EXPORTS_DIR / "nodes.csv")
+    resolved_edges_path = edges_path or (DEFAULT_EXPORTS_DIR / "edges.csv")
 
     nodes = read_csv(resolved_nodes_path)
     edges = read_csv(resolved_edges_path)
@@ -414,9 +414,9 @@ def write_visualization_html(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate interactive HTML visualization from exported CSV graph files")
-    parser.add_argument("--nodes", type=Path, default=GOLD_EXPORTS_DIR / "nodes.csv")
-    parser.add_argument("--edges", type=Path, default=GOLD_EXPORTS_DIR / "edges.csv")
-    parser.add_argument("--output", type=Path, default=GOLD_EXPORTS_DIR / "graph_view.html")
+    parser.add_argument("--nodes", type=Path, default=DEFAULT_EXPORTS_DIR / "nodes.csv")
+    parser.add_argument("--edges", type=Path, default=DEFAULT_EXPORTS_DIR / "edges.csv")
+    parser.add_argument("--output", type=Path, default=DEFAULT_EXPORTS_DIR / "graph_view.html")
     return parser.parse_args()
 
 

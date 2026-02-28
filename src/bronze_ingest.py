@@ -5,11 +5,80 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
-from nba_asset_lineage.bronze.io import load_raw_records
-from nba_asset_lineage.bronze.raw_contract import RawAssetRecord, RawEventAssetLinkRecord, RawEventRecord
-from nba_asset_lineage.db_config import load_db_config
+from db_config import load_db_config
+from settings import DEFAULT_BRONZE_RAW_DIR
+
+
+def _iter_jsonl(path: Path) -> Iterable[dict[str, Any]]:
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        payload = json.loads(stripped)
+        if not isinstance(payload, dict):
+            raise ValueError(f"{path}:{line_no} must be a JSON object")
+        yield payload
+
+
+def _iter_json(path: Path) -> Iterable[dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        for index, item in enumerate(payload):
+            if not isinstance(item, dict):
+                raise ValueError(f"{path}[{index}] must be a JSON object")
+            yield item
+        return
+    if isinstance(payload, dict):
+        yield payload
+        return
+    raise ValueError(f"Unsupported JSON payload in {path}")
+
+
+def load_raw_records(base_dir: Path, entity: str) -> list[dict[str, Any]]:
+    entity_dir = base_dir / entity
+    if not entity_dir.exists():
+        return []
+
+    files = sorted(entity_dir.rglob("*.jsonl")) + sorted(entity_dir.rglob("*.json"))
+    records: list[dict[str, Any]] = []
+    for path in files:
+        if path.suffix == ".jsonl":
+            records.extend(_iter_jsonl(path))
+        elif path.suffix == ".json":
+            records.extend(_iter_json(path))
+    return records
+
+
+@dataclass(frozen=True)
+class RawEventRecord:
+    source_system: str
+    source_event_ref: str
+    event_date_raw: str
+    event_type_raw: str
+    source_url: str
+    source_payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class RawAssetRecord:
+    source_system: str
+    source_asset_ref: str
+    asset_type_raw: str
+    effective_date_raw: str
+    source_payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class RawEventAssetLinkRecord:
+    source_system: str
+    source_event_ref: str
+    source_asset_ref: str
+    action_raw: str
+    direction_raw: str
+    effective_date_raw: str
+    source_payload: dict[str, Any]
 
 
 def _payload_hash(payload: dict[str, Any]) -> str:
@@ -127,7 +196,10 @@ def run_bronze_load(
             records_written=0,
             status="no_new_data",
             run_id=None,
-            notes="No raw Bronze records found. Expected files under data/bronze/raw/{events,assets,event_asset_links}/*.jsonl or *.json.",
+            notes=(
+                "No raw Bronze records found. Expected files under "
+                f"{raw_dir}/{{events,assets,event_asset_links}}/*.jsonl or *.json."
+            ),
         )
 
     config = load_db_config()
@@ -314,3 +386,36 @@ def run_bronze_load(
                 )
             conn.commit()
             raise
+
+
+def run_bronze_ingest(context: dict[str, str]) -> dict[str, object]:
+    raw_dir = Path(context.get("raw_dir", "")).expanduser() if context.get("raw_dir") else DEFAULT_BRONZE_RAW_DIR
+
+    summary = run_bronze_load(
+        raw_dir=raw_dir,
+        pipeline_name="bronze_ingest",
+        run_mode=context["run_mode"],
+        source_system=context["source_system"],
+        dry_run=context["dry_run"] == "true",
+    )
+
+    manifest = {
+        "stage": "bronze_ingest",
+        "status": summary.status,
+        "franchise_id": context["franchise_id"],
+        "scope_config_path": context["scope_config_path"],
+        "start_date": context["start_date"],
+        "end_date": context["end_date"],
+        "run_mode": context["run_mode"],
+        "as_of_date": context["as_of_date"],
+        "source_system": context["source_system"],
+        "dry_run": context["dry_run"] == "true",
+        "raw_dir": str(raw_dir),
+        "records_seen": summary.records_seen,
+        "records_written": summary.records_written,
+        "run_id": summary.run_id,
+        "notes": summary.notes,
+        "updated_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    print(json.dumps(manifest, sort_keys=True))
+    return manifest

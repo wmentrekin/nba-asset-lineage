@@ -17,25 +17,22 @@ Franchise-wide NBA asset lineage pipeline for the Grizzlies organization (Vancou
 ```
 nba-asset-lineage/
 ├── configs/
-│   └── lineage_scope.yaml
-├── data/
-│   ├── bronze/
-│   │   ├── raw/
-│   │   └── checkpoints/
-│   ├── silver/
-│   └── gold/
-│       └── exports/
-├── pipelines/
-│   ├── bronze_ingest/
-│   ├── silver_transform/
-│   ├── gold_publish/
-│   └── visualize/
-├── schemas/
+│   ├── lineage_scope.yaml
+│   ├── source_catalog.yaml
 │   └── bronze_raw_contract.yaml
+├── docs/
 ├── sql/
-│   └── migrations/
+│   └── 0002_franchise_scope.sql
 ├── src/
-│   └── nba_asset_lineage/
+│   ├── pipeline_cli.py
+│   ├── bronze_ingest.py
+│   ├── silver_transform.py
+│   ├── gold_publish.py
+│   ├── visualization.py
+│   ├── db_config.py
+│   ├── scope.py
+│   ├── settings.py
+│   └── files.py
 ├── run_pipeline.py
 ├── mise.toml
 ├── pyproject.toml
@@ -67,7 +64,7 @@ Optional:
 
 After your base table bootstrap, apply franchise-scope migration:
 
-- `sql/migrations/0002_franchise_scope.sql`
+- `sql/0002_franchise_scope.sql`
 
 This adds:
 
@@ -77,15 +74,20 @@ This adds:
 
 ## Bronze Raw Input Contract
 
-Place raw source files before Bronze ingest:
+Optional local-file mode (for manual/ad-hoc ingestion) uses `--raw-dir`.
+Default raw dir:
 
-- `data/bronze/raw/events/**/*.jsonl` or `.json`
-- `data/bronze/raw/assets/**/*.jsonl` or `.json`
-- `data/bronze/raw/event_asset_links/**/*.jsonl` or `.json`
+- `/tmp/nba-asset-lineage/raw`
+
+Expected subpaths under `--raw-dir`:
+
+- `events/**/*.jsonl` or `.json`
+- `assets/**/*.jsonl` or `.json`
+- `event_asset_links/**/*.jsonl` or `.json`
 
 Schema details:
 
-- `schemas/bronze_raw_contract.yaml`
+- `configs/bronze_raw_contract.yaml`
 
 ## Source Governance Before Ingest
 
@@ -93,7 +95,8 @@ Review these before implementing/running any adapters:
 
 - `configs/source_catalog.yaml` (source-level terms posture, key requirements, known coverage)
 - `docs/bronze_field_source_matrix.md` (field-level mapping from source -> Bronze columns + gap analysis)
-- `docs/silver_field_endpoint_coverage.md` (field-level Silver schema coverage by specific `nba_api` and scraper endpoints)
+- `docs/silver_field_endpoint_coverage.md` (field-level Silver schema coverage by specific source endpoints, Sportradar-primary)
+- `docs/repo_outline_and_file_purpose.md` (inventory of repository files and why each exists)
 
 ## Run With Mise
 
@@ -117,10 +120,25 @@ Bronze validation-only (no DB writes):
 mise run bronze_dry_run
 ```
 
+Direct stage execution:
+
+```bash
+python run_pipeline.py --stage bronze
+python run_pipeline.py --stage silver
+python run_pipeline.py --stage gold
+python run_pipeline.py --stage visualize
+```
+
+Custom raw input location:
+
+```bash
+python run_pipeline.py --stage bronze --raw-dir /path/to/raw
+```
+
 ## Current Status
 
 - Bronze DB loader is implemented and idempotent (`ON CONFLICT DO NOTHING`).
 - Silver and Gold stages are scaffolded but not implemented yet.
-- Visualization currently expects gold exports at:
-  - `data/gold/exports/nodes.csv`
-  - `data/gold/exports/edges.csv`
+- Visualization defaults to:
+  - `exports/nodes.csv`
+  - `exports/edges.csv`

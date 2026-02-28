@@ -1,14 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
-from nba_asset_lineage.files import ensure_dir, write_json
-from nba_asset_lineage.settings import SILVER_DIR
 
-
-def run_silver_transform(context: dict[str, str]) -> None:
-    ensure_dir(SILVER_DIR)
-
+def run_silver_transform(context: dict[str, str]) -> dict[str, object]:
     manifest = {
         "stage": "silver_transform",
         "status": "scaffold_ready",
@@ -21,4 +17,5 @@ def run_silver_transform(context: dict[str, str]) -> None:
         "notes": "Silver transformations not implemented yet. Canonical events/assets/lineage tables are expected in Supabase.",
         "updated_at_utc": datetime.now(timezone.utc).isoformat(),
     }
-    write_json(SILVER_DIR / "silver_stage_manifest.json", manifest)
+    print(json.dumps(manifest, sort_keys=True))
+    return manifest

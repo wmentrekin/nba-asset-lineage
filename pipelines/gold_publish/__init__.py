@@ -1,1 +1,0 @@
-"""Gold publish stage entrypoint."""

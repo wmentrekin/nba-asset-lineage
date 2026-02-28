@@ -1,11 +1,12 @@
 version: 1
 name: bronze_raw_contract
 description: >
-  Canonical filesystem contract for bronze ingest before writing to Supabase bronze tables.
+  Canonical optional filesystem contract for bronze ingest before writing to Supabase bronze tables.
+  This contract applies when running Bronze in local-file mode via --raw-dir.
 
 inputs:
   events:
-    path_glob: data/bronze/raw/events/**/*.{jsonl,json}
+    path_glob: <raw_dir>/events/**/*.{jsonl,json}
     required_fields:
       - source_event_ref
     optional_fields:
@@ -15,7 +16,7 @@ inputs:
       - source_url
       - source_payload
   assets:
-    path_glob: data/bronze/raw/assets/**/*.{jsonl,json}
+    path_glob: <raw_dir>/assets/**/*.{jsonl,json}
     required_fields:
       - source_asset_ref
     optional_fields:
@@ -24,7 +25,7 @@ inputs:
       - effective_date_raw
       - source_payload
   event_asset_links:
-    path_glob: data/bronze/raw/event_asset_links/**/*.{jsonl,json}
+    path_glob: <raw_dir>/event_asset_links/**/*.{jsonl,json}
     required_fields:
       - source_event_ref
       - source_asset_ref
@@ -38,3 +39,4 @@ inputs:
 notes:
   - For convenience, source_payload defaults to the entire raw row object if omitted.
   - source_system defaults to CLI --source-system if omitted.
+  - Default raw_dir is /tmp/nba-asset-lineage/raw and can be overridden with --raw-dir.

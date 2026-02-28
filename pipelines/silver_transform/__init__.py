@@ -1,1 +1,0 @@
-"""Silver transform stage entrypoint."""

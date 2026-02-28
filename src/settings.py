@@ -3,20 +3,13 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+ROOT = Path(__file__).resolve().parents[1]
 CONFIGS_DIR = ROOT / "configs"
-SCHEMAS_DIR = ROOT / "schemas"
 SQL_DIR = ROOT / "sql"
 
-# Medallion layout.
-BRONZE_DIR = DATA_DIR / "bronze"
-BRONZE_RAW_DIR = BRONZE_DIR / "raw"
-BRONZE_CHECKPOINTS_DIR = BRONZE_DIR / "checkpoints"
-
-SILVER_DIR = DATA_DIR / "silver"
-GOLD_DIR = DATA_DIR / "gold"
-GOLD_EXPORTS_DIR = GOLD_DIR / "exports"
+# Local optional paths (not required for DB-backed Bronze/Silver).
+DEFAULT_BRONZE_RAW_DIR = Path("/tmp/nba-asset-lineage/raw")
+DEFAULT_EXPORTS_DIR = ROOT / "exports"
 
 DEFAULT_FRANCHISE_ID = "grizzlies"
 DEFAULT_START_DATE = "1995-06-23"

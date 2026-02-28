@@ -15,15 +15,22 @@ dependencies = [
 ]
 
 [project.scripts]
-nba-asset-bronze = "pipelines.bronze_ingest.run:main"
-nba-asset-silver = "pipelines.silver_transform.run:main"
-nba-asset-gold = "pipelines.gold_publish.run:main"
-nba-asset-visualize = "pipelines.visualize.run:main"
-nba-asset-pipeline = "run_pipeline:main"
+nba-asset-bronze = "pipeline_cli:bronze_main"
+nba-asset-silver = "pipeline_cli:silver_main"
+nba-asset-gold = "pipeline_cli:gold_main"
+nba-asset-visualize = "pipeline_cli:visualize_main"
+nba-asset-pipeline = "pipeline_cli:pipeline_main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["nba_asset_lineage*"]
+py-modules = [
+  "bronze_ingest",
+  "db_config",
+  "files",
+  "gold_publish",
+  "pipeline_cli",
+  "scope",
+  "settings",
+  "silver_transform",
+  "visualization",
+]

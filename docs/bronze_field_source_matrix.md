@@ -2,67 +2,84 @@
 
 As-of date: 2026-02-27
 
-Purpose: field-level mapping from ingestion source -> Bronze raw fields, with terms posture and completeness risk before adapter implementation.
+Purpose: field-level mapping from source -> Bronze raw fields, with **Sportradar as primary source** and explicit notes on completeness and terms posture.
+
+Status legend:
+
+- `yes`: directly sourceable from endpoint payload
+- `partial`: available for subset or requires deterministic transform
+- `derived`: internal pipeline field
+- `no`: not available from source
 
 ## 1) `bronze.raw_events`
 
-| Bronze field | Required | Meaning | Primary source candidate | API key | Terms posture | Completeness risk |
-|---|---:|---|---|---:|---|---|
-| `source_system` | yes | System label (`nba_com`, `balldontlie`, etc.) | Adapter config | no | Internal metadata | low |
-| `source_event_ref` | yes | Stable source-native event id/key | NBA transactions feed event id; fallback deterministic hash of canonical source URL + date + title | no | NBA terms apply | medium |
-| `event_date_raw` | no | Raw event date string from source | NBA transactions date field | no | NBA terms apply | medium |
-| `event_type_raw` | no | Raw event type label from source | NBA transactions category/type text | no | NBA terms apply | medium |
-| `source_url` | no | URL for provenance | NBA transaction URL / article URL | no | attribution/provenance | low |
-| `source_payload` | no | Full unmodified source row | API JSON record or parsed row object | depends | source terms apply | low |
+| Bronze field | Required | Primary source | Endpoint/field mapping | Coverage | Notes |
+|---|---:|---|---|---|---|
+| `source_system` | yes | adapter metadata | literal `sportradar` | derived | Controlled by adapter |
+| `source_event_ref` | yes | Sportradar | `Daily Transfers.transfer.id`; `Draft Trades.trade.id`; draft item IDs | yes | Stable source-native identifiers |
+| `event_date_raw` | no | Sportradar | `Daily Transfers.transfer.effective_date`; draft date context | partial | Strong for transfer events |
+| `event_type_raw` | no | Sportradar | `transaction_type` / `transaction_code`; draft event mapping | yes | Includes trade/waive/signing code coverage |
+| `source_url` | no | adapter metadata | canonical endpoint URL + query params | yes | Required for provenance |
+| `source_payload` | no | Sportradar | full JSON row | yes | Stored raw for replay/debug |
+
+Secondary fallback:
+
+- `nba_api`: draft-only event scaffolding (`DraftHistory`)
+- `basketball-reference-scraper`: no reliable transaction feed
 
 ## 2) `bronze.raw_assets`
 
-| Bronze field | Required | Meaning | Primary source candidate | API key | Terms posture | Completeness risk |
-|---|---:|---|---|---:|---|---|
-| `source_system` | yes | System label | Adapter config | no | Internal metadata | low |
-| `source_asset_ref` | yes | Stable source-native asset id | Players: NBA `PERSON_ID` where available; Picks: deterministic obligation key | no | NBA terms for IDs from NBA sources | medium |
-| `asset_type_raw` | no | Raw asset type | Derived from event payload (`player`, `future_draft_pick`, etc.) | no | source terms apply | medium |
-| `effective_date_raw` | no | Date asset state became effective | Event date from source | no | source terms apply | medium |
-| `source_payload` | no | Raw asset payload | Event-derived asset payload or contract API payload | depends | source terms apply | medium |
+| Bronze field | Required | Primary source | Endpoint/field mapping | Coverage | Notes |
+|---|---:|---|---|---|---|
+| `source_system` | yes | adapter metadata | literal `sportradar` | derived | Controlled by adapter |
+| `source_asset_ref` | yes | Sportradar | player UUID/reference; draft pick/future_pick IDs or deterministic keys | partial | Future obligations may need deterministic synthetic keys |
+| `asset_type_raw` | no | Sportradar | derived from transfer/draft payload item type | partial | Requires mapping table |
+| `effective_date_raw` | no | Sportradar | transfer `effective_date`; draft event date | partial | Good for transfer lifecycle |
+| `source_payload` | no | Sportradar | full raw asset object | yes | Preserves raw lineage evidence |
+
+Secondary fallback:
+
+- `nba_api`: player and draft identity primitives
+- `basketball-reference-scraper`: draft outcomes and rosters
 
 ## 3) `bronze.raw_event_asset_links`
 
-| Bronze field | Required | Meaning | Primary source candidate | API key | Terms posture | Completeness risk |
-|---|---:|---|---|---:|---|---|
-| `source_system` | yes | System label | Adapter config | no | Internal metadata | low |
-| `source_event_ref` | yes | Source event key | From `raw_events` source row | no | source terms apply | low |
-| `source_asset_ref` | yes | Source asset key | From `raw_assets` source row | no | source terms apply | low |
-| `action_raw` | no | Source action verb (`acquire`, `waive`, etc.) | Parsed from transaction payload text/fields | no | source terms apply | high |
-| `direction_raw` | no | In/Out/Modify direction | Derived from event semantics | no | Internal derivation | high |
-| `effective_date_raw` | no | Link effective date | Event date | no | source terms apply | medium |
-| `source_payload` | no | Raw link payload | Event-asset relation record | no | source terms apply | low |
+| Bronze field | Required | Primary source | Endpoint/field mapping | Coverage | Notes |
+|---|---:|---|---|---|---|
+| `source_system` | yes | adapter metadata | literal `sportradar` | derived | Controlled by adapter |
+| `source_event_ref` | yes | Sportradar | transfer/trade id from event payload | yes | FK to `raw_events` source key |
+| `source_asset_ref` | yes | Sportradar | player/pick key from related payload item | partial | May require deterministic pick keys |
+| `action_raw` | no | Sportradar | mapped from `transaction_type` / `transaction_code` | yes | Strong for transfer events |
+| `direction_raw` | no | Sportradar | inferred from `from_team` / `to_team` and transaction semantics | partial | One-sided events require rule mapping |
+| `effective_date_raw` | no | Sportradar | transfer `effective_date` | yes | Day-level timestamping |
+| `source_payload` | no | Sportradar | full relation row object | yes | Debuggable lineage trail |
 
-## 4) Coverage Gaps That Affect Silver Completeness
+## 4) Bronze Completeness Risks (pre-Silver)
 
-These are the known blockers to full Silver quality, even if Bronze ingest is technically complete:
+| Concern | Status with Sportradar primary | Impact on Bronze |
+|---|---|---|
+| Pre-2013 history | gap | Sportradar historical NBA coverage documented back to 2013 season; 1995-2012 requires supplement |
+| Contract term details | partial | Salary exists, but full-contract AAV and expiry are not fully available in mapped endpoints |
+| Pick protections/swaps | gap | No documented structured protections/swap fields in mapped endpoints |
+| Draft/event date normalization | partial | Some draft contexts may require endpoint crosswalk for exact day-level `event_date_raw` |
 
-| Silver concept | Current free-source status | Why this is a gap | Candidate solutions |
-|---|---|---|---|
-| Contract AAV (`average_annual_salary`) | Not reliably available from NBA public endpoints alone | NBA releases often do not publish terms; nba_api stats catalog has no contract endpoints | 1) balldontlie contracts endpoints (paid GOAT tier), 2) SportsDataIO paid feeds |
-| Contract expiry year | Partial | Some endpoints provide season/roster data but not full signed contract terms | Same as above |
-| Pick protections / swap logic | Partial and often text-only | No single officially documented NBA machine-readable historical obligation feed | Parse official trade tracker/article text + manual validation, or licensed provider |
-| Full historical transaction depth to 1995 | Not yet proven from NBA feed docs | Official public docs do not clearly publish an earliest transaction-date guarantee | Add a coverage probe script and persist min/max discovered dates |
+## 5) Terms/Access Posture
 
-## 5) Terms and Source Posture (Decision Use)
-
-| Source | API key required | Automation posture |
+| Source | Key required | Automation posture |
 |---|---:|---|
-| NBA.com / nba_api | no | Allowed for controlled ingestion, but governed by NBA Terms (private/non-commercial and anti-database constraints) |
-| balldontlie | yes | Allowed via official API only; pay attention to redistribution/caching limits |
-| SportsDataIO | yes | Licensed/commercial path; strongest legal posture for scaling |
-| Sports-Reference / Basketball-Reference | n/a | No official API; automated extraction is constrained by their terms/data use policy |
+| Sportradar NBA API | yes | Preferred primary source; governed by account license/usage terms |
+| nba_api (NBA endpoints) | no | Useful fallback primitives; governed by NBA terms |
+| basketball-reference-scraper | no key | Use with caution due Sports-Reference scraping restrictions |
 
-## 6) Definitive-Coverage Note
+## 6) References
 
-For NBA transaction history specifically, official docs do not provide a single canonical statement of minimum historical date coverage. To make this definitive for your pipeline, treat coverage as a measured metadata artifact:
-
-- Run a read-only coverage probe against the exact transaction endpoints used by your adapter.
-- Record: `min_event_date`, `max_event_date`, `records_count`, and endpoint version hash.
-- Persist probe output in `data/bronze/checkpoints/source_coverage_<source>.json`.
-
-This converts unknown historical depth into reproducible evidence.
+- Sportradar overview: https://developer.sportradar.com/basketball/docs/nba-ig-overview
+- Daily Transfers: https://developer.sportradar.com/basketball/reference/nba-daily-transfers
+- Daily Change Log: https://developer.sportradar.com/basketball/reference/nba-daily-change-log
+- NBA roster/transaction workflow: https://developer.sportradar.com/basketball/docs/nba-ig-rosters
+- Draft integration (trades/picks): https://developer.sportradar.com/basketball/docs/nba-ig-draft
+- Draft Trades endpoint: https://developer.sportradar.com/basketball/reference/nba-trades
+- Draft Summary endpoint: https://developer.sportradar.com/basketball/reference/nba-draft-summary
+- NBA historical window: https://developer.sportradar.com/basketball/docs/nba-ig-historical-data
+- nba_api endpoint catalog: https://nba-api-sbang.readthedocs.io/en/latest/nba_api/stats/endpoints/nba_stats_endpoints/
+- basketball-reference-scraper package: https://pypi.org/project/basketball-reference-scraper/

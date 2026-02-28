@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from nba_asset_lineage.settings import DEFAULT_SCOPE_CONFIG_PATH
+from settings import DEFAULT_SCOPE_CONFIG_PATH
 
 
 @dataclass(frozen=True)
