@@ -6,11 +6,11 @@ from datetime import date
 from pathlib import Path
 from typing import Sequence
 
-from bronze_ingest import run_bronze_ingest
-from gold_publish import run_gold_publish
+from pipeline.bronze_ingest import run_bronze_ingest
+from pipeline.gold_publish import run_gold_publish
 from scope import load_scope_config
 from settings import DEFAULT_BRONZE_RAW_DIR, DEFAULT_EXPORTS_DIR, DEFAULT_SCOPE_CONFIG_PATH
-from silver_transform import run_silver_transform
+from pipeline.silver_transform import run_silver_transform
 from visualization import write_visualization_html
 
 
