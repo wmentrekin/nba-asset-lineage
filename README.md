@@ -98,7 +98,29 @@ Review these before implementing/running any adapters:
 - `docs/silver_field_endpoint_coverage.md` (field-level Silver schema coverage by specific source endpoints, Sportradar-primary)
 - `docs/repo_outline_and_file_purpose.md` (inventory of repository files and why each exists)
 
-## Run With Mise
+## Run With UV (Recommended)
+
+```bash
+uv sync
+uv run python run_pipeline.py --stage bronze --dry-run
+```
+
+Direct stage execution:
+
+```bash
+uv run python run_pipeline.py --stage bronze
+uv run python run_pipeline.py --stage silver
+uv run python run_pipeline.py --stage gold
+uv run python run_pipeline.py --stage visualize
+```
+
+Custom raw input location:
+
+```bash
+uv run python run_pipeline.py --stage bronze --raw-dir /path/to/raw
+```
+
+## Run With Mise (UV-backed)
 
 ```bash
 mise run setup
@@ -118,21 +140,6 @@ Bronze validation-only (no DB writes):
 
 ```bash
 mise run bronze_dry_run
-```
-
-Direct stage execution:
-
-```bash
-python run_pipeline.py --stage bronze
-python run_pipeline.py --stage silver
-python run_pipeline.py --stage gold
-python run_pipeline.py --stage visualize
-```
-
-Custom raw input location:
-
-```bash
-python run_pipeline.py --stage bronze --raw-dir /path/to/raw
 ```
 
 ## Current Status

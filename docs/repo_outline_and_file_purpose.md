@@ -15,8 +15,10 @@ Status tags:
 |---|---|---|
 | `README.md` | active | Project overview, run instructions, and governance pointers. |
 | `LICENSE` | active | MIT license. |
+| `.python-version` | active | Pins local Python version for UV/mise workflows. |
+| `uv.lock` | active | UV lockfile for deterministic dependency resolution. |
 | `pyproject.toml` | active | Python package metadata, dependencies, and CLI entrypoints. |
-| `mise.toml` | active | Task runner commands. |
+| `mise.toml` | active | Task runner commands (UV-backed). |
 | `run_pipeline.py` | active | Thin wrapper that loads `src/` and calls `pipeline_cli`. |
 | `.gitignore` | active | Ignore local secrets/artifacts (`.env`, caches, etc.). |
 
@@ -62,3 +64,4 @@ Status tags:
 2. `pipelines/`, `schemas/`, and the old `src/nba_asset_lineage/` tree were removed.
 3. `sql/migrations/` was flattened to `sql/` for the single migration script.
 4. Bronze internals were consolidated into `src/bronze_ingest.py` as requested.
+5. Environment and execution are UV-first (`uv sync`, `uv run ...`).
