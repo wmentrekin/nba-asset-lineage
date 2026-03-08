@@ -12,6 +12,7 @@ license = { text = "MIT" }
 dependencies = [
   "PyYAML>=6.0",
   "psycopg[binary]>=3.2",
+  "nba_api>=1.7",
 ]
 
 [project.scripts]
@@ -23,14 +24,9 @@ nba-asset-pipeline = "pipeline_cli:pipeline_main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-py-modules = [
-  "bronze_ingest",
-  "db_config",
-  "files",
-  "gold_publish",
-  "pipeline_cli",
-  "scope",
-  "settings",
-  "silver_transform",
-  "visualization",
-]
+py-modules = ["claims_live_ingest", "db_config", "pipeline_cli", "scope", "settings", "visualization"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pipeline*"]
+namespaces = true

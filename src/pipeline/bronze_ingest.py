@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+from claims_live_ingest import run_live_sources_ingest
 from db_config import load_db_config
 from settings import DEFAULT_BRONZE_RAW_DIR
 
@@ -389,6 +390,10 @@ def run_bronze_load(
 
 
 def run_bronze_ingest(context: dict[str, str]) -> dict[str, object]:
+    ingest_mode = context.get("ingest_mode", "raw_files")
+    if ingest_mode == "live_sources":
+        return run_live_sources_ingest(context)
+
     raw_dir = Path(context.get("raw_dir", "")).expanduser() if context.get("raw_dir") else DEFAULT_BRONZE_RAW_DIR
 
     summary = run_bronze_load(

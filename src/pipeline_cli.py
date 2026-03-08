@@ -20,7 +20,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--scope-config", type=Path, default=DEFAULT_SCOPE_CONFIG_PATH)
     parser.add_argument("--run-mode", choices=["full", "incremental"], default="full")
     parser.add_argument("--as-of-date", default=date.today().isoformat())
+    parser.add_argument(
+        "--ingest-mode",
+        choices=["raw_files", "live_sources"],
+        default="raw_files",
+    )
     parser.add_argument("--source-system", default="manual")
+    parser.add_argument("--sources", default="spotrac")
+    parser.add_argument("--team-slug", default="memphis-grizzlies")
+    parser.add_argument("--team-abbrevs", default="MEM,VAN")
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_BRONZE_RAW_DIR)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--nodes", type=Path, default=DEFAULT_EXPORTS_DIR / "nodes.csv")
@@ -38,7 +46,11 @@ def _build_context(args: argparse.Namespace) -> dict[str, str]:
         "end_date": scope.end_date,
         "run_mode": args.run_mode,
         "as_of_date": args.as_of_date,
+        "ingest_mode": args.ingest_mode,
         "source_system": args.source_system,
+        "sources": args.sources,
+        "team_slug": args.team_slug,
+        "team_abbrevs": args.team_abbrevs,
         "raw_dir": str(args.raw_dir),
         "dry_run": "true" if args.dry_run else "false",
     }

@@ -1,53 +1,37 @@
 # nba-asset-lineage
 
-Franchise-wide NBA asset lineage pipeline for the Grizzlies organization (Vancouver + Memphis), using a medallion architecture:
-
-- Bronze: raw source ingestion to Supabase bronze tables
-- Silver: canonical events/assets/lineage normalization
-- Gold: export-ready graph artifacts
+Franchise-wide Grizzlies medallion pipeline (`bronze -> silver -> gold`) with deterministic IDs and time-indexed lineage.
 
 ## Scope
 
-- Franchise scope: `grizzlies`
-- Start date: `1995-06-23` (day before 1995 expansion draft)
-- End date: rolling (configured in `configs/lineage_scope.yaml`)
+- Franchise: `grizzlies` (Vancouver + Memphis eras)
+- Start date: `1995-06-23`
+- End date: rolling (`configs/lineage_scope.yaml`)
 
-## Repository Structure
+## Current Architecture
 
-```
-nba-asset-lineage/
-├── configs/
-│   ├── lineage_scope.yaml
-│   ├── source_catalog.yaml
-│   └── bronze_raw_contract.yaml
-├── docs/
-├── sql/
-│   └── 0002_franchise_scope.sql
-├── src/
-│   ├── pipeline_cli.py
-│   ├── bronze_ingest.py
-│   ├── silver_transform.py
-│   ├── gold_publish.py
-│   ├── visualization.py
-│   ├── db_config.py
-│   ├── scope.py
-│   ├── settings.py
-│   └── files.py
-├── run_pipeline.py
-├── mise.toml
-├── pyproject.toml
-└── README.md
-```
+- `bronze` (raw ingestion tables)
+  - `bronze.ingest_runs`
+  - `bronze.raw_events`
+  - `bronze.raw_assets`
+  - `bronze.raw_event_asset_links`
+- `silver` (normalized lineage)
+  - `silver.events`
+  - `silver.assets`
+  - `silver.event_asset_lineage`
+  - `silver.franchise_team_eras`
+- `gold` (export artifacts in `exports/`)
+  - `nodes.csv`
+  - `edges.csv`
+  - `graph.graphml`
+  - `events.json`
+  - `assets.json`
+  - `event_asset_lineage.json`
+  - `graph.json`
 
-## Local DB Credentials
+## Setup
 
-Store credentials only in local `.env` (gitignored):
-
-```bash
-cp .env.example .env
-```
-
-Required variables:
+Use local `.env` only (gitignored). Required:
 
 - `NBA_ASSET_DB_HOST`
 - `NBA_ASSET_DB_PORT`
@@ -56,96 +40,48 @@ Required variables:
 - `NBA_ASSET_DB_PASSWORD`
 - `NBA_ASSET_DB_SSLMODE`
 
-Optional:
-
-- `DATABASE_URL`
-
-## Supabase Migration
-
-After your base table bootstrap, apply franchise-scope migration:
-
-- `sql/0002_franchise_scope.sql`
-
-This adds:
-
-- `franchise_id` and `operating_team_id` columns to Silver tables
-- `silver.franchise_team_eras` mapping table
-- franchise/time indexes for full-history querying
-
-## Bronze Raw Input Contract
-
-Optional local-file mode (for manual/ad-hoc ingestion) uses `--raw-dir`.
-Default raw dir:
-
-- `/tmp/nba-asset-lineage/raw`
-
-Expected subpaths under `--raw-dir`:
-
-- `events/**/*.jsonl` or `.json`
-- `assets/**/*.jsonl` or `.json`
-- `event_asset_links/**/*.jsonl` or `.json`
-
-Schema details:
-
-- `configs/bronze_raw_contract.yaml`
-
-## Source Governance Before Ingest
-
-Review these before implementing/running any adapters:
-
-- `configs/source_catalog.yaml` (source-level terms posture, key requirements, known coverage)
-- `docs/bronze_field_source_matrix.md` (field-level mapping from source -> Bronze columns + gap analysis)
-- `docs/silver_field_endpoint_coverage.md` (field-level Silver schema coverage by specific source endpoints, Sportradar-primary)
-- `docs/repo_outline_and_file_purpose.md` (inventory of repository files and why each exists)
-
-## Run With UV (Recommended)
-
-```bash
-uv sync
-uv run python run_pipeline.py --stage bronze --dry-run
-```
-
-Direct stage execution:
-
-```bash
-uv run python run_pipeline.py --stage bronze
-uv run python run_pipeline.py --stage silver
-uv run python run_pipeline.py --stage gold
-uv run python run_pipeline.py --stage visualize
-```
-
-Custom raw input location:
-
-```bash
-uv run python run_pipeline.py --stage bronze --raw-dir /path/to/raw
-```
-
-## Run With Mise (UV-backed)
+Install dependencies:
 
 ```bash
 mise run setup
+```
+
+## Run Pipeline
+
+Full pipeline:
+
+```bash
 mise run pipeline
+```
+
+Full pipeline with live Bronze adapters:
+
+```bash
+mise run pipeline_live
 ```
 
 Stage-by-stage:
 
 ```bash
-mise run bronze
+mise run bronze_live
 mise run silver
 mise run gold
 mise run visualize
 ```
 
-Bronze validation-only (no DB writes):
+Dry-run examples:
 
 ```bash
-mise run bronze_dry_run
+mise run bronze_live_dry_run
+mise run silver_dry_run
 ```
 
-## Current Status
+## SQL Bootstrap
 
-- Bronze DB loader is implemented and idempotent (`ON CONFLICT DO NOTHING`).
-- Silver and Gold stages are scaffolded but not implemented yet.
-- Visualization defaults to:
-  - `exports/nodes.csv`
-  - `exports/edges.csv`
+`sql/0001_bootstrap_bronze_silver.sql` is the canonical destructive reset script for Bronze/Silver.
+
+Run:
+
+```bash
+mise run db_bootstrap
+```
