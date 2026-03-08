@@ -5,6 +5,7 @@ import html
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date, datetime
 from typing import Any
@@ -39,6 +40,22 @@ def _payload_hash(payload: dict[str, Any]) -> str:
 
 def _http_get_text(url: str, timeout_seconds: int = 60) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": SPOTRAC_USER_AGENT})
+    with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
+        charset = response.headers.get_content_charset() or "utf-8"
+        return response.read().decode(charset, errors="replace")
+
+
+def _http_post_text(url: str, form_data: dict[str, str], timeout_seconds: int = 60) -> str:
+    encoded = urllib.parse.urlencode(form_data).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=encoded,
+        headers={
+            "User-Agent": SPOTRAC_USER_AGENT,
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+        },
+    )
     with urllib.request.urlopen(req, timeout=timeout_seconds) as response:
         charset = response.headers.get_content_charset() or "utf-8"
         return response.read().decode(charset, errors="replace")
@@ -166,9 +183,7 @@ def _try_parse_contract_expiry_from_description(description: str) -> int | None:
     return end
 
 
-def _fetch_spotrac_transactions(team_slug: str) -> list[dict[str, Any]]:
-    url = f"https://www.spotrac.com/nba/{team_slug}/transactions/"
-    raw_html = _http_get_text(url)
+def _parse_spotrac_transaction_html(raw_html: str, source_url: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
     li_blocks = re.findall(r"<li class=\"list-group-item[^>]*>.*?</li>", raw_html, flags=re.DOTALL)
@@ -196,7 +211,7 @@ def _fetch_spotrac_transactions(team_slug: str) -> list[dict[str, Any]]:
 
         rows.append(
             {
-                "source_url": url,
+                "source_url": source_url,
                 "player_id": anchor.group("player_id"),
                 "player_href": html.unescape(anchor.group("href")),
                 "player_name": player_name,
@@ -211,6 +226,43 @@ def _fetch_spotrac_transactions(team_slug: str) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def _fetch_spotrac_transactions(
+    team_code: str,
+    start_date: date,
+    end_date: date,
+) -> list[dict[str, Any]]:
+    output: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+
+    for year in range(start_date.year, end_date.year + 1):
+        window_start = max(start_date, date(year, 1, 1))
+        window_end = min(end_date, date(year, 12, 31))
+        url = (
+            "https://www.spotrac.com/nba/transactions/_/start/"
+            f"{window_start.isoformat()}/end/{window_end.isoformat()}/team/{team_code.lower()}"
+        )
+        html_fragment = _http_post_text(url, {"ajax": "table"})
+        rows = _parse_spotrac_transaction_html(html_fragment, url)
+
+        for row in rows:
+            row_date = row.get("event_date")
+            if not _within_range(row_date, start_date, end_date):
+                continue
+            if row["event_type"] == "state_change":
+                continue
+            key = (
+                str(row.get("player_id") or ""),
+                row_date.isoformat() if isinstance(row_date, date) else "",
+                str(row.get("description") or ""),
+            )
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            output.append(row)
+
+    return output
 
 
 def _fetch_spotrac_contracts(team_slug: str) -> list[dict[str, Any]]:
@@ -326,6 +378,7 @@ def _build_live_raw_rows(
     *,
     sources: set[str],
     team_slug: str,
+    team_code: str,
     team_abbrevs: set[str],
     start_date: date,
     end_date: date,
@@ -338,7 +391,7 @@ def _build_live_raw_rows(
     if "spotrac" in sources:
         _progress("spotrac_fetch_start", team_slug=team_slug)
         try:
-            tx_rows = _fetch_spotrac_transactions(team_slug)
+            tx_rows = _fetch_spotrac_transactions(team_code, start_date, end_date)
             contract_rows = _fetch_spotrac_contracts(team_slug)
             _progress("spotrac_fetch_complete", transactions_raw=len(tx_rows), contracts_raw=len(contract_rows))
         except urllib.error.URLError as exc:
@@ -696,6 +749,7 @@ def run_live_sources_ingest(context: dict[str, str]) -> dict[str, Any]:
     end_date = _resolve_date(context["end_date"], context["as_of_date"])
     dry_run = context["dry_run"] == "true"
     team_slug = context.get("team_slug", "memphis-grizzlies")
+    team_code = context.get("team_code", "mem")
     sources = {
         entry.strip().lower()
         for entry in context.get("sources", "spotrac").split(",")
@@ -719,6 +773,7 @@ def run_live_sources_ingest(context: dict[str, str]) -> dict[str, Any]:
     rows, notes = _build_live_raw_rows(
         sources=sources,
         team_slug=team_slug,
+        team_code=team_code,
         team_abbrevs=team_abbrevs,
         start_date=start_date,
         end_date=end_date,

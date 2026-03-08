@@ -12,7 +12,7 @@ DEFAULT_BRONZE_RAW_DIR = Path("/tmp/nba-asset-lineage/raw")
 DEFAULT_EXPORTS_DIR = ROOT / "exports"
 
 DEFAULT_FRANCHISE_ID = "grizzlies"
-DEFAULT_START_DATE = "1995-06-23"
+DEFAULT_START_DATE = "2016-07-01"
 DEFAULT_END_DATE = date.today().isoformat()
 DEFAULT_SCOPE_CONFIG_PATH = CONFIGS_DIR / "lineage_scope.yaml"
 

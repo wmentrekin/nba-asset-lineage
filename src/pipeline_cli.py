@@ -28,6 +28,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-system", default="manual")
     parser.add_argument("--sources", default="spotrac")
     parser.add_argument("--team-slug", default="memphis-grizzlies")
+    parser.add_argument("--team-code", default="mem")
     parser.add_argument("--team-abbrevs", default="MEM,VAN")
     parser.add_argument("--raw-dir", type=Path, default=DEFAULT_BRONZE_RAW_DIR)
     parser.add_argument("--dry-run", action="store_true")
@@ -50,6 +51,7 @@ def _build_context(args: argparse.Namespace) -> dict[str, str]:
         "source_system": args.source_system,
         "sources": args.sources,
         "team_slug": args.team_slug,
+        "team_code": args.team_code,
         "team_abbrevs": args.team_abbrevs,
         "raw_dir": str(args.raw_dir),
         "dry_run": "true" if args.dry_run else "false",

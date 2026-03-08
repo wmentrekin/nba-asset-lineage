@@ -12,7 +12,7 @@ run = "uv run python run_pipeline.py --stage bronze"
 
 [tasks.bronze_live]
 description = "Run live-source bronze ingest (spotrac + nba_api)"
-run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api"
+run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api --team-code mem"
 
 [tasks.bronze_dry_run]
 description = "Run bronze ingest validation without DB writes"
@@ -20,7 +20,7 @@ run = "uv run python run_pipeline.py --stage bronze --dry-run"
 
 [tasks.bronze_live_dry_run]
 description = "Run live-source bronze ingest without DB writes"
-run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api --dry-run"
+run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api --team-code mem --dry-run"
 
 [tasks.silver]
 description = "Run silver transform (bronze -> silver)"
@@ -40,7 +40,7 @@ run = "uv run python run_pipeline.py"
 
 [tasks.pipeline_live]
 description = "Run full pipeline with live-source bronze ingest"
-run = "uv run python run_pipeline.py --ingest-mode live_sources --sources spotrac,nba_api"
+run = "uv run python run_pipeline.py --ingest-mode live_sources --sources spotrac,nba_api --team-code mem"
 
 [tasks.visualize]
 description = "Generate interactive HTML graph from exported CSVs"
@@ -61,5 +61,23 @@ with psycopg.connect(cfg.dsn) as conn:
         cur.execute(sql)
     conn.commit()
 print("bootstrap_complete")
+PY
+"""
+
+[tasks.db_clear_data]
+description = "Clear Bronze/Silver data only (keep schema)"
+run = """
+uv run python - <<'PY'
+from pathlib import Path
+import psycopg
+from db_config import load_db_config
+
+sql = Path("sql/0002_clear_bronze_silver_data.sql").read_text(encoding="utf-8")
+cfg = load_db_config()
+with psycopg.connect(cfg.dsn) as conn:
+    with conn.cursor() as cur:
+        cur.execute(sql)
+    conn.commit()
+print("clear_data_complete")
 PY
 """

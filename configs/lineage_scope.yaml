@@ -1,21 +1,15 @@
 {
   "version": 1,
   "franchise_id": "grizzlies",
-  "scope_name": "vancouver_to_memphis_full_history",
-  "start_date": "1995-06-23",
+  "scope_name": "grit_and_grind_rebuild_to_present",
+  "start_date": "2016-07-01",
   "end_date": "rolling",
-  "notes": "Full franchise lineage starting the day before the 1995 expansion draft. Timeline includes Vancouver Grizzlies era and Memphis Grizzlies era.",
+  "notes": "Focused lineage window from summer 2016 through present to model the post-Grit-and-Grind rebuild, peak, and dissolution cycle.",
   "operating_team_timeline": [
-    {
-      "operating_team_id": "VAN",
-      "team_name": "Vancouver Grizzlies",
-      "era_start": "1995-06-23",
-      "era_end": "2001-06-30"
-    },
     {
       "operating_team_id": "MEM",
       "team_name": "Memphis Grizzlies",
-      "era_start": "2001-07-01",
+      "era_start": "2016-07-01",
       "era_end": null
     }
   ],
@@ -29,9 +23,7 @@
     "conversion"
   ],
   "source_system_priority": [
-    "nba_com",
-    "basketball_reference",
-    "realgm",
+    "nba_api",
     "spotrac"
   ]
 }

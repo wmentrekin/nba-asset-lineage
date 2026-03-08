@@ -4,8 +4,8 @@ Franchise-wide Grizzlies medallion pipeline (`bronze -> silver -> gold`) with de
 
 ## Scope
 
-- Franchise: `grizzlies` (Vancouver + Memphis eras)
-- Start date: `1995-06-23`
+- Franchise: `grizzlies` (Memphis rebuild window)
+- Start date: `2016-07-01`
 - End date: rolling (`configs/lineage_scope.yaml`)
 
 ## Current Architecture
@@ -84,4 +84,10 @@ Run:
 
 ```bash
 mise run db_bootstrap
+```
+
+Clear data only (keep schema):
+
+```bash
+mise run db_clear_data
 ```
