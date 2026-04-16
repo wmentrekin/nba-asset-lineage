@@ -21,12 +21,13 @@ nba-asset-silver = "pipeline_cli:silver_main"
 nba-asset-gold = "pipeline_cli:gold_main"
 nba-asset-visualize = "pipeline_cli:visualize_main"
 nba-asset-pipeline = "pipeline_cli:pipeline_main"
+nba-asset-redesign = "redesign_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-py-modules = ["claims_live_ingest", "db_config", "pipeline_cli", "scope", "settings", "visualization"]
+py-modules = ["claims_live_ingest", "db_config", "pipeline_cli", "redesign_cli", "scope", "settings", "visualization"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["pipeline*"]
+include = ["pipeline*", "canonical*", "editorial*", "evidence*", "presentation*", "shared*"]
 namespaces = true
