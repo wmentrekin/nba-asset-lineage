@@ -367,21 +367,36 @@ def capture_source_records(raw_records: Any) -> list[SourceRecord]:
     else:
         records_input = [raw_records]
 
-    source_records: list[SourceRecord] = []
+    source_records_by_id: dict[str, SourceRecord] = {}
     for raw_record in records_input:
-        source_records.append(
-            _build_source_record(
-                source_system=str(raw_record["source_system"]),
-                source_type=str(raw_record["source_type"]),
-                source_locator=str(raw_record["source_locator"]),
-                source_url=raw_record.get("source_url"),
-                raw_payload=dict(raw_record.get("raw_payload") or {}),
-                captured_at=_coerce_datetime(raw_record["captured_at"]),
-                parser_version=str(raw_record["parser_version"]),
-                created_at=_coerce_datetime(raw_record.get("captured_at") or datetime.utcnow().isoformat()),
-            )
+        source_record = _build_source_record(
+            source_system=str(raw_record["source_system"]),
+            source_type=str(raw_record["source_type"]),
+            source_locator=str(raw_record["source_locator"]),
+            source_url=raw_record.get("source_url"),
+            raw_payload=dict(raw_record.get("raw_payload") or {}),
+            captured_at=raw_record["captured_at"],
+            parser_version=str(raw_record["parser_version"]),
+            created_at=raw_record.get("captured_at") or datetime.utcnow().isoformat(),
         )
-    return source_records
+        existing = source_records_by_id.get(source_record.source_record_id)
+        if existing is None:
+            source_records_by_id[source_record.source_record_id] = source_record
+        else:
+            source_records_by_id[source_record.source_record_id] = SourceRecord(
+                source_record_id=existing.source_record_id,
+                source_system=existing.source_system,
+                source_type=existing.source_type,
+                source_locator=existing.source_locator,
+                source_url=existing.source_url,
+                captured_at=existing.captured_at,
+                raw_payload=existing.raw_payload,
+                payload_hash=existing.payload_hash,
+                parser_version=existing.parser_version,
+                created_at=existing.created_at,
+                duplicate_count=existing.duplicate_count + 1,
+            )
+    return list(source_records_by_id.values())
 
 
 ingest_source_records = capture_source_records
@@ -549,6 +564,7 @@ def fetch_source_records(conn: Any, *, source_record_id: str | None = None) -> l
             payload_hash=row[7],
             parser_version=row[8],
             created_at=row[9],
+            duplicate_count=1,
         )
         for row in rows
     ]

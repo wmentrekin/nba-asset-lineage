@@ -31,3 +31,8 @@ py-modules = ["claims_live_ingest", "db_config", "pipeline_cli", "redesign_cli",
 where = ["src"]
 include = ["pipeline*", "canonical*", "editorial*", "evidence*", "presentation*", "shared*"]
 namespaces = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

@@ -20,6 +20,7 @@ class SourceRecord:
     payload_hash: str
     parser_version: str
     created_at: datetime
+    duplicate_count: int = 1
 
     def as_dict(self) -> JsonDict:
         return asdict(self)

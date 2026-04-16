@@ -61,7 +61,13 @@ def validate_stage1_rows(
         if not override.target_key:
             errors.append(f"override missing target_key: {override.override_id}")
 
-    duplicate_source_records_skipped = sum(count - 1 for count in source_record_id_counts.values() if count > 1)
+    duplicate_source_records_skipped = 0
+    for record in source_records_list:
+        duplicate_count = getattr(record, "duplicate_count", 1) or 1
+        if duplicate_count > 1:
+            duplicate_source_records_skipped += duplicate_count - 1
+    if duplicate_source_records_skipped == 0:
+        duplicate_source_records_skipped = sum(count - 1 for count in source_record_id_counts.values() if count > 1)
     claim_count_by_type = dict(Counter(claim.claim_type for claim in normalized_claims_list))
 
     return ValidationReport(
