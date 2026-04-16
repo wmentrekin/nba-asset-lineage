@@ -6,6 +6,8 @@ from datetime import date
 from pathlib import Path
 from typing import Sequence
 
+from canonical.events import bootstrap_canonical_events_schema, build_and_persist_canonical_events
+from canonical.validate import validate_canonical_events
 from db_config import load_db_config
 from evidence.ingest import (
     bootstrap_evidence_schema,
@@ -29,6 +31,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--sql-path",
         type=Path,
         default=Path("sql/redesign/0001_evidence_bootstrap.sql"),
+    )
+
+    bootstrap_canonical_parser = subparsers.add_parser(
+        "bootstrap-canonical-events",
+        help="Apply the Stage 2 canonical event bootstrap SQL.",
+    )
+    bootstrap_canonical_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/redesign/0002_canonical_events_bootstrap.sql"),
     )
 
     build_parser = subparsers.add_parser(
@@ -55,6 +67,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     validate_parser = subparsers.add_parser("validate-evidence", help="Validate Stage 1 evidence rows currently in DB.")
     validate_parser.add_argument("--sample-limit", type=int, default=5000)
 
+    canonical_build_parser = subparsers.add_parser(
+        "build-canonical-events",
+        help="Build Stage 2 canonical events and provenance from evidence plus overrides.",
+    )
+    canonical_build_parser.add_argument("--builder-version", default="stage2-events-v1")
+
+    canonical_validate_parser = subparsers.add_parser(
+        "validate-canonical-events",
+        help="Validate canonical events and event provenance currently stored in DB.",
+    )
+    canonical_validate_parser.add_argument("--sample-limit", type=int, default=5000)
+
     return parser.parse_args(argv)
 
 
@@ -76,6 +100,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "bootstrap-evidence":
         bootstrap_evidence_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-events":
+        bootstrap_canonical_events_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
 
     if args.command == "build-evidence":
@@ -241,6 +269,96 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "source_record_count": report.source_record_count,
                 "normalized_claim_count": report.normalized_claim_count,
                 "override_count": report.override_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "build-canonical-events":
+        counts = build_and_persist_canonical_events(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "validate-canonical-events":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_provenance_id,
+                        event_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.event_provenance
+                    order by created_at, event_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                provenance_rows = cur.fetchall()
+
+        from canonical.models import CanonicalEvent, EventProvenance
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        provenance = [
+            EventProvenance(
+                event_provenance_id=row[0],
+                event_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in provenance_rows
+        ]
+        report = validate_canonical_events(events=events, provenance_rows=provenance)
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "event_count": report.event_count,
+                "provenance_count": report.provenance_count,
                 "errors": report.errors,
                 "warnings": report.warnings,
             }
