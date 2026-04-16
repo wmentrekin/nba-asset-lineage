@@ -1,0 +1,18 @@
+[
+  {
+    "override_id": "override_event_order_spotrac_ttx_20240208_01",
+    "override_type": "event_ordering",
+    "target_type": "event_cluster",
+    "target_key": "spotrac-tx-2024-02-08-07",
+    "payload": {
+      "event_cluster_key": "spotrac-tx-2024-02-08-07",
+      "event_date": "2024-02-08",
+      "event_order": 1
+    },
+    "reason": "Same-day ordering confirmed by source row sequence.",
+    "authored_by": "curator",
+    "authored_at": "2026-04-01T12:00:00Z",
+    "is_active": true
+  }
+]
+

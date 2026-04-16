@@ -1,0 +1,20 @@
+{
+  "source_system": "spotrac",
+  "source_type": "contract",
+  "source_locator": "spotrac://contracts/2024/memphis/row-03",
+  "source_url": "https://www.spotrac.com/nba/memphis-grizzlies/cap/",
+  "captured_at": "2026-04-01T12:00:00Z",
+  "parser_version": "spotrac_contracts_v1",
+  "raw_payload": {
+    "source_event_ref": "spotrac-contract-2024-02-08-03",
+    "source_sequence": 3,
+    "player_name": "John Doe",
+    "player_identity": "player_john_doe",
+    "contract_metadata": {
+      "contract_type": "10-day",
+      "start_date": "2024-02-08",
+      "end_date": "2024-02-18"
+    }
+  }
+}
+

@@ -1,0 +1,19 @@
+{
+  "source_system": "nba_api",
+  "source_type": "draft_history",
+  "source_locator": "nba_api://draft_history/2023/row-12",
+  "source_url": "https://stats.nba.com/drafthistory?Season=2023-24",
+  "captured_at": "2026-04-01T12:00:00Z",
+  "parser_version": "nba_api_draft_history_v1",
+  "raw_payload": {
+    "source_event_ref": "nba_api-draft-2023-12",
+    "source_sequence": 12,
+    "event_date": "2023-06-22",
+    "pick_identity": "pick_2023_mem_2_45",
+    "pick_draft_year": 2023,
+    "pick_round": 2,
+    "player_name": "GG Jackson",
+    "player_identity": "player_gg_jackson"
+  }
+}
+

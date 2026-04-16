@@ -1,0 +1,19 @@
+{
+  "source_system": "spotrac",
+  "source_type": "transaction",
+  "source_locator": "spotrac://transactions/2024-02-08/row-07",
+  "source_url": "https://www.spotrac.com/nba/transaction/_/year/2024",
+  "captured_at": "2026-04-01T12:00:00Z",
+  "parser_version": "spotrac_transactions_v1",
+  "raw_payload": {
+    "source_event_ref": "spotrac-tx-2024-02-08-07",
+    "source_sequence": 7,
+    "event_date": "2024-02-08",
+    "event_type": "signing",
+    "event_description": "Memphis Grizzlies sign John Doe to a 10-day contract",
+    "transaction_counterparty": "NBA",
+    "player_name": "John Doe",
+    "player_identity": "player_john_doe"
+  }
+}
+
