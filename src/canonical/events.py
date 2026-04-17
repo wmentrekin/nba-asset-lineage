@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from canonical.models import CanonicalBuild, CanonicalEvent, CanonicalEventBuildResult, EventProvenance
-from db_config import load_db_config
+from db_config import load_database_url
 from evidence.models import NormalizedClaim, OverrideRecord
 from shared.ids import stable_id, stable_payload_hash
 
@@ -29,14 +29,13 @@ class EventCluster:
 
 
 def bootstrap_canonical_events_schema(sql_path: Path | str) -> None:
-    config = load_db_config()
     try:
         import psycopg
     except ModuleNotFoundError as exc:
         raise RuntimeError("psycopg is required to bootstrap canonical event tables.") from exc
 
     sql_text = Path(sql_path).read_text(encoding="utf-8")
-    with psycopg.connect(config.dsn) as conn:
+    with psycopg.connect(load_database_url()) as conn:
         with conn.cursor() as cur:
             cur.execute(sql_text)
         conn.commit()
@@ -355,7 +354,7 @@ def _connect():
         import psycopg
     except ModuleNotFoundError as exc:
         raise RuntimeError("psycopg is required for canonical event builds.") from exc
-    return psycopg.connect(load_db_config().dsn)
+    return psycopg.connect(load_database_url())
 
 
 def fetch_event_build_inputs(conn: Any) -> tuple[list[NormalizedClaim], list[OverrideRecord]]:

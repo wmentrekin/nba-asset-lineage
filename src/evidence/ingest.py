@@ -10,7 +10,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-from db_config import load_db_config
+from db_config import load_database_url
 from evidence.models import NormalizedClaim, SourceRecord
 from evidence.normalize import normalize_source_record
 from shared.ids import stable_id, stable_payload_hash
@@ -430,14 +430,13 @@ def _build_source_record(
 
 
 def bootstrap_evidence_schema(sql_path: Path | str) -> None:
-    config = load_db_config()
     try:
         import psycopg
     except ModuleNotFoundError as exc:
         raise RuntimeError("psycopg is required to bootstrap the redesign evidence schema.") from exc
 
     sql_text = Path(sql_path).read_text(encoding="utf-8")
-    with psycopg.connect(config.dsn) as conn:
+    with psycopg.connect(load_database_url()) as conn:
         with conn.cursor() as cur:
             cur.execute(sql_text)
         conn.commit()
@@ -600,7 +599,6 @@ def ingest_live_source_records(
     end_date: date,
     parser_version: str = "stage1-live-v1",
 ) -> dict[str, int]:
-    config = load_db_config()
     try:
         import psycopg
     except ModuleNotFoundError as exc:
@@ -615,7 +613,7 @@ def ingest_live_source_records(
         end_date=end_date,
         parser_version=parser_version,
     )
-    with psycopg.connect(config.dsn) as conn:
+    with psycopg.connect(load_database_url()) as conn:
         inserted = insert_source_records(conn, source_records)
         conn.commit()
     return {

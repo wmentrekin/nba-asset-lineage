@@ -8,7 +8,7 @@ from typing import Sequence
 
 from canonical.events import bootstrap_canonical_events_schema, build_and_persist_canonical_events
 from canonical.validate import validate_canonical_events
-from db_config import load_db_config
+from db_config import load_database_url
 from evidence.ingest import (
     bootstrap_evidence_schema,
     build_live_source_records,
@@ -87,7 +87,7 @@ def _connect():
         import psycopg
     except ModuleNotFoundError as exc:
         raise RuntimeError("psycopg is required for redesign CLI database commands.") from exc
-    return psycopg.connect(load_db_config().dsn)
+    return psycopg.connect(load_database_url())
 
 
 def _emit(payload: dict[str, object]) -> int:
@@ -365,3 +365,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     raise RuntimeError(f"Unsupported command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
