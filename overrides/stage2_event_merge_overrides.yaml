@@ -1,0 +1,254 @@
+- override_id: override_merge_event_2016_02_16_three_team_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::6102::2016-02-16::1050955488
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::6102::2016-02-16::1050955488
+    - spotrac_tx::15378::2016-02-16::5bd2802d2a
+    target_cluster_key: spotrac_tx::6102::2016-02-16::1050955488
+  reason: Spotrac emitted one Memphis-facing row per incoming player for the same 2016-02-16 three-team trade. Stage 2 should treat this as one compound Memphis event.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2016_06_24_boston_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::20241::2016-06-24::b5e5ff0346
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::20241::2016-06-24::b5e5ff0346
+    - spotrac_tx::20237::2016-06-24::f3c7d08eed
+    target_cluster_key: spotrac_tx::20241::2016-06-24::b5e5ff0346
+  reason: Spotrac split the same Boston draft-night trade across incoming-player rows. Canonical Stage 2 should merge them into one compound event.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2019_02_07_gasol_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::8055::2019-02-07::6a823e3a10
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::8055::2019-02-07::6a823e3a10
+    - spotrac_tx::17848::2019-02-07::5a38aa20a7
+    - spotrac_tx::2753::2019-02-07::79b08fac89
+    target_cluster_key: spotrac_tx::8055::2019-02-07::6a823e3a10
+  reason: The Marc Gasol Toronto trade is one compound event that Spotrac expressed as several incoming-player variants. Merge the Toronto-side rows into one canonical event.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2019_07_06_conley_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::31581::2019-07-06::1b1df99457
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::31581::2019-07-06::1b1df99457
+    - spotrac_tx::10859::2019-07-06::3a46773e26
+    - spotrac_tx::26987::2019-07-06::cb5abed23b
+    - spotrac_tx::2752::2019-07-06::bfceb5c70e
+    target_cluster_key: spotrac_tx::31581::2019-07-06::1b1df99457
+  reason: The Mike Conley Utah trade is one compound event. Spotrac split it across multiple incoming-player permutations that should be merged in Stage 2.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2019_07_07_phoenix_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::27012::2019-07-07::ed662629a1
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::27012::2019-07-07::ed662629a1
+    - spotrac_tx::23599::2019-07-07::d691d536ab
+    target_cluster_key: spotrac_tx::27012::2019-07-07::ed662629a1
+  reason: The Phoenix trade for Kyle Korver and Jevon Carter is one event with multiple incoming-asset rows in Spotrac. Merge the duplicate event clusters.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2019_07_07_atlanta_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::10851::2019-07-07::c1915bce46
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::10851::2019-07-07::c1915bce46
+    - spotrac_tx::13336::2019-07-07::9123ebfd30
+    target_cluster_key: spotrac_tx::10851::2019-07-07::c1915bce46
+  reason: The Chandler Parsons Atlanta trade is one Memphis event. Spotrac split it by incoming-player row and Stage 2 should merge it.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2020_02_06_three_team_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::13334::2020-02-06::93872cb057
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::13334::2020-02-06::93872cb057
+    - spotrac_tx::10812::2020-02-06::65d13c8173
+    - spotrac_tx::17838::2020-02-06::f97ff785ca
+    target_cluster_key: spotrac_tx::13334::2020-02-06::93872cb057
+  reason: The Andre Iguodala / Justise Winslow three-team trade is one compound Memphis event, not three separate events by incoming asset.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2020_11_20_three_team_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::70672::2020-11-20::956cc4d508
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::70672::2020-11-20::956cc4d508
+    - spotrac_tx::17833::2020-11-20::d1ff09cab7
+    target_cluster_key: spotrac_tx::70672::2020-11-20::956cc4d508
+  reason: The Desmond Bane / Mario Hezonja three-team transaction is one compound event and should be merged from the Spotrac incoming-asset rows.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2021_07_26_three_team_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::6900::2021-07-26::ad4f086685
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::6900::2021-07-26::ad4f086685
+    - spotrac_tx::13325::2021-07-26::aa2364d15d
+    target_cluster_key: spotrac_tx::6900::2021-07-26::ad4f086685
+  reason: The New Orleans / Charlotte three-team trade is one compound event with multiple incoming-player rows in Spotrac. Merge them in Stage 2.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2021_08_07_pelicans_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::74147::2021-08-07::9d1e890bb1
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::74147::2021-08-07::9d1e890bb1
+    - spotrac_tx::74117::2021-08-07::c5036cca01
+    target_cluster_key: spotrac_tx::74147::2021-08-07::9d1e890bb1
+  reason: The Pelicans trade on 2021-08-07 is one Memphis event with multiple incoming-asset rows. Merge the duplicate clusters while leaving the Milwaukee trade separate.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2021_08_16_clippers_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::2222::2021-08-16::f3f124b9b6
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::2222::2021-08-16::f3f124b9b6
+    - spotrac_tx::6297::2021-08-16::8b9b93af35
+    - spotrac_tx::70675::2021-08-16::f2a7892cd6
+    target_cluster_key: spotrac_tx::2222::2021-08-16::f3f124b9b6
+  reason: The Eric Bledsoe Clippers trade is one compound event expressed as several incoming-player variants in Spotrac. Merge these clusters in Stage 2.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2021_08_25_timberwolves_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::31563::2021-08-25::c8f61a3afc
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::31563::2021-08-25::c8f61a3afc
+    - spotrac_tx::20220::2021-08-25::0a982ca139
+    target_cluster_key: spotrac_tx::31563::2021-08-25::c8f61a3afc
+  reason: The Patrick Beverley Timberwolves trade is one event with multiple incoming-player rows. Merge them while leaving the waiver separate.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2021_09_15_boston_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::31592::2021-09-15::7330adaa5d
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::31592::2021-09-15::7330adaa5d
+    - spotrac_tx::20210::2021-09-15::9614caa1b8
+    target_cluster_key: spotrac_tx::31592::2021-09-15::7330adaa5d
+  reason: The Juan Hernangomez Boston trade is one compound event split by incoming-player row in Spotrac. Merge those event clusters while leaving the waiver separate.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2022_06_24_philadelphia_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::6277::2022-06-24::498da794cd
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::6277::2022-06-24::498da794cd
+    - spotrac_tx::78149::2022-06-24::13db49cfd0
+    target_cluster_key: spotrac_tx::6277::2022-06-24::498da794cd
+  reason: The De'Anthony Melton Philadelphia trade is one compound event split across incoming-player rows in Spotrac. Merge the event clusters.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2024_02_08_phoenix_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::27713::2024-02-08::e466741efb
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::27713::2024-02-08::e466741efb
+    - spotrac_tx::27015::2024-02-08::09823da664
+    target_cluster_key: spotrac_tx::27713::2024-02-08::e466741efb
+  reason: The Royce O'Neale / David Roddy three-team trade is one compound event. Spotrac split it by the Memphis incoming-player row, so Stage 2 should merge those clusters.
+  authored_by: curator
+  authored_at: '2026-04-17T20:45:00Z'
+  is_active: true
+- override_id: override_merge_event_2023_07_08_five_team_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::31619::2023-07-08::dcade15dae
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::31619::2023-07-08::dcade15dae
+    - spotrac_tx::74131::2023-07-08::792f11cf7c
+    target_cluster_key: spotrac_tx::31619::2023-07-08::dcade15dae
+  reason: The Dillon Brooks five-team sign-and-trade package is one compound Memphis event. Spotrac split it by incoming asset row and Stage 2 should merge those duplicate clusters.
+  authored_by: curator
+  authored_at: '2026-04-17T21:00:00Z'
+  is_active: true
+- override_id: override_merge_event_2025_02_06_washington_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::78117::2025-02-06::3677104237
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::78117::2025-02-06::3677104237
+    - spotrac_tx::26968::2025-02-06::6007657173
+    target_cluster_key: spotrac_tx::78117::2025-02-06::3677104237
+  reason: The Marcus Smart three-team trade is one compound Memphis event. Spotrac split it by incoming player row and Stage 2 should merge those event clusters.
+  authored_by: curator
+  authored_at: '2026-04-17T21:00:00Z'
+  is_active: true
+- override_id: override_merge_event_2025_07_06_golden_state_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::70693::2025-07-06::5808cc94c8
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::70693::2025-07-06::5808cc94c8
+    - spotrac_tx::99272::2025-07-06::0a23b998a6
+    target_cluster_key: spotrac_tx::70693::2025-07-06::5808cc94c8
+  reason: The Golden State trade for Will Richard is one compound event. Spotrac split it into duplicate incoming-asset rows that should be merged in Stage 2.
+  authored_by: curator
+  authored_at: '2026-04-17T21:00:00Z'
+  is_active: true
+- override_id: override_merge_event_2026_02_03_utah_trade
+  override_type: merge_event_cluster
+  target_type: event_cluster
+  target_key: spotrac_tx::20256::2026-02-03::d8030f106c
+  payload:
+    source_cluster_keys:
+    - spotrac_tx::20256::2026-02-03::d8030f106c
+    - spotrac_tx::82205::2026-02-03::f86cb29997
+    - spotrac_tx::15382::2026-02-03::fbc899dcef
+    - spotrac_tx::98613::2026-02-03::97931ad3ce
+    target_cluster_key: spotrac_tx::20256::2026-02-03::d8030f106c
+  reason: The Utah blockbuster on 2026-02-03 is one compound Memphis event. Spotrac split it across multiple incoming-asset rows that should be merged in Stage 2.
+  authored_by: curator
+  authored_at: '2026-04-17T21:00:00Z'
+  is_active: true

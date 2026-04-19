@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
+  "pydantic>=2.8",
   "PyYAML>=6.0",
   "psycopg[binary]>=3.2",
   "nba_api>=1.7",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 
 from canonical.events import build_canonical_events
 from evidence.models import NormalizedClaim, OverrideRecord
@@ -9,6 +10,16 @@ from evidence.normalize import normalize_source_record
 from evidence.overrides import load_overrides
 
 from tests.evidence.helpers import load_json_fixture
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+STAGE2_OVERRIDE_PATH = PROJECT_ROOT / "overrides" / "stage2_event_merge_overrides.yaml"
+SECOND_PASS_OVERRIDE_IDS = {
+    "override_merge_event_2023_07_08_five_team_trade",
+    "override_merge_event_2025_02_06_washington_trade",
+    "override_merge_event_2025_07_06_golden_state_trade",
+    "override_merge_event_2026_02_03_utah_trade",
+}
 
 
 def _claims_from_fixtures():
@@ -228,3 +239,75 @@ def test_build_canonical_events_merges_clusters_when_merge_override_is_active():
     assert result.events[0].is_compound is True
     provenance_roles = {row.provenance_role for row in result.provenance_rows}
     assert "event_merge_support" in provenance_roles
+
+
+def test_stage2_override_bundle_is_reproducible_build_input():
+    built_at = datetime(2026, 4, 19, 12, 0, 0)
+    overrides = load_overrides(STAGE2_OVERRIDE_PATH)
+
+    assert len(overrides) == 19
+    assert {override.override_id for override in overrides}.issuperset(SECOND_PASS_OVERRIDE_IDS)
+
+    claims = []
+    source_sequence = 1
+    expected_target_keys = set()
+    for override in overrides:
+        assert override.override_type == "merge_event_cluster"
+        assert override.target_type == "event_cluster"
+        assert override.is_active is True
+        assert override.reason
+
+        target_cluster_key = override.payload["target_cluster_key"]
+        source_cluster_keys = override.payload["source_cluster_keys"]
+        assert override.target_key == target_cluster_key
+        assert target_cluster_key in source_cluster_keys
+        assert len(source_cluster_keys) >= 2
+        expected_target_keys.add(target_cluster_key)
+
+        for source_cluster_key in source_cluster_keys:
+            event_date = datetime.fromisoformat(source_cluster_key.split("::")[2]).date()
+            claims.extend(
+                [
+                    NormalizedClaim(
+                        claim_id=f"{source_cluster_key}_date",
+                        source_record_id=f"source_{source_sequence}",
+                        claim_type="event_date",
+                        claim_subject_type="event",
+                        claim_subject_key=source_cluster_key,
+                        claim_group_hint=source_cluster_key,
+                        claim_date=event_date,
+                        source_sequence=source_sequence,
+                        claim_payload={"event_date": event_date.isoformat()},
+                        confidence_flag="high",
+                        normalizer_version="test-normalizer-v1",
+                        created_at=built_at,
+                    ),
+                    NormalizedClaim(
+                        claim_id=f"{source_cluster_key}_type",
+                        source_record_id=f"source_{source_sequence}",
+                        claim_type="event_type",
+                        claim_subject_type="event",
+                        claim_subject_key=source_cluster_key,
+                        claim_group_hint=source_cluster_key,
+                        claim_date=event_date,
+                        source_sequence=source_sequence,
+                        claim_payload={"event_type": "trade"},
+                        confidence_flag="high",
+                        normalizer_version="test-normalizer-v1",
+                        created_at=built_at,
+                    ),
+                ]
+            )
+            source_sequence += 1
+
+    result = build_canonical_events(claims, overrides, builder_version="test-builder-v1", built_at=built_at)
+
+    assert {event.transaction_group_key for event in result.events} == expected_target_keys
+
+    merge_support_override_ids = {
+        row.override_id
+        for row in result.provenance_rows
+        if row.provenance_role == "event_merge_support"
+    }
+    assert merge_support_override_ids == {override.override_id for override in overrides}
+    assert merge_support_override_ids.issuperset(SECOND_PASS_OVERRIDE_IDS)

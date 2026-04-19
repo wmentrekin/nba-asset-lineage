@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from evidence.models import OverrideBundle, OverrideLink, OverrideRecord
+from evidence.override_schema import validate_override_bundle_payload
 from shared.ids import stable_id
 
 
@@ -45,52 +46,43 @@ def load_override_bundle(root: Path | str, *, default_authored_by: str = "local"
 
     for path in _iter_override_files(root_path):
         payload = _load_structured_file(path)
+        validated_bundle = validate_override_bundle_payload(payload, source=str(path))
         created_at = datetime.utcnow()
-        file_overrides = payload.get("overrides", [])
-        if not isinstance(file_overrides, list):
-            raise ValueError(f"`overrides` must be a list in {path}")
-
-        for entry in file_overrides:
-            if not isinstance(entry, dict):
-                raise ValueError(f"Override entries must be objects in {path}")
-            override_id = str(entry.get("override_id") or "").strip() or stable_id(
+        for entry in validated_bundle.overrides:
+            override_id = entry.override_id or stable_id(
                 "override",
                 path.relative_to(root_path),
-                entry.get("override_type"),
-                entry.get("target_type"),
-                entry.get("target_key"),
-                entry.get("payload"),
+                entry.override_type,
+                entry.target_type,
+                entry.target_key,
+                entry.payload,
             )
             override_record = OverrideRecord(
                 override_id=override_id,
-                override_type=str(entry["override_type"]),
-                target_type=str(entry["target_type"]),
-                target_key=str(entry["target_key"]),
-                payload=dict(entry.get("payload") or {}),
-                reason=str(entry["reason"]),
-                authored_by=str(entry.get("authored_by") or default_authored_by),
-                authored_at=datetime.fromisoformat(str(entry["authored_at"]))
-                if entry.get("authored_at")
-                else created_at,
-                is_active=bool(entry.get("is_active", True)),
+                override_type=entry.override_type,
+                target_type=entry.target_type,
+                target_key=entry.target_key,
+                payload=dict(entry.payload),
+                reason=entry.reason,
+                authored_by=entry.authored_by or default_authored_by,
+                authored_at=entry.authored_at or created_at,
+                is_active=entry.is_active,
             )
             overrides.append(override_record)
 
-            for link_entry in entry.get("links", []):
-                if not isinstance(link_entry, dict):
-                    raise ValueError(f"Override links must be objects in {path}")
+            for link_entry in entry.links:
                 override_links.append(
                     OverrideLink(
-                        override_link_id=str(link_entry.get("override_link_id") or "")
+                        override_link_id=link_entry.override_link_id
                         or stable_id(
                             "override_link",
                             override_record.override_id,
-                            link_entry.get("source_record_id"),
-                            link_entry.get("claim_id"),
+                            link_entry.source_record_id,
+                            link_entry.claim_id,
                         ),
                         override_id=override_record.override_id,
-                        source_record_id=link_entry.get("source_record_id"),
-                        claim_id=link_entry.get("claim_id"),
+                        source_record_id=link_entry.source_record_id,
+                        claim_id=link_entry.claim_id,
                     )
                 )
 

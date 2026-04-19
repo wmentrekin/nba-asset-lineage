@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from .helpers import (
     as_list,
     call_validate,
@@ -99,6 +101,25 @@ def test_override_loader_reads_structured_file_deterministically():
     assert get_value(override, "reason")
     assert get_value(override, "authored_by") == "curator"
     assert get_value(override, "is_active") is True
+
+
+def test_override_loader_rejects_malformed_bundle_shape(tmp_path):
+    overrides = evidence_module("overrides")
+    load_overrides = get_callable(overrides, "load_overrides", "ingest_overrides")
+    override_path = tmp_path / "bad_overrides.yaml"
+    override_path.write_text(
+        """
+overrides:
+  override_type: event_ordering
+  target_type: event_cluster
+  target_key: spotrac-tx-2024-02-08-07
+  reason: Not a list.
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"(?s)Invalid override bundle.*overrides.*list"):
+        load_overrides(override_path)
 
 
 def test_validation_report_counts_stage1_inputs_without_canonical_assumptions():
