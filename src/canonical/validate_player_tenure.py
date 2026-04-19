@@ -80,16 +80,23 @@ def validate_canonical_player_tenures(
 
     tenures_by_player: dict[str, list[CanonicalPlayerTenure]] = defaultdict(list)
     tenure_ids = [row.player_tenure_id for row in tenures_list]
+    tenure_id_set = set(tenure_ids)
     duplicate_tenure_ids = [tenure_id for tenure_id, count in Counter(tenure_ids).items() if count > 1]
     if duplicate_tenure_ids:
         errors.append(f"duplicate player_tenure_ids: {', '.join(sorted(duplicate_tenure_ids))}")
 
     for row in tenures_list:
         tenures_by_player[row.player_id].append(row)
+        if row.player_tenure_id == row.player_id:
+            errors.append(f"player_tenure_id conflates with player_id for {row.player_id}")
         if row.tenure_end_date is not None and row.tenure_end_date < row.tenure_start_date:
             errors.append(f"tenure ends before it starts for {row.player_tenure_id}")
         if not row.entry_event_id:
             errors.append(f"missing entry_event_id for {row.player_tenure_id}")
+        if row.tenure_end_date is None and row.exit_event_id is not None:
+            errors.append(f"open tenure should not have exit_event_id for {row.player_tenure_id}")
+        if row.tenure_end_date is not None and not row.exit_event_id:
+            errors.append(f"missing exit_event_id for closed tenure {row.player_tenure_id}")
 
     for player_id, tenures in tenures_by_player.items():
         ordered = sorted(tenures, key=lambda row: (row.tenure_start_date, row.tenure_end_date or row.tenure_start_date, row.player_tenure_id))
@@ -115,6 +122,8 @@ def validate_canonical_player_tenures(
             errors.append(f"missing player_tenure_id for {row.asset_id}")
         if row.pick_asset_id is not None:
             errors.append(f"player tenure asset should not have pick_asset_id: {row.asset_id}")
+        if row.player_tenure_id and row.player_tenure_id not in tenure_id_set:
+            errors.append(f"asset references unknown player_tenure_id: {row.player_tenure_id}")
 
     for row in tenures_list:
         if len(assets_by_tenure.get(row.player_tenure_id, [])) != 1:
