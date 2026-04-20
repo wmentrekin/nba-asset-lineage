@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # Agent files
-agent-context/
+agent-context/private/
 
 # C extensions
 *.so
