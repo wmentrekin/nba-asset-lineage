@@ -4,7 +4,6 @@ __pycache__/
 *$py.class
 
 # Agent files
-AGENTS.md
 agent-context/
 
 # C extensions
