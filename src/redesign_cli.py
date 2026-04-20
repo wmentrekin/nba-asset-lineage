@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Sequence
 
 from canonical.events import bootstrap_canonical_events_schema, build_and_persist_canonical_events
+from canonical.event_asset_flow import (
+    bootstrap_canonical_event_asset_flow_schema,
+    build_and_persist_canonical_event_asset_flows,
+)
 from canonical.pick_lifecycle import (
     bootstrap_canonical_pick_lifecycle_schema,
     build_and_persist_canonical_pick_lifecycle,
@@ -16,6 +20,7 @@ from canonical.player_tenure import (
     build_and_persist_canonical_player_tenures,
 )
 from canonical.validate import validate_canonical_events
+from canonical.validate_event_asset_flow import validate_canonical_event_asset_flows
 from canonical.validate_pick_lifecycle import validate_canonical_pick_lifecycle
 from canonical.validate_player_tenure import validate_canonical_player_tenures
 from db_config import load_database_url
@@ -99,17 +104,39 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=Path("sql/redesign/0004_pick_lifecycle_bootstrap.sql"),
     )
 
+    bootstrap_event_asset_flow_parser = subparsers.add_parser(
+        "bootstrap-canonical-event-asset-flow",
+        help="Apply the Stage 5 canonical event asset flow bootstrap SQL.",
+    )
+    bootstrap_event_asset_flow_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/redesign/0005_event_asset_flow_bootstrap.sql"),
+    )
+
     build_pick_lifecycle_parser = subparsers.add_parser(
         "build-canonical-pick-lifecycle",
         help="Build Stage 4 canonical pick assets, transitions, and provenance from evidence plus Stage 2 events.",
     )
     build_pick_lifecycle_parser.add_argument("--builder-version", default="stage4-pick-lifecycle-v1")
 
+    build_event_asset_flow_parser = subparsers.add_parser(
+        "build-canonical-event-asset-flows",
+        help="Build Stage 5 canonical event asset flows and provenance from Stage 2-4 canonical rows.",
+    )
+    build_event_asset_flow_parser.add_argument("--builder-version", default="stage5-event-asset-flow-v1")
+
     validate_pick_lifecycle_parser = subparsers.add_parser(
         "validate-canonical-pick-lifecycle",
         help="Validate canonical pick lifecycle tables currently stored in DB.",
     )
     validate_pick_lifecycle_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    validate_event_asset_flow_parser = subparsers.add_parser(
+        "validate-canonical-event-asset-flows",
+        help="Validate canonical event asset flow tables currently stored in DB.",
+    )
+    validate_event_asset_flow_parser.add_argument("--sample-limit", type=int, default=5000)
 
     bootstrap_player_tenure_parser = subparsers.add_parser(
         "bootstrap-canonical-player-tenure",
@@ -162,6 +189,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "bootstrap-canonical-pick-lifecycle":
         bootstrap_canonical_pick_lifecycle_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-event-asset-flow":
+        bootstrap_canonical_event_asset_flow_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
 
     if args.command == "build-evidence":
@@ -338,6 +369,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "build-canonical-pick-lifecycle":
         counts = build_and_persist_canonical_pick_lifecycle(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-canonical-event-asset-flows":
+        counts = build_and_persist_canonical_event_asset_flows(builder_version=args.builder_version)
         return _emit({"command": args.command, "status": "success", **counts})
 
     if args.command == "bootstrap-canonical-player-tenure":
@@ -735,6 +770,154 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "pick_resolution_provenance_count": report.pick_resolution_provenance_count,
                 "asset_count": report.asset_count,
                 "asset_provenance_count": report.asset_provenance_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-canonical-event-asset-flows":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    order by asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_asset_flow_id,
+                        event_id,
+                        asset_id,
+                        flow_direction,
+                        flow_role,
+                        flow_order,
+                        effective_date,
+                        created_at
+                    from canonical.event_asset_flow
+                    order by event_id, flow_order, event_asset_flow_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                flow_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_asset_flow_provenance_id,
+                        event_asset_flow_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.event_asset_flow_provenance
+                    order by created_at, event_asset_flow_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                provenance_rows = cur.fetchall()
+
+        from canonical.models import CanonicalAsset, CanonicalEvent, CanonicalEventAssetFlow, EventAssetFlowProvenance
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        flows = [
+            CanonicalEventAssetFlow(
+                event_asset_flow_id=row[0],
+                event_id=row[1],
+                asset_id=row[2],
+                flow_direction=row[3],
+                flow_role=row[4],
+                flow_order=row[5],
+                effective_date=row[6],
+                created_at=row[7],
+            )
+            for row in flow_rows
+        ]
+        provenance = [
+            EventAssetFlowProvenance(
+                event_asset_flow_provenance_id=row[0],
+                event_asset_flow_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in provenance_rows
+        ]
+        report = validate_canonical_event_asset_flows(events=events, assets=assets, flows=flows, provenance_rows=provenance)
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "event_count": report.event_count,
+                "asset_count": report.asset_count,
+                "flow_count": report.flow_count,
+                "provenance_count": report.provenance_count,
                 "errors": report.errors,
                 "warnings": report.warnings,
             }

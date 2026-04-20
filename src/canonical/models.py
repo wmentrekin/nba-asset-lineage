@@ -242,6 +242,36 @@ class AssetStateProvenance:
 
 
 @dataclass(frozen=True)
+class CanonicalEventAssetFlow:
+    event_asset_flow_id: str
+    event_id: str
+    asset_id: str
+    flow_direction: str
+    flow_role: str
+    flow_order: int
+    effective_date: date
+    created_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class EventAssetFlowProvenance:
+    event_asset_flow_provenance_id: str
+    event_asset_flow_id: str
+    source_record_id: str | None
+    claim_id: str | None
+    override_id: str | None
+    provenance_role: str
+    fallback_reason: str | None
+    created_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class CanonicalPlayerTenureBuildResult:
     build: CanonicalBuild
     player_identities: list[CanonicalPlayerIdentity]
@@ -262,6 +292,20 @@ class CanonicalPlayerTenureBuildResult:
             "asset_provenance_count": len(self.asset_provenance_rows),
             "asset_state_count": len(self.asset_states),
             "asset_state_provenance_count": len(self.asset_state_provenance_rows),
+        }
+
+
+@dataclass(frozen=True)
+class CanonicalEventAssetFlowBuildResult:
+    build: CanonicalBuild
+    flows: list[CanonicalEventAssetFlow]
+    provenance_rows: list[EventAssetFlowProvenance]
+
+    def counts(self) -> JsonDict:
+        return {
+            "canonical_build_id": self.build.canonical_build_id,
+            "event_asset_flow_count": len(self.flows),
+            "event_asset_flow_provenance_count": len(self.provenance_rows),
         }
 
 

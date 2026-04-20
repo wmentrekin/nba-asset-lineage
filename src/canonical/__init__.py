@@ -5,6 +5,13 @@ from canonical.events import (
     fetch_event_build_inputs,
     persist_canonical_event_build,
 )
+from canonical.event_asset_flow import (
+    bootstrap_canonical_event_asset_flow_schema,
+    build_and_persist_canonical_event_asset_flows,
+    build_event_asset_flows,
+    fetch_event_asset_flow_build_inputs,
+    persist_canonical_event_asset_flow_build,
+)
 from canonical.models import (
     AssetProvenance,
     AssetState,
@@ -12,6 +19,8 @@ from canonical.models import (
     CanonicalAsset,
     CanonicalBuild,
     CanonicalEvent,
+    CanonicalEventAssetFlow,
+    CanonicalEventAssetFlowBuildResult,
     CanonicalEventBuildResult,
     CanonicalPickAsset,
     CanonicalPickLifecycleBuildResult,
@@ -19,6 +28,7 @@ from canonical.models import (
     CanonicalPlayerIdentity,
     CanonicalPlayerTenure,
     CanonicalPlayerTenureBuildResult,
+    EventAssetFlowProvenance,
     EventProvenance,
     PickAssetProvenance,
     PickResolutionProvenance,
@@ -39,6 +49,10 @@ from canonical.player_tenure import (
     persist_canonical_player_tenure_build,
 )
 from canonical.validate import CanonicalEventValidationReport, validate_canonical_events
+from canonical.validate_event_asset_flow import (
+    CanonicalEventAssetFlowValidationReport,
+    validate_canonical_event_asset_flows,
+)
 from canonical.validate_pick_lifecycle import (
     CanonicalPickLifecycleValidationReport,
     validate_canonical_pick_lifecycle,
@@ -52,6 +66,8 @@ __all__ = [
     "CanonicalAsset",
     "CanonicalBuild",
     "CanonicalEvent",
+    "CanonicalEventAssetFlow",
+    "CanonicalEventAssetFlowBuildResult",
     "CanonicalEventBuildResult",
     "CanonicalPickAsset",
     "CanonicalPickLifecycleBuildResult",
@@ -59,7 +75,9 @@ __all__ = [
     "CanonicalPlayerIdentity",
     "CanonicalPlayerTenure",
     "CanonicalPlayerTenureBuildResult",
+    "EventAssetFlowProvenance",
     "CanonicalEventValidationReport",
+    "CanonicalEventAssetFlowValidationReport",
     "CanonicalPickLifecycleValidationReport",
     "PickAssetProvenance",
     "PickResolutionProvenance",
@@ -67,21 +85,27 @@ __all__ = [
     "EventProvenance",
     "PlayerIdentityProvenance",
     "bootstrap_canonical_events_schema",
+    "bootstrap_canonical_event_asset_flow_schema",
     "bootstrap_canonical_pick_lifecycle_schema",
     "bootstrap_canonical_player_tenure_schema",
+    "build_and_persist_canonical_event_asset_flows",
     "build_and_persist_canonical_pick_lifecycle",
     "build_and_persist_canonical_player_tenures",
+    "build_event_asset_flows",
     "build_and_persist_canonical_events",
     "build_canonical_events",
     "build_pick_lifecycle",
     "build_player_tenures",
     "fetch_event_build_inputs",
+    "fetch_event_asset_flow_build_inputs",
     "fetch_pick_lifecycle_build_inputs",
     "fetch_player_tenure_build_inputs",
+    "persist_canonical_event_asset_flow_build",
     "persist_canonical_event_build",
     "persist_canonical_pick_lifecycle_build",
     "persist_canonical_player_tenure_build",
     "validate_canonical_events",
+    "validate_canonical_event_asset_flows",
     "validate_canonical_pick_lifecycle",
     "validate_canonical_player_tenures",
 ]
