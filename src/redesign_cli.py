@@ -7,11 +7,16 @@ from pathlib import Path
 from typing import Sequence
 
 from canonical.events import bootstrap_canonical_events_schema, build_and_persist_canonical_events
+from canonical.pick_lifecycle import (
+    bootstrap_canonical_pick_lifecycle_schema,
+    build_and_persist_canonical_pick_lifecycle,
+)
 from canonical.player_tenure import (
     bootstrap_canonical_player_tenure_schema,
     build_and_persist_canonical_player_tenures,
 )
 from canonical.validate import validate_canonical_events
+from canonical.validate_pick_lifecycle import validate_canonical_pick_lifecycle
 from canonical.validate_player_tenure import validate_canonical_player_tenures
 from db_config import load_database_url
 from evidence.ingest import (
@@ -84,6 +89,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     canonical_validate_parser.add_argument("--sample-limit", type=int, default=5000)
 
+    bootstrap_pick_lifecycle_parser = subparsers.add_parser(
+        "bootstrap-canonical-pick-lifecycle",
+        help="Apply the Stage 4 canonical pick lifecycle bootstrap SQL.",
+    )
+    bootstrap_pick_lifecycle_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/redesign/0004_pick_lifecycle_bootstrap.sql"),
+    )
+
+    build_pick_lifecycle_parser = subparsers.add_parser(
+        "build-canonical-pick-lifecycle",
+        help="Build Stage 4 canonical pick assets, transitions, and provenance from evidence plus Stage 2 events.",
+    )
+    build_pick_lifecycle_parser.add_argument("--builder-version", default="stage4-pick-lifecycle-v1")
+
+    validate_pick_lifecycle_parser = subparsers.add_parser(
+        "validate-canonical-pick-lifecycle",
+        help="Validate canonical pick lifecycle tables currently stored in DB.",
+    )
+    validate_pick_lifecycle_parser.add_argument("--sample-limit", type=int, default=5000)
+
     bootstrap_player_tenure_parser = subparsers.add_parser(
         "bootstrap-canonical-player-tenure",
         help="Apply the Stage 3 canonical player tenure bootstrap SQL.",
@@ -131,6 +158,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "bootstrap-canonical-events":
         bootstrap_canonical_events_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-pick-lifecycle":
+        bootstrap_canonical_pick_lifecycle_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
 
     if args.command == "build-evidence":
@@ -305,6 +336,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         counts = build_and_persist_canonical_events(builder_version=args.builder_version)
         return _emit({"command": args.command, "status": "success", **counts})
 
+    if args.command == "build-canonical-pick-lifecycle":
+        counts = build_and_persist_canonical_pick_lifecycle(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
     if args.command == "bootstrap-canonical-player-tenure":
         bootstrap_canonical_player_tenure_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
@@ -394,6 +429,312 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "status": "success" if report.ok else "validation_failed",
                 "event_count": report.event_count,
                 "provenance_count": report.provenance_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-canonical-pick-lifecycle":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        pick_asset_id,
+                        origin_team_code,
+                        draft_year,
+                        draft_round,
+                        protection_summary,
+                        protection_payload,
+                        drafted_player_id,
+                        current_pick_stage,
+                        created_at,
+                        updated_at
+                    from canonical.pick_asset
+                    order by created_at, pick_asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_asset_provenance_id,
+                        pick_asset_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.pick_asset_provenance
+                    order by created_at, pick_asset_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_asset_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_resolution_id,
+                        pick_asset_id,
+                        state_type,
+                        effective_start_date,
+                        effective_end_date,
+                        overall_pick_number,
+                        lottery_context,
+                        drafted_player_id,
+                        source_event_id,
+                        state_payload,
+                        created_at,
+                        updated_at
+                    from canonical.pick_resolution
+                    order by created_at, pick_resolution_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_resolution_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_resolution_provenance_id,
+                        pick_resolution_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.pick_resolution_provenance
+                    order by created_at, pick_resolution_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_resolution_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    where pick_asset_id is not null
+                    order by created_at, asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_provenance_id,
+                        asset_id,
+                        player_tenure_id,
+                        pick_asset_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.asset_provenance
+                    where pick_asset_id is not null
+                    order by created_at, asset_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        player_id,
+                        display_name,
+                        normalized_name,
+                        nba_person_id,
+                        created_at,
+                        updated_at
+                    from canonical.player_identity
+                    order by created_at, player_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                player_identity_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+
+        from canonical.models import (
+            AssetProvenance,
+            CanonicalAsset,
+            CanonicalEvent,
+            CanonicalPickAsset,
+            CanonicalPickResolution,
+            CanonicalPlayerIdentity,
+            PickAssetProvenance,
+            PickResolutionProvenance,
+        )
+
+        pick_assets = [
+            CanonicalPickAsset(
+                pick_asset_id=row[0],
+                origin_team_code=row[1],
+                draft_year=row[2],
+                draft_round=row[3],
+                protection_summary=row[4],
+                protection_payload=row[5],
+                drafted_player_id=row[6],
+                current_pick_stage=row[7],
+                created_at=row[8],
+                updated_at=row[9],
+            )
+            for row in pick_asset_rows
+        ]
+        pick_asset_provenance = [
+            PickAssetProvenance(
+                pick_asset_provenance_id=row[0],
+                pick_asset_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in pick_asset_provenance_rows
+        ]
+        pick_resolutions = [
+            CanonicalPickResolution(
+                pick_resolution_id=row[0],
+                pick_asset_id=row[1],
+                state_type=row[2],
+                effective_start_date=row[3],
+                effective_end_date=row[4],
+                overall_pick_number=row[5],
+                lottery_context=row[6],
+                drafted_player_id=row[7],
+                source_event_id=row[8],
+                state_payload=row[9],
+                created_at=row[10],
+                updated_at=row[11],
+            )
+            for row in pick_resolution_rows
+        ]
+        pick_resolution_provenance = [
+            PickResolutionProvenance(
+                pick_resolution_provenance_id=row[0],
+                pick_resolution_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in pick_resolution_provenance_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        asset_provenance = [
+            AssetProvenance(
+                asset_provenance_id=row[0],
+                asset_id=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                source_record_id=row[4],
+                claim_id=row[5],
+                override_id=row[6],
+                provenance_role=row[7],
+                fallback_reason=row[8],
+                created_at=row[9],
+            )
+            for row in asset_provenance_rows
+        ]
+        player_identities = [
+            CanonicalPlayerIdentity(
+                player_id=row[0],
+                display_name=row[1],
+                normalized_name=row[2],
+                nba_person_id=row[3],
+                created_at=row[4],
+                updated_at=row[5],
+            )
+            for row in player_identity_rows
+        ]
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        report = validate_canonical_pick_lifecycle(
+            player_identities=player_identities,
+            pick_assets=pick_assets,
+            pick_asset_provenance_rows=pick_asset_provenance,
+            pick_resolutions=pick_resolutions,
+            pick_resolution_provenance_rows=pick_resolution_provenance,
+            assets=assets,
+            asset_provenance_rows=asset_provenance,
+            events=events,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "pick_asset_count": report.pick_asset_count,
+                "pick_asset_provenance_count": report.pick_asset_provenance_count,
+                "pick_resolution_count": report.pick_resolution_count,
+                "pick_resolution_provenance_count": report.pick_resolution_provenance_count,
+                "asset_count": report.asset_count,
+                "asset_provenance_count": report.asset_provenance_count,
                 "errors": report.errors,
                 "warnings": report.warnings,
             }

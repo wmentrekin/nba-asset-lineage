@@ -128,6 +128,72 @@ class CanonicalAsset:
 
 
 @dataclass(frozen=True)
+class CanonicalPickAsset:
+    pick_asset_id: str
+    origin_team_code: str
+    draft_year: int
+    draft_round: int
+    protection_summary: str | None
+    protection_payload: JsonDict
+    drafted_player_id: str | None
+    current_pick_stage: str
+    created_at: datetime
+    updated_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PickAssetProvenance:
+    pick_asset_provenance_id: str
+    pick_asset_id: str
+    source_record_id: str | None
+    claim_id: str | None
+    override_id: str | None
+    provenance_role: str
+    fallback_reason: str | None
+    created_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class CanonicalPickResolution:
+    pick_resolution_id: str
+    pick_asset_id: str
+    state_type: str
+    effective_start_date: date
+    effective_end_date: date | None
+    overall_pick_number: int | None
+    lottery_context: str | None
+    drafted_player_id: str | None
+    source_event_id: str | None
+    state_payload: JsonDict
+    created_at: datetime
+    updated_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PickResolutionProvenance:
+    pick_resolution_provenance_id: str
+    pick_resolution_id: str
+    source_record_id: str | None
+    claim_id: str | None
+    override_id: str | None
+    provenance_role: str
+    fallback_reason: str | None
+    created_at: datetime
+
+    def as_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class AssetProvenance:
     asset_provenance_id: str
     asset_id: str
@@ -196,4 +262,26 @@ class CanonicalPlayerTenureBuildResult:
             "asset_provenance_count": len(self.asset_provenance_rows),
             "asset_state_count": len(self.asset_states),
             "asset_state_provenance_count": len(self.asset_state_provenance_rows),
+        }
+
+
+@dataclass(frozen=True)
+class CanonicalPickLifecycleBuildResult:
+    build: CanonicalBuild
+    pick_assets: list[CanonicalPickAsset]
+    pick_asset_provenance_rows: list[PickAssetProvenance]
+    pick_resolutions: list[CanonicalPickResolution]
+    pick_resolution_provenance_rows: list[PickResolutionProvenance]
+    assets: list[CanonicalAsset]
+    asset_provenance_rows: list[AssetProvenance]
+
+    def counts(self) -> JsonDict:
+        return {
+            "canonical_build_id": self.build.canonical_build_id,
+            "pick_asset_count": len(self.pick_assets),
+            "pick_asset_provenance_count": len(self.pick_asset_provenance_rows),
+            "pick_resolution_count": len(self.pick_resolutions),
+            "pick_resolution_provenance_count": len(self.pick_resolution_provenance_rows),
+            "asset_count": len(self.assets),
+            "asset_provenance_count": len(self.asset_provenance_rows),
         }
