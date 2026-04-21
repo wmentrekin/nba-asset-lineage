@@ -1,0 +1,59 @@
+editorial:
+  annotations:
+    - annotation_id: annotation_memphis_signing_note
+      annotation_type: event_note
+      title: Memphis adds a veteran guard
+      body: The roster move marks the start of the spring rotation reset.
+      start_date: 2024-02-08
+      end_date: 2024-02-08
+      priority: 90
+    - annotation_id: annotation_rebuild_window
+      annotation_type: date_range_note
+      title: Rebuild window opens
+      body: Memphis enters a multi-season evaluation period after the deadline.
+      start_date: 2024-02-09
+      end_date: 2025-06-30
+      priority: 70
+  calendar_markers:
+    - calendar_marker_id: marker_trade_deadline_2024
+      marker_type: trade_deadline
+      label: 2024 trade deadline
+      marker_date: 2024-02-08
+      payload:
+        league: nba
+        importance: high
+  game_overlays:
+    - game_overlay_id: game_overlay_2024_02_08_vs_bos
+      game_date: 2024-02-08
+      opponent: Boston Celtics
+      home_away: home
+      result: loss
+      score_display: 131-91
+      payload:
+        notable: true
+        record_impact: no_change
+  eras:
+    - era_id: era_post_deadline_reset
+      title: Post-deadline reset
+      start_date: 2024-02-08
+      end_date: 2025-06-30
+      description: A multi-season recalibration period after the major roster pivot.
+      priority: 80
+  story_chapters:
+    - story_chapter_id: chapter_deadline_reset
+      slug: deadline-reset
+      chapter_order: 1
+      title: A reset begins
+      body: The 2024 trade deadline marks the opening chapter of a broader reset.
+      start_date: 2024-02-08
+      end_date: 2025-06-30
+      era_id: era_post_deadline_reset
+      focus_payload:
+        date_range:
+          start_date: 2024-02-08
+          end_date: 2025-06-30
+        event_ids: []
+        asset_ids: []
+        lane_groups: []
+        default_zoom: 1.5
+        highlight_mode: focus

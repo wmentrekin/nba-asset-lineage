@@ -34,6 +34,14 @@ Each active merge override should include:
 When a merge override changes canonical event output, Stage 2 must record
 `canonical.event_provenance` with `provenance_role = event_merge_support`.
 
+`stage7_editorial_overlays.yaml` contains the tracked Stage 7 editorial overlay
+seed bundle for Memphis-only narrative context. It is separate from canonical
+lineage truth and can be loaded into the `editorial` schema with:
+
+```bash
+uv --cache-dir /tmp/uv-cache run python -m redesign_cli load-editorial-overlays
+```
+
 ## Operational Rule
 
 Do not put scratch files in this directory unless they are valid override

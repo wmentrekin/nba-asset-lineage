@@ -410,8 +410,11 @@ def build_presentation_contract(
     return PresentationContractBuildResult(build=build, nodes=nodes, edges=edges, lanes=lanes)
 
 
-def presentation_contract_to_json(result: PresentationContractBuildResult) -> str:
-    return json.dumps(_json_ready(result.as_contract()), sort_keys=True, indent=2)
+def presentation_contract_to_json(result: PresentationContractBuildResult, *, editorial_overlays: Any | None = None) -> str:
+    payload = _json_ready(result.as_contract())
+    if editorial_overlays is not None:
+        payload["editorial"] = _json_ready(editorial_overlays.as_contract())
+    return json.dumps(payload, sort_keys=True, indent=2)
 
 
 def fetch_presentation_contract_build_inputs(
@@ -964,10 +967,19 @@ def fetch_presentation_contract(conn: Any) -> PresentationContractBuildResult:
     return PresentationContractBuildResult(build=build, nodes=nodes, edges=edges, lanes=lanes)
 
 
-def export_presentation_contract_json(output_path: Path | str | None = None) -> str:
+def export_presentation_contract_json(
+    output_path: Path | str | None = None,
+    *,
+    include_editorial: bool = False,
+) -> str:
     with _connect() as conn:
         result = fetch_presentation_contract(conn)
-    payload = presentation_contract_to_json(result)
+        editorial_result = None
+        if include_editorial:
+            from editorial.contract import fetch_editorial_overlays
+
+            editorial_result = fetch_editorial_overlays(conn)
+    payload = presentation_contract_to_json(result, editorial_overlays=editorial_result)
     if output_path is not None:
         Path(output_path).write_text(payload + "\n", encoding="utf-8")
     return payload

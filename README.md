@@ -39,7 +39,7 @@ Initial release scope:
 - `src/presentation/`
   - Stage 6 presentation contract generation, validation, and JSON export
 - `src/editorial/`
-  - reserved for Stage 7 editorial overlay work
+  - Stage 7 editorial overlay models, validation, loading, and export
 - `tests/`
   - local regression tests for evidence and canonical behavior
 
@@ -139,6 +139,16 @@ mise run stage6_validate
 mise run stage6_export
 ```
 
+Stage 7 editorial overlays:
+
+```bash
+mise run stage7_bootstrap
+mise run stage7_load
+mise run stage7_validate
+mise run stage7_export
+mise run stage7_export_presentation
+```
+
 ## Curated Overrides
 
 Stage 2 event merge overrides live in:
@@ -150,11 +160,18 @@ configs/data/stage2_event_merge_overrides.yaml
 The default redesign CLI override path is `configs/data`, so normal Stage 1
 commands load that bundle without extra flags.
 
+Stage 7 editorial overlays live in:
+
+```text
+configs/data/stage7_editorial_overlays.yaml
+```
+
 ## Current Status
 
-Stages 1 through 6 are implemented in the redesign path. The next architecture
-stage is Stage 7, editorial overlays. Frontend implementation should wait until
-the presentation contract and editorial overlay are stable.
+Stages 1 through 7 are implemented in the redesign path. Stage 7 adds the
+editorial overlay layer without changing canonical lineage truth. Frontend
+implementation should wait until the presentation contract and editorial
+overlay are stable.
 
 See `agent-context/current-status.md` and the navigation map in
 `agent-context/README.md` for implementation context.

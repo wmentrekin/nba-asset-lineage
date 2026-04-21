@@ -21,6 +21,9 @@ structure and is not the target architecture.
 - Stage 6 presentation contract generation is implemented with deterministic
   timeline nodes, timeline edges, asset lanes, validation, build metadata, and
   JSON export.
+- Stage 7 editorial overlay generation is implemented with deterministic
+  annotations, calendar markers, game overlays, eras, story chapters, validation,
+  build metadata, and JSON export.
 
 ## Current Data Inputs
 
@@ -29,6 +32,10 @@ Curated override inputs live under `configs/data/`.
 The active Stage 2 bundle is:
 
 - `configs/data/stage2_event_merge_overrides.yaml`
+
+The active Stage 7 editorial seed bundle is:
+
+- `configs/data/stage7_editorial_overlays.yaml`
 
 This bundle is a reproducible curated input, not scratch data. It should remain
 tracked unless the underlying event merge decisions are replaced by another
@@ -50,11 +57,10 @@ surface.
 
 ## Next Stage
 
-The next architecture stage is Stage 7: editorial overlays.
+The next architecture stage is Stage 8: the first frontend slice.
 
-Stage 7 should layer editorial context on top of the Stage 6 presentation
-contract. It should not alter canonical truth or require frontend-side lineage
-inference.
+Stage 7 layers editorial context on top of the Stage 6 presentation contract.
+It does not alter canonical truth or require frontend-side lineage inference.
 
 ## Readiness
 
@@ -63,7 +69,7 @@ The planning set is implementation-ready for the current redesign path:
 - identity and reference semantics are locked
 - row-level provenance and build metadata requirements are locked
 - Stages 1 through 6 are implemented and locally tested
-- Stage 7 is the next implementation target
+- Stage 7 is implemented and available through the redesign CLI
 - Stage 8 remains downstream after the presentation contract and editorial
   overlay are stable
 

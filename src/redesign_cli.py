@@ -35,6 +35,13 @@ from evidence.ingest import (
 from evidence.normalize import normalize_source_record
 from evidence.overrides import insert_override_bundle, load_override_bundle
 from evidence.validate import validate_stage1_rows
+from editorial.contract import (
+    build_and_persist_editorial_overlays,
+    bootstrap_editorial_overlay_schema,
+    export_editorial_overlays_json,
+    fetch_editorial_overlays,
+    validate_editorial_overlay_bundle,
+)
 from presentation.contract import (
     bootstrap_presentation_contract_schema,
     build_and_persist_presentation_contract,
@@ -172,6 +179,46 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Export the latest Stage 6 presentation contract as JSON.",
     )
     export_presentation_parser.add_argument("--output-path", type=Path)
+    export_presentation_parser.add_argument(
+        "--include-editorial",
+        action="store_true",
+        help="Include Stage 7 editorial overlays in the exported JSON under an editorial key.",
+    )
+
+    bootstrap_editorial_parser = subparsers.add_parser(
+        "bootstrap-editorial-overlays",
+        help="Apply the Stage 7 editorial overlay bootstrap SQL.",
+    )
+    bootstrap_editorial_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0007_editorial_overlay_bootstrap.sql"),
+    )
+
+    load_editorial_parser = subparsers.add_parser(
+        "load-editorial-overlays",
+        help="Load Stage 7 editorial overlay rows from tracked structured files and persist them.",
+    )
+    load_editorial_parser.add_argument(
+        "--input-path",
+        type=Path,
+        default=Path("configs/data"),
+    )
+    load_editorial_parser.add_argument(
+        "--builder-version",
+        default="stage7-editorial-overlay-v1",
+    )
+
+    validate_editorial_parser = subparsers.add_parser(
+        "validate-editorial-overlays",
+        help="Validate Stage 7 editorial overlay rows currently stored in DB.",
+    )
+
+    export_editorial_parser = subparsers.add_parser(
+        "export-editorial-overlays",
+        help="Export the latest Stage 7 editorial overlays as JSON.",
+    )
+    export_editorial_parser.add_argument("--output-path", type=Path)
 
     bootstrap_player_tenure_parser = subparsers.add_parser(
         "bootstrap-canonical-player-tenure",
@@ -232,6 +279,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "bootstrap-presentation-contract":
         bootstrap_presentation_contract_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-editorial-overlays":
+        bootstrap_editorial_overlay_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
 
     if args.command == "build-evidence":
@@ -402,6 +453,94 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
 
+    if args.command == "validate-editorial-overlays":
+        with _connect() as conn:
+            editorial_result = fetch_editorial_overlays(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    """
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    order by asset_id
+                    """
+                )
+                asset_rows = cur.fetchall()
+
+        from canonical.models import CanonicalAsset, CanonicalEvent
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        report = validate_editorial_overlay_bundle(
+            editorial_result,
+            canonical_events=events,
+            canonical_assets=assets,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "annotation_count": report.annotation_count,
+                "calendar_marker_count": report.calendar_marker_count,
+                "game_overlay_count": report.game_overlay_count,
+                "era_count": report.era_count,
+                "story_chapter_count": report.story_chapter_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
     if args.command == "build-canonical-events":
         counts = build_and_persist_canonical_events(builder_version=args.builder_version)
         return _emit({"command": args.command, "status": "success", **counts})
@@ -416,6 +555,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "build-presentation-contract":
         counts = build_and_persist_presentation_contract(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "load-editorial-overlays":
+        counts = build_and_persist_editorial_overlays(
+            input_path=args.input_path,
+            builder_version=args.builder_version,
+        )
         return _emit({"command": args.command, "status": "success", **counts})
 
     if args.command == "bootstrap-canonical-player-tenure":
@@ -1027,7 +1173,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     if args.command == "export-presentation-contract":
-        payload = export_presentation_contract_json(args.output_path)
+        payload = export_presentation_contract_json(args.output_path, include_editorial=args.include_editorial)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-editorial-overlays":
+        payload = export_editorial_overlays_json(args.output_path)
         if args.output_path is None:
             print(payload)
             return 0
