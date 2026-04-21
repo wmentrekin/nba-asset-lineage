@@ -35,6 +35,13 @@ from evidence.ingest import (
 from evidence.normalize import normalize_source_record
 from evidence.overrides import insert_override_bundle, load_override_bundle
 from evidence.validate import validate_stage1_rows
+from presentation.contract import (
+    bootstrap_presentation_contract_schema,
+    build_and_persist_presentation_contract,
+    export_presentation_contract_json,
+    fetch_presentation_contract,
+)
+from presentation.validate import validate_presentation_contract
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -138,6 +145,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     validate_event_asset_flow_parser.add_argument("--sample-limit", type=int, default=5000)
 
+    bootstrap_presentation_parser = subparsers.add_parser(
+        "bootstrap-presentation-contract",
+        help="Apply the Stage 6 presentation contract bootstrap SQL.",
+    )
+    bootstrap_presentation_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0006_presentation_contract_bootstrap.sql"),
+    )
+
+    build_presentation_parser = subparsers.add_parser(
+        "build-presentation-contract",
+        help="Build Stage 6 presentation timeline nodes, edges, lanes, and build metadata.",
+    )
+    build_presentation_parser.add_argument("--builder-version", default="stage6-presentation-contract-v1")
+
+    validate_presentation_parser = subparsers.add_parser(
+        "validate-presentation-contract",
+        help="Validate Stage 6 presentation contract tables currently stored in DB.",
+    )
+    validate_presentation_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    export_presentation_parser = subparsers.add_parser(
+        "export-presentation-contract",
+        help="Export the latest Stage 6 presentation contract as JSON.",
+    )
+    export_presentation_parser.add_argument("--output-path", type=Path)
+
     bootstrap_player_tenure_parser = subparsers.add_parser(
         "bootstrap-canonical-player-tenure",
         help="Apply the Stage 3 canonical player tenure bootstrap SQL.",
@@ -193,6 +228,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "bootstrap-canonical-event-asset-flow":
         bootstrap_canonical_event_asset_flow_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-presentation-contract":
+        bootstrap_presentation_contract_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
 
     if args.command == "build-evidence":
@@ -375,6 +414,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         counts = build_and_persist_canonical_event_asset_flows(builder_version=args.builder_version)
         return _emit({"command": args.command, "status": "success", **counts})
 
+    if args.command == "build-presentation-contract":
+        counts = build_and_persist_presentation_contract(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
     if args.command == "bootstrap-canonical-player-tenure":
         bootstrap_canonical_player_tenure_schema(args.sql_path)
         return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
@@ -402,9 +445,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         updated_at
                     from canonical.events
                     order by event_date, event_order, event_id
-                    limit %s
                     """,
-                    (args.sample_limit,),
                 )
                 event_rows = cur.fetchall()
                 cur.execute(
@@ -922,6 +963,75 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "warnings": report.warnings,
             }
         )
+
+    if args.command == "validate-presentation-contract":
+        with _connect() as conn:
+            result = fetch_presentation_contract(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+
+        from canonical.models import CanonicalEvent
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        report = validate_presentation_contract(
+            nodes=result.nodes,
+            edges=result.edges,
+            lanes=result.lanes,
+            canonical_events=events,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "node_count": report.node_count,
+                "edge_count": report.edge_count,
+                "lane_count": report.lane_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "export-presentation-contract":
+        payload = export_presentation_contract_json(args.output_path)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
 
     if args.command == "validate-canonical-player-tenures":
         with _connect() as conn:

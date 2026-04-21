@@ -37,7 +37,7 @@ Initial release scope:
 - `src/canonical/`
   - Stage 2-5 canonical event, tenure, pick lifecycle, and flow builders
 - `src/presentation/`
-  - reserved for Stage 6 presentation contract work
+  - Stage 6 presentation contract generation, validation, and JSON export
 - `src/editorial/`
   - reserved for Stage 7 editorial overlay work
 - `tests/`
@@ -130,6 +130,15 @@ mise run stage5_build
 mise run stage5_validate
 ```
 
+Stage 6 presentation contract:
+
+```bash
+mise run stage6_bootstrap
+mise run stage6_build
+mise run stage6_validate
+mise run stage6_export
+```
+
 ## Curated Overrides
 
 Stage 2 event merge overrides live in:
@@ -143,9 +152,9 @@ commands load that bundle without extra flags.
 
 ## Current Status
 
-Stages 1 through 5 are implemented in the redesign path. The next architecture
-stage is Stage 6, the presentation contract. Frontend implementation should wait
-until Stage 6 produces stable frontend-ready data.
+Stages 1 through 6 are implemented in the redesign path. The next architecture
+stage is Stage 7, editorial overlays. Frontend implementation should wait until
+the presentation contract and editorial overlay are stable.
 
 See `agent-context/current-status.md` and the navigation map in
 `agent-context/README.md` for implementation context.

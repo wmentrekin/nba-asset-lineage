@@ -73,3 +73,19 @@ run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-e
 [tasks.stage5_validate]
 description = "Validate Stage 5 event-asset flows"
 run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-event-asset-flows"
+
+[tasks.stage6_bootstrap]
+description = "Apply Stage 6 presentation contract bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-presentation-contract"
+
+[tasks.stage6_build]
+description = "Build Stage 6 presentation contract rows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-presentation-contract"
+
+[tasks.stage6_validate]
+description = "Validate Stage 6 presentation contract rows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-presentation-contract"
+
+[tasks.stage6_export]
+description = "Export Stage 6 presentation contract JSON"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract"

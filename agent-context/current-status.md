@@ -18,6 +18,9 @@ structure and is not the target architecture.
   implemented.
 - Stage 4 continuous pick lifecycle modeling is implemented.
 - Stage 5 event-asset flow modeling is implemented.
+- Stage 6 presentation contract generation is implemented with deterministic
+  timeline nodes, timeline edges, asset lanes, validation, build metadata, and
+  JSON export.
 
 ## Current Data Inputs
 
@@ -40,24 +43,18 @@ Redesign bootstrap SQL now lives directly under `sql/`:
 - `sql/0003_player_tenure_bootstrap.sql`
 - `sql/0004_pick_lifecycle_bootstrap.sql`
 - `sql/0005_event_asset_flow_bootstrap.sql`
+- `sql/0006_presentation_contract_bootstrap.sql`
 
 Legacy Bronze/Silver bootstrap SQL has been removed from the active command
 surface.
 
 ## Next Stage
 
-The next architecture stage is Stage 6: presentation contract generation.
+The next architecture stage is Stage 7: editorial overlays.
 
-Stage 6 should derive deterministic frontend-ready structures from canonical
-data. It should not start the Astro frontend and should not move editorial
-content into canonical truth.
-
-Relevant docs for Stage 6:
-
-- `agent-context/stages/06-presentation-contract.md`
-- `agent-context/stages/05-event-asset-flow.md`
-- `agent-context/contracts/identity-and-reference.md`
-- `agent-context/contracts/provenance-and-build-versioning.md`
+Stage 7 should layer editorial context on top of the Stage 6 presentation
+contract. It should not alter canonical truth or require frontend-side lineage
+inference.
 
 ## Readiness
 
@@ -65,9 +62,10 @@ The planning set is implementation-ready for the current redesign path:
 
 - identity and reference semantics are locked
 - row-level provenance and build metadata requirements are locked
-- Stages 1 through 5 are implemented and locally tested
-- Stage 6 is the next implementation target
-- Stages 7 and 8 remain downstream after the presentation contract is stable
+- Stages 1 through 6 are implemented and locally tested
+- Stage 7 is the next implementation target
+- Stage 8 remains downstream after the presentation contract and editorial
+  overlay are stable
 
 Open refinements around editorial workflow, rendering technology, and future
 typed-state expansion are not blockers for Stage 6.
