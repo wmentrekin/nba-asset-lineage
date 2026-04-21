@@ -3,84 +3,50 @@
 This repository is being redesigned into a public-facing Memphis Grizzlies asset
 lineage and storytelling system.
 
-The long-term goal is not the current checked-in pipeline. The target system is
-a time-indexed model of franchise evolution that can drive a high-quality,
-interactive editorial visualization.
+The active implementation path is the redesigned evidence/canonical pipeline.
+The old Bronze/Silver/Gold prototype has been removed from the active repo
+structure; historical implementation details should be recovered from git
+history if needed.
 
-## Status
+## Product Direction
 
-The current codebase is not representative of the intended final architecture.
+The project models franchise evolution as a deterministic, time-indexed asset
+lineage network that can drive a polished editorial visualization.
 
-What exists today is a legacy prototype:
+Initial release scope:
 
-- a Grizzlies-focused Python/Postgres medallion pipeline
-- heuristic source ingestion
-- normalized lineage tables
-- graph exports and a simple visualization
-
-That implementation is useful as:
-
-- reference material
-- a source of historical data already captured
-- proof that deterministic lineage exports are feasible
-
-It should not be treated as the final product design.
-
-## Future Direction
-
-The redesign is centered on:
-
-- Memphis-only franchise scope
+- Memphis Grizzlies only
 - player-centric asset lineage
 - continuous pick lifecycle modeling
-- compound transaction events
-- explicit evidence and override layers
-- frontend-ready timeline lineage data
-- editorial overlays for games, eras, and annotations
+- compound transaction events from the Memphis perspective
+- explicit evidence, curated override, canonical, presentation, and editorial
+  layers
+- scrollytelling or chaptered frontend experience after the presentation
+  contract is stable
 
-## Current Repo Contents
+## Repository Layout
 
-Today’s repo still contains the legacy implementation:
-
-- `src/pipeline/`
-  - Bronze/Silver/Gold pipeline logic
-- `src/claims_live_ingest.py`
-  - current live-source ingestion prototype
+- `agent-context/`
+  - tracked planning, contract, and implementation-status docs
+- `configs/data/`
+  - curated YAML/JSON data inputs, currently Stage 2 event merge overrides
 - `sql/`
-  - legacy Bronze/Silver bootstrap scripts
-- `exports/`
-  - generated graph artifacts from the legacy model
-
-Expect these to be replaced over time by a new architecture organized around:
-
-- evidence
-- canonical lineage
-- presentation outputs
-- editorial overlays
-
-## Legacy Pipeline
-
-The current legacy pipeline models:
-
-- `bronze`
-  - raw ingestion tables
-- `silver`
-  - normalized lineage tables
-- `gold`
-  - export artifacts in `exports/`
-
-This is still useful for reference, but it is not the planned final system.
+  - redesign SQL bootstrap scripts
+- `src/evidence/`
+  - Stage 1 source capture, normalization, override loading, and validation
+- `src/canonical/`
+  - Stage 2-5 canonical event, tenure, pick lifecycle, and flow builders
+- `src/presentation/`
+  - reserved for Stage 6 presentation contract work
+- `src/editorial/`
+  - reserved for Stage 7 editorial overlay work
+- `tests/`
+  - local regression tests for evidence and canonical behavior
 
 ## Setup
 
-Use local `.env` only (gitignored). Current legacy code expects:
-
-- `NBA_ASSET_DB_HOST`
-- `NBA_ASSET_DB_PORT`
-- `NBA_ASSET_DB_NAME`
-- `NBA_ASSET_DB_USER`
-- `NBA_ASSET_DB_PASSWORD`
-- `NBA_ASSET_DB_SSLMODE`
+Use local `.env` only. It is gitignored and should contain database connection
+values for commands that talk to Postgres.
 
 Install dependencies:
 
@@ -88,65 +54,98 @@ Install dependencies:
 mise run setup
 ```
 
-## Running The Legacy Prototype
-
-Full pipeline:
+or:
 
 ```bash
-mise run pipeline
+uv sync
 ```
 
-Full pipeline with live Bronze adapters:
+## Tests
+
+Run the local test suite:
 
 ```bash
-mise run pipeline_live
+mise run test
 ```
 
-Stage-by-stage:
+or:
 
 ```bash
-mise run bronze_live
-mise run silver
-mise run gold
-mise run visualize
+uv --cache-dir /tmp/uv-cache run pytest -q
 ```
 
-Dry-run examples:
+## Redesign CLI
+
+Run the CLI directly:
 
 ```bash
-mise run bronze_live_dry_run
-mise run silver_dry_run
+uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help
 ```
 
-## Legacy SQL Bootstrap
-
-The current destructive reset script for the legacy Bronze/Silver model is:
-
-- `sql/0001_bootstrap_bronze_silver.sql`
-
-Run:
+or through the package script:
 
 ```bash
-mise run db_bootstrap
+uv --cache-dir /tmp/uv-cache run nba-asset-redesign --help
 ```
 
-Clear data only:
+## Stage Commands
+
+Stage 1 evidence:
 
 ```bash
-mise run db_clear_data
+mise run stage1_bootstrap
+mise run stage1_build
+mise run stage1_validate
 ```
 
-## Near-Term Plan
+Stage 2 canonical events:
 
-The next implementation work is expected to focus on:
+```bash
+mise run stage2_bootstrap
+mise run stage2_build
+mise run stage2_validate
+```
 
-1. new evidence-layer schema and ingestion
-2. canonical event timeline construction
-3. player tenure modeling
-4. pick lifecycle modeling
-5. presentation-layer exports for the new timeline visualization
+Stage 3 player tenure:
 
-Until that replacement path exists, assume:
+```bash
+mise run stage3_bootstrap
+mise run stage3_build
+mise run stage3_validate
+```
 
-- the legacy pipeline is operational but transitional
-- the redesign architecture is still being defined internally
+Stage 4 pick lifecycle:
+
+```bash
+mise run stage4_bootstrap
+mise run stage4_build
+mise run stage4_validate
+```
+
+Stage 5 event-asset flow:
+
+```bash
+mise run stage5_bootstrap
+mise run stage5_build
+mise run stage5_validate
+```
+
+## Curated Overrides
+
+Stage 2 event merge overrides live in:
+
+```text
+configs/data/stage2_event_merge_overrides.yaml
+```
+
+The default redesign CLI override path is `configs/data`, so normal Stage 1
+commands load that bundle without extra flags.
+
+## Current Status
+
+Stages 1 through 5 are implemented in the redesign path. The next architecture
+stage is Stage 6, the presentation contract. Frontend implementation should wait
+until Stage 6 produces stable frontend-ready data.
+
+See `agent-context/current-redesign-status.md` and the stage specs in
+`agent-context/` for details.

@@ -45,7 +45,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     bootstrap_parser.add_argument(
         "--sql-path",
         type=Path,
-        default=Path("sql/redesign/0001_evidence_bootstrap.sql"),
+        default=Path("sql/0001_evidence_bootstrap.sql"),
     )
 
     bootstrap_canonical_parser = subparsers.add_parser(
@@ -55,7 +55,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     bootstrap_canonical_parser.add_argument(
         "--sql-path",
         type=Path,
-        default=Path("sql/redesign/0002_canonical_events_bootstrap.sql"),
+        default=Path("sql/0002_canonical_events_bootstrap.sql"),
     )
 
     build_parser = subparsers.add_parser(
@@ -70,14 +70,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     build_parser.add_argument("--end-date", default=date.today().isoformat())
     build_parser.add_argument("--parser-version", default="stage1-live-v1")
     build_parser.add_argument("--normalizer-version", default="stage1-normalizer-v1")
-    build_parser.add_argument("--overrides-path", type=Path, default=Path("overrides"))
+    build_parser.add_argument("--overrides-path", type=Path, default=Path("configs/data"))
 
     normalize_parser = subparsers.add_parser("normalize-evidence", help="Normalize source records already loaded in DB.")
     normalize_parser.add_argument("--normalizer-version", default="stage1-normalizer-v1")
     normalize_parser.add_argument("--source-record-id")
 
     override_parser = subparsers.add_parser("load-overrides", help="Load override files into evidence.overrides.")
-    override_parser.add_argument("--overrides-path", type=Path, default=Path("overrides"))
+    override_parser.add_argument("--overrides-path", type=Path, default=Path("configs/data"))
 
     validate_parser = subparsers.add_parser("validate-evidence", help="Validate Stage 1 evidence rows currently in DB.")
     validate_parser.add_argument("--sample-limit", type=int, default=5000)
@@ -101,7 +101,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     bootstrap_pick_lifecycle_parser.add_argument(
         "--sql-path",
         type=Path,
-        default=Path("sql/redesign/0004_pick_lifecycle_bootstrap.sql"),
+        default=Path("sql/0004_pick_lifecycle_bootstrap.sql"),
     )
 
     bootstrap_event_asset_flow_parser = subparsers.add_parser(
@@ -111,7 +111,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     bootstrap_event_asset_flow_parser.add_argument(
         "--sql-path",
         type=Path,
-        default=Path("sql/redesign/0005_event_asset_flow_bootstrap.sql"),
+        default=Path("sql/0005_event_asset_flow_bootstrap.sql"),
     )
 
     build_pick_lifecycle_parser = subparsers.add_parser(
@@ -145,7 +145,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     bootstrap_player_tenure_parser.add_argument(
         "--sql-path",
         type=Path,
-        default=Path("sql/redesign/0003_player_tenure_bootstrap.sql"),
+        default=Path("sql/0003_player_tenure_bootstrap.sql"),
     )
 
     build_player_tenure_parser = subparsers.add_parser(

@@ -7,11 +7,11 @@ logic. They are explicit human-reviewed decisions used when source evidence is
 ambiguous or mechanically split in a way that would produce the wrong canonical
 result.
 
-The redesign loader reads `*.json`, `*.yaml`, and `*.yml` files under this
-directory by default:
+The redesign loader reads `*.json`, `*.yaml`, and `*.yml` files under
+`configs/data/` by default:
 
 ```bash
-uv --cache-dir /tmp/uv-cache run python -m redesign_cli load-overrides --overrides-path overrides
+uv --cache-dir /tmp/uv-cache run python -m redesign_cli load-overrides
 ```
 
 ## Current Bundle

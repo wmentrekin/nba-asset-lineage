@@ -3,81 +3,73 @@ python = "3.11"
 uv = "latest"
 
 [tasks.setup]
-description = "Install and lock dependencies with UV"
+description = "Install dependencies with UV"
 run = "uv sync"
 
-[tasks.bronze]
-description = "Run bronze ingest (writes to DB)"
-run = "uv run python run_pipeline.py --stage bronze"
+[tasks.test]
+description = "Run the local test suite"
+run = "uv --cache-dir /tmp/uv-cache run pytest -q"
 
-[tasks.bronze_live]
-description = "Run live-source bronze ingest (spotrac + nba_api)"
-run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api --team-code mem"
+[tasks.redesign]
+description = "Run a redesign CLI command, e.g. mise run redesign -- validate-evidence"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli"
 
-[tasks.bronze_dry_run]
-description = "Run bronze ingest validation without DB writes"
-run = "uv run python run_pipeline.py --stage bronze --dry-run"
+[tasks.stage1_bootstrap]
+description = "Apply Stage 1 evidence bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-evidence"
 
-[tasks.bronze_live_dry_run]
-description = "Run live-source bronze ingest without DB writes"
-run = "uv run python run_pipeline.py --stage bronze --ingest-mode live_sources --sources spotrac,nba_api --team-code mem --dry-run"
+[tasks.stage1_build]
+description = "Build Stage 1 evidence rows and curated overrides"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-evidence"
 
-[tasks.silver]
-description = "Run silver transform (bronze -> silver)"
-run = "uv run python run_pipeline.py --stage silver"
+[tasks.stage1_validate]
+description = "Validate Stage 1 evidence rows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-evidence"
 
-[tasks.silver_dry_run]
-description = "Run silver transform without DB writes"
-run = "uv run python run_pipeline.py --stage silver --dry-run"
+[tasks.stage2_bootstrap]
+description = "Apply Stage 2 canonical event bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-events"
 
-[tasks.gold]
-description = "Run gold exports"
-run = "uv run python run_pipeline.py --stage gold"
+[tasks.stage2_build]
+description = "Build Stage 2 canonical events"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-events"
 
-[tasks.pipeline]
-description = "Run full medallion pipeline"
-run = "uv run python run_pipeline.py"
+[tasks.stage2_validate]
+description = "Validate Stage 2 canonical events"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-events"
 
-[tasks.pipeline_live]
-description = "Run full pipeline with live-source bronze ingest"
-run = "uv run python run_pipeline.py --ingest-mode live_sources --sources spotrac,nba_api --team-code mem"
+[tasks.stage3_bootstrap]
+description = "Apply Stage 3 player tenure bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-player-tenure"
 
-[tasks.visualize]
-description = "Generate interactive HTML graph from exported CSVs"
-run = "uv run python run_pipeline.py --stage visualize"
+[tasks.stage3_build]
+description = "Build Stage 3 player tenures"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-player-tenures"
 
-[tasks.db_bootstrap]
-description = "Recreate bronze/silver schemas in Supabase (destructive)"
-run = """
-uv run python - <<'PY'
-from pathlib import Path
-import psycopg
-from db_config import load_db_config
+[tasks.stage3_validate]
+description = "Validate Stage 3 player tenures"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-player-tenures"
 
-sql = Path("sql/0001_bootstrap_bronze_silver.sql").read_text(encoding="utf-8")
-cfg = load_db_config()
-with psycopg.connect(cfg.dsn) as conn:
-    with conn.cursor() as cur:
-        cur.execute(sql)
-    conn.commit()
-print("bootstrap_complete")
-PY
-"""
+[tasks.stage4_bootstrap]
+description = "Apply Stage 4 pick lifecycle bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-pick-lifecycle"
 
-[tasks.db_clear_data]
-description = "Clear Bronze/Silver data only (keep schema)"
-run = """
-uv run python - <<'PY'
-from pathlib import Path
-import psycopg
-from db_config import load_db_config
+[tasks.stage4_build]
+description = "Build Stage 4 pick lifecycle rows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-pick-lifecycle"
 
-sql = Path("sql/0002_clear_bronze_silver_data.sql").read_text(encoding="utf-8")
-cfg = load_db_config()
-with psycopg.connect(cfg.dsn) as conn:
-    with conn.cursor() as cur:
-        cur.execute(sql)
-    conn.commit()
-print("clear_data_complete")
-PY
-"""
+[tasks.stage4_validate]
+description = "Validate Stage 4 pick lifecycle rows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-pick-lifecycle"
+
+[tasks.stage5_bootstrap]
+description = "Apply Stage 5 event-asset flow bootstrap SQL"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-event-asset-flow"
+
+[tasks.stage5_build]
+description = "Build Stage 5 event-asset flows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-event-asset-flows"
+
+[tasks.stage5_validate]
+description = "Validate Stage 5 event-asset flows"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-event-asset-flows"

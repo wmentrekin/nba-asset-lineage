@@ -13,7 +13,7 @@ from tests.evidence.helpers import load_json_fixture
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-STAGE2_OVERRIDE_PATH = PROJECT_ROOT / "overrides" / "stage2_event_merge_overrides.yaml"
+STAGE2_OVERRIDE_PATH = PROJECT_ROOT / "configs" / "data" / "stage2_event_merge_overrides.yaml"
 SECOND_PASS_OVERRIDE_IDS = {
     "override_merge_event_2023_07_08_five_team_trade",
     "override_merge_event_2025_02_06_washington_trade",
