@@ -41,7 +41,7 @@ Initial release scope:
 - `src/editorial/`
   - Stage 7 editorial overlay models, validation, loading, and export
 - `tests/`
-  - local regression tests for evidence and canonical behavior
+  - local regression tests for evidence, canonical, presentation, and editorial behavior
 
 ## Setup
 

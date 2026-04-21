@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -130,6 +131,7 @@ def _annotation_from_entry(entry: dict[str, Any], *, source: str) -> EditorialAn
         entry.get("priority"),
     )
     return EditorialAnnotation(
+        editorial_build_id="",
         annotation_id=annotation_id,
         annotation_type=_required_string(entry.get("annotation_type"), field_name="annotation_type", source=source),
         title=_required_string(entry.get("title"), field_name="title", source=source),
@@ -155,6 +157,7 @@ def _calendar_marker_from_entry(entry: dict[str, Any], *, source: str) -> Editor
         entry.get("payload"),
     )
     return EditorialCalendarMarker(
+        editorial_build_id="",
         calendar_marker_id=calendar_marker_id,
         marker_type=_required_string(entry.get("marker_type"), field_name="marker_type", source=source),
         label=_required_string(entry.get("label"), field_name="label", source=source),
@@ -178,6 +181,7 @@ def _game_overlay_from_entry(entry: dict[str, Any], *, source: str) -> Editorial
         entry.get("payload"),
     )
     return EditorialGameOverlay(
+        editorial_build_id="",
         game_overlay_id=game_overlay_id,
         game_date=game_date,
         opponent=_required_string(entry.get("opponent"), field_name="opponent", source=source),
@@ -201,6 +205,7 @@ def _era_from_entry(entry: dict[str, Any], *, source: str) -> EditorialEra:
         end_date.isoformat(),
     )
     return EditorialEra(
+        editorial_build_id="",
         era_id=era_id,
         title=_required_string(entry.get("title"), field_name="title", source=source),
         start_date=start_date,
@@ -226,6 +231,7 @@ def _story_chapter_from_entry(entry: dict[str, Any], *, source: str) -> Editoria
         end_date.isoformat(),
     )
     return EditorialStoryChapter(
+        editorial_build_id="",
         story_chapter_id=story_chapter_id,
         slug=_required_string(entry.get("slug"), field_name="slug", source=source),
         chapter_order=chapter_order,
@@ -315,11 +321,11 @@ def build_editorial_overlays(
     )
     return EditorialOverlayBuildResult(
         build=build,
-        annotations=normalized_bundle.annotations,
-        calendar_markers=normalized_bundle.calendar_markers,
-        game_overlays=normalized_bundle.game_overlays,
-        eras=normalized_bundle.eras,
-        story_chapters=normalized_bundle.story_chapters,
+        annotations=[replace(row, editorial_build_id=build.editorial_build_id) for row in normalized_bundle.annotations],
+        calendar_markers=[replace(row, editorial_build_id=build.editorial_build_id) for row in normalized_bundle.calendar_markers],
+        game_overlays=[replace(row, editorial_build_id=build.editorial_build_id) for row in normalized_bundle.game_overlays],
+        eras=[replace(row, editorial_build_id=build.editorial_build_id) for row in normalized_bundle.eras],
+        story_chapters=[replace(row, editorial_build_id=build.editorial_build_id) for row in normalized_bundle.story_chapters],
     )
 
 
@@ -339,12 +345,6 @@ def _fetch_latest_presentation_build_id(conn: Any) -> str | None:
 
 def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResult) -> dict[str, int]:
     with conn.cursor() as cur:
-        cur.execute("delete from editorial.story_chapters")
-        cur.execute("delete from editorial.eras")
-        cur.execute("delete from editorial.game_overlays")
-        cur.execute("delete from editorial.calendar_markers")
-        cur.execute("delete from editorial.annotations")
-        cur.execute("delete from editorial.builds")
         cur.execute(
             """
             insert into editorial.builds (
@@ -355,6 +355,11 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                 notes
             )
             values (%s, %s, %s, %s, %s)
+            on conflict (editorial_build_id) do update set
+                built_at = excluded.built_at,
+                builder_version = excluded.builder_version,
+                presentation_build_id = excluded.presentation_build_id,
+                notes = excluded.notes
             """,
             (
                 result.build.editorial_build_id,
@@ -368,6 +373,7 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
             cur.execute(
                 """
                 insert into editorial.annotations (
+                    editorial_build_id,
                     annotation_id,
                     annotation_type,
                     title,
@@ -380,9 +386,21 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                     created_at,
                     updated_at
                 )
-                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (editorial_build_id, annotation_id) do update set
+                    annotation_type = excluded.annotation_type,
+                    title = excluded.title,
+                    body = excluded.body,
+                    start_date = excluded.start_date,
+                    end_date = excluded.end_date,
+                    event_id = excluded.event_id,
+                    asset_id = excluded.asset_id,
+                    priority = excluded.priority,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
                 """,
                 (
+                    row.editorial_build_id,
                     row.annotation_id,
                     row.annotation_type,
                     row.title,
@@ -400,6 +418,7 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
             cur.execute(
                 """
                 insert into editorial.calendar_markers (
+                    editorial_build_id,
                     calendar_marker_id,
                     marker_type,
                     label,
@@ -408,9 +427,17 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                     created_at,
                     updated_at
                 )
-                values (%s, %s, %s, %s, %s::jsonb, %s, %s)
+                values (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                on conflict (editorial_build_id, calendar_marker_id) do update set
+                    marker_type = excluded.marker_type,
+                    label = excluded.label,
+                    marker_date = excluded.marker_date,
+                    payload = excluded.payload,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
                 """,
                 (
+                    row.editorial_build_id,
                     row.calendar_marker_id,
                     row.marker_type,
                     row.label,
@@ -424,6 +451,7 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
             cur.execute(
                 """
                 insert into editorial.game_overlays (
+                    editorial_build_id,
                     game_overlay_id,
                     game_date,
                     opponent,
@@ -434,9 +462,19 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                     created_at,
                     updated_at
                 )
-                values (%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                on conflict (editorial_build_id, game_overlay_id) do update set
+                    game_date = excluded.game_date,
+                    opponent = excluded.opponent,
+                    home_away = excluded.home_away,
+                    result = excluded.result,
+                    score_display = excluded.score_display,
+                    payload = excluded.payload,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
                 """,
                 (
+                    row.editorial_build_id,
                     row.game_overlay_id,
                     row.game_date,
                     row.opponent,
@@ -452,6 +490,7 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
             cur.execute(
                 """
                 insert into editorial.eras (
+                    editorial_build_id,
                     era_id,
                     title,
                     start_date,
@@ -461,9 +500,18 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                     created_at,
                     updated_at
                 )
-                values (%s, %s, %s, %s, %s, %s, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (editorial_build_id, era_id) do update set
+                    title = excluded.title,
+                    start_date = excluded.start_date,
+                    end_date = excluded.end_date,
+                    description = excluded.description,
+                    priority = excluded.priority,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
                 """,
                 (
+                    row.editorial_build_id,
                     row.era_id,
                     row.title,
                     row.start_date,
@@ -478,6 +526,7 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
             cur.execute(
                 """
                 insert into editorial.story_chapters (
+                    editorial_build_id,
                     story_chapter_id,
                     slug,
                     chapter_order,
@@ -490,9 +539,21 @@ def persist_editorial_overlay_build(conn: Any, result: EditorialOverlayBuildResu
                     created_at,
                     updated_at
                 )
-                values (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s)
+                on conflict (editorial_build_id, story_chapter_id) do update set
+                    slug = excluded.slug,
+                    chapter_order = excluded.chapter_order,
+                    title = excluded.title,
+                    body = excluded.body,
+                    start_date = excluded.start_date,
+                    end_date = excluded.end_date,
+                    era_id = excluded.era_id,
+                    focus_payload = excluded.focus_payload,
+                    created_at = excluded.created_at,
+                    updated_at = excluded.updated_at
                 """,
                 (
+                    row.editorial_build_id,
                     row.story_chapter_id,
                     row.slug,
                     row.chapter_order,
@@ -528,27 +589,44 @@ def build_and_persist_editorial_overlays(
     return counts
 
 
-def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
+def fetch_editorial_overlays(conn: Any, editorial_build_id: str | None = None) -> EditorialOverlayBuildResult:
     with conn.cursor() as cur:
+        if editorial_build_id is None:
+            cur.execute(
+                """
+                select
+                    editorial_build_id,
+                    built_at,
+                    builder_version,
+                    presentation_build_id,
+                    notes
+                from editorial.builds
+                order by built_at desc, editorial_build_id desc
+                limit 1
+                """
+            )
+        else:
+            cur.execute(
+                """
+                select
+                    editorial_build_id,
+                    built_at,
+                    builder_version,
+                    presentation_build_id,
+                    notes
+                from editorial.builds
+                where editorial_build_id = %s
+                """,
+                (editorial_build_id,),
+            )
+        build_row = cur.fetchone()
+        if build_row is None:
+            raise RuntimeError("no editorial build found")
+        editorial_build_id_value = build_row[0]
         cur.execute(
             """
             select
                 editorial_build_id,
-                built_at,
-                builder_version,
-                presentation_build_id,
-                notes
-            from editorial.builds
-            order by built_at desc, editorial_build_id desc
-            limit 1
-            """
-        )
-        build_row = cur.fetchone()
-        if build_row is None:
-            raise RuntimeError("no editorial build found")
-        cur.execute(
-            """
-            select
                 annotation_id,
                 annotation_type,
                 title,
@@ -561,13 +639,16 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
                 created_at,
                 updated_at
             from editorial.annotations
+            where editorial_build_id = %s
             order by start_date, end_date, priority desc, annotation_id
-            """
+            """,
+            (editorial_build_id_value,),
         )
         annotation_rows = cur.fetchall()
         cur.execute(
             """
             select
+                editorial_build_id,
                 calendar_marker_id,
                 marker_type,
                 label,
@@ -576,13 +657,16 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
                 created_at,
                 updated_at
             from editorial.calendar_markers
+            where editorial_build_id = %s
             order by marker_date, calendar_marker_id
-            """
+            """,
+            (editorial_build_id_value,),
         )
         marker_rows = cur.fetchall()
         cur.execute(
             """
             select
+                editorial_build_id,
                 game_overlay_id,
                 game_date,
                 opponent,
@@ -593,13 +677,16 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
                 created_at,
                 updated_at
             from editorial.game_overlays
+            where editorial_build_id = %s
             order by game_date, game_overlay_id
-            """
+            """,
+            (editorial_build_id_value,),
         )
         game_rows = cur.fetchall()
         cur.execute(
             """
             select
+                editorial_build_id,
                 era_id,
                 title,
                 start_date,
@@ -609,13 +696,16 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
                 created_at,
                 updated_at
             from editorial.eras
+            where editorial_build_id = %s
             order by start_date, end_date, priority desc, era_id
-            """
+            """,
+            (editorial_build_id_value,),
         )
         era_rows = cur.fetchall()
         cur.execute(
             """
             select
+                editorial_build_id,
                 story_chapter_id,
                 slug,
                 chapter_order,
@@ -628,8 +718,10 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
                 created_at,
                 updated_at
             from editorial.story_chapters
+            where editorial_build_id = %s
             order by chapter_order, start_date, story_chapter_id
-            """
+            """,
+            (editorial_build_id_value,),
         )
         story_rows = cur.fetchall()
 
@@ -642,72 +734,77 @@ def fetch_editorial_overlays(conn: Any) -> EditorialOverlayBuildResult:
     )
     annotations = [
         EditorialAnnotation(
-            annotation_id=row[0],
-            annotation_type=row[1],
-            title=row[2],
-            body=row[3],
-            start_date=row[4],
-            end_date=row[5],
-            event_id=row[6],
-            asset_id=row[7],
-            priority=row[8],
-            created_at=row[9],
-            updated_at=row[10],
+            editorial_build_id=row[0],
+            annotation_id=row[1],
+            annotation_type=row[2],
+            title=row[3],
+            body=row[4],
+            start_date=row[5],
+            end_date=row[6],
+            event_id=row[7],
+            asset_id=row[8],
+            priority=row[9],
+            created_at=row[10],
+            updated_at=row[11],
         )
         for row in annotation_rows
     ]
     calendar_markers = [
         EditorialCalendarMarker(
-            calendar_marker_id=row[0],
-            marker_type=row[1],
-            label=row[2],
-            marker_date=row[3],
-            payload=row[4],
-            created_at=row[5],
-            updated_at=row[6],
+            editorial_build_id=row[0],
+            calendar_marker_id=row[1],
+            marker_type=row[2],
+            label=row[3],
+            marker_date=row[4],
+            payload=row[5],
+            created_at=row[6],
+            updated_at=row[7],
         )
         for row in marker_rows
     ]
     game_overlays = [
         EditorialGameOverlay(
-            game_overlay_id=row[0],
-            game_date=row[1],
-            opponent=row[2],
-            home_away=row[3],
-            result=row[4],
-            score_display=row[5],
-            payload=row[6],
-            created_at=row[7],
-            updated_at=row[8],
+            editorial_build_id=row[0],
+            game_overlay_id=row[1],
+            game_date=row[2],
+            opponent=row[3],
+            home_away=row[4],
+            result=row[5],
+            score_display=row[6],
+            payload=row[7],
+            created_at=row[8],
+            updated_at=row[9],
         )
         for row in game_rows
     ]
     eras = [
         EditorialEra(
-            era_id=row[0],
-            title=row[1],
-            start_date=row[2],
-            end_date=row[3],
-            description=row[4],
-            priority=row[5],
-            created_at=row[6],
-            updated_at=row[7],
+            editorial_build_id=row[0],
+            era_id=row[1],
+            title=row[2],
+            start_date=row[3],
+            end_date=row[4],
+            description=row[5],
+            priority=row[6],
+            created_at=row[7],
+            updated_at=row[8],
         )
         for row in era_rows
     ]
     story_chapters = [
         EditorialStoryChapter(
-            story_chapter_id=row[0],
-            slug=row[1],
-            chapter_order=row[2],
-            title=row[3],
-            body=row[4],
-            start_date=row[5],
-            end_date=row[6],
-            era_id=row[7],
-            focus_payload=row[8],
-            created_at=row[9],
-            updated_at=row[10],
+            editorial_build_id=row[0],
+            story_chapter_id=row[1],
+            slug=row[2],
+            chapter_order=row[3],
+            title=row[4],
+            body=row[5],
+            start_date=row[6],
+            end_date=row[7],
+            era_id=row[8],
+            focus_payload=row[9],
+            created_at=row[10],
+            updated_at=row[11],
         )
         for row in story_rows
     ]

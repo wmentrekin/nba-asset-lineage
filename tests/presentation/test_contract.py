@@ -240,6 +240,7 @@ def test_json_contract_shape_has_nodes_edges_lanes_and_meta():
     payload = json.loads(presentation_contract_to_json(result))
 
     assert set(payload) == {"nodes", "edges", "lanes", "meta"}
+    assert "editorial" not in payload
     assert payload["meta"]["node_count"] == len(payload["nodes"])
     assert payload["meta"]["edge_count"] == len(payload["edges"])
     assert payload["meta"]["lane_count"] == len(payload["lanes"])

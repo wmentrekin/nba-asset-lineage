@@ -22,6 +22,7 @@ class EditorialBuild:
 
 @dataclass(frozen=True)
 class EditorialAnnotation:
+    editorial_build_id: str
     annotation_id: str
     annotation_type: str
     title: str
@@ -40,6 +41,7 @@ class EditorialAnnotation:
 
 @dataclass(frozen=True)
 class EditorialCalendarMarker:
+    editorial_build_id: str
     calendar_marker_id: str
     marker_type: str
     label: str
@@ -54,6 +56,7 @@ class EditorialCalendarMarker:
 
 @dataclass(frozen=True)
 class EditorialGameOverlay:
+    editorial_build_id: str
     game_overlay_id: str
     game_date: date
     opponent: str
@@ -70,6 +73,7 @@ class EditorialGameOverlay:
 
 @dataclass(frozen=True)
 class EditorialEra:
+    editorial_build_id: str
     era_id: str
     title: str
     start_date: date
@@ -85,6 +89,7 @@ class EditorialEra:
 
 @dataclass(frozen=True)
 class EditorialStoryChapter:
+    editorial_build_id: str
     story_chapter_id: str
     slug: str
     chapter_order: int

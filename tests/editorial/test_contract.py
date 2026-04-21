@@ -8,6 +8,7 @@ from canonical.models import CanonicalAsset, CanonicalEvent
 from editorial.contract import (
     build_editorial_overlays,
     editorial_overlays_to_json,
+    fetch_editorial_overlays,
     load_editorial_bundle,
 )
 from editorial.models import (
@@ -25,6 +26,7 @@ from presentation.contract import build_presentation_contract, presentation_cont
 
 
 NOW = datetime(2026, 4, 20, 12, 0, 0)
+EDITORIAL_BUILD_ID = "editorial_build_1"
 
 
 def _event(event_id: str, event_date: str) -> CanonicalEvent:
@@ -58,6 +60,7 @@ def _asset(asset_id: str) -> CanonicalAsset:
 
 def _annotation(annotation_id: str, start: str, end: str, *, event_id: str | None = None, asset_id: str | None = None, priority: int = 10) -> EditorialAnnotation:
     return EditorialAnnotation(
+        editorial_build_id=EDITORIAL_BUILD_ID,
         annotation_id=annotation_id,
         annotation_type="note",
         title=annotation_id,
@@ -74,6 +77,7 @@ def _annotation(annotation_id: str, start: str, end: str, *, event_id: str | Non
 
 def _bundle() -> EditorialOverlayBundle:
     era = EditorialEra(
+        editorial_build_id=EDITORIAL_BUILD_ID,
         era_id="era_reset",
         title="Reset era",
         start_date=date.fromisoformat("2024-02-08"),
@@ -90,6 +94,7 @@ def _bundle() -> EditorialOverlayBundle:
         ],
         calendar_markers=[
             EditorialCalendarMarker(
+                editorial_build_id=EDITORIAL_BUILD_ID,
                 calendar_marker_id="marker_deadline",
                 marker_type="trade_deadline",
                 label="2024 trade deadline",
@@ -101,6 +106,7 @@ def _bundle() -> EditorialOverlayBundle:
         ],
         game_overlays=[
             EditorialGameOverlay(
+                editorial_build_id=EDITORIAL_BUILD_ID,
                 game_overlay_id="game_overlay_bos",
                 game_date=date.fromisoformat("2024-02-08"),
                 opponent="Boston Celtics",
@@ -115,6 +121,7 @@ def _bundle() -> EditorialOverlayBundle:
         eras=[era],
         story_chapters=[
             EditorialStoryChapter(
+                editorial_build_id=EDITORIAL_BUILD_ID,
                 story_chapter_id="chapter_reset",
                 slug="reset",
                 chapter_order=1,
@@ -175,6 +182,7 @@ def test_validate_flags_incoherent_dates_and_missing_links():
     bad_bundle = EditorialOverlayBundle(
         annotations=[
             EditorialAnnotation(
+                editorial_build_id=EDITORIAL_BUILD_ID,
                 annotation_id="bad_annotation",
                 annotation_type="note",
                 title="Bad",
@@ -193,6 +201,7 @@ def test_validate_flags_incoherent_dates_and_missing_links():
         eras=[],
         story_chapters=[
             EditorialStoryChapter(
+                editorial_build_id=EDITORIAL_BUILD_ID,
                 story_chapter_id="bad_chapter",
                 slug="bad",
                 chapter_order=1,
@@ -259,7 +268,7 @@ def test_combined_presentation_export_keeps_editorial_payload_separate():
     )
     editorial = EditorialOverlayBuildResult(
         build=EditorialBuild(
-            editorial_build_id="editorial_build_1",
+            editorial_build_id=EDITORIAL_BUILD_ID,
             built_at=NOW,
             builder_version="stage7-editorial-overlay-v1",
             presentation_build_id="presentation_build_1",
@@ -274,3 +283,73 @@ def test_combined_presentation_export_keeps_editorial_payload_separate():
     assert set(payload["editorial"]) == {"annotations", "calendar_markers", "game_overlays", "eras", "story_chapters", "meta"}
     assert payload["meta"]["node_count"] == len(payload["nodes"])
     assert payload["editorial"]["meta"]["annotation_count"] == 2
+
+
+class _FakeCursor:
+    def __init__(self, responses: list[object]):
+        self._responses = responses
+        self.queries: list[tuple[str, tuple[object, ...] | None]] = []
+        self._index = 0
+
+    def execute(self, query: str, params: tuple[object, ...] | None = None) -> None:
+        self.queries.append((query, params))
+
+    def fetchone(self):
+        value = self._responses[self._index]
+        self._index += 1
+        return value
+
+    def fetchall(self):
+        value = self._responses[self._index]
+        self._index += 1
+        return value
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+class _FakeConn:
+    def __init__(self, responses: list[object]):
+        self.cursor_obj = _FakeCursor(responses)
+
+    def cursor(self):
+        return self.cursor_obj
+
+
+def test_fetch_editorial_overlays_defaults_to_latest_build_and_scopes_rows():
+    build_row = (EDITORIAL_BUILD_ID, NOW, "stage7-editorial-overlay-v1", "presentation_build_1", None)
+    row = (
+        EDITORIAL_BUILD_ID,
+        "annotation_1",
+        "note",
+        "Annotation",
+        "Body",
+        date.fromisoformat("2024-02-08"),
+        date.fromisoformat("2024-02-08"),
+        "event_trade",
+        "asset_1",
+        10,
+        NOW,
+        NOW,
+    )
+    conn = _FakeConn([build_row, [row], [], [], [], []])
+
+    result = fetch_editorial_overlays(conn)
+
+    assert result.build.editorial_build_id == EDITORIAL_BUILD_ID
+    assert result.annotations[0].editorial_build_id == EDITORIAL_BUILD_ID
+    assert conn.cursor_obj.queries[0][0].lower().strip().startswith("select")
+    assert conn.cursor_obj.queries[1][1] == (EDITORIAL_BUILD_ID,)
+
+
+def test_fetch_editorial_overlays_can_target_a_specific_build():
+    build_row = (EDITORIAL_BUILD_ID, NOW, "stage7-editorial-overlay-v1", "presentation_build_1", None)
+    conn = _FakeConn([build_row, [], [], [], [], []])
+
+    result = fetch_editorial_overlays(conn, editorial_build_id=EDITORIAL_BUILD_ID)
+
+    assert result.build.editorial_build_id == EDITORIAL_BUILD_ID
+    assert conn.cursor_obj.queries[0][1] == (EDITORIAL_BUILD_ID,)
