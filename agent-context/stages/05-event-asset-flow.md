@@ -143,7 +143,7 @@ In practice:
 Stage dependency:
 
 - this stage should not be treated as implementation-ready unless
-  `26-canonical-identity-and-reference-contract.md` is accepted as locked
+  `agent-context/contracts/identity-and-reference.md` is accepted as locked
 
 ## Minimal Validation
 

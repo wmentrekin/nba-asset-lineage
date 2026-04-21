@@ -135,7 +135,7 @@ player line.
 
 Implementation reference:
 
-- use the worked example in `26-canonical-identity-and-reference-contract.md`
+- use the worked example in `agent-context/contracts/identity-and-reference.md`
   as the authoritative continuity model for
   `future pick -> resolved slot -> drafted player -> later trade`
 

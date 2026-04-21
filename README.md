@@ -147,5 +147,5 @@ Stages 1 through 5 are implemented in the redesign path. The next architecture
 stage is Stage 6, the presentation contract. Frontend implementation should wait
 until Stage 6 produces stable frontend-ready data.
 
-See `agent-context/current-redesign-status.md` and the stage specs in
-`agent-context/` for details.
+See `agent-context/current-status.md` and the navigation map in
+`agent-context/README.md` for implementation context.

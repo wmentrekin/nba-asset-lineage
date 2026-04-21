@@ -416,8 +416,8 @@ Recommended emphasis:
 
 After this stage plan, the most useful follow-on planning docs would be:
 
-- `16-repo-structure-proposal.md`
-- `17-stage-01-evidence-layer-spec.md`
+- `agent-context/README.md`
+- `agent-context/stages/01-evidence-layer.md`
 
 The second of those is probably the best next move if implementation is close.
 

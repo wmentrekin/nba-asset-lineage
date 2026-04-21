@@ -415,6 +415,6 @@ This spec is sufficient to begin implementation of Stage 1.
 
 The next planning artifact after Stage 1 implementation begins should be:
 
-- `18-stage-02-canonical-event-spec.md`
+- `agent-context/stages/02-canonical-events.md`
 
 But that does not need to be written before starting Stage 1 code.

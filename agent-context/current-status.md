@@ -1,4 +1,4 @@
-# Current Redesign Status
+# Current Status
 
 Last updated: 2026-04-20
 
@@ -54,10 +54,23 @@ content into canonical truth.
 
 Relevant docs for Stage 6:
 
-- `agent-context/22-stage-06-presentation-contract-spec.md`
-- `agent-context/21-stage-05-event-asset-flow-spec.md`
-- `agent-context/26-canonical-identity-and-reference-contract.md`
-- `agent-context/27-provenance-and-build-versioning-contract.md`
+- `agent-context/stages/06-presentation-contract.md`
+- `agent-context/stages/05-event-asset-flow.md`
+- `agent-context/contracts/identity-and-reference.md`
+- `agent-context/contracts/provenance-and-build-versioning.md`
+
+## Readiness
+
+The planning set is implementation-ready for the current redesign path:
+
+- identity and reference semantics are locked
+- row-level provenance and build metadata requirements are locked
+- Stages 1 through 5 are implemented and locally tested
+- Stage 6 is the next implementation target
+- Stages 7 and 8 remain downstream after the presentation contract is stable
+
+Open refinements around editorial workflow, rendering technology, and future
+typed-state expansion are not blockers for Stage 6.
 
 ## Cleanup Status
 
