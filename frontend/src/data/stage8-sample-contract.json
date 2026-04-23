@@ -1,0 +1,484 @@
+{
+  "nodes": [
+    {
+      "node_id": "timeline_node_event_veteran_sign",
+      "event_id": "event_veteran_sign",
+      "event_date": "2023-10-01",
+      "event_order": 1,
+      "node_type": "event",
+      "label": "Memphis signs a veteran wing",
+      "payload": {
+        "event_type": "signing",
+        "description": "A veteran wing joins the Memphis roster in the fall rotation.",
+        "transaction_group_key": "group_veteran_run",
+        "is_compound": false,
+        "notes": "Used to anchor the outgoing player line before the February trade."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "node_id": "timeline_node_event_guard_waive",
+      "event_id": "event_guard_waive",
+      "event_date": "2024-02-01",
+      "event_order": 1,
+      "node_type": "event",
+      "label": "Memphis waives guard A",
+      "payload": {
+        "event_type": "waiver",
+        "description": "The first guard tenure closes on the same day another transaction opens.",
+        "transaction_group_key": "group_same_day_reset",
+        "is_compound": false,
+        "notes": "Same-day ordering check."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "node_id": "timeline_node_event_guard_sign",
+      "event_id": "event_guard_sign",
+      "event_date": "2024-02-01",
+      "event_order": 2,
+      "node_type": "event",
+      "label": "Memphis signs guard B",
+      "payload": {
+        "event_type": "signing",
+        "description": "A replacement guard arrives after the waiver on the same day.",
+        "transaction_group_key": "group_same_day_reset",
+        "is_compound": false,
+        "notes": "Same-day ordering check."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "node_id": "timeline_node_event_trade_pick",
+      "event_id": "event_trade_pick",
+      "event_date": "2024-02-08",
+      "event_order": 1,
+      "node_type": "event",
+      "label": "Memphis trades the veteran wing for a future second",
+      "payload": {
+        "event_type": "trade",
+        "description": "The roster move sends out the veteran wing and brings back a future pick.",
+        "transaction_group_key": "group_trade_pivot",
+        "is_compound": true,
+        "notes": "Multi-asset trade moment with an outgoing player line and incoming pick line."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "node_id": "timeline_node_event_draft",
+      "event_id": "event_draft",
+      "event_date": "2024-06-26",
+      "event_order": 1,
+      "node_type": "event",
+      "label": "Memphis drafts a player from the acquired pick",
+      "payload": {
+        "event_type": "draft",
+        "description": "The future pick resolves into a drafted player and continues as roster continuity.",
+        "transaction_group_key": "group_pick_resolution",
+        "is_compound": false,
+        "notes": "Pick-to-player transition."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "node_id": "timeline_node_event_guard_return",
+      "event_id": "event_guard_return",
+      "event_date": "2024-10-12",
+      "event_order": 1,
+      "node_type": "event",
+      "label": "Memphis re-signs guard A",
+      "payload": {
+        "event_type": "signing",
+        "description": "Guard A returns in a separate Memphis tenure segment.",
+        "transaction_group_key": "group_return_story",
+        "is_compound": false,
+        "notes": "Returning player segment should not be treated as continuous."
+      },
+      "created_at": "2026-04-21T12:00:00"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "timeline_edge_veteran_wing_line",
+      "asset_id": "asset_veteran_wing",
+      "source_node_id": "timeline_node_event_veteran_sign",
+      "target_node_id": "timeline_node_event_trade_pick",
+      "start_date": "2023-10-01",
+      "end_date": "2024-02-08",
+      "edge_type": "player_line",
+      "lane_group": "main_roster",
+      "lane_index": 0,
+      "payload": {
+        "label": "Veteran wing tenure",
+        "asset_kind": "player_tenure",
+        "player_tenure_id": "tenure_veteran_wing_1",
+        "player_id": "player_veteran_wing",
+        "player_name": "Veteran Wing",
+        "tenure_type": "signing",
+        "roster_path_type": "standard",
+        "entry_event_id": "event_veteran_sign",
+        "exit_event_id": "event_trade_pick"
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "edge_id": "timeline_edge_guard_a_first",
+      "asset_id": "asset_guard_a_tenure_1",
+      "source_node_id": "timeline_node_event_veteran_sign",
+      "target_node_id": "timeline_node_event_guard_waive",
+      "start_date": "2024-01-15",
+      "end_date": "2024-02-01",
+      "edge_type": "player_line",
+      "lane_group": "main_roster",
+      "lane_index": 1,
+      "payload": {
+        "label": "Guard A first Memphis stint",
+        "asset_kind": "player_tenure",
+        "player_tenure_id": "tenure_guard_a_1",
+        "player_id": "player_guard_a",
+        "player_name": "Guard A",
+        "tenure_type": "signing",
+        "roster_path_type": "standard",
+        "entry_event_id": "event_veteran_sign",
+        "exit_event_id": "event_guard_waive"
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "edge_id": "timeline_edge_guard_b",
+      "asset_id": "asset_guard_b_tenure_1",
+      "source_node_id": "timeline_node_event_guard_sign",
+      "target_node_id": "timeline_node_event_trade_pick",
+      "start_date": "2024-02-01",
+      "end_date": "2024-02-08",
+      "edge_type": "player_line",
+      "lane_group": "main_roster",
+      "lane_index": 2,
+      "payload": {
+        "label": "Guard B short Memphis stint",
+        "asset_kind": "player_tenure",
+        "player_tenure_id": "tenure_guard_b_1",
+        "player_id": "player_guard_b",
+        "player_name": "Guard B",
+        "tenure_type": "signing",
+        "roster_path_type": "standard",
+        "entry_event_id": "event_guard_sign",
+        "exit_event_id": "event_trade_pick"
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "edge_id": "timeline_edge_future_pick",
+      "asset_id": "asset_future_second_round_pick",
+      "source_node_id": "timeline_node_event_trade_pick",
+      "target_node_id": "timeline_node_event_draft",
+      "start_date": "2024-02-08",
+      "end_date": "2024-06-26",
+      "edge_type": "pick_line",
+      "lane_group": "future_picks",
+      "lane_index": 0,
+      "payload": {
+        "label": "Future second-round pick",
+        "asset_kind": "pick_continuity",
+        "pick_asset_id": "pick_future_second_round",
+        "pick_stage": "future_pick",
+        "draft_year": 2024,
+        "draft_round": 2,
+        "origin_team_code": "MEM",
+        "overall_pick_number": null,
+        "lottery_context": null,
+        "drafted_player_id": "player_drafted_rookie",
+        "drafted_player_name": "Drafted Rookie",
+        "source_event_id": "event_trade_pick",
+        "state_payload": {
+          "lane_group": "future_picks",
+          "state_type": "future_pick"
+        }
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "edge_id": "timeline_edge_pick_to_player",
+      "asset_id": "asset_future_second_round_pick",
+      "source_node_id": "timeline_node_event_draft",
+      "target_node_id": "timeline_node_event_guard_return",
+      "start_date": "2024-06-26",
+      "end_date": "2024-10-12",
+      "edge_type": "transition_line",
+      "lane_group": "main_roster",
+      "lane_index": 3,
+      "payload": {
+        "label": "Pick resolves into drafted player",
+        "asset_kind": "pick_continuity",
+        "pick_asset_id": "pick_future_second_round",
+        "pick_stage": "drafted_player",
+        "draft_year": 2024,
+        "draft_round": 2,
+        "origin_team_code": "MEM",
+        "overall_pick_number": 45,
+        "lottery_context": null,
+        "drafted_player_id": "player_drafted_rookie",
+        "drafted_player_name": "Drafted Rookie",
+        "source_event_id": "event_draft",
+        "state_payload": {
+          "lane_group": "main_roster",
+          "state_type": "drafted_player"
+        }
+      },
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "edge_id": "timeline_edge_guard_a_return",
+      "asset_id": "asset_guard_a_tenure_2",
+      "source_node_id": "timeline_node_event_guard_return",
+      "target_node_id": "timeline_node_event_guard_return",
+      "start_date": "2024-10-12",
+      "end_date": "2024-12-31",
+      "edge_type": "player_line",
+      "lane_group": "main_roster",
+      "lane_index": 4,
+      "payload": {
+        "label": "Guard A returns in a separate Memphis tenure",
+        "asset_kind": "player_tenure",
+        "player_tenure_id": "tenure_guard_a_2",
+        "player_id": "player_guard_a",
+        "player_name": "Guard A",
+        "tenure_type": "re-signing",
+        "roster_path_type": "standard",
+        "entry_event_id": "event_guard_return",
+        "exit_event_id": null
+      },
+      "created_at": "2026-04-21T12:00:00"
+    }
+  ],
+  "lanes": [
+    {
+      "asset_lane_id": "asset_lane_veteran_wing",
+      "asset_id": "asset_veteran_wing",
+      "lane_group": "main_roster",
+      "lane_index": 0,
+      "effective_start_date": "2023-10-01",
+      "effective_end_date": "2024-02-08",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "asset_lane_id": "asset_lane_guard_a_1",
+      "asset_id": "asset_guard_a_tenure_1",
+      "lane_group": "main_roster",
+      "lane_index": 1,
+      "effective_start_date": "2024-01-15",
+      "effective_end_date": "2024-02-01",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "asset_lane_id": "asset_lane_guard_b_1",
+      "asset_id": "asset_guard_b_tenure_1",
+      "lane_group": "main_roster",
+      "lane_index": 2,
+      "effective_start_date": "2024-02-01",
+      "effective_end_date": "2024-02-08",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "asset_lane_id": "asset_lane_future_pick",
+      "asset_id": "asset_future_second_round_pick",
+      "lane_group": "future_picks",
+      "lane_index": 0,
+      "effective_start_date": "2024-02-08",
+      "effective_end_date": "2024-10-12",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "asset_lane_id": "asset_lane_pick_to_player",
+      "asset_id": "asset_future_second_round_pick",
+      "lane_group": "main_roster",
+      "lane_index": 3,
+      "effective_start_date": "2024-06-26",
+      "effective_end_date": "2024-10-12",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    },
+    {
+      "asset_lane_id": "asset_lane_guard_a_2",
+      "asset_id": "asset_guard_a_tenure_2",
+      "lane_group": "main_roster",
+      "lane_index": 4,
+      "effective_start_date": "2024-10-12",
+      "effective_end_date": "2024-12-31",
+      "assignment_method": "deterministic_first_available_interval_v1",
+      "created_at": "2026-04-21T12:00:00"
+    }
+  ],
+  "meta": {
+    "presentation_build_id": "presentation_build_stage8_sample",
+    "built_at": "2026-04-21T12:00:00",
+    "builder_version": "stage8-frontend-sample-v1",
+    "canonical_build_id": "canonical_build_stage8_sample",
+    "notes": "Compact Stage 8 sample contract for the first Astro frontend slice.",
+    "node_count": 6,
+    "edge_count": 6,
+    "lane_count": 6
+  },
+  "editorial": {
+    "annotations": [
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "annotation_id": "annotation_trade_pivot",
+        "annotation_type": "event_note",
+        "title": "Trade pivot",
+        "body": "The February trade pairs an outgoing veteran line with a future pick arriving in the same moment.",
+        "start_date": "2024-02-08",
+        "end_date": "2024-02-08",
+        "event_id": "event_trade_pick",
+        "asset_id": "asset_future_second_round_pick",
+        "priority": 90,
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      },
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "annotation_id": "annotation_returning_player",
+        "annotation_type": "date_range_note",
+        "title": "Returning player, separate segment",
+        "body": "Guard A returns later in the season, and the UI should show a fresh segment instead of inventing continuity.",
+        "start_date": "2024-10-12",
+        "end_date": "2024-12-31",
+        "event_id": "event_guard_return",
+        "asset_id": "asset_guard_a_tenure_2",
+        "priority": 80,
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      }
+    ],
+    "calendar_markers": [
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "calendar_marker_id": "marker_trade_deadline_2024",
+        "marker_type": "trade_deadline",
+        "label": "2024 trade deadline",
+        "marker_date": "2024-02-08",
+        "payload": {
+          "league": "nba",
+          "importance": "high"
+        },
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      }
+    ],
+    "game_overlays": [
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "game_overlay_id": "game_overlay_2024_02_08",
+        "game_date": "2024-02-08",
+        "opponent": "Boston Celtics",
+        "home_away": "home",
+        "result": "loss",
+        "score_display": "131-91",
+        "payload": {
+          "notable": true,
+          "record_impact": "no_change"
+        },
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      }
+    ],
+    "eras": [
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "era_id": "era_post_deadline_reset",
+        "title": "Post-deadline reset",
+        "start_date": "2024-02-08",
+        "end_date": "2024-12-31",
+        "description": "A single-season reset that makes the roster pivot and pick conversion easy to read.",
+        "priority": 80,
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      }
+    ],
+    "story_chapters": [
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "story_chapter_id": "chapter_reset",
+        "slug": "reset",
+        "chapter_order": 1,
+        "title": "A reset begins",
+        "body": "The first chapter frames the veteran trade as the hinge between the old roster shape and a future pick-driven reset.",
+        "start_date": "2023-10-01",
+        "end_date": "2024-02-08",
+        "focus_payload": {
+          "date_range": {
+            "start_date": "2023-10-01",
+            "end_date": "2024-02-08"
+          },
+          "event_ids": [
+            "event_veteran_sign",
+            "event_trade_pick"
+          ],
+          "asset_ids": [
+            "asset_veteran_wing",
+            "asset_future_second_round_pick"
+          ],
+          "lane_groups": [
+            "main_roster",
+            "future_picks"
+          ],
+          "default_zoom": 1.1,
+          "highlight_mode": "focus"
+        },
+        "era_id": "era_post_deadline_reset",
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      },
+      {
+        "editorial_build_id": "editorial_build_stage8_sample",
+        "story_chapter_id": "chapter_pick_to_player",
+        "slug": "pick-to-player",
+        "chapter_order": 2,
+        "title": "Pick becomes player",
+        "body": "The second chapter focuses on the draft pick resolving into a player and the returning guard segment later in the year.",
+        "start_date": "2024-02-08",
+        "end_date": "2024-10-12",
+        "focus_payload": {
+          "date_range": {
+            "start_date": "2024-02-08",
+            "end_date": "2024-10-12"
+          },
+          "event_ids": [
+            "event_trade_pick",
+            "event_draft",
+            "event_guard_return"
+          ],
+          "asset_ids": [
+            "asset_future_second_round_pick",
+            "asset_guard_a_tenure_2"
+          ],
+          "lane_groups": [
+            "future_picks",
+            "main_roster"
+          ],
+          "default_zoom": 1.3,
+          "highlight_mode": "flow"
+        },
+        "era_id": "era_post_deadline_reset",
+        "created_at": "2026-04-21T12:00:00",
+        "updated_at": "2026-04-21T12:00:00"
+      }
+    ],
+    "meta": {
+      "editorial_build_id": "editorial_build_stage8_sample",
+      "built_at": "2026-04-21T12:00:00",
+      "builder_version": "stage7-editorial-overlay-v1",
+      "presentation_build_id": "presentation_build_stage8_sample",
+      "notes": "Editorial overlay payload bundled with the Stage 8 sample contract.",
+      "annotation_count": 2,
+      "calendar_marker_count": 1,
+      "game_overlay_count": 1,
+      "era_count": 1,
+      "story_chapter_count": 2
+    }
+  }
+}

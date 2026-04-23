@@ -1,5 +1,6 @@
 [tools]
 python = "3.11"
+node = "22"
 uv = "latest"
 
 [tasks.setup]
@@ -109,3 +110,23 @@ run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-
 [tasks.stage7_export_presentation]
 description = "Export Stage 6 presentation contract JSON with Stage 7 editorial overlays"
 run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract --include-editorial"
+
+[tasks.stage8_setup]
+description = "Install Stage 8 Astro frontend dependencies"
+run = "cd frontend && npm install"
+
+[tasks.stage8_dev]
+description = "Run the Stage 8 Astro frontend in development mode"
+run = "cd frontend && npm run dev"
+
+[tasks.stage8_build]
+description = "Build the Stage 8 Astro frontend"
+run = "cd frontend && npm run build"
+
+[tasks.stage8_check]
+description = "Type-check the Stage 8 Astro frontend"
+run = "cd frontend && npm run check"
+
+[tasks.stage8_test]
+description = "Run the Stage 8 frontend unit tests"
+run = "cd frontend && npm run test"

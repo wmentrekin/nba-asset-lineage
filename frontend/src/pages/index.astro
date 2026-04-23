@@ -1,0 +1,882 @@
+---
+import contract from "../data/stage8-sample-contract.json";
+import {
+  buildTimelineLayout,
+  describeTimelineRow,
+  getDefaultUiState,
+  renderTimelineScene,
+  type TimelineContract,
+} from "../lib/timeline";
+
+const timelineContract = contract as TimelineContract;
+const chapters = [...(timelineContract.editorial?.story_chapters ?? [])].sort(
+  (left, right) => left.chapter_order - right.chapter_order,
+);
+const activeChapter = chapters[0] ?? null;
+const initialState = getDefaultUiState(timelineContract, activeChapter);
+const initialLayout = buildTimelineLayout(timelineContract, initialState);
+const sceneMarkup = renderTimelineScene(initialLayout);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Memphis Asset Lineage Atlas</title>
+    <meta
+      name="description"
+      content="Stage 8 vertical slice for the Memphis Grizzlies asset lineage story."
+    />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero__copy">
+          <p class="eyebrow">Stage 8 vertical slice</p>
+          <h1>Memphis asset lineage, rendered as a readable story system.</h1>
+          <p class="lede">
+            This first Astro slice reads directly from the Stage 6 presentation contract and Stage 7 editorial overlays.
+            No hidden lineage repair, no semantic inference in the UI.
+          </p>
+        </div>
+        <div class="hero__meta">
+          <div class="meta-card">
+            <span>Nodes</span>
+            <strong>{timelineContract.meta.node_count}</strong>
+          </div>
+          <div class="meta-card">
+            <span>Edges</span>
+            <strong>{timelineContract.meta.edge_count}</strong>
+          </div>
+          <div class="meta-card">
+            <span>Chapters</span>
+            <strong>{chapters.length}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="control-group">
+          <h2>Asset type</h2>
+          <div class="button-row" data-control="asset-kind">
+            <button type="button" class="chip is-active" data-kind="all">All assets</button>
+            <button type="button" class="chip" data-kind="player_tenure">Players</button>
+            <button type="button" class="chip" data-kind="pick_continuity">Picks</button>
+          </div>
+        </div>
+        <div class="control-group">
+          <h2>Date window</h2>
+          <div class="date-row">
+            <label>
+              Start
+              <input id="window-start" type="date" value={initialState.windowStart} />
+            </label>
+            <label>
+              End
+              <input id="window-end" type="date" value={initialState.windowEnd} />
+            </label>
+          </div>
+        </div>
+        <div class="control-group">
+          <h2>Zoom</h2>
+          <input id="zoom" type="range" min="0.7" max="2.2" step="0.05" value={initialState.zoom} />
+          <div class="range-labels">
+            <span>Wider context</span>
+            <span>Closer focus</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="sidebar">
+          <section class="panel panel--chapters">
+            <h2>Chapters</h2>
+            <div class="chapter-list" data-control="chapters">
+              {chapters.map((chapter) => (
+                <button
+                  type="button"
+                  class:list={["chapter", chapter.story_chapter_id === activeChapter?.story_chapter_id && "is-active"]}
+                  data-chapter-id={chapter.story_chapter_id}
+                >
+                  <span class="chapter__order">{chapter.chapter_order}</span>
+                  <span class="chapter__text">
+                    <strong>{chapter.title}</strong>
+                    <small>{chapter.start_date} to {chapter.end_date}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section class="panel panel--chapter-body">
+            <h2>Chapter copy</h2>
+            <article id="chapter-body">
+              <p class="chapter-body__title">{activeChapter?.title}</p>
+              <p>{activeChapter?.body}</p>
+            </article>
+          </section>
+
+          <section class="panel panel--context">
+            <h2>Editorial context</h2>
+            <div class="context-list">
+              {timelineContract.editorial?.calendar_markers?.map((marker) => (
+                <div class="context-card">
+                  <strong>{marker.label}</strong>
+                  <span>{marker.marker_date}</span>
+                </div>
+              ))}
+              {timelineContract.editorial?.game_overlays?.map((game) => (
+                <div class="context-card">
+                  <strong>{game.opponent}</strong>
+                  <span>{game.game_date} · {game.score_display}</span>
+                </div>
+              ))}
+              {timelineContract.editorial?.annotations?.map((annotation) => (
+                <div class="context-card context-card--annotation">
+                  <strong>{annotation.title}</strong>
+                  <span>{annotation.start_date} to {annotation.end_date}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </aside>
+
+        <section class="timeline-panel">
+          <div class="timeline-header">
+            <div>
+              <h2>Timeline</h2>
+              <p>
+                Use the date window, zoom, and chapter controls to focus the scene. Hover or click a node or edge to inspect it.
+              </p>
+            </div>
+            <div class="timeline-header__badge" id="timeline-summary">
+              {describeTimelineRow(initialLayout.nodes[0])}
+            </div>
+          </div>
+
+          <div class="timeline-shell">
+            <svg
+              id="timeline-svg"
+              viewBox={`0 0 ${initialLayout.width} ${initialLayout.height}`}
+              width={initialLayout.width * initialState.zoom}
+              height={initialLayout.height}
+              role="img"
+              aria-label="Interactive Memphis asset lineage timeline"
+            >
+              <g id="timeline-scene" set:html={sceneMarkup}></g>
+            </svg>
+          </div>
+        </section>
+      </section>
+
+      <section class="panel panel--inspector">
+        <div class="inspector-header">
+          <div>
+            <h2>Inspector</h2>
+            <p id="inspector-summary">Hover or click an item to inspect payload details.</p>
+          </div>
+          <button type="button" class="ghost" id="clear-selection">Clear</button>
+        </div>
+        <pre id="inspector-body">{JSON.stringify(timelineContract.meta, null, 2)}</pre>
+      </section>
+    </main>
+
+    <script type="application/json" id="stage8-contract" is:inline set:html={JSON.stringify(timelineContract)}></script>
+    <script type="application/json" id="stage8-initial-state" is:inline set:html={JSON.stringify(initialState)}></script>
+    <script>
+      import {
+        buildTimelineLayout,
+        chapterFocus,
+        describeTimelineRow,
+        nodeIdForEventId,
+        renderTimelineScene,
+        type AssetKind,
+        type TimelineContract,
+        type TimelineUiState,
+      } from "../lib/timeline";
+
+      type SelectionState = { kind: "node" | "edge"; id: string } | null;
+
+      const contract = JSON.parse(document.getElementById("stage8-contract")?.textContent ?? "{}") as TimelineContract;
+      const initialState = JSON.parse(document.getElementById("stage8-initial-state")?.textContent ?? "{}") as TimelineUiState;
+      const timeline = document.getElementById("timeline-svg") as unknown as SVGSVGElement;
+      const scene = document.getElementById("timeline-scene") as unknown as SVGGElement;
+      const summary = document.getElementById("timeline-summary") as HTMLElement;
+      const inspectorSummary = document.getElementById("inspector-summary") as HTMLElement;
+      const inspectorBody = document.getElementById("inspector-body") as HTMLElement;
+      const startInput = document.getElementById("window-start") as HTMLInputElement;
+      const endInput = document.getElementById("window-end") as HTMLInputElement;
+      const zoomInput = document.getElementById("zoom") as HTMLInputElement;
+      const clearButton = document.getElementById("clear-selection") as HTMLButtonElement;
+      const chapterList = document.querySelector('[data-control="chapters"]') as HTMLElement;
+      const chapterBody = document.getElementById("chapter-body") as HTMLElement;
+      const assetButtons = Array.from(document.querySelectorAll<HTMLElement>('[data-control="asset-kind"] .chip'));
+
+      let state: TimelineUiState = {
+        ...initialState,
+        assetKinds: initialState.assetKinds ?? ["player_tenure", "pick_continuity"],
+      };
+      let selected: SelectionState = null;
+
+      function setInspector(title: string, payload: unknown) {
+        inspectorSummary.textContent = title;
+        inspectorBody.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function inspectableTarget(event: Event): HTMLElement | null {
+        const element = event.target instanceof Element ? event.target : null;
+        return element?.closest<HTMLElement>("[data-inspectable='true']") ?? null;
+      }
+
+      function applyChapterFocus(chapterId: string) {
+        const chapter = contract.editorial?.story_chapters?.find((row) => row.story_chapter_id === chapterId);
+        if (!chapter) {
+          return;
+        }
+        const focus = chapterFocus(chapter, { start: state.windowStart, end: state.windowEnd });
+        state = {
+          ...state,
+          windowStart: focus.windowStart,
+          windowEnd: focus.windowEnd,
+          zoom: focus.zoom,
+          selectedChapterId: chapter.story_chapter_id,
+        };
+        startInput.value = focus.windowStart;
+        endInput.value = focus.windowEnd;
+        zoomInput.value = String(focus.zoom);
+        for (const button of chapterList.querySelectorAll(".chapter")) {
+          button.classList.toggle("is-active", button instanceof HTMLElement && button.dataset.chapterId === chapterId);
+        }
+        chapterBody.replaceChildren();
+        const title = document.createElement("p");
+        title.className = "chapter-body__title";
+        title.textContent = chapter.title;
+        const body = document.createElement("p");
+        body.textContent = chapter.body;
+        chapterBody.append(title, body);
+        render();
+        requestAnimationFrame(() => {
+          const targetEventId = chapter.focus_payload?.event_ids?.[0];
+          const targetNodeId = targetEventId ? nodeIdForEventId(contract, targetEventId) : null;
+          if (targetEventId) {
+            const target = targetNodeId ? scene.querySelector(`[data-node-id="${targetNodeId}"]`) : null;
+            target?.scrollIntoView({ block: "nearest", inline: "center" });
+          }
+        });
+      }
+
+      function setAssetKinds(kind: string) {
+        state.assetKinds = kind === "all" ? ["player_tenure", "pick_continuity"] : [kind as AssetKind];
+        for (const button of assetButtons) {
+          button.classList.toggle("is-active", button.dataset.kind === kind);
+        }
+        render();
+      }
+
+      function syncTimelineSize(layout: ReturnType<typeof buildTimelineLayout>) {
+        timeline.setAttribute("viewBox", `0 0 ${layout.width} ${layout.height}`);
+        timeline.setAttribute("width", String(layout.width * Number(state.zoom)));
+        timeline.setAttribute("height", String(layout.height));
+      }
+
+      function render(): ReturnType<typeof buildTimelineLayout> {
+        const layout = buildTimelineLayout(contract, state);
+        syncTimelineSize(layout);
+        scene.innerHTML = renderTimelineScene(layout);
+        summary.textContent = describeTimelineRow(layout.nodes.find((row) => row.focused) ?? layout.nodes[0]);
+
+        const currentSelection = selected;
+        const selectedNodeVisible = currentSelection?.kind === "node" ? layout.nodes.some((row) => row.node_id === currentSelection.id) : false;
+        const selectedEdgeVisible = currentSelection?.kind === "edge" ? layout.edges.some((row) => row.edge_id === currentSelection.id) : false;
+        selected = selectedNodeVisible || selectedEdgeVisible ? selected : null;
+
+        const retainedSelection = selected;
+        if (retainedSelection?.kind === "node") {
+          const current = layout.nodes.find((row) => row.node_id === retainedSelection.id);
+          if (current) {
+            setInspector(`Node ${current.label}`, current);
+          }
+        } else if (retainedSelection?.kind === "edge") {
+          const current = layout.edges.find((row) => row.edge_id === retainedSelection.id);
+          if (current) {
+            setInspector(`Edge ${current.edge_id}`, current);
+          }
+        }
+        return layout;
+      }
+
+      function inspectNode(nodeId: string, locked = false) {
+        const layout = buildTimelineLayout(contract, state);
+        const node = layout.nodes.find((row) => row.node_id === nodeId);
+        if (!node) {
+          return;
+        }
+        if (locked) {
+          selected = { kind: "node", id: nodeId };
+        }
+        setInspector(`${locked ? "Selected" : "Preview"} node`, node);
+        summary.textContent = describeTimelineRow(node);
+      }
+
+      function inspectEdge(edgeId: string, locked = false) {
+        const layout = buildTimelineLayout(contract, state);
+        const edge = layout.edges.find((row) => row.edge_id === edgeId);
+        if (!edge) {
+          return;
+        }
+        if (locked) {
+          selected = { kind: "edge", id: edgeId };
+        }
+        setInspector(`${locked ? "Selected" : "Preview"} edge`, edge);
+        summary.textContent = `${edge.edge_type} · ${edge.asset_id}`;
+      }
+
+      timeline.addEventListener("pointerover", (event) => {
+        const target = inspectableTarget(event);
+        if (!target) {
+          return;
+        }
+        if (target.dataset.kind === "node") {
+          inspectNode(target.dataset.nodeId ?? "");
+        } else if (target.dataset.kind === "edge") {
+          inspectEdge(target.dataset.edgeId ?? "");
+        }
+      });
+
+      timeline.addEventListener("focusin", (event) => {
+        const target = inspectableTarget(event);
+        if (!target) {
+          return;
+        }
+        if (target.dataset.kind === "node") {
+          inspectNode(target.dataset.nodeId ?? "");
+        } else if (target.dataset.kind === "edge") {
+          inspectEdge(target.dataset.edgeId ?? "");
+        }
+      });
+
+      timeline.addEventListener("click", (event) => {
+        const target = inspectableTarget(event);
+        if (!target) {
+          return;
+        }
+        if (target.dataset.kind === "node") {
+          inspectNode(target.dataset.nodeId ?? "", true);
+        } else if (target.dataset.kind === "edge") {
+          inspectEdge(target.dataset.edgeId ?? "", true);
+        }
+      });
+
+      assetButtons.forEach((button) => {
+        button.addEventListener("click", () => setAssetKinds(button.dataset.kind ?? "all"));
+      });
+
+      startInput.addEventListener("change", () => {
+        state.windowStart = startInput.value;
+        render();
+      });
+
+      endInput.addEventListener("change", () => {
+        state.windowEnd = endInput.value;
+        render();
+      });
+
+      zoomInput.addEventListener("input", () => {
+        state.zoom = Number(zoomInput.value);
+        render();
+      });
+
+      chapterList.addEventListener("click", (event) => {
+        const chapterTarget = event.target instanceof Element ? event.target : null;
+        const chapterButton = chapterTarget?.closest(".chapter");
+        if (!(chapterButton instanceof HTMLElement)) {
+          return;
+        }
+        applyChapterFocus(chapterButton.dataset.chapterId ?? "");
+      });
+
+      clearButton.addEventListener("click", () => {
+        selected = null;
+        setInspector("Selection cleared", contract.meta);
+      });
+
+      render();
+    </script>
+  </body>
+</html>
+
+<style>
+  :global(body) {
+    margin: 0;
+    color: #f5efe6;
+    background:
+      radial-gradient(circle at top, rgba(20, 184, 166, 0.22), transparent 32%),
+      radial-gradient(circle at right, rgba(244, 193, 74, 0.14), transparent 26%),
+      linear-gradient(180deg, #061017 0%, #0c1319 52%, #090d12 100%);
+    font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  }
+
+  .shell {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+
+  .eyebrow {
+    margin: 0 0 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: #f4c14a;
+    font-size: 0.75rem;
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  }
+
+  h1 {
+    max-width: 16ch;
+    font-size: clamp(2.7rem, 4vw, 5.2rem);
+    line-height: 0.92;
+  }
+
+  .lede {
+    max-width: 68ch;
+    margin: 16px 0 0;
+    color: rgba(245, 239, 230, 0.82);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  .hero__meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(96px, 1fr));
+    gap: 12px;
+  }
+
+  .meta-card,
+  .panel,
+  .control-group,
+  .timeline-header,
+  .context-card {
+    border: 1px solid rgba(216, 243, 255, 0.13);
+    background: rgba(7, 18, 26, 0.72);
+    backdrop-filter: blur(18px);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.2);
+  }
+
+  .meta-card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .meta-card span,
+  .control-group h2,
+  .panel h2 {
+    display: block;
+    color: rgba(245, 239, 230, 0.72);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.72rem;
+  }
+
+  .meta-card strong {
+    display: block;
+    font-size: 2rem;
+    margin-top: 8px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .control-group {
+    border-radius: 20px;
+    padding: 18px 18px 16px;
+  }
+
+  .button-row,
+  .date-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .chip,
+  .ghost,
+  .chapter {
+    border: 1px solid rgba(216, 243, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+  }
+
+  .chip {
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+  }
+
+  .chip.is-active {
+    background: rgba(244, 193, 74, 0.18);
+    border-color: rgba(244, 193, 74, 0.62);
+  }
+
+  .chip:hover,
+  .chapter:hover,
+  .ghost:hover {
+    transform: translateY(-1px);
+  }
+
+  .date-row label {
+    display: grid;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: rgba(245, 239, 230, 0.76);
+  }
+
+  input[type="date"],
+  input[type="range"] {
+    accent-color: #f4c14a;
+  }
+
+  input[type="date"] {
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(216, 243, 255, 0.14);
+    background: rgba(5, 12, 18, 0.7);
+    color: #f5efe6;
+  }
+
+  .range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: rgba(245, 239, 230, 0.55);
+    font-size: 0.78rem;
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+
+  .sidebar {
+    display: grid;
+    gap: 16px;
+    position: sticky;
+    top: 20px;
+  }
+
+  .panel {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .chapter-list,
+  .context-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .chapter {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .chapter.is-active {
+    background: rgba(20, 184, 166, 0.15);
+    border-color: rgba(20, 184, 166, 0.46);
+  }
+
+  .chapter__order {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    border-radius: 50%;
+    background: rgba(244, 193, 74, 0.16);
+    color: #f4c14a;
+    font-weight: 700;
+  }
+
+  .chapter__text {
+    display: grid;
+    gap: 4px;
+  }
+
+  .chapter__text small,
+  .context-card span,
+  .timeline-header p,
+  .inspector-header p {
+    color: rgba(245, 239, 230, 0.66);
+  }
+
+  .timeline-panel {
+    display: grid;
+    gap: 14px;
+  }
+
+  .timeline-header,
+  .panel--inspector {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .timeline-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: center;
+  }
+
+  .timeline-header__badge {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(244, 193, 74, 0.12);
+    color: #f4c14a;
+    min-width: 220px;
+  }
+
+  .timeline-shell {
+    overflow: auto;
+    border-radius: 24px;
+    border: 1px solid rgba(216, 243, 255, 0.13);
+    background:
+      linear-gradient(180deg, rgba(8, 18, 25, 0.95), rgba(4, 9, 13, 0.96)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.025) 0,
+        rgba(255, 255, 255, 0.025) 1px,
+        transparent 1px,
+        transparent 56px
+      );
+  }
+
+  svg {
+    display: block;
+  }
+
+  .timeline-grid__lane {
+    stroke: rgba(216, 243, 255, 0.08);
+    stroke-width: 1;
+  }
+
+  .timeline-lane-label {
+    fill: rgba(245, 239, 230, 0.52);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .timeline-axis__tick {
+    stroke: rgba(216, 243, 255, 0.08);
+    stroke-width: 1;
+  }
+
+  .timeline-axis__tick--major {
+    stroke: rgba(244, 193, 74, 0.28);
+  }
+
+  .timeline-axis__label {
+    fill: rgba(245, 239, 230, 0.52);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  .timeline-axis__label--major {
+    fill: #f4c14a;
+  }
+
+  .timeline-marker__line {
+    stroke: rgba(244, 193, 74, 0.7);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 5;
+  }
+
+  .timeline-marker__badge {
+    fill: rgba(244, 193, 74, 0.18);
+    stroke: rgba(244, 193, 74, 0.34);
+  }
+
+  .timeline-marker__text {
+    fill: #f4c14a;
+    font-size: 11px;
+  }
+
+  .timeline-edge {
+    fill: none;
+    stroke: rgba(20, 184, 166, 0.78);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.95;
+    cursor: pointer;
+    transition: stroke 120ms ease, stroke-width 120ms ease, opacity 120ms ease;
+  }
+
+  .timeline-edge--pick_line {
+    stroke: rgba(244, 193, 74, 0.9);
+  }
+
+  .timeline-edge--transition_line {
+    stroke: rgba(216, 243, 255, 0.88);
+    stroke-dasharray: 12 8;
+  }
+
+  .timeline-edge.is-focused,
+  .timeline-node.is-focused,
+  .timeline-marker.is-focused {
+    filter: drop-shadow(0 0 14px rgba(244, 193, 74, 0.24));
+  }
+
+  .timeline-edge:hover,
+  .timeline-node:hover {
+    opacity: 1;
+  }
+
+  .timeline-edge__anchor {
+    fill: #0c1319;
+    stroke: rgba(245, 239, 230, 0.9);
+    stroke-width: 1;
+  }
+
+  .timeline-node {
+    cursor: pointer;
+  }
+
+  .timeline-node__ring {
+    fill: rgba(8, 18, 25, 0.96);
+    stroke: rgba(244, 193, 74, 0.56);
+    stroke-width: 1.5;
+  }
+
+  .timeline-node__dot {
+    fill: #f4c14a;
+    stroke: rgba(8, 18, 25, 0.96);
+    stroke-width: 3;
+  }
+
+  .timeline-node__label,
+  .timeline-node__meta {
+    fill: rgba(245, 239, 230, 0.84);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  .timeline-node__meta {
+    fill: rgba(245, 239, 230, 0.54);
+  }
+
+  .is-hidden {
+    display: none;
+  }
+
+  .panel--inspector {
+    margin-top: 18px;
+  }
+
+  .inspector-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 14px;
+  }
+
+  .ghost {
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+
+  #inspector-body {
+    margin: 0;
+    max-height: 360px;
+    overflow: auto;
+    padding: 18px;
+    border-radius: 16px;
+    background: rgba(4, 8, 12, 0.72);
+    border: 1px solid rgba(216, 243, 255, 0.12);
+    color: #d8f3ff;
+    font-size: 0.86rem;
+    line-height: 1.6;
+  }
+
+  .context-card {
+    display: grid;
+    gap: 6px;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .context-card--annotation {
+    border-color: rgba(244, 193, 74, 0.24);
+  }
+
+  .chapter-body__title {
+    margin: 0 0 8px;
+    font-weight: 700;
+    color: #f4c14a;
+  }
+
+  @media (max-width: 1080px) {
+    .controls,
+    .workspace,
+    .hero {
+      grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      position: static;
+    }
+
+    .hero__meta {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .timeline-header {
+      flex-direction: column;
+      align-items: start;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .shell {
+      padding: 18px 14px 36px;
+    }
+
+    h1 {
+      font-size: clamp(2.3rem, 10vw, 3.8rem);
+    }
+
+    .hero__meta {
+      grid-template-columns: 1fr;
+    }
+
+    .control-group,
+    .panel,
+    .timeline-header {
+      padding: 16px;
+    }
+  }
+</style>

@@ -1,6 +1,6 @@
 # Current Status
 
-Last updated: 2026-04-20
+Last updated: 2026-04-21
 
 ## Scope
 
@@ -24,6 +24,8 @@ structure and is not the target architecture.
 - Stage 7 editorial overlay generation is implemented with deterministic
   annotations, calendar markers, game overlays, eras, story chapters, validation,
   build metadata, and JSON export.
+- Stage 8 frontend vertical slice is implemented as an Astro app scaffold with
+  a sample contract, a primary timeline page, and utility-level tests.
 
 ## Current Data Inputs
 
@@ -36,6 +38,10 @@ The active Stage 2 bundle is:
 The active Stage 7 editorial seed bundle is:
 
 - `configs/data/stage7_editorial_overlays.yaml`
+
+Stage 8 uses a compact frontend sample contract under:
+
+- `frontend/src/data/stage8-sample-contract.json`
 
 This bundle is a reproducible curated input, not scratch data. It should remain
 tracked unless the underlying event merge decisions are replaced by another
@@ -51,16 +57,21 @@ Redesign bootstrap SQL now lives directly under `sql/`:
 - `sql/0004_pick_lifecycle_bootstrap.sql`
 - `sql/0005_event_asset_flow_bootstrap.sql`
 - `sql/0006_presentation_contract_bootstrap.sql`
+- `sql/0007_editorial_overlay_bootstrap.sql`
 
 Legacy Bronze/Silver bootstrap SQL has been removed from the active command
 surface.
 
 ## Next Stage
 
-The next architecture stage is Stage 8: the first frontend slice.
+The next architecture stage is Stage 9: historical backfill and QA.
 
 Stage 7 layers editorial context on top of the Stage 6 presentation contract.
 It does not alter canonical truth or require frontend-side lineage inference.
+
+Stage 8 now renders directly from the Stage 6 presentation contract with
+Stage 7 editorial overlays, using a credible standalone first slice rather than
+frontend-side semantic repair.
 
 ## Readiness
 
@@ -68,10 +79,9 @@ The planning set is implementation-ready for the current redesign path:
 
 - identity and reference semantics are locked
 - row-level provenance and build metadata requirements are locked
-- Stages 1 through 6 are implemented and locally tested
+- Stages 1 through 8 are implemented and locally tested
 - Stage 7 is implemented and available through the redesign CLI
-- Stage 8 remains downstream after the presentation contract and editorial
-  overlay are stable
+- Stage 8 is available as the first Astro frontend slice
 
 Open refinements around editorial workflow, rendering technology, and future
 typed-state expansion are not blockers for Stage 6.

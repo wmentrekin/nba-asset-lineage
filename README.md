@@ -60,6 +60,10 @@ or:
 uv sync
 ```
 
+Stage 8 uses Astro and requires Node `>=18.20.8`. On this machine the system
+`node` is too old, so use the Node version managed by `mise`, `nvm`, or another
+version manager before running frontend commands.
+
 ## Tests
 
 Run the local test suite:
@@ -149,6 +153,20 @@ mise run stage7_export
 mise run stage7_export_presentation
 ```
 
+Stage 8 frontend vertical slice:
+
+```bash
+mise run stage8_setup
+mise run stage8_check
+mise run stage8_test
+mise run stage8_build
+mise run stage8_dev
+```
+
+The built static artifact is generated at `frontend/dist/index.html`. For local
+inspection, run `mise run stage8_dev` or open the built HTML after
+`mise run stage8_build`.
+
 ## Curated Overrides
 
 Stage 2 event merge overrides live in:
@@ -166,12 +184,19 @@ Stage 7 editorial overlays live in:
 configs/data/stage7_editorial_overlays.yaml
 ```
 
+Stage 8 frontend source lives under:
+
+```text
+frontend/
+```
+
 ## Current Status
 
 Stages 1 through 7 are implemented in the redesign path. Stage 7 adds the
-editorial overlay layer without changing canonical lineage truth. Frontend
-implementation should wait until the presentation contract and editorial
-overlay are stable.
+editorial overlay layer without changing canonical lineage truth. Stage 8 is
+the first Astro frontend vertical slice and should render directly from the
+presentation contract plus editorial overlays without frontend-side lineage
+repair.
 
 See `agent-context/current-status.md` and the navigation map in
 `agent-context/README.md` for implementation context.

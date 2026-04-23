@@ -1,0 +1,23 @@
+{
+  "name": "nba-asset-lineage-frontend",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=18.20.8"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@types/node": "^22.15.0",
+    "astro": "^5.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}
