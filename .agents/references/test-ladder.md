@@ -1,6 +1,6 @@
 # Test Ladder
 
-Default order for `/test`:
+Default order for `$test`:
 
 1. lint
 2. types

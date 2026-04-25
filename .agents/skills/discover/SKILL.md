@@ -1,117 +1,84 @@
 ---
 name: discover
-description: Identify the task, gather and freeze requirements, coordinate repo and optional web research, and produce docs/<feature>/requirements.yaml for downstream planning.
+description: Orchestrate task identification, requirements gathering, repo research, and optional platform research, then write docs/<feature>/requirements.yaml.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill at the start of work to clarify what should be built, why it matters, and what constraints define success.
+Use `$discover` at the start of work.
 
-This skill owns:
-- task identification
-- requirements gathering
-- repo-local research coordination
-- optional web/platform research coordination
-- requirements freeze recommendation
-- creation of `docs/<feature>/requirements.yaml`
+This skill defines the task before planning begins.
 
-This skill does not own solution design or code changes.
+# Must Read First
 
-# When to Use
+1. `.agents/AGENTS.md`
+2. `.agents/skills/discover/SKILL.md`
+3. `.agents/agents/researcher.md`
+4. `.agents/agents/platform-researcher.md`
+5. `.agents/templates/requirements.yaml`
+6. `.agents/references/workflow-overview.md`
 
-Use when:
-- the user has a new feature, fix, refactor, or investigation request
-- the task is not yet clearly defined
-- repo context or external platform facts need to be gathered before planning
+# Must Spawn
 
-Do not use when:
-- an approved `plan.yaml` already exists and the task is ready for execution
-- the user only wants implementation on a clearly bounded existing plan
+`$discover` should do most work through subagents.
+
+Default behavior:
+- spawn a `researcher` when repo context is needed
+- spawn a `platform-researcher` when current external facts are needed
+
+Do not keep discovery work in the main session by default.
 
 # Inputs
 
 - user request
 - repo docs and source-of-truth files
 - prior work artifacts in `docs/<feature>/` if they exist
-- project constraints from `AGENTS.md` or equivalent
-
-# References
-
-- agent definition: `agents/researcher.md`
-- agent definition: `agents/platform-researcher.md`
-- template: `templates/requirements.yaml`
-- shared overview: `references/workflow-overview.md`
+- project constraints from `.agents/AGENTS.md`
 
 # Outputs
 
-Required output:
+Required artifact:
 - `docs/<feature>/requirements.yaml`
 
-Optional supporting outputs:
-- brief research notes in chat
-- escalations to the user for unresolved product or scope questions
+Use:
+- `.agents/templates/requirements.yaml`
 
-# Agent Model
+# User Updates
 
-`/discover` may use:
-- `researcher` for repo-local investigation
-- `platform-researcher` only when current external/platform/web facts are required
+Keep user updates regular and explicit.
 
-Both researchers must receive:
-- a narrow question
-- only the relevant files or source links
-- a concrete expected output
+Standard update pattern:
+- current phase in the workflow
+- what subagent was spawned or why none was needed
+- what question is being resolved
+- what artifact will be updated next
 
-# Workflow
+Prompt the user with the next `$command`, not a `/command`.
 
-## 1. Identify the Task
+# Subagent Handoff
 
-Normalize the user request into a bounded task definition:
-- problem statement
-- motivation
-- target outcome
-- obvious boundaries
+For `researcher`:
+- objective: answer a narrow repo question
+- read: `.agents/agents/researcher.md`
+- include: exact repo paths when known
+- output: relevant paths, findings, ambiguities
 
-If the task is too broad, narrow it before moving on.
+For `platform-researcher`:
+- objective: answer a narrow external/platform question
+- read: `.agents/agents/platform-researcher.md`
+- include: exact question and source constraints
+- output: findings suitable for `docs/<feature>/requirements.yaml`
 
-## 2. Gather Requirements
+# Process
 
-Work with the user to capture:
-- goals
-- non-goals
-- constraints
-- assumptions
-- acceptance criteria
-- open questions
+1. identify the bounded task
+2. gather goals, non-goals, constraints, assumptions, acceptance criteria, and open questions
+3. spawn repo research and platform research as needed
+4. integrate findings into a single requirements contract
+5. determine whether requirements are ready for planning
+6. write `docs/<feature>/requirements.yaml`
 
-Do not move into design.
-
-## 3. Run Targeted Research
-
-Use repo research when local context is missing.
-
-Use platform/web research only when:
-- current APIs, libraries, vendor behavior, pricing, standards, or docs may have changed
-- the task depends on latest information
-
-Do not research speculatively.
-
-## 4. Freeze Candidate Requirements
-
-Requirements are ready for handoff when:
-- the problem is clear
-- goals and non-goals are explicit
-- constraints are known
-- acceptance criteria are testable
-- open questions are resolved or explicitly marked blocking
-
-If they are not ready, keep clarifying or escalate.
-
-## 5. Write `requirements.yaml`
-
-Write the durable requirements contract using the shared template.
-
-# Escalation Rules
+# Escalation
 
 Escalate when:
 - the request contains conflicting goals
@@ -120,17 +87,11 @@ Escalate when:
 - external research is needed but the question is still vague
 - new scope appears that changes the task materially
 
-Do not guess at product intent.
+# Completion
 
-# Handoff Standard
+`docs/<feature>/requirements.yaml` is complete only if it is strong enough for `$plan` to work without reopening basic task definition.
 
-`requirements.yaml` must be strong enough that `/plan` can produce a solution without reopening basic task-definition work.
+# Next Recommended Command
 
-Write it using `templates/requirements.yaml` and store it at `docs/<feature>/requirements.yaml`.
-
-# Style Guidance
-
-- Be collaborative and explicit.
-- Ask targeted questions.
-- Separate facts from assumptions.
-- Keep the artifact concise but complete.
+- if requirements are ready: `$plan`
+- if blocking questions remain: continue `$discover`

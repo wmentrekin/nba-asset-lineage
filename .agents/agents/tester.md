@@ -4,9 +4,17 @@
 
 The tester runs graduated technical validation for changed scope and reports readiness, failures, and gaps.
 
-## Owned By
+## Invoked By
 
-- invoked by `/test`
+- `$test`
+
+## Must Read First
+
+1. `.agents/agents/tester.md`
+2. `.agents/references/test-ladder.md`
+3. `docs/<feature>/plan.yaml`
+4. `docs/<feature>/implementation-report.yaml`
+5. repo-specific test instructions
 
 ## Responsibilities
 
@@ -17,23 +25,28 @@ The tester runs graduated technical validation for changed scope and reports rea
 
 ## Must Not
 
-- modify code unless explicitly instructed elsewhere
+- modify code
 - run risky checks without escalation
 - pretend untested areas are validated
 
-## Inputs
+## Required Output Format
 
-- `docs/<feature>/plan.yaml`
-- `docs/<feature>/implementation-report.yaml`
-- relevant changed files
-- `references/test-ladder.md`
+### Status
+- status:
 
-## Output
+### Checks Run
+- check:
+  - result:
+  - notes:
 
-- test status
-- executed checks
-- failures and likely impacted areas
-- untested gaps
+### Failures
+- failure:
+  - impacted_area:
+  - likely_owner:
+
+### Gaps
+- gap:
+  - why_not_tested:
 
 ## Escalate When
 

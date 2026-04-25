@@ -1,4 +1,4 @@
-# Contract: final readiness decision from /validate
+# Contract: final readiness decision from $validate
 
 artifact: validation_report
 feature: "<feature-slug>"
