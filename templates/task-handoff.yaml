@@ -1,4 +1,4 @@
-# Contract: task handoff from /implement to developer agents
+# Contract: task handoff from $implement to developer agents
 
 artifact: task_handoff
 feature: "<feature-slug>"

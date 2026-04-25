@@ -1,95 +1,67 @@
 ---
 name: refine
-description: Critique and improve docs/<feature>/plan.yaml against requirements, drive the plan review loop, and approve or escalate within a maximum of three cycles.
+description: Orchestrate plan review with the reviewer agent, run the plan review loop, and approve or escalate within three cycles.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill to review and tighten a plan before implementation starts.
+Use `$refine` after `$plan` has produced a draft `docs/<feature>/plan.yaml`.
 
-This skill owns:
-- plan review
-- revision control for the plan loop
-- approval or escalation
+# Must Read First
 
-This skill does not gather new requirements unless the plan must be sent back to `/discover`.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/refine/SKILL.md`
+3. `.agents/agents/reviewer.md`
+4. `.agents/references/review-checklist.md`
+5. `docs/<feature>/requirements.yaml`
+6. `docs/<feature>/plan.yaml`
 
-# When to Use
+# Must Spawn
 
-Use when:
-- a draft `docs/<feature>/plan.yaml` exists
-- `requirements.yaml` exists
-- the workflow needs a design review before implementation
+`$refine` must use the `reviewer` agent.
 
-Do not use when:
-- no concrete plan exists
-- requirements are still unstable
+Do not perform the substantive plan critique only in the main session.
 
 # Inputs
 
 - `docs/<feature>/requirements.yaml`
 - draft `docs/<feature>/plan.yaml`
-- relevant repo context if needed
-
-# References
-
-- agent definition: `agents/reviewer.md`
-- checklist: `references/review-checklist.md`
-- template under review: `templates/plan.yaml`
 
 # Outputs
 
-Required output:
+Required artifact:
 - approved or revised `docs/<feature>/plan.yaml`
 
-The reviewed artifact must remain at `docs/<feature>/plan.yaml` and conform to `templates/plan.yaml`.
+Reference:
+- `.agents/templates/plan.yaml`
 
-Optional outputs:
-- explicit escalation to `/discover` or the user
+# User Updates
 
-# Agent Model
+Standard update pattern:
+- state the current review cycle count
+- state that the reviewer agent was spawned
+- summarize the current blocking issues or approval status
+- state whether the next action is another refinement cycle or a handoff to `$implement`
 
-`/refine` uses the `reviewer` agent to critique the plan.
+Prompt the user with the next `$command`.
 
-The reviewer must evaluate:
-- requirements alignment
-- scope control
-- feasibility
-- task decomposition quality
-- validation completeness
-- risks and open questions
+# Subagent Handoff
 
-# Loop Rules
+For `reviewer`:
+- objective: critique the plan against requirements and readiness
+- read: `.agents/agents/reviewer.md`
+- include: `docs/<feature>/requirements.yaml`, `docs/<feature>/plan.yaml`, `.agents/references/review-checklist.md`
+- output: decision, findings, gaps, readiness
 
-Maximum loop count:
-- 3 review cycles
+# Process
 
-After 3 cycles, do one of:
-- approve if good enough
-- escalate to the user
-- send back to `/discover` if requirements are the real problem
+1. spawn the reviewer on the current plan
+2. collect the decision and findings
+3. revise the plan or send it back for revision
+4. repeat up to 3 cycles
+5. approve, escalate, or send back to `$discover`
 
-Do not loop indefinitely.
-
-# Decision Outcomes
-
-Return exactly one:
-- `APPROVED`
-- `APPROVED_WITH_CHANGES`
-- `CHANGES_REQUIRED`
-- `ESCALATE`
-
-# Approval Standard
-
-The plan is ready only if:
-- it aligns with requirements
-- task boundaries are clear
-- dependencies are explicit
-- validation expectations exist
-- major risks are known
-- `/implement` should not need to guess
-
-# Escalation Rules
+# Escalation
 
 Escalate when:
 - requirements and design conflict
@@ -97,8 +69,17 @@ Escalate when:
 - the plan still depends on unknown facts
 - scope is no longer bounded
 
-# Style Guidance
+# Completion
 
-- Be specific and actionable.
-- Prefer targeted changes over broad rewrites.
-- Protect implementation from ambiguity.
+The plan is complete only if:
+- it aligns with requirements
+- task boundaries are clear
+- dependencies are explicit
+- validation expectations exist
+- `$implement` should not need to guess
+
+# Next Recommended Command
+
+- if the plan is approved: `$implement`
+- if requirements are the real blocker: `$discover`
+- if another review cycle is needed: continue `$refine`

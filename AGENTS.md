@@ -1,70 +1,131 @@
 # AGENTS.md
 
-This repo is the shared source of truth for subtree-friendly workflow assets that can be imported into project repos under `.agents/`.
+Use this file as the entry point when these workflow assets are imported into a project repo under `.agents/`.
 
-## Purpose
+## Command Convention
 
-Use these assets to run a structured workflow with explicit phase boundaries, narrow subagent context, and durable handoff artifacts stored in project repos under `docs/<feature>/`.
+In Codex, invoke these workflow entrypoints with `$` commands, not `/` commands.
 
-## Workflow
+Use:
 
-The default workflow is:
+- `$discover`
+- `$plan`
+- `$refine`
+- `$implement`
+- `$test`
+- `$review`
+- `$debug`
+- `$validate`
 
-1. `/discover`
-2. `/plan`
-3. `/refine`
-4. `/implement`
-5. `/test`
-6. `/review`
-7. `/debug` when failures need diagnosis
-8. `/validate`
+## First Read Order
 
-Typical path:
+When starting in a project repo, read in this order:
 
-`/discover -> /plan -> /refine -> /implement -> /test + /review -> /validate`
+1. `.agents/AGENTS.md`
+2. the requested skill doc in `.agents/skills/<skill>/SKILL.md`
+3. any referenced agent doc in `.agents/agents/`
+4. any referenced template in `.agents/templates/`
+5. any referenced checklist or guide in `.agents/references/`
 
-Use `/debug` as a read-only side loop when a failure needs investigation before more implementation.
+Do not rely on memory of the workflow. Re-anchor to these files explicitly.
 
-## Durable Artifacts
+## Workflow Model
 
-Project-local outputs should live in `docs/<feature>/`:
+This workflow is orchestration-first.
+
+Top-level skills should do most work through subagents, not in the main session. The main session should:
+
+- orient itself
+- read the relevant contracts
+- decide the next bounded action
+- spawn the correct subagent(s)
+- integrate outputs
+- communicate clearly with the user
+
+Direct main-session work should be the exception, not the default.
+
+## Default Flow
+
+The normal path is:
+
+`$discover -> $plan -> $refine -> $implement -> $test + $review -> $validate`
+
+Use `$debug` as a read-only side loop when failures need diagnosis before more implementation.
+
+## Skills
+
+- `.agents/skills/discover/SKILL.md`
+- `.agents/skills/plan/SKILL.md`
+- `.agents/skills/refine/SKILL.md`
+- `.agents/skills/implement/SKILL.md`
+- `.agents/skills/test/SKILL.md`
+- `.agents/skills/review/SKILL.md`
+- `.agents/skills/debug/SKILL.md`
+- `.agents/skills/validate/SKILL.md`
+
+## Agents
+
+- `.agents/agents/developer.md`
+- `.agents/agents/platform-researcher.md`
+- `.agents/agents/researcher.md`
+- `.agents/agents/reviewer.md`
+- `.agents/agents/tester.md`
+
+## Templates
+
+Project-local artifacts should be created under `docs/<feature>/` using these templates:
+
+- `.agents/templates/requirements.yaml`
+- `.agents/templates/plan.yaml`
+- `.agents/templates/task-handoff.yaml`
+- `.agents/templates/implementation-report.yaml`
+- `.agents/templates/validation-report.yaml`
+
+Expected project-local outputs:
 
 - `docs/<feature>/requirements.yaml`
 - `docs/<feature>/plan.yaml`
 - `docs/<feature>/implementation-report.yaml`
 - `docs/<feature>/validation-report.yaml`
 
-Task-level developer coordination should use:
+## References
 
-- `templates/task-handoff.yaml`
+- `.agents/references/workflow-overview.md`
+- `.agents/references/test-ladder.md`
+- `.agents/references/review-checklist.md`
+- `.agents/references/validation-checklist.md`
 
-## Shared Templates
-
-- `templates/requirements.yaml`
-- `templates/plan.yaml`
-- `templates/task-handoff.yaml`
-- `templates/implementation-report.yaml`
-- `templates/validation-report.yaml`
-
-## Shared References
-
-- `references/workflow-overview.md`
-- `references/test-ladder.md`
-- `references/review-checklist.md`
-- `references/validation-checklist.md`
-
-## Agent Roles
-
-- [agents/developer.md](/Users/wentrekin/Documents/agent-skills/agents/developer.md)
-- [agents/platform-researcher.md](/Users/wentrekin/Documents/agent-skills/agents/platform-researcher.md)
-- [agents/researcher.md](/Users/wentrekin/Documents/agent-skills/agents/researcher.md)
-- [agents/reviewer.md](/Users/wentrekin/Documents/agent-skills/agents/reviewer.md)
-- [agents/tester.md](/Users/wentrekin/Documents/agent-skills/agents/tester.md)
-
-## Principles
+## Core Rules
 
 - Keep requirements separate from design.
 - Keep design separate from execution.
+- Keep execution separate from review and validation.
 - Use subagents with minimal necessary context.
-- Prefer durable artifacts over long chat history.
-- Keep the workflow small, explicit, and reusable across repos.
+- Use project-local paths explicitly when citing workflow files.
+- Prefer durable artifact handoffs over long conversational context.
+- If a skill should spawn subagents, it must do so explicitly.
+- End every skill run with a recommended next command.
+
+## Standard Communication Contract
+
+Every skill should communicate in a regular structure:
+
+- `Workflow Position`
+- `Must Read First`
+- `Must Spawn`
+- `Inputs`
+- `Outputs`
+- `User Updates`
+- `Subagent Handoff`
+- `Escalation`
+- `Completion`
+- `Next Recommended Command`
+
+Every subagent handoff should be explicit about:
+
+- objective
+- relevant files
+- allowed scope
+- forbidden scope
+- required output format
+- escalation conditions

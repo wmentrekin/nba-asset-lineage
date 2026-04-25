@@ -1,95 +1,81 @@
 ---
 name: plan
-description: Turn frozen requirements into an implementation design and task decomposition, then draft docs/<feature>/plan.yaml for refinement.
+description: Orchestrate design and task decomposition from frozen requirements, then draft docs/<feature>/plan.yaml.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill to design the solution once requirements are stable.
+Use `$plan` after `$discover` has produced ready requirements.
 
-This skill owns:
-- implementation-oriented design
-- task decomposition
-- dependency mapping
-- sequencing and parallelism decisions
-- drafting `docs/<feature>/plan.yaml`
+# Must Read First
 
-This skill does not own plan approval.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/plan/SKILL.md`
+3. `docs/<feature>/requirements.yaml`
+4. `.agents/templates/plan.yaml`
+5. `.agents/references/workflow-overview.md`
 
-# When to Use
+# Must Spawn
 
-Use when:
-- `docs/<feature>/requirements.yaml` exists and is effectively frozen
-- the user wants an implementation-ready design
+`$plan` should still behave as an orchestrator first.
 
-Do not use when:
-- requirements are incomplete or unstable
-- the task is still in discovery
+Default behavior:
+- do the minimum local synthesis needed to convert requirements into a durable draft
+- if repo exploration or decomposition detail requires additional focused analysis, spawn a bounded subagent rather than broadening the main-session context
 
 # Inputs
 
 - `docs/<feature>/requirements.yaml`
 - relevant repo docs, code, and architecture references
-- constraints from source-of-truth project docs
-
-# References
-
-- template: `templates/plan.yaml`
-- upstream contract: `templates/requirements.yaml`
-- shared overview: `references/workflow-overview.md`
+- project constraints from `.agents/AGENTS.md`
 
 # Outputs
 
-Required output:
+Required artifact:
 - draft `docs/<feature>/plan.yaml`
 
-Write it using `templates/plan.yaml` and store it at `docs/<feature>/plan.yaml`.
+Use:
+- `.agents/templates/plan.yaml`
 
-# Responsibilities
+# User Updates
 
-The plan must define:
-- design overview
-- major technical decisions
-- interfaces, data contracts, or schema implications as needed
-- bounded tasks
-- task ownership boundaries
-- dependencies and ordering
-- parallelizable work
-- validation expectations per task
-- delivery risks
+Standard update pattern:
+- confirm this is the planning phase
+- state what design question or decomposition question is being resolved
+- state whether a subagent was spawned
+- state that the output is `docs/<feature>/plan.yaml`
 
-# Task Decomposition Rules
+Prompt the user with the next `$command`.
 
-Each task must include:
-- id
-- title
-- objective
-- owned scope
-- dependencies
-- parallelizable status
-- expected validation
+# Subagent Handoff
 
-Tasks must be:
-- bounded
-- implementable
-- reviewable
-- testable
+If spawning a bounded helper:
+- objective: answer a specific design-support question
+- include only the relevant task slice and files
+- forbid broad implementation work
+- require output that can be folded into `docs/<feature>/plan.yaml`
 
-Do not produce vague task groups like "refactor backend" or "clean up UI".
+# Process
 
-# Prohibited Behavior
+1. read `docs/<feature>/requirements.yaml`
+2. define the implementation-oriented design
+3. decompose into bounded tasks
+4. identify dependencies, ordering, and parallelism
+5. define expected validation per task
+6. write `docs/<feature>/plan.yaml`
 
-Do not:
-- invent new requirements
-- absorb unresolved product questions into the design
-- defer major ambiguity to `/implement`
+# Escalation
 
-# Handoff Standard
+Escalate when:
+- requirements are incomplete or unstable
+- the design depends on a missing product decision
+- repo context is still insufficient after bounded research
 
-The output must be concrete enough for `/refine` to critique and for `/implement` to execute after approval.
+# Completion
 
-# Style Guidance
+`docs/<feature>/plan.yaml` is complete only if `$refine` can review it and `$implement` can execute it without guessing.
 
-- Prefer implementable clarity over elegant abstraction.
-- Make scope boundaries explicit.
-- Call out assumptions instead of hiding them.
+# Next Recommended Command
+
+- if the draft plan is ready: `$refine`
+- if requirements are not actually stable: `$discover`

@@ -1,8 +1,8 @@
 # Review Checklist
 
-Use this checklist in both `/refine` and `/review`, with the artifact adjusted to the phase.
+Use this checklist in both `$refine` and `$review`, with the artifact adjusted to the phase.
 
-## Plan Review (`/refine`)
+## Plan Review (`$refine`)
 
 - [ ] Requirements are represented accurately
 - [ ] Scope is bounded
@@ -12,9 +12,9 @@ Use this checklist in both `/refine` and `/review`, with the artifact adjusted t
 - [ ] Dependencies and ordering are explicit
 - [ ] Validation expectations exist per task
 - [ ] Risks and open questions are handled
-- [ ] Plan is ready for `/implement`
+- [ ] Plan is ready for `$implement`
 
-## Code Review (`/review`)
+## Code Review (`$review`)
 
 - [ ] Changes align to requirements and plan
 - [ ] Scope boundaries were respected

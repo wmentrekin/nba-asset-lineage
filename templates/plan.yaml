@@ -1,4 +1,4 @@
-# Contract: plan handoff from /plan and /refine to /implement, /review, /test, and /validate
+# Contract: plan handoff from $plan and $refine to $implement, $review, $test, and $validate
 
 artifact: plan
 feature: "<feature-slug>"

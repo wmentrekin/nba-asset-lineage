@@ -1,4 +1,4 @@
-# Contract: implementation handoff from /implement to /review, /test, and /validate
+# Contract: implementation handoff from $implement to $review, $test, and $validate
 
 artifact: implementation_report
 feature: "<feature-slug>"

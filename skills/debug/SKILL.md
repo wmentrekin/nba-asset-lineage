@@ -1,71 +1,83 @@
 ---
 name: debug
-description: Investigate failures in a read-only manner, identify likely causes and next actions, and hand off diagnosis without making fixes.
+description: Orchestrate read-only failure investigation, produce a diagnosis, and recommend the next owner without making fixes.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill to diagnose failures without modifying code.
+Use `$debug` when `$test`, `$review`, or `$validate` surfaces a failure or ambiguity that needs diagnosis before more changes.
 
-This skill owns:
-- failure investigation
-- evidence gathering
-- narrowing likely causes
-- recommending the next owner
+# Must Read First
 
-This skill is read-only.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/debug/SKILL.md`
+3. `.agents/references/workflow-overview.md`
+4. relevant artifacts: `docs/<feature>/requirements.yaml`, `docs/<feature>/plan.yaml`, `docs/<feature>/implementation-report.yaml`
+5. failing logs, traces, or commands
 
-# When to Use
+# Must Spawn
 
-Use when:
-- `/test`, `/review`, or `/validate` surfaces a failure or ambiguity
-- diagnosis is needed before more code changes
+`$debug` should use a bounded subagent whenever the diagnosis would otherwise broaden main-session context too much.
 
-Do not use when:
-- the root cause is already obvious and implementation changes can proceed directly
-- the task is actually missing requirements rather than exhibiting a failure
+If the failure slice is narrow and already fully loaded, local diagnosis is acceptable. Otherwise spawn a focused diagnostic helper.
 
 # Inputs
 
 - failing command or observed behavior
-- relevant artifacts (`requirements.yaml`, `plan.yaml`, `implementation-report.yaml`)
+- relevant artifacts
 - logs, traces, test output, or code paths tied to the failure
-
-# References
-
-- shared overview: `references/workflow-overview.md`
-- upstream contracts: `templates/requirements.yaml`, `templates/plan.yaml`, `templates/implementation-report.yaml`
 
 # Outputs
 
 Primary output:
 - diagnosis report in chat
 
-The diagnosis report must include:
+The diagnosis must include:
 - observed failure
 - evidence examined
 - likely cause
 - confidence level
-- suggested next owner: `implement`, `test`, `review`, `discover`, or `validate`
+- suggested next owner
 
-# Read-Only Rule
+# User Updates
 
-Do not:
-- edit files
-- apply fixes
-- rewrite configs
+Standard update pattern:
+- state the failure being investigated
+- state whether a diagnostic helper was spawned
+- state what evidence is being checked
+- state the likely next `$command`
 
-If a fix seems obvious, still report it as a recommendation rather than making the change.
+Prompt the user with the next `$command`.
 
-# Escalation Rules
+# Subagent Handoff
+
+If spawning a helper:
+- objective: investigate one narrow failure slice
+- include: only the relevant artifacts, logs, and files
+- forbid code changes
+- require: evidence, likely cause, confidence, next owner
+
+# Process
+
+1. isolate the failure slice
+2. inspect the minimum relevant artifacts and evidence
+3. produce a read-only diagnosis
+4. recommend the smallest responsible next step
+
+# Escalation
 
 Escalate when:
 - the failure depends on inaccessible systems or missing data
 - the environment is too incomplete for diagnosis
 - the real issue appears to be requirements ambiguity
 
-# Style Guidance
+# Completion
 
-- Be evidence-driven.
-- Separate confirmed facts from hypotheses.
-- Recommend the smallest responsible next step.
+`$debug` is complete only if it clearly recommends who should act next.
+
+# Next Recommended Command
+
+- if code changes are needed: `$implement`
+- if more testing is needed after a fix: `$test`
+- if the issue is really requirements ambiguity: `$discover`
+- if final verification can resume: `$validate`

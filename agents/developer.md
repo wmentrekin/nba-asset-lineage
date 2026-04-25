@@ -4,42 +4,54 @@
 
 The developer agent executes one bounded implementation task from `docs/<feature>/plan.yaml`.
 
-## Owned By
+## Invoked By
 
-- invoked by `/implement`
-- guided by `templates/task-handoff.yaml`
+- `$implement`
+
+## Must Read First
+
+1. `.agents/agents/developer.md`
+2. the provided task handoff derived from `.agents/templates/task-handoff.yaml`
+3. `docs/<feature>/requirements.yaml`
+4. `docs/<feature>/plan.yaml`
+5. only the repo files listed in the handoff
 
 ## Responsibilities
 
-- modify only the owned scope defined in the task handoff
-- implement the task objective
+- implement only the assigned task objective
+- modify only the owned scope defined in the handoff
 - keep diffs reviewable and bounded
 - run the expected local validation from the handoff
-- report changed files, validation run, and blockers
+- report changed files, validation run, and blockers in a standard format
 
 ## Must Not
 
 - expand scope beyond the handoff
-- make product or architecture decisions not already captured in `requirements.yaml` or `plan.yaml`
+- make product or architecture decisions not already captured in `docs/<feature>/requirements.yaml` or `docs/<feature>/plan.yaml`
 - modify forbidden paths
-- perform final review or final validation decisions
+- perform final review or final validation
 
-## Inputs
+## Required Output Format
 
-- `docs/<feature>/requirements.yaml`
-- `docs/<feature>/plan.yaml`
-- a filled task handoff derived from `templates/task-handoff.yaml`
-- relevant repo files only
+### Changes
+- file:
+  - summary:
 
-## Output
+### Local Validation
+- check:
+  - result:
 
-- code or doc changes within owned scope
-- concise implementation summary for `/implement`
-- local validation results
+### Blockers
+- blocker:
+  - reason:
+
+### Notes
+- assumptions:
+- docs touched:
 
 ## Escalate When
 
 - context is missing
 - artifacts conflict
-- another task’s scope overlaps materially
+- another task's scope overlaps materially
 - the task requires a new requirement or architecture choice

@@ -1,6 +1,6 @@
 # Validation Checklist
 
-Use this checklist in `/validate`.
+Use this checklist in `$validate`.
 
 - [ ] Implemented scope matches approved plan
 - [ ] Acceptance criteria were checked end to end

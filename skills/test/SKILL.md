@@ -1,85 +1,84 @@
 ---
 name: test
-description: Run graduated technical validation for implemented scope using the shared test ladder and report readiness, failures, and gaps.
+description: Orchestrate graduated technical validation through the tester agent and report readiness, failures, and gaps.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill to validate changed code paths after implementation.
+Use `$test` after `$implement` has produced `docs/<feature>/implementation-report.yaml`.
 
-This skill owns:
-- selecting the smallest sufficient checks
-- running the graduated test ladder
-- reporting failures and gaps
+# Must Read First
 
-This skill does not change code unless explicitly instructed elsewhere.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/test/SKILL.md`
+3. `.agents/agents/tester.md`
+4. `.agents/references/test-ladder.md`
+5. `docs/<feature>/plan.yaml`
+6. `docs/<feature>/implementation-report.yaml`
 
-# When to Use
+# Must Spawn
 
-Use when:
-- `implementation-report.yaml` exists for the changed scope
-- the work is ready for technical validation
+`$test` must use the `tester` agent.
 
-Do not use when:
-- the implementation is obviously incomplete
-- there is no clear changed scope to validate
+Do not run the substantive testing flow only in the main session.
 
 # Inputs
 
-- approved `plan.yaml`
-- `implementation-report.yaml`
+- `docs/<feature>/plan.yaml`
+- `docs/<feature>/implementation-report.yaml`
 - relevant changed files
 - repo testing instructions
-
-# References
-
-- agent definition: `agents/tester.md`
-- ladder: `references/test-ladder.md`
-- upstream contracts: `templates/plan.yaml`, `templates/implementation-report.yaml`
 
 # Outputs
 
 Primary output:
-- test results in chat or a structured handoff to `/debug`, `/implement`, or `/validate`
+- structured testing result suitable for `$debug`, `$implement`, or `$validate`
 
-# Agent Model
+Reference:
+- `.agents/references/test-ladder.md`
 
-`/test` uses the `tester` agent.
+# User Updates
 
-# Test Ladder
+Standard update pattern:
+- state the changed scope under test
+- state that the tester agent was spawned
+- state the current ladder step or failure point
+- state the likely next `$command`
 
-Use the shared ladder in order unless the task clearly justifies otherwise:
-1. lint
-2. types
-3. unit
-4. integration
-5. smoke
+Prompt the user with the next `$command`.
 
-Expand only as needed for confidence.
+# Subagent Handoff
 
-# Status Outcomes
+For `tester`:
+- objective: validate the changed scope with the smallest sufficient ladder subset
+- read: `.agents/agents/tester.md`
+- include: `docs/<feature>/plan.yaml`, `docs/<feature>/implementation-report.yaml`, changed files, repo test instructions
+- output: status, checks run, failures, gaps
 
-Return exactly one:
-- `PASSED`
-- `PASSED_WITH_GAPS`
-- `FAILED`
-- `ESCALATE`
+# Process
 
-# Failure Handling
+1. spawn the tester agent
+2. run the ladder in order: lint -> types -> unit -> integration -> smoke
+3. stop early on blocking failures
+4. report failures, gaps, and likely next owner
 
-When checks fail:
-- identify the failing check
-- identify likely impacted task(s), file(s), or area(s)
-- recommend whether the next owner is `/debug` or `/implement`
-
-# Escalation Rules
+# Escalation
 
 Escalate when:
 - the environment is unsafe or ambiguous
 - destructive or live validation would be required
-- the intended behavior cannot be inferred from the plan
+- intended behavior cannot be inferred from the plan
 
-# Style Guidance
+# Completion
 
-- Distinguish confirmed failures from untested risk.
-- Keep the test sequence disciplined and explicit.
+Testing is complete only if the result clearly states:
+- what was run
+- what passed
+- what failed
+- what remains untested
+
+# Next Recommended Command
+
+- if tests passed or passed with gaps: `$validate`
+- if failures need diagnosis: `$debug`
+- if implementation fixes are clearly needed: `$implement`

@@ -1,91 +1,77 @@
 ---
 name: implement
-description: Execute one approved bounded task or one bounded batch of tasks from plan.yaml by delegating to developer agents and producing an implementation report.
+description: Orchestrate bounded development execution through developer subagents only, then write docs/<feature>/implementation-report.yaml.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill to carry out approved planned work.
+Use `$implement` after `$refine` has approved `docs/<feature>/plan.yaml`.
 
-This skill owns:
-- selecting the next task or task batch from `plan.yaml`
-- preparing developer handoffs
-- orchestrating bounded development execution
-- collecting implementation outputs
-- writing `docs/<feature>/implementation-report.yaml`
+# Must Read First
 
-This skill does not own final code review or final validation.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/implement/SKILL.md`
+3. `.agents/agents/developer.md`
+4. `.agents/templates/task-handoff.yaml`
+5. `.agents/templates/implementation-report.yaml`
+6. `docs/<feature>/plan.yaml`
+7. `docs/<feature>/requirements.yaml`
 
-# When to Use
+# Must Spawn
 
-Use when:
-- `docs/<feature>/plan.yaml` is approved
-- one or more tasks are ready for implementation
+`$implement` must use one or more `developer` agents.
 
-Do not use when:
-- planning is still incomplete
-- the work is blocked on unanswered requirements questions
+Developer subagents are the default execution path.
+
+Do not do implementation work directly in the main session.
 
 # Inputs
 
 - approved `docs/<feature>/plan.yaml`
 - relevant task slice from the plan
+- `docs/<feature>/requirements.yaml`
 - repo conventions and source-of-truth docs
-
-# References
-
-- agent definition: `agents/developer.md`
-- task handoff template: `templates/task-handoff.yaml`
-- report template: `templates/implementation-report.yaml`
-- upstream contract: `templates/plan.yaml`
 
 # Outputs
 
-Required output:
+Required artifact:
 - `docs/<feature>/implementation-report.yaml`
 
-Supporting output:
-- task handoff contract for each developer agent
+Supporting artifact:
+- task handoff for each developer based on `.agents/templates/task-handoff.yaml`
 
-Write developer handoffs using `templates/task-handoff.yaml`.
+Use:
+- `.agents/templates/implementation-report.yaml`
 
-Write the implementation report using `templates/implementation-report.yaml` and store it at `docs/<feature>/implementation-report.yaml`.
+# User Updates
 
-# Agent Model
+Standard update pattern:
+- state which task ids are being executed
+- state which developer agents were spawned
+- state whether work is parallel or sequential
+- state that the output will be `docs/<feature>/implementation-report.yaml`
 
-`/implement` uses one or more `developer` agents.
+Prompt the user with the next `$command`.
 
-Developers must receive:
-- the task handoff
-- only the relevant files and docs
-- explicit owned scope
-- explicit forbidden scope
-- validation expectations
-- escalation rules
+# Subagent Handoff
 
-Run developers in parallel only when owned scopes do not materially overlap.
+For each `developer`:
+- objective: complete one bounded task or one bounded task batch
+- read: `.agents/agents/developer.md`
+- include: `docs/<feature>/requirements.yaml`, `docs/<feature>/plan.yaml`, the filled handoff, and only relevant repo files
+- specify: owned scope, forbidden scope, expected validation, escalation rules
+- output: changes, local validation, blockers, notes
 
-# Responsibilities
+# Process
 
-`/implement` must:
-1. choose the next bounded task set
-2. define ordering and parallelism from the plan
-3. issue task handoffs
-4. collect code-change summaries and local validation results
-5. record what was implemented, what remains, and any blockers
-6. write the implementation report
+1. choose the next bounded task set from `docs/<feature>/plan.yaml`
+2. determine ordering and safe parallelism
+3. create explicit task handoffs
+4. spawn developer agents
+5. collect implementation outputs
+6. integrate into `docs/<feature>/implementation-report.yaml`
 
-# Implementation Report Standard
-
-The report must capture:
-- task ids attempted
-- files/modules changed
-- local validation performed
-- known issues
-- unresolved blockers
-- recommended next step: `review`, `test`, `debug`, or `implement`
-
-# Escalation Rules
+# Escalation
 
 Escalate when:
 - the approved plan is insufficient for safe execution
@@ -93,8 +79,17 @@ Escalate when:
 - tasks overlap too heavily for safe delegation
 - scope expansion would be required
 
-# Style Guidance
+# Completion
 
-- Keep execution tightly aligned to the approved plan.
-- Favor small, reviewable diffs.
-- Do not silently expand task boundaries.
+`docs/<feature>/implementation-report.yaml` is complete only if it records:
+- task ids attempted
+- files and modules changed
+- local validation performed
+- blockers and known issues
+- recommended next step
+
+# Next Recommended Command
+
+- if implementation completed cleanly: `$test` and `$review`
+- if failures need diagnosis first: `$debug`
+- if plan issues block execution: `$refine`

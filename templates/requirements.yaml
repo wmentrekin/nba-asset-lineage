@@ -1,4 +1,4 @@
-# Contract: requirements handoff from /discover to /plan and /refine
+# Contract: requirements handoff from $discover to $plan and $refine
 
 artifact: requirements
 feature: "<feature-slug>"

@@ -1,82 +1,84 @@
 ---
 name: review
-description: Review implemented changes against requirements, plan, scope, and engineering quality, then approve, request changes, or escalate.
+description: Orchestrate code review through the reviewer agent against requirements, plan, and implementation report.
 ---
 
-# Purpose
+# Workflow Position
 
-Use this skill for code review after implementation.
+Use `$review` after `$implement` has produced changes and `docs/<feature>/implementation-report.yaml`.
 
-This skill owns:
-- code review against requirements and plan
-- scope enforcement
-- regression and maintainability review
-- decision on whether changes are ready to proceed
+# Must Read First
 
-This skill does not rewrite the implementation unless explicitly instructed.
+1. `.agents/AGENTS.md`
+2. `.agents/skills/review/SKILL.md`
+3. `.agents/agents/reviewer.md`
+4. `.agents/references/review-checklist.md`
+5. `docs/<feature>/requirements.yaml`
+6. `docs/<feature>/plan.yaml`
+7. `docs/<feature>/implementation-report.yaml`
 
-# When to Use
+# Must Spawn
 
-Use when:
-- implemented changes are available
-- `requirements.yaml`, `plan.yaml`, and `implementation-report.yaml` exist
+`$review` must use the `reviewer` agent.
 
-Do not use when:
-- there is no concrete implementation to inspect
-- the task is still in active development
+Do not perform the substantive code review only in the main session.
 
 # Inputs
 
 - `docs/<feature>/requirements.yaml`
 - `docs/<feature>/plan.yaml`
 - `docs/<feature>/implementation-report.yaml`
-- changed files/diff
+- changed files or diff
 - relevant repo docs
-
-# References
-
-- agent definition: `agents/reviewer.md`
-- checklist: `references/review-checklist.md`
-- upstream contracts: `templates/requirements.yaml`, `templates/plan.yaml`, `templates/implementation-report.yaml`
 
 # Outputs
 
 Primary output:
-- review decision and actionable findings
+- structured review decision and findings
 
-# Agent Model
+Reference:
+- `.agents/references/review-checklist.md`
 
-`/review` uses the `reviewer` agent.
+# User Updates
 
-The reviewer should use the shared code-review checklist.
+Standard update pattern:
+- state that the review phase is running
+- state that the reviewer agent was spawned
+- summarize the highest-severity findings or approval status
+- state the likely next `$command`
 
-# Decision Outcomes
+Prompt the user with the next `$command`.
 
-Return exactly one:
-- `APPROVED`
-- `APPROVED_WITH_FOLLOWUP`
-- `CHANGES_REQUIRED`
-- `ESCALATE`
+# Subagent Handoff
 
-# Review Standard
+For `reviewer`:
+- objective: review the implementation against requirements, plan, and scope
+- read: `.agents/agents/reviewer.md`
+- include: `docs/<feature>/requirements.yaml`, `docs/<feature>/plan.yaml`, `docs/<feature>/implementation-report.yaml`, diff, `.agents/references/review-checklist.md`
+- output: decision, findings, gaps, readiness
 
-Check:
-- requirements compliance
-- adherence to plan and task boundaries
-- correctness and edge cases
-- integration risk
-- documentation impact
-- adequacy of local validation already performed
+# Process
 
-# Escalation Rules
+1. spawn the reviewer agent
+2. collect the review decision and findings
+3. determine whether the work proceeds, returns to implementation, or escalates
+
+# Escalation
 
 Escalate when:
 - the plan conflicts with the implementation target
 - review requires product decisions not present in the artifacts
 - the changed behavior cannot be judged responsibly from the available context
 
-# Style Guidance
+# Completion
 
-- Findings first.
-- Be concrete and file-aware.
-- Tie feedback to requirements, plan, or correctness.
+Review is complete only if it clearly states:
+- decision
+- actionable findings
+- readiness
+
+# Next Recommended Command
+
+- if review approved and tests are acceptable: `$validate`
+- if code changes are needed: `$implement`
+- if failure diagnosis is needed first: `$debug`
