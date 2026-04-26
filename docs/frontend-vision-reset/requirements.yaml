@@ -1,0 +1,116 @@
+artifact: requirements
+feature: "frontend-vision-reset"
+status: draft
+owner_skill: discover
+
+summary:
+  problem: "The current Stage 8 Astro frontend is a contract-driven scaffold built around a compact sample contract. It proves a technical rendering path, but it is materially short of the intended final public-facing Memphis storytelling experience in visual ambition, information density, site framing, and real-data integration."
+  motivation: "The final product is intended to be a polished, public-facing, data-journalism storytelling experience that renders real Memphis asset lineage and editorial context without frontend-side semantic repair."
+  requested_outcome: "Define a clearer product and frontend direction for a replacement or major reset of the current Stage 8 slice, strong enough for detailed planning across design, data integration, interaction model, site structure, and phased implementation."
+
+goals:
+  - "Define the target experience as a public-facing Memphis storytelling product rather than an internal engineering demo."
+  - "Clarify how the final frontend should consume real Stage 6 presentation data and Stage 7 editorial overlays."
+  - "Define the intended relationship between interactive timeline exploration and scrollytelling/chapter-driven narrative."
+  - "Capture the required visual, interactive, technical, and editorial characteristics of a frontend closer to the final vision."
+  - "Produce requirements that are strong enough for a later planning pass to decompose into phased implementation work."
+
+non_goals:
+  - "Do not design the full implementation plan yet."
+  - "Do not commit to final visual comps, components, or rendering architecture in this discovery pass."
+  - "Do not expand or change Stage 1-7 data contracts unless requirements work shows a true contract gap."
+  - "Do not assume the current Stage 8 Astro page should be preserved beyond what is explicitly retained."
+
+constraints:
+  technical:
+    - "Frontend must fit within an Astro website."
+    - "Frontend must render directly from the presentation and editorial contracts rather than invent lineage semantics client-side."
+    - "Continuity identity must respect canonical.asset.asset_id rather than player_id."
+    - "Rendering technology remains open: SVG, Canvas, or hybrid are all acceptable if justified."
+    - "Current machine runtime note: Astro requires Node >= 18.20.8."
+  product:
+    - "Scope is Memphis Grizzlies only."
+    - "First public release target is a polished standalone experience."
+    - "Scrollytelling or chaptering is confirmed first-release scope."
+    - "Editorial overlays are additive and must not alter canonical truth."
+    - "The frontend should validate the data model, not hide model weaknesses."
+  process:
+    - "Requirements must stay separate from design and implementation planning."
+    - "Current discovery should be strong enough for a later $plan pass without reopening basic task definition."
+
+assumptions:
+  - "The current Stage 8 Astro slice should be treated as a useful prototype, not as the final product direction."
+  - "A future implementation may require new exports, new frontend architecture, and potentially broader site structure than the current single-page slice."
+  - "Visual references or generated mock imagery may be useful during planning, but they are optional inputs to requirements rather than a substitute for product decisions."
+
+repo_context:
+  relevant_paths:
+    - "AGENTS.md"
+    - "README.md"
+    - "agent-context/README.md"
+    - "agent-context/current-status.md"
+    - "agent-context/product/vision.md"
+    - "agent-context/product/decisions.md"
+    - "agent-context/contracts/identity-and-reference.md"
+    - "agent-context/stages/06-presentation-contract.md"
+    - "agent-context/stages/07-editorial-overlay.md"
+    - "agent-context/stages/08-frontend-vertical-slice.md"
+    - "agent-context/private/29-scrollytelling-and-chapter-contract.md"
+    - "frontend/package.json"
+    - "frontend/astro.config.mjs"
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/stage8-sample-contract.json"
+    - "configs/data/stage7_editorial_overlays.yaml"
+  systems_in_scope:
+    - "Astro-based frontend experience"
+    - "Stage 6 presentation contract consumption"
+    - "Stage 7 editorial overlay consumption"
+    - "Narrative chaptering and scrollytelling behavior"
+    - "Potential broader publication shell / website structure"
+  prior_artifacts:
+    - "Current Stage 8 Astro vertical slice under frontend/"
+    - "Tracked Stage 7 editorial YAML"
+    - "Presentation/export command surface in redesign CLI and mise tasks"
+
+research:
+  repo_findings:
+    - "Current frontend is a single-page Astro slice with one route, SVG timeline scene, chapter list, filters, zoom/date controls, and inspector."
+    - "Current frontend uses a compact tracked sample contract JSON rather than live or generated Stage 6/7 exports."
+    - "No preexisting maintained website structure exists in the active repo beyond the new Astro frontend."
+    - "Strongest product docs define the final target as a polished public-facing editorial/data-journalism experience."
+    - "Scrollytelling/chaptering is a confirmed first-release requirement, not optional future scope."
+    - "The frontend is constrained to Astro, but rendering technology remains open."
+    - "The frontend must render contract semantics directly and avoid hidden lineage inference."
+    - "Current sample data is too small to prove final information density, performance, or narrative scale."
+  platform_findings: []
+
+acceptance_criteria:
+  - "Requirements clearly distinguish the final target product from the current Stage 8 prototype."
+  - "Requirements define the intended data source strategy for the real frontend slice."
+  - "Requirements define the intended narrative structure: scrollytelling, chapter navigation, or hybrid."
+  - "Requirements define the desired visual/interaction character closely enough to guide planning."
+  - "Requirements identify whether the final product is a single experience page or part of a broader website/publication structure."
+  - "Requirements identify the bounded story/time range for the next serious frontend phase."
+  - "Requirements list unresolved decisions explicitly instead of burying them in implementation assumptions."
+
+open_questions:
+  - "Should the real frontend consume a checked-in generated export, a build-time artifact, or another data delivery path?"
+  - "Should the next serious slice use full live Memphis data or a curated bounded real-data subset?"
+  - "What Memphis story or era should anchor the first truly representative frontend experience?"
+  - "Should the final product be primarily scroll-driven, chapter-navigation-driven, or a hybrid?"
+  - "Is the final public experience a single long scrollytelling page, a multi-section page, or a broader site with additional routes/chrome?"
+  - "Which editorial overlays are mandatory in the first polished release: chapters only, annotations, calendar markers, game overlays, eras, or some subset?"
+  - "What level of mobile/responsive behavior is required for the final experience?"
+  - "Should the current Stage 8 codebase be incrementally evolved or treated as mostly disposable prototype code?"
+  - "What rendering style best matches the target vision: slot-based timeline, richer graph/timeline hybrid, or another approach?"
+  - "Would external visual references or generated mock imagery be useful as planning inputs, and if so, what kind?"
+
+freeze:
+  ready_for_plan: false
+  blockers:
+    - "Primary story / bounded historical scope for the next frontend phase is not yet defined."
+    - "Final narrative interaction model is not yet defined."
+    - "Real data integration strategy for the frontend is not yet defined."
+    - "Final product/site structure around the timeline is not yet defined."
