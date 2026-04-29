@@ -1,0 +1,48 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T5"
+owner_skill: implement
+
+objective: "Replace client-derived row, tick, and focus primitives with non-interactive scene primitives that consume the layout contract directly."
+why_this_matters: "The frontend can now load real generated data, but the current scene layer still carries legacy assumptions. Later rendering and navigation tasks need layout-driven primitives rather than sample-era derivation logic."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+
+scope:
+  owned:
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not modify Astro page markup in this task."
+    - "Do not implement final strand/junction rendering or interaction-heavy viewport behavior."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use the layout contract as composition truth for lane/band visibility, chronology primitives, and minimap segment data."
+  - "Keep this non-interactive: build the scene primitives that later tasks will render and navigate, but do not implement the final renderer redesign or chapter/minimap UI behavior yet."
+  - "Remove remaining ad hoc or sample-era derivation where layout data already provides the answer."
+  - "Preserve the generated-data adapter and contract validation introduced in T4."
+  - "Add/update tests to prove the scene APIs expose band visibility, chronology primitives, and minimap segment data without re-deriving composition semantics."
+  - "If a required primitive truly does not exist in the current layout contract, stop and report that gap instead of inventing it in the frontend."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "Targeted tests prove layout-contract consumption without re-deriving composition semantics."
+  - "Scene APIs expose band visibility, chronology primitives, and minimap segment data for later tasks."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

@@ -1,0 +1,51 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T4"
+owner_skill: implement
+
+objective: "Replace the sample-contract path in the current Astro app with real generated Stage 6, layout-contract, and chapter-only export data loading."
+why_this_matters: "The frontend reset cannot be validated meaningfully until the Astro app consumes the real generated contract artifacts instead of the disposable sample JSON."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not modify backend Python, SQL, CLI, or data-generation code."
+    - "Do not implement the final graph renderer changes from later tasks."
+    - "Do not implement chapter UI/navigation or minimap behavior in this task."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Switch the Astro page and timeline utilities off `stage8-sample-contract.json` and onto the generated artifacts under `frontend/src/data/generated/`."
+  - "Keep this task bounded to data loading and compatibility adaptation only; do not try to solve full renderer redesign here."
+  - "The frontend should load `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json` without missing asset/event/chapter references."
+  - "It is acceptable to introduce temporary type adapters in `timeline.ts` as long as they do not invent lineage semantics client-side."
+  - "Add or update targeted frontend tests to prove `asset_id` continuity survives data loading without falling back to `player_id` shortcuts."
+  - "If the current sample-based scene model is fundamentally incompatible with real generated data in a way that requires a new product or architecture decision, stop and report it rather than guessing."
+
+validation_expected:
+  - "`npm run check` in `frontend/` succeeds against the generated data path."
+  - "`npm run build` in `frontend/` succeeds against the generated data path."
+  - "A frontend smoke workflow loads `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json` without missing asset/event/chapter references."
+  - "A targeted frontend test confirms `asset_id` continuity survives data loading without `player_id` shortcuts."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

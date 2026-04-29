@@ -8,8 +8,12 @@ canonical lineage model.
 ## Stage Objective
 
 At the end of Stage 6, the system should be able to generate deterministic,
-frontend-ready timeline structures without requiring the frontend to interpret
-lineage semantics itself.
+frontend-ready semantic timeline structures without requiring the frontend to
+interpret lineage semantics itself.
+
+Stage 6 is the source of lineage truth. A later layout-oriented contract may add
+graph-composition truth on top of Stage 6, but it must not rewrite Stage 6
+semantics.
 
 ## In Scope
 
@@ -23,18 +27,36 @@ lineage semantics itself.
 - final visual design
 - polished interaction design
 - narrative polish
+- display ranking and band-slot policy
+- same-day event clustering for grouped transaction moments
+- compaction/reflow geometry
+- label-anchor or identity-marker hints
+- minimap, default viewport, or axis-composition hints
 
 ## Core Principle
 
 The frontend should render lineage, not infer lineage.
 
-That means the presentation contract must already express:
+That means the presentation contract must already express semantic truth, while
+the layout layer may later express render composition.
+
+Stage 6 owns:
 
 - event nodes
 - asset line segments
-- lane placement
-- hover/detail payloads
+- lane-group eligibility and lane intervals
 - ordering and time bounds
+- transition semantics
+- transaction grouping inputs needed by layout
+
+The layout contract, not Stage 6, owns:
+
+- display ranking
+- band slots
+- same-day grouped transaction clusters
+- compaction/reflow positions
+- label and identity-marker hints
+- minimap and viewport defaults
 
 ## Render-Driving Canonical Facts
 
@@ -140,9 +162,12 @@ Stage 6 output should guarantee:
 - stable IDs
 - explicit date bounds
 - explicit same-day order
-- explicit lane placement
-- no need for frontend-side event clustering
+- explicit lane-group eligibility
+- explicit asset continuity truth
 - no need for frontend-side asset continuity inference
+- no need for layout-side semantic guesswork
+- `transaction_group_key` visibility where same-day grouped trade layout depends
+  on it
 
 ## Node/Edge Generation Rules
 
@@ -156,8 +181,9 @@ Player and pick continuity should be represented directly in edge segments.
 
 ### Rule 3: Pick To Player Transition Must Be Renderable
 
-The contract must support a line that begins as a pick and continues as a player
-without frontend guesswork.
+The contract must preserve the semantic continuity that lets a downstream layout
+contract render a line that begins as a pick and continues as a player without
+frontend guesswork.
 
 ### Rule 4: Memphis Absence Should Not Produce False Continuity
 
@@ -212,3 +238,6 @@ Stage 6 is complete when:
 
 Stage 7 should layer editorial context on top of this contract without altering
 the core lineage semantics.
+
+A separate layout-oriented contract may layer graph-composition truth on top of
+Stage 6 semantics without changing canonical lineage meaning.

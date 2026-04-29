@@ -1,0 +1,50 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T7"
+owner_skill: implement
+
+objective: "Add inline strand labels and traveling headshot-plus-text identity markers using the frozen layout hints and fallback rules."
+why_this_matters: "The base renderer now shows the graph structure, but the product requirements depend on identity traveling with strands and on left-side fallback markers for compressed segments."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/public/headshots/"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not change base strand/junction semantics."
+    - "Do not add navigation/minimap logic yet."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use `label_layout` and `identity_marker` hints from the generated layout contract as the source of truth."
+  - "Implement inline labels only where the layout/geometry allows them; preserve left traveling identity markers when inline labels cannot fit."
+  - "Support both the local headshot path and text-only fallback path."
+  - "Keep this bounded to label and marker rendering behavior only; do not add navigation or new graph semantics."
+  - "Add/update targeted tests for inline label eligibility, fallback markers, and headshot/text rendering behavior."
+  - "If the current generated data lacks enough positive-path fixture coverage to exercise the headshot case, use a bounded test mutation rather than inventing new backend data."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "A build succeeds after label/marker rendering changes."
+  - "Targeted frontend tests verify inline label eligibility, fallback-marker behavior, and traveling identity-marker rendering."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

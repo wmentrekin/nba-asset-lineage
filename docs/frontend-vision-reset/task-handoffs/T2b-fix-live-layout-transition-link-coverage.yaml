@@ -1,0 +1,50 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T2b"
+owner_skill: implement
+
+objective: "Fix the live-data layout transition-link coverage bug exposed by `mise run stage8_chapter_export` so the layout contract validates against the real Memphis export."
+why_this_matters: "The repo-local regeneration workflow is blocked by a real layout-contract defect: live draft-transition clusters are failing validation for missing `same_asset` coverage, which prevents chapter export and all downstream frontend tasks."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "src/presentation/contract.py"
+    - "src/presentation/validate.py"
+    - "tests/presentation/test_layout_contract.py"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+
+scope:
+  owned:
+    - "src/presentation/contract.py"
+    - "src/presentation/validate.py"
+    - "tests/presentation/"
+    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+  forbidden:
+    - "Do not modify frontend files."
+    - "Do not modify SQL."
+    - "Do not change product or contract ownership decisions."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use the live failure from `mise run stage8_chapter_export` as the starting point."
+  - "The goal is not to weaken the contract arbitrarily; it is to make builder and validator agree on the intended continuity-hop model for real draft-transition clusters."
+  - "Inspect real generated layout data to understand why certain clusters have multiple same-asset segments and which continuity hops are actually intended."
+  - "Add or adjust targeted tests so this live-data shape is covered in unit tests."
+  - "If the real fix belongs in the builder, implement it there; if the validator expectation is over-broad, tighten it to the intended continuity-hop semantics."
+  - "Re-run the relevant targeted tests and, if feasible, the full `stage8_chapter_export` smoke."
+
+validation_expected:
+  - "Targeted pytest under `tests/presentation/` passes."
+  - "`mise run stage8_chapter_export` succeeds against the live export path, or a narrower precise blocker is reported."
+  - "Updated tests cover the live draft-transition/same-asset continuity pattern that previously failed."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

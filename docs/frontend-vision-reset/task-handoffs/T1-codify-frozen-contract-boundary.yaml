@@ -1,0 +1,49 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T1"
+owner_skill: implement
+
+objective: "Codify the approved Stage 6 versus layout-contract versus frontend-state boundary into durable docs without changing product or contract decisions."
+why_this_matters: "T2 and all later implementation tasks depend on a fixed written boundary so developers do not re-open ownership or contract questions while coding."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - ".agents/agents/developer.md"
+    - "agent-context/stages/06-presentation-contract.md"
+    - "agent-context/stages/08-frontend-vertical-slice.md"
+
+scope:
+  owned:
+    - "docs/frontend-vision-reset/stage6-gap-audit.md"
+    - "docs/frontend-vision-reset/layout-contract.md"
+    - "agent-context/stages/06-presentation-contract.md"
+    - "agent-context/stages/08-frontend-vertical-slice.md"
+  forbidden:
+    - "Do not change canonical lineage semantics."
+    - "Do not move layout semantics into Stage 7 editorial content."
+    - "Do not introduce new contract decisions; record frozen decisions only."
+    - "Do not modify code, SQL, frontend implementation files, or CLI behavior."
+
+implementation_notes:
+  - "Use the approved plan as the source of truth for the Stage 6/layout/frontend boundary."
+  - "Write a gap-audit artifact that explicitly classifies required behavior as Stage 6 semantic truth, layout-contract truth, or frontend interaction state."
+  - "Write a layout-contract artifact that describes the frozen contract groups, field ownership, and same-day clustering/transition-link rules."
+  - "Update the Stage 06 and Stage 08 agent-context docs so they align with the frozen boundary, but keep the edits concise and durable."
+  - "Escalate if the existing Stage 06 or Stage 08 docs materially conflict with the approved plan in a way that would require a new architecture or product decision."
+
+validation_expected:
+  - "A committed gap-audit artifact exists at `docs/frontend-vision-reset/stage6-gap-audit.md`."
+  - "A committed contract artifact exists at `docs/frontend-vision-reset/layout-contract.md`."
+  - "The artifacts explicitly classify each required behavior as: Stage 6 semantic truth, layout-contract truth, or frontend interaction state."
+  - "The artifacts record the already-frozen conclusion that same-day grouped events and pick-to-player transitions remain representable without mutating Stage 6 truth."
+  - "The Stage 06 and Stage 08 agent-context docs are aligned to the frozen contract boundary without reopening requirements."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

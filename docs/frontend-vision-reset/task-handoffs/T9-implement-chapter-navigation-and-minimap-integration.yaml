@@ -1,0 +1,50 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T9"
+owner_skill: implement
+
+objective: "Implement chapter focus windows, minimap-assisted jumping, and graph-adjacent chapter navigation behavior on top of the viewport model."
+why_this_matters: "The base graph and viewport now work, but the product still needs the first navigation layer that lets readers move through the chronology and focus bounded story windows."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not add annotations, calendar markers, game overlays, or eras in this task."
+    - "Do not recreate the old sidebar/context-heavy composition."
+    - "Do not alter viewport or axis semantics already established in T8."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use `chapter_layout` as the source of truth for chapter focus windows, highlight targets, minimap anchor linkage, and default zoom."
+  - "Use `editorial-chapters.json` only for chapter identity/order/title/body presentation."
+  - "Implement minimap-assisted jumps on top of the existing viewport model rather than introducing a second navigation model."
+  - "Keep the composition graph-adjacent and graph-first."
+  - "Add/update tests to prove chapter focus windows, minimap jumps, and chapter/anchor linkage work off the generated contracts."
+  - "If the current generated chapter data reveals a contract or UX gap that requires a new product or architecture decision, stop and report it rather than guessing."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "`mise exec node@22 -- npm run build` passes."
+  - "Targeted tests prove chapter focus windows and minimap jumps operate on the existing viewport model."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

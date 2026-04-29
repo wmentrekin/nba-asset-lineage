@@ -1,0 +1,95 @@
+artifact: implementation_report
+feature: "frontend-vision-reset"
+status: in_progress
+owner_skill: implement
+based_on: "docs/frontend-vision-reset/plan.yaml"
+
+tasks_attempted:
+  - "T1"
+  - "T2"
+  - "T3"
+  - "T2b"
+  - "T4"
+  - "T5"
+  - "T6"
+  - "T7"
+  - "T8"
+  - "T9"
+
+tasks_completed:
+  - "T1"
+  - "T2"
+  - "T3"
+  - "T2b"
+  - "T4"
+  - "T5"
+  - "T6"
+  - "T7"
+  - "T8"
+
+changes:
+  files:
+    - "docs/frontend-vision-reset/stage6-gap-audit.md"
+    - "docs/frontend-vision-reset/layout-contract.md"
+    - "agent-context/stages/06-presentation-contract.md"
+    - "agent-context/stages/08-frontend-vertical-slice.md"
+    - "src/presentation/models.py"
+    - "src/presentation/contract.py"
+    - "src/presentation/validate.py"
+    - "src/redesign_cli.py"
+    - "tests/presentation/test_layout_contract.py"
+    - "mise.toml"
+    - ".gitignore"
+    - "configs/data/README.md"
+    - "configs/data/stage8_headshot_manifest.yaml"
+    - "frontend/src/data/generated/.gitkeep"
+    - "frontend/public/headshots/placeholder-headshot.svg"
+    - "tests/editorial/test_contract.py"
+    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  modules:
+    - "presentation"
+    - "redesign_cli"
+  docs_updated:
+    - "docs/frontend-vision-reset/stage6-gap-audit.md"
+    - "docs/frontend-vision-reset/layout-contract.md"
+    - "agent-context/stages/06-presentation-contract.md"
+    - "agent-context/stages/08-frontend-vertical-slice.md"
+    - "configs/data/README.md"
+    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+
+local_validation:
+  checks_run:
+    - "test -f docs/frontend-vision-reset/stage6-gap-audit.md"
+    - "test -f docs/frontend-vision-reset/layout-contract.md"
+    - "rg -n \"Stage 6 semantic truth|Layout-contract truth|Frontend interaction state|representable without mutating Stage 6 truth\" docs/frontend-vision-reset/stage6-gap-audit.md docs/frontend-vision-reset/layout-contract.md"
+    - "rg -n \"layout-oriented contract|Stage 6 semantic truth plus the layout contract|SVG-first|render semantic truth from Stage 6 through the layout contract\" agent-context/stages/06-presentation-contract.md agent-context/stages/08-frontend-vertical-slice.md"
+    - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help"
+    - "pytest tests/presentation/test_contract.py tests/presentation/test_layout_contract.py"
+    - "python -m py_compile src/presentation/models.py src/presentation/contract.py src/presentation/validate.py src/redesign_cli.py tests/presentation/test_layout_contract.py"
+    - "uv --cache-dir /tmp/uv-cache run pytest -q tests/editorial/test_contract.py tests/presentation/test_layout_contract.py"
+    - "mise tasks ls | rg \"stage6_export|stage8_layout_export|stage8_chapter_export\""
+    - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help"
+    - "uv --cache-dir /tmp/uv-cache run pytest -q tests/presentation"
+    - "mise run stage6_export"
+    - "mise run stage8_layout_export"
+    - "mise run stage8_chapter_export"
+    - "mise exec node@22 -- npm run check"
+    - "mise exec node@22 -- npm run build"
+    - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
+    - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
+    - "mise exec node@22 -- npm run build"
+    - "mise exec node@22 -- npm run build"
+    - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
+    - "mise exec node@22 -- npm run build"
+  failures: []
+  skipped:
+    - "Plain `npm run check` / `npm run build` under the default shell path because that path resolved to Node 12.18.3 rather than the repo-managed Node runtime."
+
+known_issues: []
+
+blockers: []
+
+recommended_next_step: "advance sequentially to T9: implement chapter navigation and minimap integration on top of the viewport model"

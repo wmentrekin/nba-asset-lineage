@@ -1,0 +1,52 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T6"
+owner_skill: implement
+
+objective: "Build the graph-dominant base renderer around the layout-driven scene primitives for strand continuity, junction behavior, and lane-band rendering only."
+why_this_matters: "The data path and scene primitives are now in place; the next step is a renderer that makes the real Memphis graph legible before label, identity-marker, and navigation layers are added."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not create alternate semantic clustering rules in the client."
+    - "Do not implement label/identity-marker behavior in this task."
+    - "Do not add full navigation/minimap logic yet."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use the layout-driven scene primitives from T5 as the only composition source."
+  - "Focus this task on the base graph renderer: strand continuity, junction behavior, lane-band rendering, and differentiated main-roster/two-way/future-pick bands."
+  - "Do not solve labels, identity markers, or chapter navigation here."
+  - "Preserve the graph-dominant direction and avoid drifting back to the old sidebar/context-heavy composition."
+  - "Add or update targeted tests for known Memphis cases: strand continuity, multi-asset same-day trade junctions, and pick-to-player conversion."
+  - "If the current page structure cannot host a graph-dominant base renderer without a new product or architecture decision, stop and report that rather than guessing."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "`mise exec node@22 -- npm run build` succeeds and emits `frontend/dist/index.html`."
+  - "Targeted frontend tests cover known Memphis cases for strand continuity, multi-asset trade junctions, same-day grouped events, and pick-to-player conversion."
+  - "The rendered output keeps main-roster, two-way, and future-pick bands visible and differentiated."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

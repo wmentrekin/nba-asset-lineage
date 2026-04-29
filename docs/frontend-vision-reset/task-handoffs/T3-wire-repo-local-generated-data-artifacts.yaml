@@ -1,0 +1,63 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T3"
+owner_skill: implement
+
+objective: "Implement the repo-local generated export workflow for Stage 6 presentation data, layout-contract data, and chapter-only editorial data consumed by Astro."
+why_this_matters: "Later frontend tasks depend on a real, repeatable local regeneration flow, tracked fixture inputs, and generated artifact paths that fail loudly when the data contract is invalid."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "docs/frontend-vision-reset/layout-contract.md"
+    - "src/redesign_cli.py"
+    - "mise.toml"
+    - ".gitignore"
+    - "configs/data/README.md"
+    - "tests/editorial/test_contract.py"
+    - "tests/presentation/test_layout_contract.py"
+
+scope:
+  owned:
+    - "src/redesign_cli.py"
+    - "mise.toml"
+    - ".gitignore"
+    - "configs/data/README.md"
+    - "configs/data/stage8_headshot_manifest.yaml"
+    - "frontend/src/data/generated/"
+    - "frontend/public/headshots/"
+    - "tests/presentation/"
+    - "tests/editorial/"
+    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+  forbidden:
+    - "Do not modify SQL."
+    - "Do not build frontend scene or rendering code."
+    - "Do not change product requirements or contract ownership."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Add stable `mise` tasks for `stage8_layout_export` and `stage8_chapter_export` to match the frozen regeneration order."
+  - "Ensure `frontend/src/data/generated/` remains a generated path and is ignored."
+  - "Create the tracked headshot manifest and at least one local headshot fixture under `frontend/public/headshots/`."
+  - "Implement or expose the chapter-only export workflow that writes `frontend/src/data/generated/editorial-chapters.json` for this phase."
+  - "Add targeted tests for cross-artifact agreement once chapter export exists, and for generated-data failure behavior where applicable."
+  - "Record the exact regeneration workflow and its outcome in `docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md`."
+  - "Attempt the full regeneration sequence from this repo if the local environment allows it; if DB availability blocks that smoke, report the blocker precisely instead of guessing."
+
+validation_expected:
+  - "The canonical regeneration workflow is explicit and working: `mise run stage6_export`, `mise run stage8_layout_export`, then `mise run stage8_chapter_export` produce files under `frontend/src/data/generated/`."
+  - "A documented smoke workflow regenerates all three artifacts locally with no missing IDs or broken joins."
+  - "Only `story_chapters` are emitted into `frontend/src/data/generated/editorial-chapters.json` for this phase."
+  - "Generated artifact lifecycle is documented and enforced: artifacts are regenerated before frontend checks/tests and are not treated as tracked source files."
+  - "At least one local headshot fixture exists under `frontend/public/headshots/`, and at least one player-backed marker path resolves to that fixture while another player-backed marker exercises text-only fallback."
+  - "Frontend build/test flows fail loudly on invalid generated data rather than silently masking it."
+  - "Targeted pytest coverage verifies cross-artifact agreement between `presentation-contract`, `layout-contract`, and `editorial-chapters` after the chapter export workflow is introduced."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

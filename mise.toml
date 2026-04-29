@@ -89,7 +89,15 @@ run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-presenta
 
 [tasks.stage6_export]
 description = "Export Stage 6 presentation contract JSON"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract --output-path frontend/src/data/generated/presentation-contract.json"
+
+[tasks.stage8_layout_export]
+description = "Export Stage 8 layout contract JSON"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-layout-contract --output-path frontend/src/data/generated/layout-contract.json"
+
+[tasks.stage8_chapter_export]
+description = "Export Stage 7 story chapters as frontend-ready JSON"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-chapters --output-path frontend/src/data/generated/editorial-chapters.json"
 
 [tasks.stage7_bootstrap]
 description = "Apply Stage 7 editorial overlay bootstrap SQL"

@@ -42,6 +42,12 @@ lineage truth and can be loaded into the `editorial` schema with:
 uv --cache-dir /tmp/uv-cache run python -m redesign_cli load-editorial-overlays
 ```
 
+`stage8_headshot_manifest.yaml` is the tracked Stage 8 fixture manifest for
+optional repo-local identity-marker images. It maps stable canonical `asset_id`
+values to static files under `frontend/public/`, for example
+`headshots/example-player.svg`. Layout export resolves only paths that exist
+locally; missing or absent mappings are coerced to text-only markers.
+
 ## Operational Rule
 
 Do not put scratch files in this directory unless they are valid override

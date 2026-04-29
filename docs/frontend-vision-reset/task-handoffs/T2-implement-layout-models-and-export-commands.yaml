@@ -1,0 +1,60 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T2"
+owner_skill: implement
+
+objective: "Implement the frozen layout-contract schema in code and expose deterministic build/validate/export CLI commands for repo-local generated artifacts."
+why_this_matters: "The frontend reset depends on a contract-owned layout artifact so later frontend tasks consume real data without inventing clustering, compaction, or continuity rules client-side."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "docs/frontend-vision-reset/stage6-gap-audit.md"
+    - "docs/frontend-vision-reset/layout-contract.md"
+    - "src/presentation/models.py"
+    - "src/presentation/contract.py"
+    - "src/presentation/validate.py"
+    - "src/redesign_cli.py"
+    - "tests/presentation/test_contract.py"
+
+scope:
+  owned:
+    - "src/presentation/models.py"
+    - "src/presentation/contract.py"
+    - "src/presentation/validate.py"
+    - "src/redesign_cli.py"
+    - "tests/presentation/"
+  forbidden:
+    - "Do not modify frontend files."
+    - "Do not modify SQL."
+    - "Do not widen Stage 6 semantic truth or require a new architecture decision."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use the frozen schema and ownership rules from `docs/frontend-vision-reset/layout-contract.md` and `docs/frontend-vision-reset/plan.yaml`."
+  - "Keep the implementation adjacent to the existing Stage 6 presentation contract surface rather than creating an unrelated parallel system."
+  - "Implement deterministic build/validate/export commands for the layout artifact with a JSON export path that can later target `frontend/src/data/generated/layout-contract.json`."
+  - "Include support for required layout groups and fields: `layout_meta`, `lane_layout`, `event_layout`, `label_layout`, and `chapter_layout`."
+  - "Honor the frozen rules for same-day clustering using Stage 6 `transaction_group_key`, `transition_links`, `member_event_ids`, `entry_slot`/`exit_slot`, and identity-marker image-path resolution semantics as far as T2 owns them."
+  - "Add targeted presentation tests for required layout fields, normalization rules, cluster semantics, transition-link coverage, and contract agreement with Stage 6 presentation IDs."
+  - "If implementation reveals a real contradiction that would require a Stage 6 contract change, stop and report it instead of guessing."
+
+validation_expected:
+  - "`uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help` shows `build-layout-contract`, `validate-layout-contract`, and `export-layout-contract`."
+  - "Targeted pytest coverage exists for frozen layout fields and normalization rules under `tests/presentation/`."
+  - "`export-layout-contract` can write layout JSON from real Stage 6/7 inputs."
+  - "Targeted pytest coverage verifies `entry_slot`, `exit_slot`, and `transition_anchors` are present and sufficient for renderer compaction/reflow without client-side invention."
+  - "Targeted pytest coverage verifies required asset-class visibility in layout output: active 15-man roster assets, up to 3 two-way assets, and future draft assets remain present, with only allowed temporary cases eligible for collapse/defer."
+  - "Targeted pytest coverage verifies cross-artifact contract agreement between `presentation-contract` and `layout-contract` IDs before any frontend task begins."
+  - "Targeted pytest coverage verifies `identity_marker.image_path` resolution semantics at the contract layer where applicable in T2."
+  - "Targeted pytest coverage verifies same-day clustering semantics using Stage 6 `transaction_group_key`."
+  - "Targeted pytest coverage verifies `transition_links` and `member_event_ids` fully cover cluster-boundary strand continuity with no renderer-side guessing."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

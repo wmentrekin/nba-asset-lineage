@@ -13,6 +13,8 @@ frontend/dist/
 frontend/.astro/
 frontend/.vite/
 frontend/.tsbuildinfo
+frontend/src/data/generated/*
+!frontend/src/data/generated/.gitkeep
 
 # C extensions
 *.so

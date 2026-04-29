@@ -43,12 +43,21 @@ from editorial.contract import (
     validate_editorial_overlay_bundle,
 )
 from presentation.contract import (
+    build_layout_contract,
+    build_layout_contract_from_db,
     bootstrap_presentation_contract_schema,
     build_and_persist_presentation_contract,
+    export_layout_contract_json,
     export_presentation_contract_json,
     fetch_presentation_contract,
 )
-from presentation.validate import validate_presentation_contract
+from presentation.validate import validate_layout_contract, validate_presentation_contract
+
+
+GENERATED_FRONTEND_DATA_DIR = Path("frontend/src/data/generated")
+DEFAULT_PRESENTATION_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "presentation-contract.json"
+DEFAULT_LAYOUT_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "layout-contract.json"
+DEFAULT_EDITORIAL_CHAPTER_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "editorial-chapters.json"
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -185,6 +194,31 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Include Stage 7 editorial overlays in the exported JSON under an editorial key.",
     )
 
+    build_layout_parser = subparsers.add_parser(
+        "build-layout-contract",
+        help="Build the Stage 8 layout contract from the latest Stage 6 presentation and optional Stage 7 editorial data.",
+    )
+    build_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    build_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    build_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    validate_layout_parser = subparsers.add_parser(
+        "validate-layout-contract",
+        help="Validate a generated Stage 8 layout contract against the latest Stage 6 presentation and optional Stage 7 editorial data.",
+    )
+    validate_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    validate_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    validate_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    export_layout_parser = subparsers.add_parser(
+        "export-layout-contract",
+        help="Export the Stage 8 layout contract as JSON.",
+    )
+    export_layout_parser.add_argument("--output-path", type=Path)
+    export_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    export_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    export_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
     bootstrap_editorial_parser = subparsers.add_parser(
         "bootstrap-editorial-overlays",
         help="Apply the Stage 7 editorial overlay bootstrap SQL.",
@@ -219,6 +253,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Export the latest Stage 7 editorial overlays as JSON.",
     )
     export_editorial_parser.add_argument("--output-path", type=Path)
+
+    export_editorial_chapters_parser = subparsers.add_parser(
+        "export-editorial-chapters",
+        help="Export only Stage 7 story chapters as frontend-ready JSON.",
+    )
+    export_editorial_chapters_parser.add_argument("--output-path", type=Path)
+    export_editorial_chapters_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    export_editorial_chapters_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    export_editorial_chapters_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
 
     bootstrap_player_tenure_parser = subparsers.add_parser(
         "bootstrap-canonical-player-tenure",
@@ -256,6 +299,91 @@ def _connect():
 def _emit(payload: dict[str, object]) -> int:
     print(json.dumps(payload, sort_keys=True, default=str))
     return 0
+
+
+def _prepare_output_path(output_path: Path | None) -> Path | None:
+    if output_path is None:
+        return None
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return output_path
+
+
+def _build_editorial_chapter_rows(editorial_result) -> list[dict[str, object]]:
+    return [
+        {
+            "story_chapter_id": row.story_chapter_id,
+            "slug": row.slug,
+            "chapter_order": row.chapter_order,
+            "title": row.title,
+            "body": row.body,
+            "start_date": row.start_date,
+            "end_date": row.end_date,
+        }
+        for row in sorted(
+            editorial_result.story_chapters,
+            key=lambda row: (row.chapter_order, row.start_date, row.story_chapter_id),
+        )
+    ]
+
+
+def _validate_editorial_chapter_rows(
+    chapter_rows: Sequence[dict[str, object]],
+    *,
+    chapter_layout_ids: set[str],
+) -> None:
+    chapter_ids = [str(row["story_chapter_id"]) for row in chapter_rows]
+    duplicate_ids = sorted({chapter_id for chapter_id in chapter_ids if chapter_ids.count(chapter_id) > 1})
+    if duplicate_ids:
+        raise RuntimeError(f"editorial chapter export has duplicate story_chapter_id values: {', '.join(duplicate_ids)}")
+    chapter_id_set = set(chapter_ids)
+    if chapter_id_set != chapter_layout_ids:
+        missing_from_export = sorted(chapter_layout_ids - chapter_id_set)
+        missing_from_layout = sorted(chapter_id_set - chapter_layout_ids)
+        details: list[str] = []
+        if missing_from_export:
+            details.append(f"missing from export: {', '.join(missing_from_export)}")
+        if missing_from_layout:
+            details.append(f"missing from layout: {', '.join(missing_from_layout)}")
+        raise RuntimeError(f"editorial chapter export is out of sync with chapter_layout ({'; '.join(details)})")
+
+
+def export_editorial_chapters_json(
+    output_path: Path | str | None = None,
+    *,
+    builder_version: str = "stage8-layout-contract-v1",
+    headshot_manifest_path: Path | str = Path("configs/data/stage8_headshot_manifest.yaml"),
+    frontend_public_root: Path | str = Path("frontend/public"),
+) -> str:
+    with _connect() as conn:
+        presentation_result = fetch_presentation_contract(conn)
+        editorial_result = fetch_editorial_overlays(conn)
+    layout_result = build_layout_contract(
+        presentation_result=presentation_result,
+        editorial_overlays=editorial_result,
+        builder_version=builder_version,
+        headshot_manifest_path=headshot_manifest_path,
+        frontend_public_root=frontend_public_root,
+    )
+    report = validate_layout_contract(
+        result=layout_result,
+        presentation_result=presentation_result,
+        editorial_overlays=editorial_result,
+        frontend_public_root=frontend_public_root,
+    )
+    if not report.ok:
+        raise RuntimeError(
+            "cannot export editorial chapters because the layout contract is invalid: "
+            + "; ".join(report.errors)
+        )
+    chapter_rows = _build_editorial_chapter_rows(editorial_result)
+    _validate_editorial_chapter_rows(
+        chapter_rows,
+        chapter_layout_ids={row.story_chapter_id for row in layout_result.chapter_layout},
+    )
+    payload = json.dumps(chapter_rows, sort_keys=True, indent=2, default=str)
+    if output_path is not None:
+        Path(output_path).write_text(payload + "\n", encoding="utf-8")
+    return payload
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -556,6 +684,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "build-presentation-contract":
         counts = build_and_persist_presentation_contract(builder_version=args.builder_version)
         return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-layout-contract":
+        result = build_layout_contract_from_db(
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        return _emit({"command": args.command, "status": "success", **result.counts()})
 
     if args.command == "load-editorial-overlays":
         counts = build_and_persist_editorial_overlays(
@@ -1172,15 +1308,76 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
 
+    if args.command == "validate-layout-contract":
+        with _connect() as conn:
+            presentation_result = fetch_presentation_contract(conn)
+            try:
+                editorial_result = fetch_editorial_overlays(conn)
+            except RuntimeError:
+                editorial_result = None
+        layout_result = build_layout_contract(
+            presentation_result=presentation_result,
+            editorial_overlays=editorial_result,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        report = validate_layout_contract(
+            result=layout_result,
+            presentation_result=presentation_result,
+            editorial_overlays=editorial_result,
+            frontend_public_root=args.frontend_public_root,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "lane_layout_count": report.lane_layout_count,
+                "event_layout_count": report.event_layout_count,
+                "label_layout_count": report.label_layout_count,
+                "chapter_layout_count": report.chapter_layout_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
     if args.command == "export-presentation-contract":
-        payload = export_presentation_contract_json(args.output_path, include_editorial=args.include_editorial)
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_presentation_contract_json(output_path, include_editorial=args.include_editorial)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-layout-contract":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_layout_contract_json(
+            output_path,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
         if args.output_path is None:
             print(payload)
             return 0
         return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
 
     if args.command == "export-editorial-overlays":
-        payload = export_editorial_overlays_json(args.output_path)
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_editorial_overlays_json(output_path)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-editorial-chapters":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_editorial_chapters_json(
+            output_path,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
         if args.output_path is None:
             print(payload)
             return 0

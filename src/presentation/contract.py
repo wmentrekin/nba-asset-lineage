@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterable
+
+import yaml
 
 from canonical.models import (
     AssetState,
@@ -17,12 +19,24 @@ from canonical.models import (
     CanonicalPlayerTenure,
 )
 from db_config import load_database_url
+from editorial.models import EditorialOverlayBuildResult
 from presentation.models import (
     AssetLane,
+    ChapterLayoutRow,
+    EventLayoutRow,
+    IdentityMarker,
+    LabelLayoutRow,
+    LaneLayoutRow,
+    LayoutBuild,
+    LayoutContractBuildResult,
+    LayoutMeta,
+    MinimapSegment,
     PresentationBuild,
     PresentationContractBuildResult,
     TimelineEdge,
     TimelineNode,
+    TransitionAnchor,
+    TransitionLink,
 )
 from shared.ids import stable_id, stable_payload_hash
 
@@ -41,6 +55,11 @@ TWO_WAY_VALUES = {"two_way", "two-way", "two way"}
 MAIN_ROSTER_VALUES = {"main_roster", "main-roster", "main roster", "standard", "regular_roster", "active_roster"}
 EXPLICIT_LANE_KEYS = ("lane_group", "presentation_lane_group", "roster_lane_group")
 EXPLICIT_STATUS_KEYS = ("contract_type", "roster_status")
+DEFAULT_LAYOUT_WINDOW_DAYS = 180
+DEFAULT_LAYOUT_MIN_ZOOM_DAYS = 30
+DEFAULT_LAYOUT_DAY_WIDTH = 6.0
+HEADSHOT_MANIFEST_PATH = Path("configs/data/stage8_headshot_manifest.yaml")
+FRONTEND_PUBLIC_ROOT = Path("frontend/public")
 
 
 def bootstrap_presentation_contract_schema(sql_path: Path | str) -> None:
@@ -415,6 +434,596 @@ def presentation_contract_to_json(result: PresentationContractBuildResult, *, ed
     if editorial_overlays is not None:
         payload["editorial"] = _json_ready(editorial_overlays.as_contract())
     return json.dumps(payload, sort_keys=True, indent=2)
+
+
+def _segment_duration_days(start_date: date, end_date: date) -> int:
+    return max(1, (end_date - start_date).days + 1)
+
+
+def _segment_label(edge: TimelineEdge) -> str:
+    return str(
+        edge.payload.get("player_name")
+        or edge.payload.get("drafted_player_name")
+        or edge.payload.get("label")
+        or edge.asset_id
+    )
+
+
+def _load_headshot_manifest(manifest_path: Path | str) -> dict[str, str]:
+    path = Path(manifest_path)
+    if not path.exists():
+        return {}
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if payload is None:
+        return {}
+    if isinstance(payload, dict) and isinstance(payload.get("headshots"), dict):
+        payload = payload["headshots"]
+    if not isinstance(payload, dict):
+        raise ValueError(f"headshot manifest must be a mapping: {path}")
+    manifest: dict[str, str] = {}
+    for asset_id, image_path in payload.items():
+        asset_key = str(asset_id).strip()
+        image_value = str(image_path or "").strip()
+        if asset_key and image_value:
+            manifest[asset_key] = image_value
+    return manifest
+
+
+def _resolved_identity_marker(
+    *,
+    asset_id: str,
+    label_text: str,
+    manifest: dict[str, str],
+    frontend_public_root: Path,
+) -> IdentityMarker:
+    image_path = manifest.get(asset_id)
+    if image_path and not (frontend_public_root / image_path).exists():
+        image_path = None
+    return IdentityMarker(
+        label_text=label_text,
+        image_path=image_path,
+        marker_variant="headshot_text" if image_path else "text_only",
+    )
+
+
+def _minimap_label(start_date: date, end_date: date) -> str:
+    if start_date.year == end_date.year and start_date.month == end_date.month:
+        return start_date.strftime("%b %Y")
+    return f"{start_date.strftime('%b %Y')} - {end_date.strftime('%b %Y')}"
+
+
+def _build_minimap_segments(*, start_date: date, end_date: date, window_end: date) -> list[MinimapSegment]:
+    width_days = max(1, (window_end - start_date).days)
+    step_days = max(1, width_days // 2)
+    segments: list[MinimapSegment] = []
+    cursor = start_date
+    while True:
+        segment_end = min(cursor + timedelta(days=width_days), end_date)
+        anchor_date = min(cursor + timedelta(days=max(0, width_days // 2)), segment_end)
+        segments.append(
+            MinimapSegment(
+                segment_id=stable_id("layout_minimap_segment", cursor.isoformat(), segment_end.isoformat()),
+                start_date=cursor,
+                end_date=segment_end,
+                anchor_date=anchor_date,
+                label=_minimap_label(cursor, segment_end),
+            )
+        )
+        if segment_end >= end_date:
+            break
+        next_cursor = min(cursor + timedelta(days=step_days), end_date)
+        if next_cursor <= cursor:
+            break
+        cursor = next_cursor
+    return segments
+
+
+def _cluster_events(nodes: list[TimelineNode]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    grouped: dict[tuple[str, ...], list[TimelineNode]] = defaultdict(list)
+    for node in nodes:
+        if node.event_id is None:
+            continue
+        event_type = str(node.payload.get("event_type") or "")
+        transaction_group_key = str(node.payload.get("transaction_group_key") or "").strip()
+        if event_type == "trade" and transaction_group_key:
+            key = ("trade", node.event_date.isoformat(), transaction_group_key)
+        else:
+            key = ("event", node.event_id)
+        grouped[key].append(node)
+
+    clusters: list[dict[str, Any]] = []
+    cluster_by_event_id: dict[str, dict[str, Any]] = {}
+    for key, group in grouped.items():
+        ordered = sorted(group, key=lambda row: (row.event_date, row.event_order, row.event_id or "", row.node_id))
+        cluster_date = ordered[0].event_date
+        cluster_order = min(row.event_order for row in ordered)
+        if key[0] == "trade":
+            cluster_id = stable_id("layout_event_cluster", cluster_date.isoformat(), key[2])
+        else:
+            cluster_id = stable_id("layout_event_cluster", ordered[0].event_id)
+        cluster = {
+            "cluster_id": cluster_id,
+            "cluster_date": cluster_date,
+            "cluster_order": cluster_order,
+            "event_id": ordered[0].event_id,
+            "member_event_ids": [row.event_id for row in ordered if row.event_id is not None],
+            "event_types": [str(row.payload.get("event_type") or "") for row in ordered],
+        }
+        clusters.append(cluster)
+        for row in ordered:
+            if row.event_id is not None:
+                cluster_by_event_id[row.event_id] = cluster
+
+    clusters.sort(key=lambda row: (row["cluster_date"], row["cluster_order"], row["event_id"]))
+    return clusters, cluster_by_event_id
+
+
+def _build_transition_links(
+    *,
+    cluster: dict[str, Any],
+    incoming_rows: list[LaneLayoutRow],
+    outgoing_rows: list[LaneLayoutRow],
+    incoming_edges: dict[str, TimelineEdge],
+    outgoing_edges: dict[str, TimelineEdge],
+) -> list[TransitionLink]:
+    return [
+        TransitionLink(
+            transition_link_id=stable_id(
+                "layout_transition_link",
+                cluster["cluster_id"],
+                source_segment_id,
+                target_segment_id,
+                link_type,
+            ),
+            source_segment_id=source_segment_id,
+            target_segment_id=target_segment_id,
+            source_asset_id=source_asset_id,
+            target_asset_id=target_asset_id,
+            link_type=link_type,
+        )
+        for source_segment_id, target_segment_id, source_asset_id, target_asset_id, link_type in _expected_transition_link_specs(
+            cluster=cluster,
+            incoming_rows=incoming_rows,
+            outgoing_rows=outgoing_rows,
+            incoming_edges=incoming_edges,
+            outgoing_edges=outgoing_edges,
+        )
+    ]
+
+
+def _expected_transition_link_specs(
+    *,
+    cluster: dict[str, Any],
+    incoming_rows: list[LaneLayoutRow],
+    outgoing_rows: list[LaneLayoutRow],
+    incoming_edges: dict[str, TimelineEdge],
+    outgoing_edges: dict[str, TimelineEdge],
+) -> list[tuple[str, str, str, str, str]]:
+    specs: list[tuple[str, str, str, str, str]] = []
+    used_incoming: set[str] = set()
+    used_outgoing: set[str] = set()
+    edge_by_segment_id = {**incoming_edges, **outgoing_edges}
+
+    if cluster["junction_type"] == "draft_transition":
+        stage_order = {"future_pick": 0, "resolved_pick": 1, "drafted_player": 2}
+        rows_by_asset: dict[str, dict[str, LaneLayoutRow]] = defaultdict(dict)
+        for row in incoming_rows + outgoing_rows:
+            rows_by_asset[row.asset_id][row.segment_id] = row
+        for asset_id, rows_by_segment_id in sorted(rows_by_asset.items()):
+            ordered_rows = sorted(
+                rows_by_segment_id.values(),
+                key=lambda row: (
+                    stage_order.get(str(edge_by_segment_id[row.segment_id].payload.get("pick_stage") or ""), 99),
+                    0 if edge_by_segment_id[row.segment_id].edge_type == "pick_line" else 1,
+                    row.band_slot,
+                    row.segment_id,
+                ),
+            )
+            for source_row, target_row in zip(ordered_rows, ordered_rows[1:]):
+                if source_row.segment_id == target_row.segment_id:
+                    continue
+                target_edge = edge_by_segment_id[target_row.segment_id]
+                link_type = "pick_to_player" if target_edge.edge_type == "transition_line" else "same_asset"
+                specs.append(
+                    (
+                        source_row.segment_id,
+                        target_row.segment_id,
+                        source_row.asset_id,
+                        target_row.asset_id,
+                        link_type,
+                    )
+                )
+                used_incoming.add(source_row.segment_id)
+                used_outgoing.add(target_row.segment_id)
+
+    incoming_by_asset: dict[str, list[LaneLayoutRow]] = defaultdict(list)
+    outgoing_by_asset: dict[str, list[LaneLayoutRow]] = defaultdict(list)
+    for row in incoming_rows:
+        if row.segment_id not in used_incoming:
+            incoming_by_asset[row.asset_id].append(row)
+    for row in outgoing_rows:
+        if row.segment_id not in used_outgoing:
+            outgoing_by_asset[row.asset_id].append(row)
+
+    for asset_id in sorted(set(incoming_by_asset) & set(outgoing_by_asset)):
+        source_rows = sorted(incoming_by_asset[asset_id], key=lambda row: (row.band_slot, row.segment_id))
+        target_rows = sorted(outgoing_by_asset[asset_id], key=lambda row: (row.band_slot, row.segment_id))
+        for source_row, target_row in zip(source_rows, target_rows):
+            if source_row.segment_id == target_row.segment_id:
+                continue
+            specs.append(
+                (
+                    source_row.segment_id,
+                    target_row.segment_id,
+                    source_row.asset_id,
+                    target_row.asset_id,
+                    "same_asset",
+                )
+            )
+            used_incoming.add(source_row.segment_id)
+            used_outgoing.add(target_row.segment_id)
+
+    return specs
+
+
+def _chapter_window(value: Any, *, fallback_start: date, fallback_end: date) -> tuple[date, date]:
+    if isinstance(value, dict):
+        start_text = str(value.get("start_date") or "").strip()
+        end_text = str(value.get("end_date") or "").strip()
+        if start_text and end_text:
+            return date.fromisoformat(start_text), date.fromisoformat(end_text)
+    return fallback_start, fallback_end
+
+
+def _chapter_focus_ids(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(entry).strip() for entry in value if str(entry).strip()]
+
+
+def _chapter_default_zoom(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        zoom = value
+    elif isinstance(value, float) and value.is_integer():
+        zoom = int(value)
+    elif isinstance(value, str) and value.strip().isdigit():
+        zoom = int(value.strip())
+    else:
+        return None
+    if zoom < DEFAULT_LAYOUT_MIN_ZOOM_DAYS:
+        return None
+    return min(zoom, DEFAULT_LAYOUT_WINDOW_DAYS)
+
+
+def build_layout_contract(
+    *,
+    presentation_result: PresentationContractBuildResult,
+    editorial_overlays: EditorialOverlayBuildResult | None = None,
+    builder_version: str = "stage8-layout-contract-v1",
+    built_at: datetime | None = None,
+    headshot_manifest_path: Path | str = HEADSHOT_MANIFEST_PATH,
+    frontend_public_root: Path | str = FRONTEND_PUBLIC_ROOT,
+) -> LayoutContractBuildResult:
+    if not presentation_result.nodes and not presentation_result.edges:
+        raise ValueError("layout contract build requires presentation nodes or edges")
+
+    built_at_value = built_at or datetime.utcnow()
+    frontend_public_root_path = Path(frontend_public_root)
+    headshot_manifest = _load_headshot_manifest(headshot_manifest_path)
+
+    edges = list(presentation_result.edges)
+    nodes = list(presentation_result.nodes)
+    event_nodes = [row for row in nodes if row.event_id is not None]
+    if not event_nodes:
+        raise ValueError("layout contract build requires presentation event nodes")
+
+    chronology_candidates = [row.event_date for row in event_nodes]
+    chronology_candidates.extend(row.start_date for row in edges)
+    chronology_candidates.extend(row.end_date for row in edges)
+    start_date = min(chronology_candidates)
+    end_date = max(chronology_candidates)
+    default_window_start = start_date
+    default_window_end = min(start_date + timedelta(days=DEFAULT_LAYOUT_WINDOW_DAYS), end_date)
+
+    minimap_segments = _build_minimap_segments(
+        start_date=start_date,
+        end_date=end_date,
+        window_end=default_window_end,
+    )
+    layout_meta = LayoutMeta(
+        start_date=start_date,
+        end_date=end_date,
+        default_window_start=default_window_start,
+        default_window_end=default_window_end,
+        default_day_width=DEFAULT_LAYOUT_DAY_WIDTH,
+        axis_strategy={
+            "minor_tick_unit": "month",
+            "major_tick_unit": "season_boundary",
+            "season_boundary_rule": "july_1",
+        },
+        minimap_segments=minimap_segments,
+    )
+
+    label_by_asset: dict[str, str] = {}
+    visible_days_by_asset: dict[str, int] = defaultdict(int)
+    for edge in edges:
+        label_by_asset.setdefault(edge.asset_id, _segment_label(edge))
+        visible_days_by_asset[edge.asset_id] += _segment_duration_days(edge.start_date, edge.end_date)
+    display_rank_by_asset = {
+        asset_id: index
+        for index, asset_id in enumerate(
+            sorted(
+                visible_days_by_asset,
+                key=lambda key: (-visible_days_by_asset[key], label_by_asset.get(key, ""), key),
+            )
+        )
+    }
+
+    provisional_lane_rows = [
+        LaneLayoutRow(
+            segment_id=edge.edge_id,
+            asset_id=edge.asset_id,
+            lane_group=edge.lane_group,
+            date_start=edge.start_date,
+            date_end=edge.end_date,
+            display_rank=display_rank_by_asset[edge.asset_id],
+            band_slot=edge.lane_index,
+            compaction_group=None,
+            continuity_anchor=edge.asset_id,
+            entry_slot=edge.lane_index,
+            exit_slot=edge.lane_index,
+            identity_marker=_resolved_identity_marker(
+                asset_id=edge.asset_id,
+                label_text=_segment_label(edge),
+                manifest=headshot_manifest,
+                frontend_public_root=frontend_public_root_path,
+            ),
+        )
+        for edge in edges
+    ]
+    lane_by_segment_id = {row.segment_id: row for row in provisional_lane_rows}
+    edge_by_segment_id = {edge.edge_id: edge for edge in edges}
+
+    clusters, cluster_by_event_id = _cluster_events(event_nodes)
+    compaction_group_by_segment: dict[str, str] = {}
+    continuity_links_by_segment: dict[str, set[str]] = defaultdict(set)
+    event_layout: list[EventLayoutRow] = []
+    for cluster in clusters:
+        member_event_ids = list(cluster["member_event_ids"])
+        incoming_rows = sorted(
+            [
+                row
+                for row in provisional_lane_rows
+                if edge_by_segment_id[row.segment_id].target_node_id in {
+                    node.node_id for node in event_nodes if node.event_id in member_event_ids
+                }
+            ],
+            key=lambda row: (row.band_slot, row.segment_id),
+        )
+        outgoing_rows = sorted(
+            [
+                row
+                for row in provisional_lane_rows
+                if edge_by_segment_id[row.segment_id].source_node_id in {
+                    node.node_id for node in event_nodes if node.event_id in member_event_ids
+                }
+            ],
+            key=lambda row: (row.band_slot, row.segment_id),
+        )
+        incoming_edges = {row.segment_id: edge_by_segment_id[row.segment_id] for row in incoming_rows}
+        outgoing_edges = {row.segment_id: edge_by_segment_id[row.segment_id] for row in outgoing_rows}
+
+        cluster["junction_type"] = (
+            "draft_transition"
+            if "draft" in cluster["event_types"] and any(edge.edge_type == "transition_line" for edge in outgoing_edges.values())
+            else "transaction"
+        )
+        transition_links = _build_transition_links(
+            cluster=cluster,
+            incoming_rows=incoming_rows,
+            outgoing_rows=outgoing_rows,
+            incoming_edges=incoming_edges,
+            outgoing_edges=outgoing_edges,
+        )
+        transition_anchor_map: dict[tuple[str, str, int, int], TransitionAnchor] = {}
+        for link in transition_links:
+            source_row = lane_by_segment_id[link.source_segment_id]
+            target_row = lane_by_segment_id[link.target_segment_id]
+            for row, from_slot, to_slot in (
+                (source_row, source_row.exit_slot, target_row.entry_slot),
+                (target_row, source_row.exit_slot, target_row.entry_slot),
+            ):
+                transition_anchor_map[(row.segment_id, row.asset_id, from_slot, to_slot)] = TransitionAnchor(
+                    segment_id=row.segment_id,
+                    asset_id=row.asset_id,
+                    anchor_date=cluster["cluster_date"],
+                    from_slot=from_slot,
+                    to_slot=to_slot,
+                )
+            continuity_links_by_segment[source_row.segment_id].add(target_row.segment_id)
+            continuity_links_by_segment[target_row.segment_id].add(source_row.segment_id)
+            compaction_group_by_segment.setdefault(source_row.segment_id, cluster["cluster_id"])
+            compaction_group_by_segment.setdefault(target_row.segment_id, cluster["cluster_id"])
+
+        event_layout.append(
+            EventLayoutRow(
+                event_id=cluster["event_id"],
+                cluster_id=cluster["cluster_id"],
+                cluster_date=cluster["cluster_date"],
+                cluster_order=cluster["cluster_order"],
+                junction_type=cluster["junction_type"],
+                member_event_ids=member_event_ids,
+                connected_asset_ids=sorted({row.asset_id for row in incoming_rows + outgoing_rows}),
+                incoming_slots={row.segment_id: row.exit_slot for row in incoming_rows},
+                outgoing_slots={row.segment_id: row.entry_slot for row in outgoing_rows},
+                transition_anchors=sorted(
+                    transition_anchor_map.values(),
+                    key=lambda row: (row.from_slot, row.to_slot, row.segment_id),
+                ),
+                transition_links=sorted(
+                    transition_links,
+                    key=lambda row: (row.link_type, row.source_segment_id, row.target_segment_id),
+                ),
+            )
+        )
+
+    parent = {row.segment_id: row.segment_id for row in provisional_lane_rows}
+
+    def find(segment_id: str) -> str:
+        root = parent[segment_id]
+        while root != parent[root]:
+            root = parent[root]
+        while segment_id != root:
+            next_segment = parent[segment_id]
+            parent[segment_id] = root
+            segment_id = next_segment
+        return root
+
+    def union(left: str, right: str) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root == right_root:
+            return
+        if left_root < right_root:
+            parent[right_root] = left_root
+        else:
+            parent[left_root] = right_root
+
+    for linked_segments in continuity_links_by_segment.values():
+        ordered = sorted(linked_segments)
+        for left, right in zip(ordered, ordered[1:]):
+            union(left, right)
+    for segment_id, linked_segments in continuity_links_by_segment.items():
+        for linked_segment_id in linked_segments:
+            union(segment_id, linked_segment_id)
+
+    component_members: dict[str, list[str]] = defaultdict(list)
+    for row in provisional_lane_rows:
+        component_members[find(row.segment_id)].append(row.segment_id)
+    continuity_anchor_by_segment = {
+        segment_id: stable_id("layout_continuity_anchor", *sorted(component))
+        for component in component_members.values()
+        for segment_id in component
+    }
+
+    lane_layout = sorted(
+        [
+            LaneLayoutRow(
+                segment_id=row.segment_id,
+                asset_id=row.asset_id,
+                lane_group=row.lane_group,
+                date_start=row.date_start,
+                date_end=row.date_end,
+                display_rank=row.display_rank,
+                band_slot=row.band_slot,
+                compaction_group=compaction_group_by_segment.get(row.segment_id),
+                continuity_anchor=continuity_anchor_by_segment.get(
+                    row.segment_id,
+                    stable_id("layout_continuity_anchor", row.segment_id),
+                ),
+                entry_slot=row.entry_slot,
+                exit_slot=row.exit_slot,
+                identity_marker=row.identity_marker,
+            )
+            for row in provisional_lane_rows
+        ],
+        key=lambda row: (row.lane_group, row.band_slot, row.date_start, row.asset_id, row.segment_id),
+    )
+
+    label_layout = sorted(
+        [
+            LabelLayoutRow(
+                segment_id=row.segment_id,
+                asset_id=row.asset_id,
+                date_start=row.date_start,
+                date_end=row.date_end,
+                inline_label_allowed=_segment_duration_days(row.date_start, row.date_end) > 1
+                and edge_by_segment_id[row.segment_id].edge_type != "transition_line",
+                label_priority=row.display_rank,
+                fallback_marker_required=not (
+                    _segment_duration_days(row.date_start, row.date_end) > 1
+                    and edge_by_segment_id[row.segment_id].edge_type != "transition_line"
+                ),
+                marker_side="left",
+            )
+            for row in lane_layout
+        ],
+        key=lambda row: (row.label_priority, row.date_start, row.segment_id),
+    )
+
+    presentation_event_ids = {row.event_id for row in event_nodes if row.event_id is not None}
+    presentation_asset_ids = {row.asset_id for row in lane_layout}
+    chapter_layout: list[ChapterLayoutRow] = []
+    if editorial_overlays is not None:
+        for chapter in sorted(editorial_overlays.story_chapters, key=lambda row: (row.chapter_order, row.start_date, row.story_chapter_id)):
+            focus_payload = chapter.focus_payload or {}
+            window_start, window_end = _chapter_window(
+                focus_payload.get("date_range"),
+                fallback_start=chapter.start_date,
+                fallback_end=chapter.end_date,
+            )
+            window_start = max(layout_meta.start_date, window_start)
+            window_end = min(layout_meta.end_date, window_end)
+            if window_end < window_start:
+                window_end = window_start
+            anchor_segment = next(
+                (
+                    segment
+                    for segment in minimap_segments
+                    if segment.start_date <= window_start <= segment.end_date
+                ),
+                minimap_segments[-1],
+            )
+            chapter_layout.append(
+                ChapterLayoutRow(
+                    story_chapter_id=chapter.story_chapter_id,
+                    window_start=window_start,
+                    window_end=window_end,
+                    highlight_asset_ids=[
+                        asset_id
+                        for asset_id in _chapter_focus_ids(focus_payload.get("asset_ids"))
+                        if asset_id in presentation_asset_ids
+                    ],
+                    highlight_event_ids=[
+                        event_id
+                        for event_id in _chapter_focus_ids(focus_payload.get("event_ids"))
+                        if event_id in presentation_event_ids
+                    ],
+                    minimap_anchor_id=anchor_segment.segment_id,
+                    default_zoom=_chapter_default_zoom(focus_payload.get("default_zoom")),
+                )
+            )
+
+    build = LayoutBuild(
+        layout_build_id=stable_id(
+            "layout_build",
+            builder_version,
+            built_at_value.isoformat(),
+            presentation_result.build.presentation_build_id,
+            editorial_overlays.build.editorial_build_id if editorial_overlays is not None else "no_editorial",
+        ),
+        built_at=built_at_value,
+        builder_version=builder_version,
+        presentation_build_id=presentation_result.build.presentation_build_id,
+        editorial_build_id=editorial_overlays.build.editorial_build_id if editorial_overlays is not None else None,
+        notes="Stage 8 layout contract build",
+    )
+    return LayoutContractBuildResult(
+        build=build,
+        layout_meta=layout_meta,
+        lane_layout=lane_layout,
+        event_layout=event_layout,
+        label_layout=label_layout,
+        chapter_layout=chapter_layout,
+    )
+
+
+def layout_contract_to_json(result: LayoutContractBuildResult) -> str:
+    return json.dumps(_json_ready(result.as_contract()), sort_keys=True, indent=2)
 
 
 def fetch_presentation_contract_build_inputs(
@@ -980,6 +1589,47 @@ def export_presentation_contract_json(
 
             editorial_result = fetch_editorial_overlays(conn)
     payload = presentation_contract_to_json(result, editorial_overlays=editorial_result)
+    if output_path is not None:
+        Path(output_path).write_text(payload + "\n", encoding="utf-8")
+    return payload
+
+
+def build_layout_contract_from_db(
+    *,
+    builder_version: str = "stage8-layout-contract-v1",
+    headshot_manifest_path: Path | str = HEADSHOT_MANIFEST_PATH,
+    frontend_public_root: Path | str = FRONTEND_PUBLIC_ROOT,
+) -> LayoutContractBuildResult:
+    with _connect() as conn:
+        presentation_result = fetch_presentation_contract(conn)
+        try:
+            from editorial.contract import fetch_editorial_overlays
+
+            editorial_result = fetch_editorial_overlays(conn)
+        except RuntimeError:
+            editorial_result = None
+    return build_layout_contract(
+        presentation_result=presentation_result,
+        editorial_overlays=editorial_result,
+        builder_version=builder_version,
+        headshot_manifest_path=headshot_manifest_path,
+        frontend_public_root=frontend_public_root,
+    )
+
+
+def export_layout_contract_json(
+    output_path: Path | str | None = None,
+    *,
+    builder_version: str = "stage8-layout-contract-v1",
+    headshot_manifest_path: Path | str = HEADSHOT_MANIFEST_PATH,
+    frontend_public_root: Path | str = FRONTEND_PUBLIC_ROOT,
+) -> str:
+    result = build_layout_contract_from_db(
+        builder_version=builder_version,
+        headshot_manifest_path=headshot_manifest_path,
+        frontend_public_root=frontend_public_root,
+    )
+    payload = layout_contract_to_json(result)
     if output_path is not None:
         Path(output_path).write_text(payload + "\n", encoding="utf-8")
     return payload

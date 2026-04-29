@@ -1,0 +1,3 @@
+# Map stable canonical asset_id values to local files under frontend/public/.
+# Populate this only with real asset ids that exist in the current Memphis export.
+{}

@@ -4,6 +4,8 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 
+import pytest
+
 from canonical.models import CanonicalAsset, CanonicalEvent
 from editorial.contract import (
     build_editorial_overlays,
@@ -23,6 +25,7 @@ from editorial.models import (
 )
 from editorial.validate import validate_editorial_overlays
 from presentation.contract import build_presentation_contract, presentation_contract_to_json
+from redesign_cli import _build_editorial_chapter_rows, _validate_editorial_chapter_rows
 
 
 NOW = datetime(2026, 4, 20, 12, 0, 0)
@@ -283,6 +286,45 @@ def test_combined_presentation_export_keeps_editorial_payload_separate():
     assert set(payload["editorial"]) == {"annotations", "calendar_markers", "game_overlays", "eras", "story_chapters", "meta"}
     assert payload["meta"]["node_count"] == len(payload["nodes"])
     assert payload["editorial"]["meta"]["annotation_count"] == 2
+
+
+def test_editorial_chapter_export_rows_only_emit_story_chapter_fields():
+    rows = _build_editorial_chapter_rows(_bundle())
+
+    assert rows == [
+        {
+            "story_chapter_id": "chapter_reset",
+            "slug": "reset",
+            "chapter_order": 1,
+            "title": "A reset begins",
+            "body": "Narrative copy.",
+            "start_date": date.fromisoformat("2024-02-08"),
+            "end_date": date.fromisoformat("2025-06-30"),
+        }
+    ]
+    assert set(rows[0]) == {
+        "story_chapter_id",
+        "slug",
+        "chapter_order",
+        "title",
+        "body",
+        "start_date",
+        "end_date",
+    }
+
+
+def test_editorial_chapter_export_validation_fails_loudly_on_layout_mismatch():
+    rows = _build_editorial_chapter_rows(_bundle())
+
+    with pytest.raises(RuntimeError, match="out of sync with chapter_layout"):
+        _validate_editorial_chapter_rows(rows, chapter_layout_ids=set())
+
+
+def test_editorial_chapter_export_validation_fails_loudly_on_duplicate_ids():
+    rows = _build_editorial_chapter_rows(_bundle()) * 2
+
+    with pytest.raises(RuntimeError, match="duplicate story_chapter_id"):
+        _validate_editorial_chapter_rows(rows, chapter_layout_ids={"chapter_reset"})
 
 
 class _FakeCursor:

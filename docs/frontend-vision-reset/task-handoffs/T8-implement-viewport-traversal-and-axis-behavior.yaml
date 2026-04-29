@@ -1,0 +1,48 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T8"
+owner_skill: implement
+
+objective: "Implement horizontal-scroll-first viewport traversal, default window behavior, zoom handling, and layout-driven monthly/season-boundary axis ticks."
+why_this_matters: "The graph now renders with labels and identity markers, but the product still needs the bounded viewport behavior and chronology treatment that make the full ten-year graph usable."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/layout-contract.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not add chapter or minimap integration in this task."
+    - "Do not alter graph semantics."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Implement the horizontal-scroll-first viewport model from the approved plan."
+  - "Respect the frozen default window and zoom bounds from the layout contract."
+  - "Use layout-driven chronology ticks: monthly minor ticks and July 1 season-boundary major ticks."
+  - "Keep this bounded to viewport and axis behavior only; do not introduce chapter navigation or minimap interactions yet."
+  - "Add/update tests to prove viewport progression, zoom bounds, and chronology ticks are derived from layout-driven data."
+  - "If the current page shell cannot support the required viewport behavior without a new architecture decision, stop and report that rather than guessing."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "`mise exec node@22 -- npm run build` passes."
+  - "Targeted tests prove horizontal scroll progression, zoom bounds, default window behavior, and monthly/July 1 chronology ticks."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

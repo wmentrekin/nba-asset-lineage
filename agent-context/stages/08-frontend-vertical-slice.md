@@ -11,8 +11,9 @@ At the end of Stage 8, the project should have a working interactive timeline
 view that proves:
 
 - the redesigned lineage model works end to end
-- the presentation contract is sufficient
-- editorial overlays can coexist with core lineage rendering
+- Stage 6 semantic truth plus the layout contract are sufficient
+- chapter overlays can coexist with core lineage rendering without changing
+  semantic truth
 
 This stage should be designed as the foundation of a polished standalone public
 experience, not only an internal engineering demo.
@@ -20,12 +21,12 @@ experience, not only an internal engineering demo.
 ## In Scope
 
 - one primary timeline view
-- rendering of player and pick lines
-- rendering of event nodes
+- rendering of player and pick strands from exported layout data
+- rendering of event clusters and transitions from exported layout data
 - basic hover/detail interaction
-- date navigation and filtering
-- support for at least one overlay type
-- support for an ordered chapter or scrollytelling sequence
+- horizontal viewport navigation and zoom
+- minimap-assisted chronology jumping
+- support for an ordered chapter sequence
 
 ## Out Of Scope
 
@@ -33,6 +34,8 @@ experience, not only an internal engineering demo.
 - complex branching chapter logic beyond the minimum ordered sequence
 - advanced authoring tools
 - mobile-perfect production design
+- semantic clustering or continuity inference in the client
+- non-chapter overlay families in the first implementation phase
 
 ## Core UX Requirement
 
@@ -41,14 +44,13 @@ The frontend slice should validate the data model, not mask weaknesses in it.
 That means:
 
 - avoid custom semantic hacks in the UI
-- render directly from the presentation contract
+- render semantic truth from Stage 6 through the layout contract
 - surface issues in data shape rather than patching them invisibly in the client
 
 Technical constraint:
 
 - the frontend must fit within an Astro website
-- rendering implementation remains open and can be SVG-first, Canvas-first, or a
-  hybrid if justified
+- the first implementation is SVG-first
 
 ## Required Views And Behaviors
 
@@ -58,9 +60,9 @@ The main view should show:
 
 - x-axis by day
 - y-axis lane groups
-- player lines
-- pick lines
-- event nodes
+- player strands
+- pick strands
+- event clusters and transition junctions
 
 ### Hover / Inspection
 
@@ -70,19 +72,13 @@ The slice should support:
 - asset hover or click details
 - visibility into key metadata from payloads
 
-### Filtering
-
-At minimum:
-
-- asset-type filter
-- date-range control
-
 ### Navigation
 
 At minimum:
 
 - zoom or windowed date navigation
 - horizontal exploration across time
+- minimap jump navigation
 
 ### Narrative / Chaptering
 
@@ -96,10 +92,9 @@ The slice should support:
 
 The frontend slice should consume:
 
-- `presentation.timeline_nodes`
-- `presentation.timeline_edges`
-- `presentation.asset_lanes`
-- at least one editorial overlay payload
+- Stage 6 presentation export for semantic timeline truth
+- layout-contract export for graph composition truth
+- chapter-only editorial export for chapter identity and visible text
 
 ## Rendering Priorities
 
@@ -107,9 +102,11 @@ The first slice should prove:
 
 1. player tenures render correctly
 2. returning players do not show false continuity
-3. pick lines transition into player lines
-4. same-day ordered events appear correctly
-5. compound transaction moments are legible
+3. pick strands transition into player strands through exported draft-transition
+   links
+4. same-day events appear with the exported clustering behavior
+5. compound transaction moments are legible without client-side semantic
+   invention
 
 ## Minimal Visual Structure
 
@@ -133,7 +130,8 @@ Recommended validation checks:
 - sample known Memphis sequence renders coherently
 - pick-to-player transition is visually understandable
 - leave/return player cases read correctly
-- at least one trade event is legible as a transformation point
+- at least one grouped trade event is legible as a transformation point
+- viewport and chapter interaction change only frontend state, not exported truth
 
 ## Test Dataset Recommendation
 
@@ -151,9 +149,9 @@ scenarios:
 Stage 8 is complete when:
 
 - one working timeline view exists
-- it renders directly from the new presentation contract
+- it renders from the Stage 6 presentation export plus the layout contract
 - basic interaction works
-- at least one contextual overlay is visible
+- chapter context is visible
 - the output is useful for evaluating the redesigned system
 
 ## What Comes After

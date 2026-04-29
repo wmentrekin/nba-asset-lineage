@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder headshot</title>
+  <desc id="desc">Local placeholder silhouette fixture for Stage 8 identity-marker testing.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#d8e3f0" />
+      <stop offset="100%" stop-color="#8aa6c1" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="16" fill="url(#bg)" />
+  <circle cx="64" cy="44" r="22" fill="#f6f8fb" opacity="0.96" />
+  <path d="M28 112c4-26 21-39 36-39s32 13 36 39" fill="#f6f8fb" opacity="0.96" />
+</svg>
