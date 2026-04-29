@@ -4,14 +4,15 @@ status: draft
 owner_skill: discover
 
 summary:
-  problem: "The current Stage 8 Astro frontend is a contract-driven scaffold built around a compact sample contract. It proves a technical rendering path, but it is materially short of the intended final public-facing Memphis storytelling experience in visual ambition, information density, site framing, and real-data integration."
-  motivation: "The final product is intended to be a polished, public-facing, data-journalism storytelling experience that renders real Memphis asset lineage and editorial context without frontend-side semantic repair."
-  requested_outcome: "Define a clearer product and frontend direction for a replacement or major reset of the current Stage 8 slice, strong enough for detailed planning across design, data integration, interaction model, site structure, and phased implementation."
+  problem: "The current Stage 8 Astro frontend is a contract-driven scaffold built around a compact sample contract. It proves a technical rendering path, but it is materially short of the intended final public-facing Memphis asset-lineage experience in visual ambition, information density, chronology, and real-data integration."
+  motivation: "The final product is intended to be a polished, public-facing Memphis asset graph that can stand on its own visually and interactively before heavier editorial or chapter-copy layers are added."
+  requested_outcome: "Define a clearer product and frontend direction for a replacement or major reset of the current Stage 8 slice, strong enough for detailed planning across graph design, real-data integration, long-form page structure, rendering architecture, and phased implementation."
 
 goals:
-  - "Define the target experience as a public-facing Memphis storytelling product rather than an internal engineering demo."
-  - "Clarify how the final frontend should consume real Stage 6 presentation data and Stage 7 editorial overlays."
-  - "Define the intended relationship between interactive timeline exploration and scrollytelling/chapter-driven narrative."
+  - "Define the target experience as a public-facing Memphis asset-graph product rather than an internal engineering demo."
+  - "Define the core visual system as a chronologically scrolling asset graph spanning the full Memphis ten-year story."
+  - "Clarify how the final frontend should consume the full real Stage 6 presentation data and optional Stage 7 editorial overlays."
+  - "Define the page structure around a dominant graph canvas, while treating narrative copy/chapter copy as secondary to the graph architecture for this phase."
   - "Capture the required visual, interactive, technical, and editorial characteristics of a frontend closer to the final vision."
   - "Produce requirements that are strong enough for a later planning pass to decompose into phased implementation work."
 
@@ -26,12 +27,19 @@ constraints:
     - "Frontend must fit within an Astro website."
     - "Frontend must render directly from the presentation and editorial contracts rather than invent lineage semantics client-side."
     - "Continuity identity must respect canonical.asset.asset_id rather than player_id."
-    - "Rendering technology remains open: SVG, Canvas, or hybrid are all acceptable if justified."
+    - "The first implementation should be SVG-first. Canvas or hybrid rendering is out of scope unless later full-dataset hardening proves it necessary."
     - "Current machine runtime note: Astro requires Node >= 18.20.8."
   product:
     - "Scope is Memphis Grizzlies only."
-    - "First public release target is a polished standalone experience."
-    - "Scrollytelling or chaptering is confirmed first-release scope."
+    - "First public release target is a polished standalone story page."
+    - "The page should be graph-dominant rather than a generic vertical article with an embedded chart section."
+    - "Primary navigation should be a narrative horizontal-scroll experience supported by a minimap that can jump to specific points in time."
+    - "The frontend should use a repo-local generated data workflow rather than checked-in generated artifacts or runtime data fetching."
+    - "Narrative/editorial layering is lower priority than getting the core graph architecture right."
+    - "The core graph should keep the active 15-man roster, up to 3 two-way assets, and future draft assets visible."
+    - "Lower-priority temporary roster states such as 10-day structures may be collapsed or deferred in the first serious frontend."
+    - "Future draft assets may be visually lighter or thinner than player strands while still remaining part of the same continuity system."
+    - "Mobile-specific optimization is not a priority in this discovery pass."
     - "Editorial overlays are additive and must not alter canonical truth."
     - "The frontend should validate the data model, not hide model weaknesses."
   process:
@@ -40,8 +48,12 @@ constraints:
 
 assumptions:
   - "The current Stage 8 Astro slice should be treated as a useful prototype, not as the final product direction."
-  - "A future implementation may require new exports, new frontend architecture, and potentially broader site structure than the current single-page slice."
-  - "Visual references or generated mock imagery may be useful during planning, but they are optional inputs to requirements rather than a substitute for product decisions."
+  - "A future implementation may require new exports, new frontend architecture, and likely a substantial replacement of the current visualization layer."
+  - "The next serious frontend slice should use the full real Memphis dataset rather than sample data."
+  - "Visual references or generated mock imagery may be useful during planning, but they should be used to compare and narrow directions rather than to bypass requirements definition."
+  - "First-pass lane prominence can use tenure with team as the default ordering heuristic, with later editorial refinement deferred."
+  - "Names and possibly lightweight identity markers should travel with strands rather than living only in fixed row labels or tooltips."
+  - "A separate layout-oriented contract on top of Stage 6 is now part of the intended architecture, provided it remains limited to graph-composition truth rather than lineage truth."
 
 repo_context:
   relevant_paths:
@@ -73,6 +85,7 @@ repo_context:
     - "Current Stage 8 Astro vertical slice under frontend/"
     - "Tracked Stage 7 editorial YAML"
     - "Presentation/export command surface in redesign CLI and mise tasks"
+    - "Visual exploration assets and notes under docs/frontend-vision-reset/visual-exploration/"
 
 research:
   repo_findings:
@@ -84,33 +97,75 @@ research:
     - "The frontend is constrained to Astro, but rendering technology remains open."
     - "The frontend must render contract semantics directly and avoid hidden lineage inference."
     - "Current sample data is too small to prove final information density, performance, or narrative scale."
+    - "Stage 6 already defines three lane groups that align with the current product vision: main roster, two-way, and future picks."
+    - "The current presentation export already provides explicit nodes, edges, and lanes; the frontend is not expected to infer continuity."
+    - "Current lane assignment is deterministic interval packing, not importance-aware ordering."
+    - "Current editorial overlays can focus chapters and prioritize annotations, but they do not define lane order, slot prominence, or collapse behavior."
+  user_direction:
+    - "Primary visual target is the whole ten-year Memphis story rather than a narrowly bounded vignette."
+    - "Primary artifact should be a standalone graph-dominant story page."
+    - "Horizontal time unit should be one calendar day, with chronological flow and likely bottom-axis tick marks."
+    - "Each asset should keep its own continuous visual strand across time."
+    - "The graph should show clean junctions that connect nearby lanes through transactions rather than collapsing many assets into one blob."
+    - "When outgoing assets leave, surrounding lanes should fluidly compact upward and incoming assets may enter from lower slots."
+    - "More important players should generally stay nearer the top of the graph."
+    - "Lane positions should fluidly reflow when transactions happen rather than staying rigidly fixed."
+    - "All events on the same day can be treated as happening at the same time for graph-layout purposes."
+    - "Same-day trade flows can be visually combined into one transaction moment from the Memphis perspective."
+    - "Labels should live directly on asset strands."
+    - "A minimap or similar secondary navigation aid is acceptable."
+    - "Seasonal or major-date segmentation will matter later, but core graph behavior takes priority over heavier storytelling markers in this phase."
+    - "Future picks can be visually thinner than player strands."
+    - "Each draft pick must remain an individual visible strand rather than being pooled into aggregated draft-capital shapes."
+    - "Optional small headshots or identity icons are desirable as lane-bound markers that stay near the left edge of the visible chart, slide vertically as lanes reflow, and disappear when the asset leaves the graph."
+    - "Pick protections and swaps should be treated as properties of an individual pick strand rather than as separate asset flows."
+    - "Pick-to-player conversion should read visually like a one-to-one transition at the draft: the pick strand enters the draft event and a player strand exits it."
+    - "When a strand is too short or compressed to carry a readable inline name, the left traveling identity marker should remain visible."
+    - "Traveling identity markers should default to headshot plus text."
+    - "The full ten-year graph should exist as one chronology, but the default viewport should reveal only a bounded horizontal slice at a time rather than the entire span at once."
+    - "The default visible window should be roughly 120 to 180 days, with zoom controlling narrower or broader windows."
+    - "Chronology should use one day as the base unit, monthly minor ticks, season-boundary major ticks, and optional later overlays for major league dates such as the draft, lottery, deadline, and free agency."
+    - "The next serious frontend phase should use the full real dataset."
+    - "Broader publication-shell concerns can be deferred; focus is the story page itself."
+    - "Narrative copy matters less right now than the visual and technical architecture of the graph."
+    - "The closest current visual metaphor is a Sankey-like asset graph rather than a simple slot timeline."
+    - "Vertical-scroll article framing is not the desired primary composition."
+    - "The renderer choice for the first implementation is SVG-first."
+    - "The real-data workflow should be a repo-local generated export step consumed by Astro."
   platform_findings: []
+  visual_exploration_findings:
+    - "The preferred direction is a wide, chronology-first, Sankey-like lineage graph with compact transaction junctions, persistent asset continuity, tiered vertical bands, and clear pick/player differentiation."
+    - "The strongest structure reference is the sankey-sports-timeline concept, especially for clean nearby junctions, upward compaction, subtle time ticks, and editorial polish."
+    - "The strongest readability reference is the dense infographic concept, especially for fixed lane regions, compact event markers, and full-decade information density."
+    - "ESPN-style editorial cues are useful for tone and orientation, but not if the graph becomes one section within a broader vertical article composition."
+    - "Lightweight era grouping above the graph is useful as an orientation layer even though the minimalist direction is otherwise not preferred."
+    - "Traveling identity on the strand is preferred over fixed left-side row labels."
 
 acceptance_criteria:
   - "Requirements clearly distinguish the final target product from the current Stage 8 prototype."
-  - "Requirements define the intended data source strategy for the real frontend slice."
-  - "Requirements define the intended narrative structure: scrollytelling, chapter navigation, or hybrid."
-  - "Requirements define the desired visual/interaction character closely enough to guide planning."
-  - "Requirements identify whether the final product is a single experience page or part of a broader website/publication structure."
-  - "Requirements identify the bounded story/time range for the next serious frontend phase."
+  - "Requirements define the intended data source strategy for the real frontend slice using the full real dataset."
+  - "Requirements define the intended page structure as a graph-dominant story page rather than a generic article with an embedded chart."
+  - "Requirements define the primary navigation model as horizontal narrative traversal with minimap-assisted jumping."
+  - "Requirements freeze the first implementation architecture strongly enough to avoid renderer or data-delivery guesswork during planning."
+  - "Requirements define the desired graph structure closely enough to guide planning of lanes, transactions, chronology, and interaction."
+  - "Requirements define the always-visible asset classes and the acceptable collapse/defer rules for lower-priority temporary assets."
+  - "Requirements make clear which desired graph behaviors are already supported by Stage 6 outputs and which would require new contract or export work."
+  - "Requirements define the intended reading model for traveling strand labels or identity markers and visual differentiation between players and future picks."
+  - "Requirements explicitly preserve per-pick identity rather than allowing aggregated draft-capital rendering."
+  - "Requirements define first-pass default lane ordering well enough to avoid reopening core layout semantics during planning."
+  - "Requirements define fallback label behavior and default identity-marker composition well enough for layout planning."
+  - "Requirements freeze viewport/windowing and chronology-axis expectations strongly enough for layout-contract and navigation planning."
+  - "Requirements identify the intended relationship between full-ten-year completeness and usability/readability."
+  - "Requirements identify whether the initial product focus remains a standalone story page even if it later sits within a broader publication shell."
   - "Requirements list unresolved decisions explicitly instead of burying them in implementation assumptions."
 
 open_questions:
-  - "Should the real frontend consume a checked-in generated export, a build-time artifact, or another data delivery path?"
-  - "Should the next serious slice use full live Memphis data or a curated bounded real-data subset?"
-  - "What Memphis story or era should anchor the first truly representative frontend experience?"
-  - "Should the final product be primarily scroll-driven, chapter-navigation-driven, or a hybrid?"
-  - "Is the final public experience a single long scrollytelling page, a multi-section page, or a broader site with additional routes/chrome?"
+  - "What exact field names and normalization rules should the separate layout-oriented contract expose for lane ordering, compaction positions, label anchor hints, identity-marker hints, minimap segments, and viewport defaults?"
+  - "Which layout behaviors should be frozen as data-driven in the layout contract versus left as frontend interaction state?"
   - "Which editorial overlays are mandatory in the first polished release: chapters only, annotations, calendar markers, game overlays, eras, or some subset?"
-  - "What level of mobile/responsive behavior is required for the final experience?"
   - "Should the current Stage 8 codebase be incrementally evolved or treated as mostly disposable prototype code?"
-  - "What rendering style best matches the target vision: slot-based timeline, richer graph/timeline hybrid, or another approach?"
-  - "Would external visual references or generated mock imagery be useful as planning inputs, and if so, what kind?"
 
 freeze:
-  ready_for_plan: false
+  ready_for_plan: true
   blockers:
-    - "Primary story / bounded historical scope for the next frontend phase is not yet defined."
-    - "Final narrative interaction model is not yet defined."
-    - "Real data integration strategy for the frontend is not yet defined."
-    - "Final product/site structure around the timeline is not yet defined."
+    - "No blocking product questions remain for planning; remaining open questions are implementation-shaping rather than requirements-blocking."
