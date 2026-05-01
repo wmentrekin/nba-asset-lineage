@@ -1,0 +1,53 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T11"
+owner_skill: implement
+
+objective: "Validate and harden the final graph on the full ten-year Memphis dataset for readability, density, and acceptable performance without changing frozen contract or layout policy."
+why_this_matters: "All planned implementation slices are in place; the final step is to verify the full-dataset frontend is readable and performant enough to hand off to testing/review."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "docs/frontend-vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend-vision-reset/full-dataset-performance-check.md"
+  forbidden:
+    - "Do not broaden scope into mobile-perfect or publication-shell work."
+    - "Do not introduce semantic hacks to hide upstream data/model issues."
+    - "Do not change frozen layout-contract schema, minimap construction, or chronology-axis policy."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use the full generated Memphis dataset already exported under `frontend/src/data/generated/`."
+  - "Focus on readability and performance hardening only."
+  - "Follow the exact validation workflow from the plan where feasible."
+  - "If local/browser tooling limits prevent full performance trace collection, complete everything else and report that remaining blocker precisely rather than guessing."
+  - "Record readability findings in `docs/frontend-vision-reset/full-dataset-readability-checklist.md`."
+  - "Record performance findings or the exact remaining blocker in `docs/frontend-vision-reset/full-dataset-performance-check.md`."
+
+validation_expected:
+  - "Required smoke path covers leave/return player, multi-asset same-day trade, pick-to-player conversion, future-pick strand with protections/swap metadata, and one chapter jump via minimap."
+  - "Readability verification is recorded in `docs/frontend-vision-reset/full-dataset-readability-checklist.md`."
+  - "Performance verification is recorded in `docs/frontend-vision-reset/full-dataset-performance-check.md`, or the exact tooling blocker is documented there."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

@@ -1,0 +1,39 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "Ttestfix"
+owner_skill: implement
+
+objective: "Fix the blocking Astro type-check failure on generated layout JSON imports and remove the reported unused variables."
+why_this_matters: "Testing is blocked at `mise run stage8_check`, so no further test ladder steps can complete until the frontend type boundary is corrected."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+  forbidden:
+    - "Do not change product behavior beyond what is needed to satisfy the blocking type check."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Fix the `buildTimelineContract(...)` JSON import boundary so the generated layout JSON is treated as the expected contract type without widening the contract model."
+  - "Remove or use the reported unused variables in `frontend/src/lib/timeline.ts`."
+  - "Run the smallest sufficient local validation: `mise run stage8_check` and, if that passes, keep the change narrow."
+
+validation_expected:
+  - "`mise run stage8_check` passes."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

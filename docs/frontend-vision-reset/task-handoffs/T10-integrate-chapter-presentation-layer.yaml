@@ -1,0 +1,50 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-vision-reset"
+task_id: "T10"
+owner_skill: implement
+
+objective: "Integrate `story_chapters` as visible graph-adjacent presentation content after chapter navigation exists, without adding any non-chapter overlays."
+why_this_matters: "The navigation layer exists, but the page still needs the visible chapter presentation content that makes the graph usable as a story page rather than only a raw chart shell."
+
+inputs:
+  requirements: "docs/frontend-vision-reset/requirements.yaml"
+  plan: "docs/frontend-vision-reset/plan.yaml"
+  relevant_paths:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/editorial-chapters.json"
+    - "frontend/src/data/generated/layout-contract.json"
+
+scope:
+  owned:
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "Do not add annotations, calendar markers, game overlays, or eras."
+    - "Do not recreate the old sidebar/context-heavy composition."
+    - "Do not change chapter focus/navigation semantics already established in T9."
+    - "Do not modify backend Python/SQL/CLI/data-generation code."
+    - "Do not modify files outside owned scope."
+
+implementation_notes:
+  - "Use `editorial-chapters.json` for visible chapter title/body/order content."
+  - "Keep the graph visually dominant and chapter presentation additive."
+  - "Do not widen overlay scope past `story_chapters`."
+  - "Do not change the viewport/chapter linkage established in T9; this task is presentation only."
+  - "Add/update targeted tests where useful to prove chapter presentation remains additive and non-destructive."
+  - "If the current composition cannot add chapter presentation without materially obscuring the graph, stop and report that rather than guessing."
+
+validation_expected:
+  - "`mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passes."
+  - "`mise exec node@22 -- npm run build` passes."
+  - "Chapter presentation remains additive and does not break graph rendering or navigation behavior."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

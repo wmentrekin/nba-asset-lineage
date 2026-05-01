@@ -646,6 +646,10 @@ export function buildTimelineContract(
   };
 }
 
+export function coerceGeneratedLayoutContract(value: unknown): TimelineGeneratedLayoutContract {
+  return value as TimelineGeneratedLayoutContract;
+}
+
 export function getDefaultUiState(contract: TimelineContract, chapter?: TimelineChapter | null): TimelineUiState {
   const bounds = getContractBounds(contract);
   const defaultWindowStart = contract.layout?.layout_meta.default_window_start ?? bounds.start;
@@ -1364,7 +1368,6 @@ function average(values: number[]): number {
 
 function buildJunctionLayouts(
   contract: TimelineContract,
-  bounds: { start: string; end: string },
   scene: TimelineScenePrimitives,
   laneRowByKey: Map<string, TimelineLaneLayout>,
   segmentById: Map<string, TimelineLayoutLaneSegment>,
@@ -1506,7 +1509,7 @@ function buildJunctionLayouts(
       stems,
       transitions,
     };
-  });
+  }).filter((junction) => junction.visible);
 }
 
 function buildEdgeFocusState(edge: TimelineContractEdge, focus: TimelineFocus | null): boolean {
@@ -1617,14 +1620,12 @@ function buildLabelAndIdentityLayouts(
 }
 
 export function buildTimelineLayout(contract: TimelineContract, state: TimelineUiState): TimelineLayout {
-  const bounds = getContractBounds(contract);
   const normalizedState = normalizeTimelineUiState(contract, state);
   const scene = buildTimelineScenePrimitives(contract, normalizedState);
   const focus = scene.activeFocus ? timelineFocusFromSceneChapter(scene.activeFocus) : null;
   const viewport = getTimelineViewportMetrics(contract, normalizedState);
   const dayWidth = scene.chronology.dayWidth;
   const leftPad = scene.leftPad;
-  const rightPad = scene.rightPad;
   const laneRows = scene.bands.flatMap((band) => band.rows);
   const laneRowByKey = new Map(laneRows.map((row) => [`${row.lane_group}:${row.lane_index}`, row] as const));
   const segmentById = new Map(contract.layout?.lane_layout.map((row) => [row.segment_id, row]) ?? []);
@@ -1668,7 +1669,6 @@ export function buildTimelineLayout(contract: TimelineContract, state: TimelineU
 
   const junctions = buildJunctionLayouts(
     contract,
-    bounds,
     scene,
     laneRowByKey,
     segmentById,
@@ -1705,7 +1705,7 @@ export function buildTimelineLayout(contract: TimelineContract, state: TimelineU
       focused: buildNodeFocusState(node, focus, connectedEdges),
       connectedEdgeIds: connectedEdges.map((edge) => edge.edge_id),
     };
-  });
+  }).filter((node) => node.visible);
 
   const markers = (contract.editorial?.calendar_markers ?? []).map((marker) => ({
     id: String(marker.calendar_marker_id ?? marker.label),
@@ -1792,6 +1792,7 @@ export function renderTimelineScene(layout: TimelineLayout): string {
     .join("");
 
   const markers = layout.markers
+    .filter((marker) => marker.visible)
     .map(
       (marker) => `
         <g class="${cssClass(["timeline-marker", !marker.visible && "is-hidden"])}" data-marker-id="${marker.id}" data-inspectable="true" data-kind="marker">
@@ -1828,6 +1829,7 @@ export function renderTimelineScene(layout: TimelineLayout): string {
     .join("");
 
   const inlineLabels = layout.inlineLabels
+    .filter((label) => label.visible)
     .map(
       (label) => `
         <g
@@ -1854,6 +1856,7 @@ export function renderTimelineScene(layout: TimelineLayout): string {
     .join("");
 
   const identityMarkers = layout.identityMarkers
+    .filter((marker) => marker.visible)
     .map((marker) => {
       const markerClipId = `timeline-marker-clip-${marker.segment_id.replaceAll(/[^a-zA-Z0-9_-]/g, "_")}`;
       const pillX = marker.usesHeadshot ? IDENTITY_MARKER_HEADSHOT_SIZE - 10 : 0;
@@ -1911,6 +1914,7 @@ export function renderTimelineScene(layout: TimelineLayout): string {
     .join("");
 
   const junctions = layout.junctions
+    .filter((junction) => junction.visible)
     .map((junction) => {
       const stems = junction.stems
         .map(
@@ -1956,6 +1960,7 @@ export function renderTimelineScene(layout: TimelineLayout): string {
     .join("");
 
   const nodes = layout.nodes
+    .filter((node) => node.visible)
     .map(
       (node) => `
         <g

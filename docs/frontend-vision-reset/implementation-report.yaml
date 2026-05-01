@@ -15,6 +15,8 @@ tasks_attempted:
   - "T7"
   - "T8"
   - "T9"
+  - "T10"
+  - "T11"
 
 tasks_completed:
   - "T1"
@@ -26,6 +28,9 @@ tasks_completed:
   - "T6"
   - "T7"
   - "T8"
+  - "T9"
+  - "T10"
+  - "T11"
 
 changes:
   files:
@@ -49,6 +54,8 @@ changes:
     - "frontend/src/pages/index.astro"
     - "frontend/src/lib/timeline.ts"
     - "frontend/src/lib/timeline.test.ts"
+    - "docs/frontend-vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend-vision-reset/full-dataset-performance-check.md"
   modules:
     - "presentation"
     - "redesign_cli"
@@ -59,6 +66,8 @@ changes:
     - "agent-context/stages/08-frontend-vertical-slice.md"
     - "configs/data/README.md"
     - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+    - "docs/frontend-vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend-vision-reset/full-dataset-performance-check.md"
 
 local_validation:
   checks_run:
@@ -81,15 +90,23 @@ local_validation:
     - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
     - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
     - "mise exec node@22 -- npm run build"
+    - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
+    - "mise exec node@22 -- npm run build"
     - "mise exec node@22 -- npm run build"
     - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
     - "mise exec node@22 -- npm run build"
+    - "mise exec node@22 -- npm run test -- src/lib/timeline.test.ts"
+    - "mise exec node@22 -- npm run build"
+    - "built-artifact smoke on frontend/dist/index.html for visible strand/node/junction/label/marker counts"
   failures: []
   skipped:
     - "Plain `npm run check` / `npm run build` under the default shell path because that path resolved to Node 12.18.3 rather than the repo-managed Node runtime."
 
-known_issues: []
+known_issues:
+  - "The current generated Memphis export does not include live `two_way` lane rows."
+  - "Future-pick strand payloads currently expose `protection_summary: null`, which limits direct readability verification for protections/swap metadata."
 
-blockers: []
+blockers:
+  - "Manual Chrome DevTools performance trace collection is still outstanding; sandboxed local serving/browser tooling was insufficient for the exact plan workflow."
 
-recommended_next_step: "advance sequentially to T9: implement chapter navigation and minimap integration on top of the viewport model"
+recommended_next_step: "$test and $review, with a separate manual browser performance/profile pass when an unrestricted local browser-serving workflow is available"

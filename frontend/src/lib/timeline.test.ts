@@ -113,11 +113,48 @@ describe("timeline utilities", () => {
     });
   });
 
+  it("keeps editorial chapter title and body additive while layout still owns focus windows and anchors", () => {
+    const remappedChapters = cloneJson(editorialChapters) as unknown as TimelineChapterExport[];
+    remappedChapters[0]!.title = "Visible chapter title";
+    remappedChapters[0]!.body = "Visible chapter body.";
+    remappedChapters[0]!.start_date = "1999-01-01";
+    remappedChapters[0]!.end_date = "1999-12-31";
+
+    const contract = buildTimelineContract(
+      cloneJson(presentationContract) as unknown as TimelinePresentationContract,
+      cloneJson(layoutContract) as unknown as TimelineGeneratedLayoutContract,
+      remappedChapters,
+    );
+    const scene = buildTimelineScenePrimitives(contract, getDefaultUiState(contract, null));
+
+    expect(scene.chapters[0]).toMatchObject({
+      title: "Visible chapter title",
+      body: "Visible chapter body.",
+      windowStart: "2024-02-08",
+      windowEnd: "2025-06-30",
+      minimapAnchorId: "layout_minimap_segment_cd9fbb9b2c49718691e39207",
+    });
+  });
+
   it("loads the generated artifacts without missing asset, event, or chapter references", () => {
     expect(generatedContract.nodes.length).toBeGreaterThan(0);
     expect(generatedContract.edges.length).toBeGreaterThan(0);
     expect(generatedContract.layout?.lane_layout.length).toBe(generatedContract.edges.length);
     expect(generatedContract.layout?.chapter_layout).toHaveLength(editorialChapters.length);
+  });
+
+  it("consumes only story_chapters from the editorial export in this phase", () => {
+    const layout = buildTimelineLayout(generatedContract, getDefaultUiState(generatedContract, null));
+
+    expect(generatedContract.editorial).toEqual({
+      story_chapters: expect.any(Array),
+    });
+    expect(generatedContract.editorial?.story_chapters).toHaveLength(editorialChapters.length);
+    expect(generatedContract.editorial?.annotations).toBeUndefined();
+    expect(generatedContract.editorial?.calendar_markers).toBeUndefined();
+    expect(generatedContract.editorial?.game_overlays).toBeUndefined();
+    expect(generatedContract.editorial?.eras).toBeUndefined();
+    expect(layout.markers).toEqual([]);
   });
 
   it("exposes layout-driven band visibility without inventing missing groups", () => {
@@ -391,6 +428,21 @@ describe("timeline utilities", () => {
     expect(junction?.stems.filter((row) => row.direction === "outgoing")).toHaveLength(4);
     expect(junction?.spineY2).toBeGreaterThan(junction?.spineY1 ?? 0);
     expect(new Set(junction?.stems.map((row) => row.segment_id)).size).toBe(4);
+  });
+
+  it("limits rendered nodes and junctions to the active viewport instead of serializing hidden decade-wide SVG", () => {
+    const layout = layoutForWindow("2019-07-01", "2019-08-30");
+    const markup = renderTimelineScene(layout);
+    const renderedNodeCount = (markup.match(/data-node-id=/g) ?? []).length;
+    const renderedJunctionCount = (markup.match(/timeline-junction--/g) ?? []).length;
+
+    expect(layout.nodes.every((row) => row.visible)).toBe(true);
+    expect(layout.junctions.every((row) => row.visible)).toBe(true);
+    expect(layout.nodes.length).toBeLessThan(generatedContract.nodes.length);
+    expect(layout.junctions.length).toBeLessThan(generatedContract.layout?.event_layout.length ?? 0);
+    expect(renderedNodeCount).toBe(layout.nodes.length);
+    expect(renderedJunctionCount).toBe(layout.junctions.length);
+    expect(markup).not.toContain("is-hidden");
   });
 
   it("keeps same-day grouped Memphis events separate while sharing one chronology position", () => {

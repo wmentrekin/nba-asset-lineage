@@ -5,6 +5,7 @@ import editorialChapters from "../data/generated/editorial-chapters.json";
 import {
   buildTimelineContract,
   buildTimelineLayout,
+  coerceGeneratedLayoutContract,
   describeTimelineRow,
   getDefaultUiState,
   getTimelineViewportMetrics,
@@ -15,7 +16,7 @@ import {
 
 const timelineContract = buildTimelineContract(
   presentationContract,
-  layoutContract,
+  coerceGeneratedLayoutContract(layoutContract),
   editorialChapters,
 ) as TimelineContract;
 const chapters = [...(timelineContract.editorial?.story_chapters ?? [])].sort(
@@ -26,7 +27,12 @@ const initialViewport = getTimelineViewportMetrics(timelineContract, initialStat
 const initialLayout = buildTimelineLayout(timelineContract, initialState);
 const initialSummaryRow = initialLayout.nodes.find((row) => row.visible) ?? initialLayout.edges[0];
 const sceneMarkup = renderTimelineScene(initialLayout);
-const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
+const initialPresentedChapter = initialLayout.scene.activeFocus ?? initialLayout.scene.chapters[0] ?? null;
+const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAnchorId
+  ? initialLayout.scene.chronology.minimapSegments.find(
+    (segment) => segment.segment_id === initialPresentedChapter.minimapAnchorId,
+  )?.label ?? null
+  : null;
 ---
 
 <html lang="en">
@@ -43,11 +49,12 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
     <main class="shell">
       <header class="masthead">
         <div class="masthead__copy">
-          <p class="eyebrow">Stage 8 • Chapter navigation and minimap integration</p>
+          <p class="eyebrow">Stage 8 • Chapter presentation layer</p>
           <h1>Memphis asset lineage as a living graph.</h1>
           <p class="lede">
-            Chapter focus windows and minimap jumps now ride on the same bounded viewport model. The graph stays first;
-            chapter navigation simply repositions that existing chronology window with contract-owned anchors.
+            Chapter focus windows, visible story copy, and minimap jumps now ride on the same bounded viewport model.
+            The graph stays first; chapter presentation remains additive to that chronology window rather than
+            introducing a new overlay system.
           </p>
         </div>
         <div class="masthead__meta">
@@ -158,19 +165,37 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
               <strong id="timeline-summary">{describeTimelineRow(initialSummaryRow)}</strong>
             </div>
             <p>
-              Use horizontal wheel or trackpad motion over the graph to progress the viewport, then use chapters or the
-              minimap to land on contract-owned focus anchors without changing graph semantics.
+              Use horizontal trackpad motion or Shift + wheel to progress the viewport, then use chapters or the
+              minimap to land on contract-owned focus anchors. Dense windows can scroll vertically inside the shell
+              without changing graph semantics.
             </p>
           </div>
 
           <div class="atlas__navigation">
-            <article class="focus-card">
-              <p class="atlas__eyebrow">Active focus window</p>
-              <strong id="chapter-focus-title">Viewport-driven overview</strong>
+            <article class="focus-card focus-card--chapter">
+              <div class="focus-card__header">
+                <p class="atlas__eyebrow">Chapter presentation</p>
+                <span class="focus-card__status" id="chapter-focus-status">
+                  {initialLayout.scene.activeFocus ? "Active story chapter" : "Editorial chapter preview"}
+                </span>
+              </div>
+              <strong id="chapter-focus-title">{initialPresentedChapter?.title ?? "No chapter export loaded"}</strong>
               <p id="chapter-focus-copy">
-                Select a chapter or minimap segment to bind the current viewport to a generated navigation target.
+                {initialPresentedChapter?.body
+                  ?? "Generated story chapter copy will appear here without changing the viewport model or graph semantics."}
               </p>
-              <small id="chapter-focus-range">{initialState.windowStart} to {initialState.windowEnd}</small>
+              <div class="focus-card__footer">
+                <small id="chapter-focus-range">
+                  {initialPresentedChapter
+                    ? `Chapter ${String(initialPresentedChapter.chapter_order).padStart(2, "0")} · ${initialPresentedChapter.windowStart} to ${initialPresentedChapter.windowEnd}`
+                    : `${initialState.windowStart} to ${initialState.windowEnd}`}
+                </small>
+                <small id="chapter-focus-anchor">
+                  {initialPresentedChapterAnchorLabel
+                    ? `Linked to ${initialPresentedChapterAnchorLabel}`
+                    : "No linked minimap anchor"}
+                </small>
+              </div>
             </article>
 
             <div class="minimap">
@@ -216,20 +241,6 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
       </section>
 
       <section class="support">
-        <article class="panel panel--chapter">
-          <p class="atlas__eyebrow">Navigation contract</p>
-          <h2>{initialChapterPreview?.title ?? "No chapter export loaded"}</h2>
-          <p>
-            This phase wires chapter identity to layout-owned focus windows and minimap anchors. Full graph-adjacent
-            chapter presentation stays intentionally deferred.
-          </p>
-          <small>
-            {initialChapterPreview
-              ? `${initialChapterPreview.windowStart} to ${initialChapterPreview.windowEnd}`
-              : "No chapter focus window available."}
-          </small>
-        </article>
-
         <article class="panel panel--state">
           <p class="atlas__eyebrow">Artifact state</p>
           <div class="context-list">
@@ -243,7 +254,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
             </div>
             <div class="context-card">
               <strong>Editorial export</strong>
-              <span>{chapters.length} chapter payload loaded with layout-driven navigation active.</span>
+              <span>{chapters.length} chapter payload loaded with visible story copy kept additive to the graph.</span>
             </div>
           </div>
         </article>
@@ -296,9 +307,11 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
       const zoomInput = document.getElementById("zoom") as HTMLInputElement;
       const zoomState = document.getElementById("zoom-state") as HTMLElement;
       const windowDays = document.getElementById("window-days") as HTMLElement;
+      const chapterFocusStatus = document.getElementById("chapter-focus-status") as HTMLElement;
       const chapterFocusTitle = document.getElementById("chapter-focus-title") as HTMLElement;
       const chapterFocusCopy = document.getElementById("chapter-focus-copy") as HTMLElement;
       const chapterFocusRange = document.getElementById("chapter-focus-range") as HTMLElement;
+      const chapterFocusAnchor = document.getElementById("chapter-focus-anchor") as HTMLElement;
       const minimapStatus = document.getElementById("minimap-status") as HTMLElement;
       const minimapFocusWindow = document.getElementById("minimap-focus-window") as HTMLDivElement;
       const clearButton = document.getElementById("clear-selection") as HTMLButtonElement;
@@ -311,6 +324,8 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
         assetKinds: initialState.assetKinds ?? ["player_tenure", "pick_continuity"],
       });
       let selected: SelectionState = null;
+      let currentLayout: ReturnType<typeof buildTimelineLayout> | null = null;
+      let pendingRenderFrame = 0;
 
       function setInspector(title: string, payload: unknown) {
         inspectorSummary.textContent = title;
@@ -327,7 +342,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
         for (const button of assetButtons) {
           button.classList.toggle("is-active", button.dataset.kind === kind);
         }
-        render();
+        queueRender();
       }
 
       function syncTimelineSize(layout: ReturnType<typeof buildTimelineLayout>) {
@@ -366,6 +381,10 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
 
       function syncChapterNavigation(layout: ReturnType<typeof buildTimelineLayout>) {
         const activeChapterId = layout.scene.activeFocus?.story_chapter_id ?? null;
+        const presentedChapter = layout.scene.activeFocus ?? layout.scene.chapters[0] ?? null;
+        const minimapSegmentById = new Map(
+          layout.scene.chronology.minimapSegments.map((segment) => [segment.segment_id, segment] as const),
+        );
         const activeSegmentIds = new Set(
           layout.scene.chronology.minimapSegments
             .filter((segment) => segment.active)
@@ -384,17 +403,28 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
           button.classList.toggle("is-anchor", Boolean(button.dataset.linkedChapterId));
         }
 
+        if (presentedChapter) {
+          const presentedAnchorLabel = presentedChapter.minimapAnchorId
+            ? minimapSegmentById.get(presentedChapter.minimapAnchorId)?.label ?? null
+            : null;
+          chapterFocusStatus.textContent = layout.scene.activeFocus ? "Active story chapter" : "Editorial chapter preview";
+          chapterFocusTitle.textContent = presentedChapter.title;
+          chapterFocusCopy.textContent = presentedChapter.body;
+          chapterFocusRange.textContent = `Chapter ${String(presentedChapter.chapter_order).padStart(2, "0")} · ${presentedChapter.windowStart} to ${presentedChapter.windowEnd}`;
+          chapterFocusAnchor.textContent = presentedAnchorLabel
+            ? `Linked to ${presentedAnchorLabel}`
+            : "No linked minimap anchor";
+        } else {
+          chapterFocusStatus.textContent = "Viewport overview";
+          chapterFocusTitle.textContent = "No chapter export loaded";
+          chapterFocusCopy.textContent = "Generated story chapter copy will appear here without changing the viewport model or graph semantics.";
+          chapterFocusRange.textContent = `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
+          chapterFocusAnchor.textContent = "No linked minimap anchor";
+        }
+
         if (layout.scene.activeFocus) {
-          chapterFocusTitle.textContent = layout.scene.activeFocus.title;
-          chapterFocusCopy.textContent = activeAnchorLabel
-            ? `Bound to ${activeAnchorLabel} while preserving the existing viewport model.`
-            : "Bound to the chapter focus window while preserving the existing viewport model.";
-          chapterFocusRange.textContent = `${layout.scene.activeFocus.windowStart} to ${layout.scene.activeFocus.windowEnd}`;
           minimapStatus.textContent = activeAnchorLabel ?? `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
         } else {
-          chapterFocusTitle.textContent = "Viewport-driven overview";
-          chapterFocusCopy.textContent = "Use chapter chips or minimap segments to reposition the current viewport without switching navigation models.";
-          chapterFocusRange.textContent = `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
           minimapStatus.textContent = `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
         }
 
@@ -409,10 +439,15 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
           ?? layout.edges[0];
       }
 
+      function getCurrentLayout() {
+        return currentLayout ?? render();
+      }
+
       function render(): ReturnType<typeof buildTimelineLayout> {
         state = normalizeTimelineUiState(contract, state);
         const viewport = getTimelineViewportMetrics(contract, state);
         const layout = buildTimelineLayout(contract, state);
+        currentLayout = layout;
         syncTimelineSize(layout);
         syncViewportControls(viewport);
         syncChapterNavigation(layout);
@@ -446,8 +481,18 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
         return layout;
       }
 
+      function queueRender() {
+        if (pendingRenderFrame) {
+          return;
+        }
+        pendingRenderFrame = requestAnimationFrame(() => {
+          pendingRenderFrame = 0;
+          render();
+        });
+      }
+
       function inspectNode(nodeId: string, locked = false) {
-        const layout = buildTimelineLayout(contract, state);
+        const layout = getCurrentLayout();
         const node = layout.nodes.find((row) => row.node_id === nodeId);
         if (!node) {
           return;
@@ -460,7 +505,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
       }
 
       function inspectEdge(edgeId: string, locked = false) {
-        const layout = buildTimelineLayout(contract, state);
+        const layout = getCurrentLayout();
         const edge = layout.edges.find((row) => row.edge_id === edgeId);
         if (!edge) {
           return;
@@ -519,7 +564,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
             return;
           }
           state = activateTimelineChapter(contract, state, chapterId);
-          render();
+          queueRender();
         });
       });
 
@@ -530,26 +575,30 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
             return;
           }
           state = jumpTimelineToMinimapSegment(contract, state, segmentId);
-          render();
+          queueRender();
         });
       });
 
       startInput.addEventListener("change", () => {
         state = setTimelineViewportWindow(contract, state, startInput.value, endInput.value);
-        render();
+        queueRender();
       });
 
       endInput.addEventListener("change", () => {
         state = setTimelineViewportWindow(contract, state, startInput.value, endInput.value);
-        render();
+        queueRender();
       });
 
       zoomInput.addEventListener("input", () => {
         state = setTimelineZoomLevel(contract, state, Number(zoomInput.value));
-        render();
+        queueRender();
       });
 
       timelineShell.addEventListener("wheel", (event) => {
+        const horizontalIntent = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+        if (!horizontalIntent) {
+          return;
+        }
         const primaryDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
         if (primaryDelta === 0) {
           return;
@@ -558,7 +607,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
         const viewport = getTimelineViewportMetrics(contract, state);
         const deltaDays = Math.sign(primaryDelta) * Math.max(1, Math.round(Math.abs(primaryDelta) / viewport.viewportWidth * viewport.windowDays));
         state = shiftTimelineViewport(contract, state, deltaDays);
-        render();
+        queueRender();
       }, { passive: false });
 
       clearButton.addEventListener("click", () => {
@@ -947,16 +996,42 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
     margin-top: 4px;
   }
 
+  .focus-card__header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .focus-card__status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(241, 196, 111, 0.28);
+    background: rgba(241, 196, 111, 0.08);
+    color: #f1c46f;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
   .focus-card p {
     margin: 10px 0 0;
     color: rgba(247, 241, 232, 0.72);
     line-height: 1.6;
   }
 
+  .focus-card__footer {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
   .focus-card small,
   .minimap__header small {
     display: block;
-    margin-top: 12px;
     color: rgba(247, 241, 232, 0.56);
   }
 
@@ -1040,13 +1115,15 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
   }
 
   .timeline-shell {
-    overflow: hidden;
+    overflow: auto;
+    max-height: min(72vh, 960px);
     border-radius: 26px;
     border: 1px solid rgba(216, 243, 255, 0.13);
     background:
       linear-gradient(180deg, rgba(5, 12, 17, 0.97), rgba(4, 8, 12, 0.98)),
       radial-gradient(circle at top left, rgba(60, 213, 195, 0.08), transparent 34%);
     outline: none;
+    overscroll-behavior: contain;
   }
 
   .timeline-shell:focus-visible {
@@ -1296,7 +1373,7 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
 
   .support {
     display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
     gap: 16px;
     margin-top: 18px;
   }
@@ -1306,17 +1383,10 @@ const initialChapterPreview = initialLayout.scene.chapters[0] ?? null;
     padding: 18px;
   }
 
-  .panel--chapter p,
   .panel--state span,
   .inspector-header p {
     color: rgba(247, 241, 232, 0.72);
     line-height: 1.6;
-  }
-
-  .panel--chapter small {
-    display: block;
-    margin-top: 12px;
-    color: rgba(247, 241, 232, 0.56);
   }
 
   .context-list {
