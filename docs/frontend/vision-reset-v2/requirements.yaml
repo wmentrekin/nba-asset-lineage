@@ -1,0 +1,130 @@
+artifact: requirements
+feature: "frontend-vision-reset-v2"
+status: draft
+owner_skill: discover
+
+summary:
+  problem: "The implemented `frontend-vision-reset` frontend is technically coherent and buildable, but the user’s direct visual review says it looks nothing like the intended planning-phase vision. The current page is over-instrumented, visually muddy, poorly bounded, and too dependent on support UI such as minimap, zoom, filters, date-window controls, inspector chrome, and chapter scaffolding."
+  motivation: "The next pass should stop treating the current frontend as a near-final product and instead reset around the smallest graph-first lineage experience that is visually legible, chronologically trustworthy, and simpler than the current prototype."
+  requested_outcome: "Define a simplified v2 frontend reset that removes low-value controls and support chrome, re-centers the graph itself, and is strong enough for a new planning pass without repeating the prior divergence."
+
+goals:
+  - "Define the next frontend pass as a simplification/reset, not an incremental polish of the current page."
+  - "Center the product on a visible, graph-dominant lineage surface that starts at the beginning of the timeline and scrolls forward through time."
+  - "Remove minimap, zoom, date-window inputs, and asset-type filters from the first v2 slice."
+  - "Require the graph container and surrounding layout to have clean bounds with no text or sub-elements visually spilling outside their intended regions."
+  - "Require the graph to remain readable in a lighter, simpler visual treatment than the current dark/glassy shell."
+  - "Require time-aware asset labeling that does not look misleading or obviously wrong within the displayed timeframe."
+  - "Keep the implementation on real generated Stage 6/layout/chapter data rather than falling back to sample data or frontend-invented semantics."
+  - "Preserve graph-first composition and reduce support UI until the lineage visual itself works."
+
+non_goals:
+  - "Do not change canonical identity contracts in this discovery pass."
+  - "Do not expand into new overlay types such as annotations, calendar markers, game overlays, or eras."
+  - "Do not optimize for mobile-perfect behavior in this pass."
+  - "Do not add new interaction chrome before the base graph is visually trustworthy."
+  - "Do not reopen legacy pipeline architecture."
+
+constraints:
+  technical:
+    - "Frontend must remain inside the Astro website."
+    - "Frontend must continue to use real generated exports from the redesign path."
+    - "Frontend must not invent lineage semantics client-side."
+    - "Continuity remains anchored to `canonical.asset.asset_id` unless a separate future planning pass explicitly changes contract semantics."
+    - "SVG-first remains the implementation default unless a later plan proves otherwise."
+    - "The generated data workflow remains repo-local rather than runtime-fetched."
+    - "Astro must run on supported Node versions only; repo-managed runtime use should be assumed in docs and validation."
+  product:
+    - "Scope remains Memphis-only."
+    - "The visual should begin at the earliest available timeline date and support continuous forward movement through time."
+    - "The page should be simpler than the current implementation, with the graph clearly visible without needing text selection or inspection tricks."
+    - "The graph surface should live in a tall bounded visual region that participates naturally in page scrolling, rather than feeling like a cramped control-heavy dashboard pane."
+    - "The graph should not be dependent on minimap, zoom, date-window, asset filter, or inspector controls to be understood."
+    - "Visible chapter copy can remain only if it is graph-adjacent, simple, and non-disruptive."
+    - "The next pass should prefer removing broken or distracting UI over retaining feature completeness."
+  process:
+    - "This reset should treat the current frontend as a divergence artifact, not as a stable design baseline."
+    - "If v2 changes layout-contract ownership or chapter/minimap coupling, the next step must go through planning again."
+    - "Requirements should be strong enough that the next plan can decide what to delete, what to retain, and what contract changes are necessary."
+
+assumptions:
+  - "The current implementation completed the prior plan but still failed the product goal."
+  - "The current visual mismatch is large enough that simplification is more valuable than adding more frontend features."
+  - "Some of the current bad outcomes are caused by prior plan choices, not just coding defects."
+  - "Real generated data is sufficient to continue discovery even though live `two_way` rows and non-null pick-protection summaries are currently sparse or missing."
+  - "The current dark Memphis aesthetic is directionally acceptable, but the next pass must use much simpler contrast, spacing, and chrome."
+  - "The user currently prefers removal of minimap and zoom over trying to rescue them."
+
+repo_context:
+  relevant_paths:
+    - "AGENTS.md"
+    - "docs/frontend/vision-reset/requirements.yaml"
+    - "docs/frontend/vision-reset/plan.yaml"
+    - "docs/frontend/vision-reset/implementation-report.yaml"
+    - "docs/frontend/vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend/vision-reset/full-dataset-performance-check.md"
+    - "docs/frontend/design-notes.md"
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+  systems_in_scope:
+    - "Astro page composition"
+    - "Timeline scene and renderer logic"
+    - "Layout-contract consumption"
+    - "Chapter presentation limited to `story_chapters`"
+    - "Repo-local generated export workflow already in place"
+  prior_artifacts:
+    - "Original frontend reset requirements and plan under `docs/frontend/vision-reset/`"
+    - "Implemented but visually unsatisfactory frontend on `main`"
+    - "User-provided first-pass screenshots showing concrete UI and rendering problems"
+
+research:
+  repo_findings:
+    - "The prior implementation largely satisfied the approved plan, so the current mismatch is driven by the plan/vision drift as much as by execution quality."
+    - "The current page composition is interaction-heavy and debug-like: filters, date window controls, zoom, minimap, artifact-state cards, and inspector all consume significant visual space."
+    - "The current viewport model is a bounded 120-180 day window with zoom and minimap behavior baked into both plan and frontend code."
+    - "The current graph lives inside a bounded scroll shell rather than a simpler tall visual region integrated into normal page scrolling."
+    - "Inline labels and identity markers currently lack strong collision/overflow management."
+    - "The current implementation uses real generated data and validates cross-artifact IDs correctly."
+    - "The current frontend inlines large generated payloads into the built HTML, which contributes to build artifact size and page heaviness."
+    - "Current real Memphis exports still lack live `two_way` rows and rich protection-summary content for some pick strands."
+    - "Chapter layout is currently coupled to minimap anchors in the layout contract."
+  platform_findings: []
+  user_direction:
+    - "The current implementation looks nothing like the planning-phase goal."
+    - "Text and sub-assets are not visually bounded by their containers."
+    - "The minimap should likely be removed entirely."
+    - "Zoom, date-window controls, and asset filters should be removed for now."
+    - "The visual should start at the beginning of the timeframe and let the reader keep moving right through time."
+    - "The graph container should be tall enough that normal page scrolling is part of the experience."
+    - "The graph is currently too dark to see clearly."
+    - "Player names/identity presentation does not look correct to the displayed timeframes."
+    - "The theme is acceptable in spirit, but the implementation should be much simpler."
+    - "The current page feels sloppy, thrown together, and not working."
+
+acceptance_criteria:
+  - "Requirements clearly state that v2 is a simplification/reset pass rather than a continuation of the current feature-heavy frontend."
+  - "Requirements explicitly remove minimap, zoom, date-window controls, and asset-type filters from the first v2 slice."
+  - "Requirements define the graph as the primary visible product, not support UI, inspector panels, or debug cards."
+  - "Requirements require clean container bounds and forbid visually escaped labels, pills, or support elements."
+  - "Requirements require the graph to be visibly legible without relying on text selection or inspection hacks."
+  - "Requirements define a simpler scrolling model that starts at the beginning of the timeline and moves forward through time."
+  - "Requirements define whether the current bounded 120-180 day viewport model survives, is hidden, or is replaced."
+  - "Requirements preserve the redesign-track data source and `asset_id` continuity rule unless explicitly overridden."
+  - "Requirements call out the current live-data limitations around `two_way` rows and pick protection summaries so planning does not over-assume their readiness."
+  - "Requirements are specific enough for the next plan to decide what UI to delete, what contract coupling must be unwound, and what remains in the first v2 slice."
+
+open_questions:
+  - "Should v2 keep the bounded 120-180 day viewport model internally but remove its visible controls, or should the graph switch to a simpler scroll model without that bounded-window abstraction?"
+  - "If minimap is removed from the v2 slice, should `chapter_layout.minimap_anchor_id` remain in the layout contract unused, or should a later plan explicitly unwind that contract coupling?"
+  - "Should visible chapter copy remain in the first v2 slice, or should v2 temporarily reduce to graph-only plus minimal context?"
+  - "Should display labeling remain strictly per `asset_id` chapter with better time-aware labeling, or does the user want a separate person-level display continuity rule in the visual layer?"
+  - "Should the built page continue embedding generated payloads directly in HTML, or should the next plan treat that as a cleanup target for simplicity/performance?"
+
+freeze:
+  ready_for_plan: true
+  blockers:
+    - "No blocking discovery questions remain for planning, but the next plan must explicitly decide how much of the current viewport/minimap/chapter coupling to unwind."

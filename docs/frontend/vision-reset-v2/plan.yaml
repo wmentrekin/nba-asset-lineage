@@ -1,0 +1,204 @@
+artifact: plan
+feature: "frontend-vision-reset-v2"
+status: draft
+owner_skill: plan
+based_on: "docs/frontend/vision-reset-v2/requirements.yaml"
+
+summary:
+  objective: "Reset the current Stage 8 frontend into a simpler graph-first lineage page that starts at the beginning of the Memphis timeline, removes most support UI, and makes the visual lineage itself legible before any richer interaction or narrative chrome returns."
+  design_overview: "Keep the current redesign-track data source and contract semantics, but treat the current frontend shell as overbuilt. The v2 pass will not rewrite canonical or layout contracts by default; instead it will simplify the visible product by removing minimap, zoom, date-window controls, asset filters, inspector/debug cards, and bounded-shell presentation patterns that distract from the graph. The graph will render from the existing presentation/layout/chapter artifacts, but the surface will shift to a simpler full-chronology horizontal lineage view with cleaner container bounds, stronger contrast, less chrome, and time-aware label/marker behavior that does not visually mislead."
+
+decisions:
+  - "This is a frontend simplification/reset plan, not a continuation of the current feature-heavy prototype."
+  - "The existing redesign data source stays in place: `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json` remain the inputs."
+  - "No canonical identity or Stage 6 semantic contract changes are in scope for this pass."
+  - "The existing layout contract remains the source of graph composition truth for v2, but minimap- and chapter-anchor-related fields are treated as loaded-but-unused contract residue in the first slice rather than active product features."
+  - "The first v2 slice removes visible minimap, zoom controls, date-window controls, asset-type filters, artifact-state panels, inspector/debug chrome, and visible chapter-copy panels."
+  - "The first v2 slice removes chapter-driven viewport behavior from the visible interaction model and reduces chapter data to optional hidden/internal load-only input."
+  - "The graph should start at the earliest contract date and support forward horizontal movement through time without requiring users to manage a separate bounded-window tool."
+  - "The bounded 120-180 day viewport abstraction is removed from the primary render path in v2 rather than kept as a hidden internal UI model."
+  - "The page should prefer one primary lineage surface over multiple stacked control regions."
+  - "The graph container should be visually bounded and clean, but the overall page should scroll naturally rather than feeling like a cramped dashboard shell."
+  - "The visual treatment should remain Memphis-appropriate but substantially simpler and higher-contrast than the current dark/glassy prototype."
+  - "Time-aware asset labeling must remain tied to generated segment identity and must not merge separate `asset_id` chapters into false continuity."
+  - "Visible labels may only render when the active rendered segment overlaps the currently displayed time range and when the label box can fit inside the local strand/container bounds; otherwise only a bounded left marker may render."
+  - "For leave-and-return and reacquired-player cases, the visual must show separate asset chapters with no false cross-gap continuity and no stale names floating outside the relevant visible segment."
+  - "For pick-related cases, labels and markers must follow the generated pick segment until a contract-defined pick-to-player transition, after which the drafted-player segment may take over the visible identity treatment."
+  - "Because the current real export lacks live `two_way` rows and rich pick-protection strand payloads, v2 must not overclaim visual verification of those cases."
+
+contracts:
+  interfaces:
+    - "Frontend continues to load repo-local generated `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json`."
+    - "The v2 page may load chapter export data for future compatibility, but no visible chapter-copy or chapter/minimap focus behavior is required for the first v2 slice."
+    - "The frontend should continue to validate generated cross-artifact IDs at load time."
+  schemas:
+    - "No new backend schema or redesign CLI surface is required for the first v2 slice."
+    - "V2 should continue to respect `asset_id` continuity, layout `segment_id` rendering, `entry_slot`/`exit_slot` strand geometry, and generated `identity_marker` hints."
+    - "Visible UI in v2 does not use `layout_meta.default_window_*`, `layout_meta.minimap_segments`, or `chapter_layout.minimap_anchor_id` as active product controls; those fields may remain loaded but should be treated as keep-internal-only contract residue for the first slice."
+    - "Label rendering rules in the frontend must prefer generated segment label/marker hints and introduce stricter clipping/bounds handling without redefining contract ownership."
+    - "Feature disposition matrix for the first v2 slice is frozen as follows: `minimap = delete visible UI / keep_internal_only contract field`; `zoom controls = delete`; `date-window controls = delete`; `asset-type filters = delete`; `artifact-state cards = delete`; `inspector/debug panel = delete`; `visible chapter-copy panel = delete`; `bounded-window viewport state = delete from primary render path`; `chapter_layout.minimap_anchor_id = keep_internal_only`; `editorial-chapters.json title/body/order = keep_internal_only`; `asset_id continuity and generated layout geometry = keep_visible`; `identity markers = keep_visible with stricter bounds`; `inline strand labels = keep_visible only when bounded and time-appropriate`."
+  config_changes:
+    - "Keep the existing generated artifact workflow (`stage6_export`, `stage8_layout_export`, `stage8_chapter_export`)."
+    - "No new config files are required for the first v2 slice."
+    - "Frontend build/test documentation should prefer repo-managed Node execution (`mise x/exec node@22`)."
+
+tasks:
+  - id: "T1"
+    title: "Codify V2 Deletion Boundary"
+    objective: "Write a durable v2 reset note that mirrors the already-frozen deletion/retention matrix from this plan so implementation cannot drift back toward the rejected prototype."
+    owned_scope:
+      - "docs/frontend/vision-reset-v2/reset-boundary.md"
+      - "docs/frontend/vision-reset-v2/implementation-notes.md"
+    forbidden_scope:
+      - "Do not change backend contracts."
+      - "Do not implement frontend code in this task."
+      - "Do not reopen canonical identity semantics."
+    dependencies: []
+    parallelizable: false
+    expected_validation:
+      - "A committed reset boundary artifact exists and explicitly lists removed visible UI: minimap, zoom, date-window controls, asset filters, artifact-state panels, inspector/debug chrome."
+      - "The artifact also states which current data-contract fields remain loaded but visually unused in v2, matching the frozen matrix in this plan."
+
+  - id: "T2"
+    title: "Simplify Data And Scene Entry Points"
+    objective: "Refactor the frontend data-loading and scene-building surface so the core render path no longer depends on chapter/minimap viewport behavior, bounded-window state, or sample-era control assumptions."
+    owned_scope:
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not rewrite backend export logic."
+      - "Do not add new interaction chrome."
+      - "Do not implement final page styling in this task."
+    dependencies:
+      - "T1"
+    parallelizable: false
+    expected_validation:
+      - "Targeted frontend tests prove the simplified scene path can load the generated artifacts without depending on minimap, chapter focus, zoom, or date-window control state."
+      - "The scene model exposes only the primitives needed for a full-chronology graph-first render."
+      - "No active render-path helper requires `layout_meta.default_window_*` or `chapter_layout.minimap_anchor_id` to produce the first v2 surface."
+
+  - id: "T3"
+    title: "Rebuild Graph-First Page Shell"
+    objective: "Replace the current control-heavy page composition with a simpler graph-first shell whose containers are visually bounded, high-contrast, and subordinate to the lineage surface."
+    owned_scope:
+      - "frontend/src/pages/index.astro"
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not reintroduce minimap, zoom, date-window controls, asset filters, inspector, or artifact-state cards."
+      - "Do not add new overlay systems."
+    dependencies:
+      - "T2"
+    parallelizable: false
+    expected_validation:
+      - "Built output visibly renders the lineage surface without invisible/dark-on-dark graph elements."
+      - "No text or sub-elements visibly spill beyond their intended containers in the default render."
+      - "The visible page shell contains no minimap, zoom, date-window, asset-filter, artifact-state, inspector, or chapter-copy regions."
+      - "`mise run stage8_check` and `mise run stage8_build` pass."
+
+  - id: "T4"
+    title: "Implement Full-Chronology Scroll Model"
+    objective: "Replace the current bounded-window interaction model with a simpler full-timeline horizontal progression model that starts at the earliest date and moves forward through time."
+    owned_scope:
+      - "frontend/src/pages/index.astro"
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not add minimap, zoom, or date-window controls back."
+      - "Do not change layout-contract ownership."
+    dependencies:
+      - "T3"
+    parallelizable: false
+    expected_validation:
+      - "The graph starts at the earliest contract date by default."
+      - "Horizontal movement through time works without any bounded-window control surface or hidden viewport-state dependency."
+      - "The page remains usable with normal page scrolling and a tall graph region."
+      - "Targeted tests prove the first visible render covers the earliest chronology and progresses rightward without `default_window_*`-based clipping."
+
+  - id: "T5"
+    title: "Harden Labeling And Identity Presentation"
+    objective: "Correct the visible label and identity-marker behavior so labels are time-appropriate, bounded, and visually trustworthy without inventing false person-level continuity."
+    owned_scope:
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/pages/index.astro"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not change canonical continuity semantics from `asset_id` to person identity."
+      - "Do not add new inspector/debug affordances to explain label problems."
+    dependencies:
+      - "T4"
+    parallelizable: false
+    expected_validation:
+      - "Targeted tests prove label/marker rendering remains bounded and continues to respect generated `asset_id` segment identity."
+      - "Named leave-and-return case validation exists and proves separate asset chapters do not receive false cross-gap label continuity."
+      - "Named reacquired-player case validation exists and proves labels/markers do not float outside the currently relevant segment timeframe."
+      - "Named pick-to-player validation exists and proves visible identity treatment shifts only at the generated transition boundary."
+
+  - id: "T6"
+    title: "Minimal Chapter Presentation Pass"
+    objective: "Suppress visible chapter presentation for the first v2 slice so the graph renders with only a minimal page heading and no graph-adjacent story panel."
+    owned_scope:
+      - "frontend/src/pages/index.astro"
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not reintroduce chapter-driven viewport controls or visible chapter-copy panels as product chrome."
+      - "Do not add non-chapter overlays."
+    dependencies:
+      - "T4"
+      - "T5"
+    parallelizable: false
+    expected_validation:
+      - "No visible chapter-copy panel remains in the first v2 slice."
+      - "The graph remains the primary visible product surface, with only a minimal heading/context wrapper outside it."
+
+  - id: "T7"
+    title: "Readability And Product Smoke"
+    objective: "Run a final readability-focused hardening pass on the simplified v2 surface and record what still depends on upstream data improvements rather than frontend fixes."
+    owned_scope:
+      - "frontend/src/pages/index.astro"
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+      - "docs/frontend/vision-reset-v2/readability-checklist.md"
+      - "docs/frontend/vision-reset-v2/product-smoke-notes.md"
+    forbidden_scope:
+      - "Do not broaden scope back into advanced interaction systems."
+      - "Do not claim live verification of missing `two_way` or pick-protection cases if the exports still do not expose them."
+    dependencies:
+      - "T6"
+    parallelizable: false
+    expected_validation:
+      - "Readability notes are recorded against the simplified v2 output."
+      - "Remaining gaps are clearly separated into frontend defects versus upstream data-shape limitations."
+      - "`mise run stage8_check`, targeted frontend tests, and `mise run stage8_build` pass on the v2 surface."
+
+execution:
+  order:
+    - "T1"
+    - "T2"
+    - "T3"
+    - "T4"
+    - "T5"
+    - "T6"
+    - "T7"
+  notes:
+    - "This is intentionally a deletion-heavy plan. Prefer removing problematic UI over rescuing it."
+    - "T2 through T4 are the critical path because they unwind the current interaction-heavy shell."
+    - "T5 should focus on visible trustworthiness, not semantic reinterpretation."
+    - "T6 stays late so the graph can prove itself before any chapter copy is allowed to compete for space."
+    - "If T3 or T4 reveals that minimap/chapter coupling in the current layout contract is impossible to ignore cleanly, stop and return to planning rather than hacking around it in the frontend."
+
+risks:
+  - "The current layout contract and frontend code are still coupled to minimap/chapter concepts, so a clean simplification may expose hidden contract dependencies."
+  - "Removing support UI may reveal that the current graph geometry alone is not expressive enough yet."
+  - "The user’s complaint about identity tracking may conceal a deeper disagreement about `asset_id` versus person-level display continuity."
+  - "Upstream export gaps around `two_way` rows and pick protection summaries may continue to limit visual confidence even after frontend cleanup."
+  - "If the page shifts to a simpler full-chronology scroll surface, performance issues may reappear differently than they did in the bounded-shell prototype."
+
+open_questions:
+  - "Does the user want a later dedicated discovery pass on person-level display continuity, or is better bounded labeling enough for now?"
+
+approval:
+  refine_status: pending
+  review_cycles: 0
+  approved_for_implementation: false

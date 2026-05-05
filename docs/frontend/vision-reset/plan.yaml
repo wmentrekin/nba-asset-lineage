@@ -2,7 +2,7 @@ artifact: plan
 feature: "frontend-vision-reset"
 status: draft
 owner_skill: plan
-based_on: "docs/frontend-vision-reset/requirements.yaml"
+based_on: "docs/frontend/vision-reset/requirements.yaml"
 
 summary:
   objective: "Replace the current Stage 8 sample-data frontend with a graph-dominant Astro experience that consumes real Memphis data through Stage 6 presentation exports plus a new layout-oriented contract, then renders a full-ten-year horizontal asset graph with minimap-assisted navigation."
@@ -73,8 +73,8 @@ tasks:
     title: "Codify Frozen Contract Boundary"
     objective: "Write the already-approved Stage 6 versus layout-contract versus frontend-state boundary into durable docs so implementation starts from fixed ownership rules rather than rediscovering them."
     owned_scope:
-      - "docs/frontend-vision-reset/stage6-gap-audit.md"
-      - "docs/frontend-vision-reset/layout-contract.md"
+      - "docs/frontend/vision-reset/stage6-gap-audit.md"
+      - "docs/frontend/vision-reset/layout-contract.md"
       - "agent-context/stages/06-presentation-contract.md"
       - "agent-context/stages/08-frontend-vertical-slice.md"
     forbidden_scope:
@@ -84,8 +84,8 @@ tasks:
     dependencies: []
     parallelizable: false
     expected_validation:
-      - "A committed gap-audit artifact exists at `docs/frontend-vision-reset/stage6-gap-audit.md`."
-      - "A committed contract artifact exists at `docs/frontend-vision-reset/layout-contract.md`."
+      - "A committed gap-audit artifact exists at `docs/frontend/vision-reset/stage6-gap-audit.md`."
+      - "A committed contract artifact exists at `docs/frontend/vision-reset/layout-contract.md`."
       - "The artifacts explicitly classify each required behavior as: Stage 6 semantic truth, layout-contract truth, or frontend interaction state."
       - "The artifact records the already-frozen plan conclusion that same-day grouped events and pick-to-player transitions remain representable without mutating Stage 6 truth."
       - "T1 is documentation/confirmation only and must not reopen the Stage 6 boundary."
@@ -144,7 +144,7 @@ tasks:
       - "Before any frontend task begins, the repo-local export workflow is demonstrated to be feasible in current tooling by running the full regeneration sequence successfully from this repo."
       - "Frontend build/test flows fail loudly on invalid generated data rather than silently masking it."
       - "Targeted pytest coverage verifies cross-artifact agreement between `presentation-contract`, `layout-contract`, and `editorial-chapters` after the chapter export workflow is introduced."
-      - "Documented smoke/regeneration evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md`."
+      - "Documented smoke/regeneration evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T3-generated-data-workflow.md`."
 
   - id: "T4"
     title: "Switch Frontend To Real Generated Data"
@@ -164,7 +164,7 @@ tasks:
       - "`npm run check` and `npm run build` in `frontend/` succeed against the repo-local generated data path."
       - "A frontend smoke workflow loads `frontend/src/data/generated/presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json` without missing asset/event/chapter references."
       - "A targeted frontend test confirms `asset_id` continuity survives data loading without `player_id` shortcuts."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T4-frontend-real-data-load.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T4-frontend-real-data-load.md`."
 
   - id: "T5"
     title: "Build Scene Primitives From Layout Contract"
@@ -202,7 +202,7 @@ tasks:
       - "`npm run test` in `frontend/` covers known Memphis cases for strand continuity, multi-asset trade junctions, same-day grouped events, and pick-to-player conversion."
       - "`npm run build` emits `frontend/dist/index.html`, and a documented smoke pass confirms main roster, two-way, and future-pick bands remain visible and differentiated."
       - "The documented smoke pass confirms required asset coverage remains visible: active 15-man roster, up to 3 two-way assets, and future draft assets, with no hidden required asset class."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T6-base-graph-renderer.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T6-base-graph-renderer.md`."
 
   - id: "T7"
     title: "Implement Label And Identity Marker Behavior"
@@ -220,7 +220,7 @@ tasks:
     expected_validation:
       - "`npm run test` in `frontend/` verifies inline label eligibility, fallback-marker behavior, and traveling identity-marker rendering."
       - "A documented smoke pass on the built page confirms compressed strands still retain visible left traveling identity markers, at least one player-backed marker renders with a local headshot plus text, and fallback text-only markers render when no local headshot exists."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T7-label-and-identity.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T7-label-and-identity.md`."
 
   - id: "T8"
     title: "Implement Viewport Traversal And Axis Behavior"
@@ -240,7 +240,7 @@ tasks:
       - "`frontend/src/lib/timeline.test.ts` proves horizontal scroll progression, zoom bounds, and default 120-180 day viewport behavior."
       - "Documented manual smoke on the built page confirms monthly minor ticks and July 1 season-boundary major ticks appear from layout-driven chronology data."
       - "Tests confirm viewport traversal does not alter canonical or layout truth, only viewport state."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T8-viewport-and-axis.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T8-viewport-and-axis.md`."
 
   - id: "T9"
     title: "Implement Chapter Navigation And Minimap Integration"
@@ -261,7 +261,7 @@ tasks:
       - "`frontend/src/lib/timeline.test.ts` proves chapter focus windows and minimap jumps operate on the existing viewport model."
       - "A documented smoke interaction path on the built page confirms chapter navigation changes viewport/focus predictably and minimap jumps land on the intended chronology windows."
       - "No non-chapter overlay payload is consumed by the frontend in this phase."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T9-chapter-and-minimap.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T9-chapter-and-minimap.md`."
 
   - id: "T10"
     title: "Integrate Chapter Presentation Layer"
@@ -280,7 +280,7 @@ tasks:
       - "Targeted frontend tests prove chapter presentation remains additive and non-destructive."
       - "A documented smoke render confirms chapter body/title context is visible without obscuring the graph."
       - "No non-chapter overlay payload is consumed by the frontend in this phase."
-      - "Documented smoke evidence for this task is recorded in `docs/frontend-vision-reset/task-smokes/T10-chapter-presentation.md`."
+      - "Documented smoke evidence for this task is recorded in `docs/frontend/vision-reset/task-smokes/T10-chapter-presentation.md`."
 
   - id: "T11"
     title: "Full-Dataset Density And Performance Hardening"
@@ -301,8 +301,8 @@ tasks:
     parallelizable: false
     expected_validation:
       - "Required smoke path runs on the full Memphis ten-year dataset and exercises at least: one leave/return player, one multi-asset same-day trade, one pick-to-player conversion, one future-pick strand with protections or swap metadata, and one chapter jump via minimap."
-      - "Readability verification is recorded in `docs/frontend-vision-reset/full-dataset-readability-checklist.md` and passes all required checks: roster/two-way/future-pick bands distinguishable, traveling identity markers visible for compressed strands, active 15-man roster plus up to 3 two-way assets plus future draft assets remain visible, and no required storyline unreadable at the default viewport."
-      - "Performance verification uses this exact workflow: run `cd frontend && npm run build`, serve `frontend/dist` with a local static file server, open the built page in Chromium or Chrome, record one DevTools Performance trace covering initial load, one 180-day horizontal traverse, one chapter jump, and one minimap jump, then save the findings in `docs/frontend-vision-reset/full-dataset-performance-check.md` with browser version, machine date, interaction sequence, and the longest observed main-thread task. Pass only if no single main-thread task exceeds 1000ms."
+      - "Readability verification is recorded in `docs/frontend/vision-reset/full-dataset-readability-checklist.md` and passes all required checks: roster/two-way/future-pick bands distinguishable, traveling identity markers visible for compressed strands, active 15-man roster plus up to 3 two-way assets plus future draft assets remain visible, and no required storyline unreadable at the default viewport."
+      - "Performance verification uses this exact workflow: run `cd frontend && npm run build`, serve `frontend/dist` with a local static file server, open the built page in Chromium or Chrome, record one DevTools Performance trace covering initial load, one 180-day horizontal traverse, one chapter jump, and one minimap jump, then save the findings in `docs/frontend/vision-reset/full-dataset-performance-check.md` with browser version, machine date, interaction sequence, and the longest observed main-thread task. Pass only if no single main-thread task exceeds 1000ms."
 
 execution:
   order:

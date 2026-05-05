@@ -85,7 +85,7 @@ repo_context:
     - "Current Stage 8 Astro vertical slice under frontend/"
     - "Tracked Stage 7 editorial YAML"
     - "Presentation/export command surface in redesign CLI and mise tasks"
-    - "Visual exploration assets and notes under docs/frontend-vision-reset/visual-exploration/"
+    - "Text-only visual exploration notes under `docs/frontend/design-notes.md`."
 
 research:
   repo_findings:

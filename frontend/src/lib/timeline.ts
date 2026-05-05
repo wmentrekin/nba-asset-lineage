@@ -433,6 +433,9 @@ const SCENE_ROW_HEIGHT = 48;
 const SCENE_BAND_GAP = 40;
 const SCENE_EVENT_RAIL_Y = 72;
 const JUNCTION_INSET_X = 20;
+const FULL_CHRONOLOGY_TARGET_WIDTH = 5600;
+const FULL_CHRONOLOGY_MAX_DAY_WIDTH = 2;
+const FULL_CHRONOLOGY_MIN_DAY_WIDTH = 0.9;
 const INLINE_LABEL_HEIGHT = 24;
 const INLINE_LABEL_HORIZONTAL_PADDING = 12;
 const INLINE_LABEL_MIN_CLEARANCE = 28;
@@ -440,8 +443,6 @@ const IDENTITY_MARKER_HEIGHT = 28;
 const IDENTITY_MARKER_HEADSHOT_SIZE = 28;
 const IDENTITY_MARKER_HORIZONTAL_PADDING = 12;
 const IDENTITY_MARKER_X_OFFSET = 14;
-const TIMELINE_MIN_WINDOW_DAYS = 30;
-const TIMELINE_MAX_WINDOW_DAYS = 180;
 const UTC_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function toUtcDate(value: string): Date {
@@ -472,6 +473,24 @@ export function clampIsoDate(value: string, min: string, max: string): string {
 
 export function daysBetween(start: string, end: string): number {
   return Math.max(0, Math.round((toUtcDate(end).getTime() - toUtcDate(start).getTime()) / DAY_IN_MS));
+}
+
+function fullChronologyDayWidth(contract: TimelineContract): number {
+  const bounds = getContractBounds(contract);
+  const totalDays = Math.max(1, daysBetween(bounds.start, bounds.end));
+  const configuredDayWidth = contract.layout?.layout_meta.default_day_width ?? 18;
+  const targetDayWidth = (FULL_CHRONOLOGY_TARGET_WIDTH - SCENE_LEFT_PAD - SCENE_RIGHT_PAD) / totalDays;
+
+  if (configuredDayWidth <= FULL_CHRONOLOGY_MIN_DAY_WIDTH) {
+    return configuredDayWidth;
+  }
+
+  return Number(
+    Math.max(
+      FULL_CHRONOLOGY_MIN_DAY_WIDTH,
+      Math.min(configuredDayWidth, FULL_CHRONOLOGY_MAX_DAY_WIDTH, targetDayWidth),
+    ).toFixed(3),
+  );
 }
 
 export function getContractBounds(contract: TimelineContract): { start: string; end: string } {
@@ -506,16 +525,6 @@ export function normalizeAssetKinds(value: string[] | undefined): AssetKind[] {
   return ASSET_KIND_ORDER.filter((item) => selected.has(item));
 }
 
-function clampNumber(value: number, min: number, max: number): number {
-  if (value < min) {
-    return min;
-  }
-  if (value > max) {
-    return max;
-  }
-  return value;
-}
-
 function generatedContractError(message: string): never {
   throw new Error(`Generated timeline artifacts are inconsistent: ${message}`);
 }
@@ -533,7 +542,6 @@ function validateGeneratedReferences(
       .filter((eventId): eventId is string => Boolean(eventId)),
   );
   const chapterIds = new Set(chapters.map((chapter) => chapter.story_chapter_id));
-  const minimapIds = new Set(layout.layout_meta.minimap_segments.map((segment) => segment.segment_id));
 
   for (const row of layout.lane_layout) {
     const edge = edgeById.get(row.segment_id);
@@ -588,9 +596,6 @@ function validateGeneratedReferences(
     if (!chapterIds.has(row.story_chapter_id)) {
       generatedContractError(`chapter_layout chapter ${row.story_chapter_id} does not match editorial-chapters.json`);
     }
-    if (!minimapIds.has(row.minimap_anchor_id)) {
-      generatedContractError(`chapter_layout chapter ${row.story_chapter_id} references missing minimap anchor ${row.minimap_anchor_id}`);
-    }
     for (const assetId of row.highlight_asset_ids) {
       if (!assetIds.has(assetId)) {
         generatedContractError(`chapter_layout chapter ${row.story_chapter_id} references missing asset ${assetId}`);
@@ -611,28 +616,13 @@ export function buildTimelineContract(
 ): TimelineContract {
   validateGeneratedReferences(presentation, layout, chapters);
 
-  const chapterLayoutById = new Map(layout.chapter_layout.map((chapter) => [chapter.story_chapter_id, chapter]));
   const storyChapters = chapters
     .slice()
     .sort((left, right) => left.chapter_order - right.chapter_order)
-    .map((chapter) => {
-      const chapterLayout = chapterLayoutById.get(chapter.story_chapter_id);
-      return {
-        ...chapter,
-        focus_payload: {
-          date_range: {
-            start_date: chapterLayout?.window_start ?? chapter.start_date,
-            end_date: chapterLayout?.window_end ?? chapter.end_date,
-          },
-          event_ids: [...(chapterLayout?.highlight_event_ids ?? [])],
-          asset_ids: [...(chapterLayout?.highlight_asset_ids ?? [])],
-          lane_groups: [],
-          default_zoom: chapterLayout?.default_zoom ?? undefined,
-          highlight_mode: "focus",
-        },
-        era_id: null,
-      };
-    });
+    .map((chapter) => ({
+      ...chapter,
+      era_id: null,
+    }));
 
   return {
     nodes: presentation.nodes,
@@ -652,18 +642,21 @@ export function coerceGeneratedLayoutContract(value: unknown): TimelineGenerated
 
 export function getDefaultUiState(contract: TimelineContract, chapter?: TimelineChapter | null): TimelineUiState {
   const bounds = getContractBounds(contract);
-  const defaultWindowStart = contract.layout?.layout_meta.default_window_start ?? bounds.start;
-  const defaultWindowEnd = contract.layout?.layout_meta.default_window_end ?? bounds.end;
   const baseState: TimelineUiState = {
-    windowStart: defaultWindowStart,
-    windowEnd: defaultWindowEnd,
+    windowStart: bounds.start,
+    windowEnd: bounds.end,
     zoom: 1,
     assetKinds: [...ASSET_KIND_ORDER],
     selectedChapterId: null,
     selectedNodeId: null,
     selectedEdgeId: null,
   };
-  return chapter ? activateTimelineChapter(contract, baseState, chapter.story_chapter_id) : baseState;
+  return chapter
+    ? normalizeTimelineUiState(contract, {
+      ...baseState,
+      selectedChapterId: chapter.story_chapter_id,
+    })
+    : baseState;
 }
 
 export function chapterFocus(chapter: TimelineChapter, fallbackBounds: { start: string; end: string }): TimelineFocus {
@@ -685,15 +678,6 @@ export function chapterFocus(chapter: TimelineChapter, fallbackBounds: { start: 
 
 function isDateVisible(date: string, windowStart: string, windowEnd: string): boolean {
   return compareIsoDates(date, windowStart) >= 0 && compareIsoDates(date, windowEnd) <= 0;
-}
-
-function dateRangesOverlap(leftStart: string, leftEnd: string, rightStart: string, rightEnd: string): boolean {
-  return compareIsoDates(leftStart, rightEnd) <= 0 && compareIsoDates(rightStart, leftEnd) <= 0;
-}
-
-function assetKindForEdge(edge: TimelineContractEdge): AssetKind | null {
-  const kind = edge.payload.asset_kind;
-  return kind === "player_tenure" || kind === "pick_continuity" ? kind : null;
 }
 
 function formatLaneGroupLabel(value: string): string {
@@ -836,117 +820,25 @@ function legacyBandPrimitives(contract: TimelineContract): TimelineBandLayout[] 
   }));
 }
 
-function viewportRangeFromStart(
-  bounds: { start: string; end: string },
-  requestedStart: string,
-  windowDays: number,
-): { start: string; end: string } {
-  const totalDays = Math.max(1, daysBetween(bounds.start, bounds.end));
-  if (windowDays >= totalDays) {
-    return {
-      start: bounds.start,
-      end: bounds.end,
-    };
-  }
-
-  const latestStart = addDays(bounds.end, -windowDays);
-  const safeLatestStart = compareIsoDates(latestStart, bounds.start) < 0 ? bounds.start : latestStart;
-  const start = clampIsoDate(requestedStart, bounds.start, safeLatestStart);
-  return {
-    start,
-    end: addDays(start, windowDays),
-  };
-}
-
-function viewportRangeFromAnchor(
-  bounds: { start: string; end: string },
-  anchorDate: string,
-  windowDays: number,
-): { start: string; end: string } {
-  const halfWindow = Math.floor(windowDays / 2);
-  return viewportRangeFromStart(bounds, addDays(anchorDate, -halfWindow), windowDays);
-}
-
-function viewportDayBounds(bounds: { start: string; end: string }): { minWindowDays: number; maxWindowDays: number } {
-  const totalDays = Math.max(1, daysBetween(bounds.start, bounds.end));
-  const maxWindowDays = Math.max(1, Math.min(TIMELINE_MAX_WINDOW_DAYS, totalDays));
-  const minWindowDays = Math.max(1, Math.min(TIMELINE_MIN_WINDOW_DAYS, maxWindowDays));
-  return { minWindowDays, maxWindowDays };
-}
-
-function defaultViewportRange(contract: TimelineContract, bounds: { start: string; end: string }): {
-  start: string;
-  end: string;
-  defaultWindowDays: number;
-  minWindowDays: number;
-  maxWindowDays: number;
-} {
-  const { minWindowDays, maxWindowDays } = viewportDayBounds(bounds);
-  const requestedStart = contract.layout?.layout_meta.default_window_start ?? bounds.start;
-  const requestedEnd = contract.layout?.layout_meta.default_window_end ?? bounds.end;
-  const requestedDays = Math.max(1, daysBetween(requestedStart, requestedEnd));
-  const defaultWindowDays = clampNumber(requestedDays, minWindowDays, maxWindowDays);
-  const range = viewportRangeFromStart(bounds, requestedStart, defaultWindowDays);
-  return {
-    start: range.start,
-    end: range.end,
-    defaultWindowDays,
-    minWindowDays,
-    maxWindowDays,
-  };
-}
-
-function zoomBoundsForWindow(defaultWindowDays: number, minWindowDays: number, maxWindowDays: number): {
-  minZoom: number;
-  maxZoom: number;
-} {
-  return {
-    minZoom: defaultWindowDays / maxWindowDays,
-    maxZoom: defaultWindowDays / minWindowDays,
-  };
-}
-
-function windowDaysForZoom(
-  defaultWindowDays: number,
-  zoom: number,
-  minWindowDays: number,
-  maxWindowDays: number,
-): number {
-  const rawDays = Math.round(defaultWindowDays / zoom);
-  return clampNumber(rawDays, minWindowDays, maxWindowDays);
-}
-
 export function getTimelineViewportMetrics(contract: TimelineContract, state: TimelineUiState): TimelineViewportMetrics {
   const bounds = getContractBounds(contract);
-  const defaults = defaultViewportRange(contract, bounds);
-  const zoomBounds = zoomBoundsForWindow(defaults.defaultWindowDays, defaults.minWindowDays, defaults.maxWindowDays);
-  const fallbackWindowDays = Math.max(1, daysBetween(state.windowStart, state.windowEnd));
-  const fallbackZoom = fallbackWindowDays > 0 ? defaults.defaultWindowDays / fallbackWindowDays : 1;
-  const requestedZoom = Number.isFinite(state.zoom) && state.zoom > 0 ? state.zoom : fallbackZoom;
-  const zoom = clampNumber(requestedZoom, zoomBounds.minZoom, zoomBounds.maxZoom);
-  const windowDays = windowDaysForZoom(
-    defaults.defaultWindowDays,
-    zoom,
-    defaults.minWindowDays,
-    defaults.maxWindowDays,
-  );
-  const requestedStart = state.windowStart || defaults.start;
-  const range = viewportRangeFromStart(bounds, requestedStart, windowDays);
-  const dayWidth = contract.layout?.layout_meta.default_day_width ?? 18;
+  void state;
+  const windowDays = Math.max(1, daysBetween(bounds.start, bounds.end));
+  const dayWidth = fullChronologyDayWidth(contract);
 
   return {
     boundsStart: bounds.start,
     boundsEnd: bounds.end,
-    defaultWindowStart: defaults.start,
-    defaultWindowEnd: defaults.end,
-    defaultWindowDays: defaults.defaultWindowDays,
-    minWindowDays: defaults.minWindowDays,
-    maxWindowDays: defaults.maxWindowDays,
-    minZoom: zoomBounds.minZoom,
-    maxZoom: zoomBounds.maxZoom,
-    zoom,
-    windowStart: range.start,
-    windowEnd: range.end,
+    defaultWindowStart: bounds.start,
+    defaultWindowEnd: bounds.end,
+    defaultWindowDays: windowDays,
+    minWindowDays: windowDays,
+    maxWindowDays: windowDays,
+    minZoom: 1,
+    maxZoom: 1,
+    zoom: 1,
+    windowStart: bounds.start,
+    windowEnd: bounds.end,
     windowDays,
     viewportWidth: SCENE_LEFT_PAD + windowDays * dayWidth + SCENE_RIGHT_PAD,
   };
@@ -955,12 +847,13 @@ export function getTimelineViewportMetrics(contract: TimelineContract, state: Ti
 export function normalizeTimelineUiState(contract: TimelineContract, state: TimelineUiState): TimelineUiState {
   const viewport = getTimelineViewportMetrics(contract, state);
   const validChapterIds = new Set((contract.editorial?.story_chapters ?? []).map((chapter) => chapter.story_chapter_id));
+  const assetKinds = normalizeAssetKinds(state.assetKinds);
   return {
     ...state,
     windowStart: viewport.windowStart,
     windowEnd: viewport.windowEnd,
     zoom: viewport.zoom,
-    assetKinds: normalizeAssetKinds(state.assetKinds) || [],
+    assetKinds: assetKinds.length > 0 ? assetKinds : [...ASSET_KIND_ORDER],
     selectedChapterId: state.selectedChapterId && validChapterIds.has(state.selectedChapterId) ? state.selectedChapterId : null,
   };
 }
@@ -971,20 +864,11 @@ export function setTimelineViewportWindow(
   windowStart: string,
   windowEnd: string,
 ): TimelineUiState {
-  const bounds = getContractBounds(contract);
-  const defaults = defaultViewportRange(contract, bounds);
-  const safeStart = clampIsoDate(windowStart, bounds.start, bounds.end);
-  const safeEnd = clampIsoDate(windowEnd, safeStart, bounds.end);
-  const requestedDays = Math.max(1, daysBetween(safeStart, safeEnd));
-  const windowDays = clampNumber(requestedDays, defaults.minWindowDays, defaults.maxWindowDays);
-  const zoomBounds = zoomBoundsForWindow(defaults.defaultWindowDays, defaults.minWindowDays, defaults.maxWindowDays);
-  const range = viewportRangeFromStart(bounds, safeStart, windowDays);
-  return {
+  return normalizeTimelineUiState(contract, {
     ...state,
-    windowStart: range.start,
-    windowEnd: range.end,
-    zoom: clampNumber(defaults.defaultWindowDays / windowDays, zoomBounds.minZoom, zoomBounds.maxZoom),
-  };
+    windowStart,
+    windowEnd,
+  });
 }
 
 export function setTimelineZoomLevel(
@@ -993,28 +877,11 @@ export function setTimelineZoomLevel(
   zoom: number,
   anchorDate?: string,
 ): TimelineUiState {
-  const viewport = getTimelineViewportMetrics(contract, state);
-  const nextZoom = clampNumber(zoom, viewport.minZoom, viewport.maxZoom);
-  const nextWindowDays = windowDaysForZoom(
-    viewport.defaultWindowDays,
-    nextZoom,
-    viewport.minWindowDays,
-    viewport.maxWindowDays,
-  );
-  const currentAnchor = anchorDate
-    ? clampIsoDate(anchorDate, viewport.boundsStart, viewport.boundsEnd)
-    : addDays(viewport.windowStart, Math.floor(viewport.windowDays / 2));
-  const range = viewportRangeFromAnchor(
-    { start: viewport.boundsStart, end: viewport.boundsEnd },
-    currentAnchor,
-    nextWindowDays,
-  );
-  return {
+  void anchorDate;
+  return normalizeTimelineUiState(contract, {
     ...state,
-    windowStart: range.start,
-    windowEnd: range.end,
-    zoom: nextZoom,
-  };
+    zoom,
+  });
 }
 
 export function shiftTimelineViewport(
@@ -1022,58 +889,8 @@ export function shiftTimelineViewport(
   state: TimelineUiState,
   deltaDays: number,
 ): TimelineUiState {
-  const viewport = getTimelineViewportMetrics(contract, state);
-  const nextStart = addDays(viewport.windowStart, Math.round(deltaDays));
-  const range = viewportRangeFromStart(
-    { start: viewport.boundsStart, end: viewport.boundsEnd },
-    nextStart,
-    viewport.windowDays,
-  );
-  return {
-    ...state,
-    windowStart: range.start,
-    windowEnd: range.end,
-    zoom: viewport.zoom,
-  };
-}
-
-function setTimelineViewportDays(
-  contract: TimelineContract,
-  state: TimelineUiState,
-  windowDays: number,
-  options: {
-    anchorDate?: string;
-    windowStart?: string;
-    selectedChapterId?: string | null;
-  } = {},
-): TimelineUiState {
-  const bounds = getContractBounds(contract);
-  const defaults = defaultViewportRange(contract, bounds);
-  const zoomBounds = zoomBoundsForWindow(defaults.defaultWindowDays, defaults.minWindowDays, defaults.maxWindowDays);
-  const safeWindowDays = clampNumber(
-    Math.round(windowDays),
-    defaults.minWindowDays,
-    defaults.maxWindowDays,
-  );
-  const range = options.anchorDate
-    ? viewportRangeFromAnchor(
-      bounds,
-      clampIsoDate(options.anchorDate, bounds.start, bounds.end),
-      safeWindowDays,
-    )
-    : viewportRangeFromStart(
-      bounds,
-      clampIsoDate(options.windowStart ?? state.windowStart ?? defaults.start, bounds.start, bounds.end),
-      safeWindowDays,
-    );
-
-  return {
-    ...state,
-    windowStart: range.start,
-    windowEnd: range.end,
-    zoom: clampNumber(defaults.defaultWindowDays / safeWindowDays, zoomBounds.minZoom, zoomBounds.maxZoom),
-    selectedChapterId: options.selectedChapterId === undefined ? state.selectedChapterId : options.selectedChapterId,
-  };
+  void deltaDays;
+  return normalizeTimelineUiState(contract, state);
 }
 
 function orderedSceneChapters(contract: TimelineContract): TimelineSceneChapterFocus[] {
@@ -1085,18 +902,17 @@ function orderedSceneChapters(contract: TimelineContract): TimelineSceneChapterF
     .sort((left, right) => left.chapter_order - right.chapter_order)
     .map((chapter) => {
       const chapterLayout = chapterLayoutById.get(chapter.story_chapter_id);
-      const focus = chapterFocus(chapter, bounds);
       return {
         story_chapter_id: chapter.story_chapter_id,
         slug: chapter.slug,
         chapter_order: chapter.chapter_order,
         title: chapter.title,
         body: chapter.body,
-        windowStart: focus.windowStart,
-        windowEnd: focus.windowEnd,
+        windowStart: chapter.start_date ?? bounds.start,
+        windowEnd: chapter.end_date ?? bounds.end,
         defaultZoom: chapterLayout?.default_zoom ?? null,
-        highlightAssetIds: [...focus.assetIds],
-        highlightEventIds: [...focus.eventIds],
+        highlightAssetIds: [...(chapter.focus_payload?.asset_ids ?? [])],
+        highlightEventIds: [...(chapter.focus_payload?.event_ids ?? [])],
         minimapAnchorId: chapterLayout?.minimap_anchor_id ?? null,
         anchorX: null,
         windowX1: 0,
@@ -1115,14 +931,8 @@ export function jumpTimelineToMinimapSegment(
   state: TimelineUiState,
   segmentId: string,
 ): TimelineUiState {
-  const segment = contract.layout?.layout_meta.minimap_segments.find((row) => row.segment_id === segmentId);
-  if (!segment) {
-    return normalizeTimelineUiState(contract, state);
-  }
-
-  const viewport = getTimelineViewportMetrics(contract, state);
-  return setTimelineViewportDays(contract, state, viewport.windowDays, {
-    anchorDate: segment.anchor_date,
+  return normalizeTimelineUiState(contract, {
+    ...state,
     selectedChapterId: firstLinkedChapterIdForMinimapSegment(contract, segmentId),
   });
 }
@@ -1132,30 +942,9 @@ export function activateTimelineChapter(
   state: TimelineUiState,
   chapterId: string,
 ): TimelineUiState {
-  const chapter = orderedSceneChapters(contract).find((row) => row.story_chapter_id === chapterId);
-  if (!chapter) {
-    return normalizeTimelineUiState(contract, {
-      ...state,
-      selectedChapterId: null,
-    });
-  }
-
-  const viewport = getTimelineViewportMetrics(contract, state);
-  const nextWindowDays = chapter.defaultZoom ?? viewport.windowDays;
-
-  if (chapter.minimapAnchorId) {
-    const segment = contract.layout?.layout_meta.minimap_segments.find((row) => row.segment_id === chapter.minimapAnchorId);
-    if (segment) {
-      return setTimelineViewportDays(contract, state, nextWindowDays, {
-        anchorDate: segment.anchor_date,
-        selectedChapterId: chapter.story_chapter_id,
-      });
-    }
-  }
-
-  return setTimelineViewportDays(contract, state, nextWindowDays, {
-    windowStart: chapter.windowStart,
-    selectedChapterId: chapter.story_chapter_id,
+  return normalizeTimelineUiState(contract, {
+    ...state,
+    selectedChapterId: orderedSceneChapters(contract).some((row) => row.story_chapter_id === chapterId) ? chapterId : null,
   });
 }
 
@@ -1236,26 +1025,11 @@ function chronologyTicksForLayout(
   return [...ticksByDate.values()].sort((left, right) => compareIsoDates(left.date, right.date));
 }
 
-function timelineFocusFromSceneChapter(chapter: TimelineSceneChapterFocus): TimelineFocus {
-  return {
-    windowStart: chapter.windowStart,
-    windowEnd: chapter.windowEnd,
-    zoom: chapter.defaultZoom ?? 1,
-    assetKinds: [...ASSET_KIND_ORDER],
-    eventIds: [...chapter.highlightEventIds],
-    assetIds: [...chapter.highlightAssetIds],
-    laneGroups: [],
-    highlightMode: "focus",
-  };
-}
-
 export function buildTimelineScenePrimitives(contract: TimelineContract, state: TimelineUiState): TimelineScenePrimitives {
   const bounds = getContractBounds(contract);
-  const viewport = getTimelineViewportMetrics(contract, state);
-  const dayWidth = contract.layout?.layout_meta.default_day_width ?? 18;
-  const windowStart = viewport.windowStart;
-  const windowEnd = viewport.windowEnd;
-  const edgeById = new Map(contract.edges.map((edge) => [edge.edge_id, edge]));
+  const dayWidth = fullChronologyDayWidth(contract);
+  const windowStart = bounds.start;
+  const windowEnd = bounds.end;
   const linkedChapterIdsByMinimapSegment = new Map<string, string[]>();
 
   for (const chapter of orderedSceneChapters(contract)) {
@@ -1267,16 +1041,7 @@ export function buildTimelineScenePrimitives(contract: TimelineContract, state: 
     linkedChapterIdsByMinimapSegment.set(chapter.minimapAnchorId, rows);
   }
 
-  const visibleSegmentIds = new Set(
-    (contract.layout?.lane_layout ?? [])
-      .filter((segment) => dateRangesOverlap(segment.date_start, segment.date_end, windowStart, windowEnd))
-      .filter((segment) => {
-        const edge = edgeById.get(segment.segment_id);
-        const kind = edge ? assetKindForEdge(edge) : null;
-        return kind ? state.assetKinds.includes(kind) : true;
-      })
-      .map((segment) => segment.segment_id),
-  );
+  const visibleSegmentIds = new Set((contract.layout?.lane_layout ?? []).map((segment) => segment.segment_id));
 
   const bands = contract.layout?.lane_layout.length
     ? laneRowsFromLayoutSegments(contract.layout.lane_layout, visibleSegmentIds)
@@ -1300,7 +1065,9 @@ export function buildTimelineScenePrimitives(contract: TimelineContract, state: 
       x1: pointForDate(segment.start_date, bounds.start, dayWidth, SCENE_LEFT_PAD),
       x2: pointForDate(segment.end_date, bounds.start, dayWidth, SCENE_LEFT_PAD),
       anchorX: pointForDate(segment.anchor_date, bounds.start, dayWidth, SCENE_LEFT_PAD),
-      active: dateRangesOverlap(segment.start_date, segment.end_date, windowStart, windowEnd),
+      active: state.selectedChapterId
+        ? (linkedChapterIdsByMinimapSegment.get(segment.segment_id) ?? []).includes(state.selectedChapterId)
+        : false,
       linkedChapterIds: [...(linkedChapterIdsByMinimapSegment.get(segment.segment_id) ?? [])],
     })),
   };
@@ -1512,25 +1279,6 @@ function buildJunctionLayouts(
   }).filter((junction) => junction.visible);
 }
 
-function buildEdgeFocusState(edge: TimelineContractEdge, focus: TimelineFocus | null): boolean {
-  if (!focus) {
-    return false;
-  }
-  const assetMatch = focus.assetIds.includes(edge.asset_id);
-  const laneMatch = focus.laneGroups.includes(edge.lane_group);
-  return assetMatch || laneMatch;
-}
-
-function buildNodeFocusState(node: TimelineContractNode, focus: TimelineFocus | null, connectedEdges: TimelineEdgeLayout[]): boolean {
-  if (!focus) {
-    return false;
-  }
-  const eventMatch = node.event_id ? focus.eventIds.includes(node.event_id) : false;
-  const assetMatch = connectedEdges.some((edge) => focus.assetIds.includes(edge.asset_id));
-  const laneMatch = connectedEdges.some((edge) => focus.laneGroups.includes(edge.lane_group));
-  return eventMatch || assetMatch || laneMatch;
-}
-
 function estimateTextWidth(text: string, fontSize = 12): number {
   return Math.max(fontSize * 3, Math.round(text.length * fontSize * 0.58));
 }
@@ -1594,7 +1342,9 @@ function buildLabelAndIdentityLayouts(
     const markerWidth = usesHeadshot
       ? IDENTITY_MARKER_HEADSHOT_SIZE + markerTextWidth + IDENTITY_MARKER_HORIZONTAL_PADDING * 3
       : markerTextWidth + IDENTITY_MARKER_HORIZONTAL_PADDING * 2;
+    const markerFitsWithinSegment = availableWidth >= markerWidth + IDENTITY_MARKER_X_OFFSET;
 
+    // Fallback markers stay asset-scoped, but they should not extend past the active segment span.
     identityMarkers.push({
       segment_id: segment.segment_id,
       asset_id: segment.asset_id,
@@ -1609,7 +1359,7 @@ function buildLabelAndIdentityLayouts(
       markerVariant: usesHeadshot ? "headshot_text" : "text_only",
       imagePath: usesHeadshot ? imagePath : null,
       usesHeadshot,
-      visible: markerVisible,
+      visible: markerVisible && markerFitsWithinSegment,
     });
   }
 
@@ -1622,7 +1372,6 @@ function buildLabelAndIdentityLayouts(
 export function buildTimelineLayout(contract: TimelineContract, state: TimelineUiState): TimelineLayout {
   const normalizedState = normalizeTimelineUiState(contract, state);
   const scene = buildTimelineScenePrimitives(contract, normalizedState);
-  const focus = scene.activeFocus ? timelineFocusFromSceneChapter(scene.activeFocus) : null;
   const viewport = getTimelineViewportMetrics(contract, normalizedState);
   const dayWidth = scene.chronology.dayWidth;
   const leftPad = scene.leftPad;
@@ -1633,12 +1382,7 @@ export function buildTimelineLayout(contract: TimelineContract, state: TimelineU
   const windowEnd = scene.chronology.windowEnd;
   const width = viewport.viewportWidth;
 
-  const visibleEdges = contract.edges
-    .filter((edge) => dateRangesOverlap(edge.start_date, edge.end_date, windowStart, windowEnd))
-    .filter((edge) => {
-      const kind = assetKindForEdge(edge);
-      return kind ? normalizedState.assetKinds.includes(kind) : true;
-    });
+  const visibleEdges = contract.edges;
 
   const edgeById = new Map<string, TimelineEdgeLayout>();
   const edgeLayouts = visibleEdges.map((edge) => {
@@ -1661,7 +1405,7 @@ export function buildTimelineLayout(contract: TimelineContract, state: TimelineU
       strokeWidth: strokeWidthForEdge(edge, segment),
       continuityAnchor: segment?.continuity_anchor ?? null,
       visible: true,
-      focused: buildEdgeFocusState(edge, focus),
+      focused: false,
     };
     edgeById.set(edge.edge_id, layout);
     return layout;
@@ -1701,18 +1445,18 @@ export function buildTimelineLayout(contract: TimelineContract, state: TimelineU
       ...node,
       x,
       y: centeredY,
-      visible: linkedJunction?.visible ?? isDateVisible(node.event_date, windowStart, windowEnd),
-      focused: buildNodeFocusState(node, focus, connectedEdges),
+      visible: true,
+      focused: false,
       connectedEdgeIds: connectedEdges.map((edge) => edge.edge_id),
     };
-  }).filter((node) => node.visible);
+  });
 
   const markers = (contract.editorial?.calendar_markers ?? []).map((marker) => ({
     id: String(marker.calendar_marker_id ?? marker.label),
     x: pointForDate(String(marker.marker_date), windowStart, dayWidth, leftPad),
     label: String(marker.label ?? marker.marker_type),
     date: String(marker.marker_date),
-    visible: isDateVisible(String(marker.marker_date), windowStart, windowEnd),
+    visible: true,
     payload: marker.payload as Record<string, unknown>,
   }));
   const { inlineLabels, identityMarkers } = buildLabelAndIdentityLayouts(contract, edgeLayouts, segmentById);

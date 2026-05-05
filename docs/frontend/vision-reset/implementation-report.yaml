@@ -2,7 +2,7 @@ artifact: implementation_report
 feature: "frontend-vision-reset"
 status: in_progress
 owner_skill: implement
-based_on: "docs/frontend-vision-reset/plan.yaml"
+based_on: "docs/frontend/vision-reset/plan.yaml"
 
 tasks_attempted:
   - "T1"
@@ -34,8 +34,8 @@ tasks_completed:
 
 changes:
   files:
-    - "docs/frontend-vision-reset/stage6-gap-audit.md"
-    - "docs/frontend-vision-reset/layout-contract.md"
+    - "docs/frontend/vision-reset/stage6-gap-audit.md"
+    - "docs/frontend/vision-reset/layout-contract.md"
     - "agent-context/stages/06-presentation-contract.md"
     - "agent-context/stages/08-frontend-vertical-slice.md"
     - "src/presentation/models.py"
@@ -50,30 +50,30 @@ changes:
     - "frontend/src/data/generated/.gitkeep"
     - "frontend/public/headshots/placeholder-headshot.svg"
     - "tests/editorial/test_contract.py"
-    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
+    - "docs/frontend/vision-reset/task-smokes/T3-generated-data-workflow.md"
     - "frontend/src/pages/index.astro"
     - "frontend/src/lib/timeline.ts"
     - "frontend/src/lib/timeline.test.ts"
-    - "docs/frontend-vision-reset/full-dataset-readability-checklist.md"
-    - "docs/frontend-vision-reset/full-dataset-performance-check.md"
+    - "docs/frontend/vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend/vision-reset/full-dataset-performance-check.md"
   modules:
     - "presentation"
     - "redesign_cli"
   docs_updated:
-    - "docs/frontend-vision-reset/stage6-gap-audit.md"
-    - "docs/frontend-vision-reset/layout-contract.md"
+    - "docs/frontend/vision-reset/stage6-gap-audit.md"
+    - "docs/frontend/vision-reset/layout-contract.md"
     - "agent-context/stages/06-presentation-contract.md"
     - "agent-context/stages/08-frontend-vertical-slice.md"
     - "configs/data/README.md"
-    - "docs/frontend-vision-reset/task-smokes/T3-generated-data-workflow.md"
-    - "docs/frontend-vision-reset/full-dataset-readability-checklist.md"
-    - "docs/frontend-vision-reset/full-dataset-performance-check.md"
+    - "docs/frontend/vision-reset/task-smokes/T3-generated-data-workflow.md"
+    - "docs/frontend/vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend/vision-reset/full-dataset-performance-check.md"
 
 local_validation:
   checks_run:
-    - "test -f docs/frontend-vision-reset/stage6-gap-audit.md"
-    - "test -f docs/frontend-vision-reset/layout-contract.md"
-    - "rg -n \"Stage 6 semantic truth|Layout-contract truth|Frontend interaction state|representable without mutating Stage 6 truth\" docs/frontend-vision-reset/stage6-gap-audit.md docs/frontend-vision-reset/layout-contract.md"
+    - "test -f docs/frontend/vision-reset/stage6-gap-audit.md"
+    - "test -f docs/frontend/vision-reset/layout-contract.md"
+    - "rg -n \"Stage 6 semantic truth|Layout-contract truth|Frontend interaction state|representable without mutating Stage 6 truth\" docs/frontend/vision-reset/stage6-gap-audit.md docs/frontend/vision-reset/layout-contract.md"
     - "rg -n \"layout-oriented contract|Stage 6 semantic truth plus the layout contract|SVG-first|render semantic truth from Stage 6 through the layout contract\" agent-context/stages/06-presentation-contract.md agent-context/stages/08-frontend-vertical-slice.md"
     - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help"
     - "pytest tests/presentation/test_contract.py tests/presentation/test_layout_contract.py"

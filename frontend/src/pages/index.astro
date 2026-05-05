@@ -6,9 +6,8 @@ import {
   buildTimelineContract,
   buildTimelineLayout,
   coerceGeneratedLayoutContract,
-  describeTimelineRow,
+  getContractBounds,
   getDefaultUiState,
-  getTimelineViewportMetrics,
   normalizeTimelineUiState,
   renderTimelineScene,
   type TimelineContract,
@@ -19,20 +18,10 @@ const timelineContract = buildTimelineContract(
   coerceGeneratedLayoutContract(layoutContract),
   editorialChapters,
 ) as TimelineContract;
-const chapters = [...(timelineContract.editorial?.story_chapters ?? [])].sort(
-  (left, right) => left.chapter_order - right.chapter_order,
-);
+const bounds = getContractBounds(timelineContract);
 const initialState = normalizeTimelineUiState(timelineContract, getDefaultUiState(timelineContract, null));
-const initialViewport = getTimelineViewportMetrics(timelineContract, initialState);
 const initialLayout = buildTimelineLayout(timelineContract, initialState);
-const initialSummaryRow = initialLayout.nodes.find((row) => row.visible) ?? initialLayout.edges[0];
 const sceneMarkup = renderTimelineScene(initialLayout);
-const initialPresentedChapter = initialLayout.scene.activeFocus ?? initialLayout.scene.chapters[0] ?? null;
-const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAnchorId
-  ? initialLayout.scene.chronology.minimapSegments.find(
-    (segment) => segment.segment_id === initialPresentedChapter.minimapAnchorId,
-  )?.label ?? null
-  : null;
 ---
 
 <html lang="en">
@@ -42,190 +31,20 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
     <title>Memphis Asset Lineage Atlas</title>
     <meta
       name="description"
-      content="Graph-dominant Memphis asset lineage renderer driven by the generated presentation and layout contracts."
+      content="A graph-first Memphis asset lineage page that begins at the earliest contract date and carries through the full chronology."
     />
   </head>
   <body>
-    <main class="shell">
-      <header class="masthead">
-        <div class="masthead__copy">
-          <p class="eyebrow">Stage 8 • Chapter presentation layer</p>
-          <h1>Memphis asset lineage as a living graph.</h1>
-          <p class="lede">
-            Chapter focus windows, visible story copy, and minimap jumps now ride on the same bounded viewport model.
-            The graph stays first; chapter presentation remains additive to that chronology window rather than
-            introducing a new overlay system.
-          </p>
-        </div>
-        <div class="masthead__meta">
-          <div class="meta-card">
-            <span>Nodes</span>
-            <strong>{timelineContract.meta.node_count}</strong>
-          </div>
-          <div class="meta-card">
-            <span>Edges</span>
-            <strong>{timelineContract.meta.edge_count}</strong>
-          </div>
-          <div class="meta-card">
-            <span>Window</span>
-            <strong>{initialState.windowStart}</strong>
-            <small>{initialState.windowEnd}</small>
-          </div>
-          <div class="meta-card">
-            <span>Visible days</span>
-            <strong id="window-days">{initialViewport.windowDays}</strong>
-            <small>30 to 180 day bounds</small>
-          </div>
-        </div>
+    <main class="page">
+      <header class="heading">
+        <p class="eyebrow">Memphis Grizzlies asset lineage</p>
+        <h1>Memphis asset lineage atlas</h1>
+        <p class="heading__range">{bounds.start} to {bounds.end}</p>
       </header>
 
-      <section class="atlas">
-        <div class="atlas__header">
-          <div>
-            <p class="atlas__eyebrow">Renderer state</p>
-            <h2>Graph-first traversal with chapter-assisted jumps</h2>
-            <p class="atlas__copy">
-              Scroll across the chronology window first, then jump through minimap anchors or chapter focus windows
-              without leaving the viewport semantics established in T8.
-            </p>
-          </div>
-          <div class="legend" aria-label="Band legend">
-            <span class="legend__item legend__item--main_roster">Main roster</span>
-            <span class="legend__item legend__item--two_way">Two-way</span>
-            <span class="legend__item legend__item--future_picks">Future picks</span>
-          </div>
-        </div>
-
-        <div class="controls">
-          <div class="control-group">
-            <h3>Asset type</h3>
-            <div class="button-row" data-control="asset-kind">
-              <button type="button" class="chip is-active" data-kind="all">All assets</button>
-              <button type="button" class="chip" data-kind="player_tenure">Players</button>
-              <button type="button" class="chip" data-kind="pick_continuity">Picks</button>
-            </div>
-          </div>
-          <div class="control-group">
-            <h3>Date window</h3>
-            <div class="date-row">
-              <label>
-                Start
-                <input id="window-start" type="date" value={initialState.windowStart} />
-              </label>
-              <label>
-                End
-                <input id="window-end" type="date" value={initialState.windowEnd} />
-              </label>
-            </div>
-          </div>
-          <div class="control-group">
-            <h3>Zoom</h3>
-            <input id="zoom" type="range" min={initialViewport.minZoom} max={initialViewport.maxZoom} step="0.05" value={initialState.zoom} />
-            <div class="range-labels">
-              <span>Wider window</span>
-              <span>Tighter window</span>
-            </div>
-            <p class="control-note" id="zoom-state">
-              {initialViewport.windowDays} visible days
-            </p>
-          </div>
-        </div>
-
-        <div class="story-nav">
-          <div class="story-nav__copy">
-            <p class="atlas__eyebrow">Story chapters</p>
-            <h3>Focus the graph through generated chapter windows</h3>
-            <p class="control-note">
-              Chapter identity and copy stay editorial. Window bounds, minimap anchors, and optional zoom come from
-              <code>chapter_layout</code>.
-            </p>
-          </div>
-          <div class="chapter-strip" id="chapter-strip" aria-label="Chapter navigation">
-            {initialLayout.scene.chapters.map((chapter) => (
-              <button
-                type="button"
-                class="chapter-chip"
-                data-chapter-id={chapter.story_chapter_id}
-                aria-label={`Focus chapter ${chapter.chapter_order}: ${chapter.title}`}
-              >
-                <span class="chapter-chip__index">{String(chapter.chapter_order).padStart(2, "0")}</span>
-                <span class="chapter-chip__body">
-                  <strong>{chapter.title}</strong>
-                  <small>{chapter.windowStart} to {chapter.windowEnd}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div class="atlas__frame">
-          <div class="atlas__summary">
-            <div>
-              <p class="atlas__eyebrow">Scene focus</p>
-              <strong id="timeline-summary">{describeTimelineRow(initialSummaryRow)}</strong>
-            </div>
-            <p>
-              Use horizontal trackpad motion or Shift + wheel to progress the viewport, then use chapters or the
-              minimap to land on contract-owned focus anchors. Dense windows can scroll vertically inside the shell
-              without changing graph semantics.
-            </p>
-          </div>
-
-          <div class="atlas__navigation">
-            <article class="focus-card focus-card--chapter">
-              <div class="focus-card__header">
-                <p class="atlas__eyebrow">Chapter presentation</p>
-                <span class="focus-card__status" id="chapter-focus-status">
-                  {initialLayout.scene.activeFocus ? "Active story chapter" : "Editorial chapter preview"}
-                </span>
-              </div>
-              <strong id="chapter-focus-title">{initialPresentedChapter?.title ?? "No chapter export loaded"}</strong>
-              <p id="chapter-focus-copy">
-                {initialPresentedChapter?.body
-                  ?? "Generated story chapter copy will appear here without changing the viewport model or graph semantics."}
-              </p>
-              <div class="focus-card__footer">
-                <small id="chapter-focus-range">
-                  {initialPresentedChapter
-                    ? `Chapter ${String(initialPresentedChapter.chapter_order).padStart(2, "0")} · ${initialPresentedChapter.windowStart} to ${initialPresentedChapter.windowEnd}`
-                    : `${initialState.windowStart} to ${initialState.windowEnd}`}
-                </small>
-                <small id="chapter-focus-anchor">
-                  {initialPresentedChapterAnchorLabel
-                    ? `Linked to ${initialPresentedChapterAnchorLabel}`
-                    : "No linked minimap anchor"}
-                </small>
-              </div>
-            </article>
-
-            <div class="minimap">
-              <div class="minimap__header">
-                <div>
-                  <p class="atlas__eyebrow">Chronology minimap</p>
-                  <strong>Jump with layout-owned anchor segments</strong>
-                </div>
-                <small id="minimap-status">{initialState.windowStart} to {initialState.windowEnd}</small>
-              </div>
-              <div class="minimap__track">
-                <div class="minimap__focus is-hidden" id="minimap-focus-window"></div>
-                <div class="minimap__segments" id="minimap-segments">
-                  {initialLayout.scene.chronology.minimapSegments.map((segment) => (
-                    <button
-                      type="button"
-                      class="minimap-segment"
-                      data-segment-id={segment.segment_id}
-                      data-linked-chapter-id={segment.linkedChapterIds[0] ?? ""}
-                      aria-label={`Jump to ${segment.label}`}
-                    >
-                      <span class="minimap-segment__label">{segment.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="timeline-shell" id="timeline-shell" tabindex="0" aria-label="Horizontal timeline viewport">
+      <section class="atlas" aria-label="Memphis asset lineage timeline">
+        <div class="graph-frame">
+          <div class="timeline-shell">
             <svg
               id="timeline-svg"
               viewBox={`0 0 ${initialLayout.width} ${initialLayout.height}`}
@@ -239,895 +58,129 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
           </div>
         </div>
       </section>
-
-      <section class="support">
-        <article class="panel panel--state">
-          <p class="atlas__eyebrow">Artifact state</p>
-          <div class="context-list">
-            <div class="context-card">
-              <strong>Presentation contract</strong>
-              <span>{timelineContract.meta.presentation_build_id as string}</span>
-            </div>
-            <div class="context-card">
-              <strong>Layout contract</strong>
-              <span>{timelineContract.layout?.layout_meta.start_date} to {timelineContract.layout?.layout_meta.end_date}</span>
-            </div>
-            <div class="context-card">
-              <strong>Editorial export</strong>
-              <span>{chapters.length} chapter payload loaded with visible story copy kept additive to the graph.</span>
-            </div>
-          </div>
-        </article>
-
-        <section class="panel panel--inspector">
-          <div class="inspector-header">
-            <div>
-              <p class="atlas__eyebrow">Inspector</p>
-              <h2>Payload details</h2>
-              <p id="inspector-summary">Hover or click a visible node or strand to inspect its payload.</p>
-            </div>
-            <button type="button" class="ghost" id="clear-selection">Clear</button>
-          </div>
-          <pre id="inspector-body">{JSON.stringify(timelineContract.meta, null, 2)}</pre>
-        </section>
-      </section>
     </main>
-
-    <script type="application/json" id="stage8-contract" is:inline set:html={JSON.stringify(timelineContract)}></script>
-    <script type="application/json" id="stage8-initial-state" is:inline set:html={JSON.stringify(initialState)}></script>
-    <script>
-      import {
-        activateTimelineChapter,
-        buildTimelineLayout,
-        describeTimelineRow,
-        getTimelineViewportMetrics,
-        jumpTimelineToMinimapSegment,
-        normalizeTimelineUiState,
-        renderTimelineScene,
-        setTimelineViewportWindow,
-        setTimelineZoomLevel,
-        shiftTimelineViewport,
-        type AssetKind,
-        type TimelineContract,
-        type TimelineUiState,
-      } from "../lib/timeline";
-
-      type SelectionState = { kind: "node" | "edge"; id: string } | null;
-
-      const contract = JSON.parse(document.getElementById("stage8-contract")?.textContent ?? "{}") as TimelineContract;
-      const initialState = JSON.parse(document.getElementById("stage8-initial-state")?.textContent ?? "{}") as TimelineUiState;
-      const timelineShell = document.getElementById("timeline-shell") as HTMLDivElement;
-      const timeline = document.getElementById("timeline-svg") as unknown as SVGSVGElement;
-      const scene = document.getElementById("timeline-scene") as unknown as SVGGElement;
-      const summary = document.getElementById("timeline-summary") as HTMLElement;
-      const inspectorSummary = document.getElementById("inspector-summary") as HTMLElement;
-      const inspectorBody = document.getElementById("inspector-body") as HTMLElement;
-      const startInput = document.getElementById("window-start") as HTMLInputElement;
-      const endInput = document.getElementById("window-end") as HTMLInputElement;
-      const zoomInput = document.getElementById("zoom") as HTMLInputElement;
-      const zoomState = document.getElementById("zoom-state") as HTMLElement;
-      const windowDays = document.getElementById("window-days") as HTMLElement;
-      const chapterFocusStatus = document.getElementById("chapter-focus-status") as HTMLElement;
-      const chapterFocusTitle = document.getElementById("chapter-focus-title") as HTMLElement;
-      const chapterFocusCopy = document.getElementById("chapter-focus-copy") as HTMLElement;
-      const chapterFocusRange = document.getElementById("chapter-focus-range") as HTMLElement;
-      const chapterFocusAnchor = document.getElementById("chapter-focus-anchor") as HTMLElement;
-      const minimapStatus = document.getElementById("minimap-status") as HTMLElement;
-      const minimapFocusWindow = document.getElementById("minimap-focus-window") as HTMLDivElement;
-      const clearButton = document.getElementById("clear-selection") as HTMLButtonElement;
-      const assetButtons = Array.from(document.querySelectorAll<HTMLElement>('[data-control="asset-kind"] .chip'));
-      const chapterButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-chapter-id]"));
-      const minimapButtons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-segment-id]"));
-
-      let state: TimelineUiState = normalizeTimelineUiState(contract, {
-        ...initialState,
-        assetKinds: initialState.assetKinds ?? ["player_tenure", "pick_continuity"],
-      });
-      let selected: SelectionState = null;
-      let currentLayout: ReturnType<typeof buildTimelineLayout> | null = null;
-      let pendingRenderFrame = 0;
-
-      function setInspector(title: string, payload: unknown) {
-        inspectorSummary.textContent = title;
-        inspectorBody.textContent = JSON.stringify(payload, null, 2);
-      }
-
-      function inspectableTarget(event: Event): HTMLElement | null {
-        const element = event.target instanceof Element ? event.target : null;
-        return element?.closest<HTMLElement>("[data-inspectable='true']") ?? null;
-      }
-
-      function setAssetKinds(kind: string) {
-        state.assetKinds = kind === "all" ? ["player_tenure", "pick_continuity"] : [kind as AssetKind];
-        for (const button of assetButtons) {
-          button.classList.toggle("is-active", button.dataset.kind === kind);
-        }
-        queueRender();
-      }
-
-      function syncTimelineSize(layout: ReturnType<typeof buildTimelineLayout>) {
-        timeline.setAttribute("viewBox", `0 0 ${layout.width} ${layout.height}`);
-        timeline.setAttribute("width", String(layout.width));
-        timeline.setAttribute("height", String(layout.height));
-      }
-
-      function syncViewportControls(viewport: ReturnType<typeof getTimelineViewportMetrics>) {
-        startInput.value = viewport.windowStart;
-        endInput.value = viewport.windowEnd;
-        zoomInput.min = String(viewport.minZoom);
-        zoomInput.max = String(viewport.maxZoom);
-        zoomInput.value = String(viewport.zoom);
-        zoomState.textContent = `${viewport.windowDays} visible days`;
-        windowDays.textContent = String(viewport.windowDays);
-        timelineShell.style.maxWidth = `${viewport.viewportWidth}px`;
-      }
-
-      function syncFocusWindow(layout: ReturnType<typeof buildTimelineLayout>) {
-        const activeFocus = layout.scene.activeFocus;
-        if (!activeFocus) {
-          minimapFocusWindow.classList.add("is-hidden");
-          minimapFocusWindow.style.removeProperty("--focus-start");
-          minimapFocusWindow.style.removeProperty("--focus-width");
-          return;
-        }
-
-        const trackExtent = (layout.scene.chronology.minimapSegments.at(-1)?.x2 ?? layout.width - layout.scene.rightPad) - layout.scene.leftPad;
-        const start = ((activeFocus.windowX1 - layout.scene.leftPad) / Math.max(1, trackExtent)) * 100;
-        const end = ((activeFocus.windowX2 - layout.scene.leftPad) / Math.max(1, trackExtent)) * 100;
-        minimapFocusWindow.classList.remove("is-hidden");
-        minimapFocusWindow.style.setProperty("--focus-start", `${Math.max(0, Math.min(100, start))}%`);
-        minimapFocusWindow.style.setProperty("--focus-width", `${Math.max(3, Math.min(100, end) - Math.max(0, start))}%`);
-      }
-
-      function syncChapterNavigation(layout: ReturnType<typeof buildTimelineLayout>) {
-        const activeChapterId = layout.scene.activeFocus?.story_chapter_id ?? null;
-        const presentedChapter = layout.scene.activeFocus ?? layout.scene.chapters[0] ?? null;
-        const minimapSegmentById = new Map(
-          layout.scene.chronology.minimapSegments.map((segment) => [segment.segment_id, segment] as const),
-        );
-        const activeSegmentIds = new Set(
-          layout.scene.chronology.minimapSegments
-            .filter((segment) => segment.active)
-            .map((segment) => segment.segment_id),
-        );
-        const activeAnchorLabel = layout.scene.activeFocus?.minimapAnchorId
-          ? layout.scene.chronology.minimapSegments.find((segment) => segment.segment_id === layout.scene.activeFocus?.minimapAnchorId)?.label ?? null
-          : null;
-
-        for (const button of chapterButtons) {
-          button.classList.toggle("is-active", button.dataset.chapterId === activeChapterId);
-        }
-
-        for (const button of minimapButtons) {
-          button.classList.toggle("is-active", activeSegmentIds.has(button.dataset.segmentId ?? ""));
-          button.classList.toggle("is-anchor", Boolean(button.dataset.linkedChapterId));
-        }
-
-        if (presentedChapter) {
-          const presentedAnchorLabel = presentedChapter.minimapAnchorId
-            ? minimapSegmentById.get(presentedChapter.minimapAnchorId)?.label ?? null
-            : null;
-          chapterFocusStatus.textContent = layout.scene.activeFocus ? "Active story chapter" : "Editorial chapter preview";
-          chapterFocusTitle.textContent = presentedChapter.title;
-          chapterFocusCopy.textContent = presentedChapter.body;
-          chapterFocusRange.textContent = `Chapter ${String(presentedChapter.chapter_order).padStart(2, "0")} · ${presentedChapter.windowStart} to ${presentedChapter.windowEnd}`;
-          chapterFocusAnchor.textContent = presentedAnchorLabel
-            ? `Linked to ${presentedAnchorLabel}`
-            : "No linked minimap anchor";
-        } else {
-          chapterFocusStatus.textContent = "Viewport overview";
-          chapterFocusTitle.textContent = "No chapter export loaded";
-          chapterFocusCopy.textContent = "Generated story chapter copy will appear here without changing the viewport model or graph semantics.";
-          chapterFocusRange.textContent = `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
-          chapterFocusAnchor.textContent = "No linked minimap anchor";
-        }
-
-        if (layout.scene.activeFocus) {
-          minimapStatus.textContent = activeAnchorLabel ?? `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
-        } else {
-          minimapStatus.textContent = `${layout.scene.chronology.windowStart} to ${layout.scene.chronology.windowEnd}`;
-        }
-
-        syncFocusWindow(layout);
-      }
-
-      function resolveSummaryRow(layout: ReturnType<typeof buildTimelineLayout>) {
-        return layout.nodes.find((row) => row.focused)
-          ?? layout.nodes.find((row) => row.visible)
-          ?? layout.edges.find((row) => row.visible)
-          ?? layout.nodes[0]
-          ?? layout.edges[0];
-      }
-
-      function getCurrentLayout() {
-        return currentLayout ?? render();
-      }
-
-      function render(): ReturnType<typeof buildTimelineLayout> {
-        state = normalizeTimelineUiState(contract, state);
-        const viewport = getTimelineViewportMetrics(contract, state);
-        const layout = buildTimelineLayout(contract, state);
-        currentLayout = layout;
-        syncTimelineSize(layout);
-        syncViewportControls(viewport);
-        syncChapterNavigation(layout);
-        scene.innerHTML = renderTimelineScene(layout);
-
-        const summaryRow = resolveSummaryRow(layout);
-        summary.textContent = describeTimelineRow(summaryRow);
-
-        const currentSelection = selected;
-        const selectedNodeVisible = currentSelection?.kind === "node"
-          ? layout.nodes.some((row) => row.node_id === currentSelection.id)
-          : false;
-        const selectedEdgeVisible = currentSelection?.kind === "edge"
-          ? layout.edges.some((row) => row.edge_id === currentSelection.id)
-          : false;
-        selected = selectedNodeVisible || selectedEdgeVisible ? selected : null;
-
-        const retainedSelection = selected;
-        if (retainedSelection?.kind === "node") {
-          const current = layout.nodes.find((row) => row.node_id === retainedSelection.id);
-          if (current) {
-            setInspector(`Node ${current.label}`, current);
-          }
-        } else if (retainedSelection?.kind === "edge") {
-          const current = layout.edges.find((row) => row.edge_id === retainedSelection.id);
-          if (current) {
-            setInspector(`Edge ${current.edge_id}`, current);
-          }
-        }
-
-        return layout;
-      }
-
-      function queueRender() {
-        if (pendingRenderFrame) {
-          return;
-        }
-        pendingRenderFrame = requestAnimationFrame(() => {
-          pendingRenderFrame = 0;
-          render();
-        });
-      }
-
-      function inspectNode(nodeId: string, locked = false) {
-        const layout = getCurrentLayout();
-        const node = layout.nodes.find((row) => row.node_id === nodeId);
-        if (!node) {
-          return;
-        }
-        if (locked) {
-          selected = { kind: "node", id: nodeId };
-        }
-        setInspector(`${locked ? "Selected" : "Preview"} node`, node);
-        summary.textContent = describeTimelineRow(node);
-      }
-
-      function inspectEdge(edgeId: string, locked = false) {
-        const layout = getCurrentLayout();
-        const edge = layout.edges.find((row) => row.edge_id === edgeId);
-        if (!edge) {
-          return;
-        }
-        if (locked) {
-          selected = { kind: "edge", id: edgeId };
-        }
-        setInspector(`${locked ? "Selected" : "Preview"} edge`, edge);
-        summary.textContent = `${edge.edge_type} · ${edge.asset_id}`;
-      }
-
-      timeline.addEventListener("pointerover", (event) => {
-        const target = inspectableTarget(event);
-        if (!target) {
-          return;
-        }
-        if (target.dataset.kind === "node") {
-          inspectNode(target.dataset.nodeId ?? "");
-        } else if (target.dataset.kind === "edge") {
-          inspectEdge(target.dataset.edgeId ?? "");
-        }
-      });
-
-      timeline.addEventListener("focusin", (event) => {
-        const target = inspectableTarget(event);
-        if (!target) {
-          return;
-        }
-        if (target.dataset.kind === "node") {
-          inspectNode(target.dataset.nodeId ?? "");
-        } else if (target.dataset.kind === "edge") {
-          inspectEdge(target.dataset.edgeId ?? "");
-        }
-      });
-
-      timeline.addEventListener("click", (event) => {
-        const target = inspectableTarget(event);
-        if (!target) {
-          return;
-        }
-        if (target.dataset.kind === "node") {
-          inspectNode(target.dataset.nodeId ?? "", true);
-        } else if (target.dataset.kind === "edge") {
-          inspectEdge(target.dataset.edgeId ?? "", true);
-        }
-      });
-
-      assetButtons.forEach((button) => {
-        button.addEventListener("click", () => setAssetKinds(button.dataset.kind ?? "all"));
-      });
-
-      chapterButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-          const chapterId = button.dataset.chapterId;
-          if (!chapterId) {
-            return;
-          }
-          state = activateTimelineChapter(contract, state, chapterId);
-          queueRender();
-        });
-      });
-
-      minimapButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-          const segmentId = button.dataset.segmentId;
-          if (!segmentId) {
-            return;
-          }
-          state = jumpTimelineToMinimapSegment(contract, state, segmentId);
-          queueRender();
-        });
-      });
-
-      startInput.addEventListener("change", () => {
-        state = setTimelineViewportWindow(contract, state, startInput.value, endInput.value);
-        queueRender();
-      });
-
-      endInput.addEventListener("change", () => {
-        state = setTimelineViewportWindow(contract, state, startInput.value, endInput.value);
-        queueRender();
-      });
-
-      zoomInput.addEventListener("input", () => {
-        state = setTimelineZoomLevel(contract, state, Number(zoomInput.value));
-        queueRender();
-      });
-
-      timelineShell.addEventListener("wheel", (event) => {
-        const horizontalIntent = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
-        if (!horizontalIntent) {
-          return;
-        }
-        const primaryDelta = Math.abs(event.deltaX) >= Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-        if (primaryDelta === 0) {
-          return;
-        }
-        event.preventDefault();
-        const viewport = getTimelineViewportMetrics(contract, state);
-        const deltaDays = Math.sign(primaryDelta) * Math.max(1, Math.round(Math.abs(primaryDelta) / viewport.viewportWidth * viewport.windowDays));
-        state = shiftTimelineViewport(contract, state, deltaDays);
-        queueRender();
-      }, { passive: false });
-
-      clearButton.addEventListener("click", () => {
-        selected = null;
-        setInspector("Selection cleared", contract.meta);
-      });
-
-      render();
-    </script>
   </body>
 </html>
 
-<style>
+<style is:global>
+  :global(:root) {
+    --page-ink: #11202a;
+    --page-muted: rgba(17, 32, 42, 0.7);
+    --page-line: rgba(17, 32, 42, 0.12);
+    --page-panel: rgba(255, 251, 245, 0.86);
+    --page-panel-strong: rgba(255, 253, 249, 0.94);
+    --roster: #00756d;
+    --two-way: #bf6b2d;
+    --future-picks: #9b7b17;
+    --accent: #8f2231;
+  }
+
   :global(body) {
     margin: 0;
-    color: #f7f1e8;
+    color: var(--page-ink);
     background:
-      radial-gradient(circle at top left, rgba(15, 118, 110, 0.24), transparent 32%),
-      radial-gradient(circle at right, rgba(194, 120, 58, 0.18), transparent 28%),
-      linear-gradient(180deg, #071016 0%, #0a141b 56%, #060b10 100%);
+      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 26%),
+      radial-gradient(circle at right, rgba(191, 107, 45, 0.12), transparent 24%),
+      linear-gradient(180deg, #f7f1e5 0%, #efe6d6 48%, #f9f6ef 100%);
     font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   }
 
-  .shell {
-    max-width: 1600px;
+  .page {
+    max-width: 1680px;
     margin: 0 auto;
-    padding: 28px 22px 40px;
+    padding: 24px 18px 36px;
   }
 
-  .masthead,
-  .atlas,
-  .panel,
-  .control-group,
-  .meta-card {
-    border: 1px solid rgba(216, 243, 255, 0.12);
-    background: rgba(7, 18, 26, 0.76);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.22);
+  .heading,
+  .graph-frame {
+    border: 1px solid var(--page-line);
+    background: var(--page-panel);
+    box-shadow: 0 22px 56px rgba(90, 62, 33, 0.08);
   }
 
-  .masthead {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 420px);
-    gap: 24px;
-    padding: 24px;
-    border-radius: 28px;
+  .heading {
+    margin-bottom: 16px;
+    padding: 20px 22px;
+    border-radius: 24px;
   }
 
-  .eyebrow,
-  .atlas__eyebrow {
-    margin: 0 0 10px;
+  .eyebrow {
+    margin: 0 0 12px;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: #f1c46f;
-    font-size: 0.74rem;
   }
 
   h1,
-  h2,
-  h3 {
+  h2 {
     margin: 0;
     font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     font-weight: 600;
   }
 
   h1 {
-    max-width: 11ch;
-    font-size: clamp(2.9rem, 5vw, 5.8rem);
-    line-height: 0.92;
+    max-width: 12ch;
+    font-size: clamp(2.2rem, 4vw, 3.8rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
   }
 
   h2 {
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+    max-width: 20ch;
+    font-size: clamp(1.55rem, 2.1vw, 2.15rem);
+    line-height: 1;
   }
 
-  h3 {
-    font-size: 0.94rem;
-    text-transform: uppercase;
+  .heading__range {
+    margin: 12px 0 0;
+    color: var(--page-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
     letter-spacing: 0.14em;
-    color: rgba(247, 241, 232, 0.7);
-  }
-
-  .lede,
-  .atlas__copy {
-    margin: 16px 0 0;
-    max-width: 70ch;
-    color: rgba(247, 241, 232, 0.78);
-    line-height: 1.6;
-  }
-
-  .masthead__meta {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    align-content: end;
-  }
-
-  .meta-card {
-    padding: 16px;
-    border-radius: 18px;
-  }
-
-  .meta-card span,
-  .meta-card small {
-    display: block;
-    color: rgba(247, 241, 232, 0.64);
     text-transform: uppercase;
-    letter-spacing: 0.16em;
-    font-size: 0.72rem;
-  }
-
-  .meta-card strong {
-    display: block;
-    margin-top: 8px;
-    font-size: 1.8rem;
-    line-height: 1.05;
   }
 
   .atlas {
-    margin-top: 20px;
-    padding: 22px;
-    border-radius: 30px;
-  }
-
-  .atlas__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: end;
-  }
-
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: end;
-  }
-
-  .legend__item {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 14px;
-    border-radius: 999px;
-    border: 1px solid rgba(216, 243, 255, 0.16);
-    background: rgba(255, 255, 255, 0.04);
-    font-size: 0.82rem;
-  }
-
-  .legend__item::before {
-    content: "";
-    width: 28px;
-    height: 0;
-    border-top: 4px solid currentColor;
-    border-radius: 999px;
-  }
-
-  .legend__item--main_roster {
-    color: #3cd5c3;
-  }
-
-  .legend__item--two_way {
-    color: #da8f54;
-  }
-
-  .legend__item--future_picks {
-    color: #f1c46f;
-  }
-
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
-    margin-top: 20px;
-  }
-
-  .control-group {
-    border-radius: 20px;
-    padding: 16px 18px;
-  }
-
-  .button-row,
-  .date-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-
-  .chip,
-  .ghost {
-    border: 1px solid rgba(216, 243, 255, 0.16);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.04);
-    color: inherit;
-  }
-
-  .chip {
-    padding: 10px 14px;
-    cursor: pointer;
-    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-  }
-
-  .chip.is-active {
-    background: rgba(60, 213, 195, 0.15);
-    border-color: rgba(60, 213, 195, 0.48);
-  }
-
-  .chip:hover,
-  .ghost:hover {
-    transform: translateY(-1px);
-  }
-
-  .date-row label {
-    display: grid;
-    gap: 8px;
-    font-size: 0.82rem;
-    color: rgba(247, 241, 232, 0.74);
-  }
-
-  input[type="date"],
-  input[type="range"] {
-    accent-color: #f1c46f;
-  }
-
-  input[type="date"] {
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(216, 243, 255, 0.14);
-    background: rgba(5, 12, 18, 0.76);
-    color: #f7f1e8;
-  }
-
-  .range-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 8px;
-    color: rgba(247, 241, 232, 0.56);
-    font-size: 0.78rem;
-  }
-
-  .control-note {
-    margin: 10px 0 0;
-    color: rgba(247, 241, 232, 0.68);
-    font-size: 0.82rem;
-  }
-
-  .story-nav,
-  .atlas__navigation,
-  .focus-card,
-  .minimap {
-    border: 1px solid rgba(216, 243, 255, 0.12);
-    background: rgba(6, 15, 21, 0.72);
-    backdrop-filter: blur(18px);
-    box-shadow: 0 24px 72px rgba(0, 0, 0, 0.18);
-  }
-
-  .story-nav {
-    display: grid;
-    grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
-    gap: 14px;
-    margin-top: 16px;
-    padding: 16px 18px;
-    border-radius: 24px;
-  }
-
-  .story-nav__copy {
-    display: grid;
-    gap: 8px;
-    align-content: start;
-  }
-
-  .story-nav__copy .control-note {
     margin: 0;
-    line-height: 1.6;
   }
 
-  .chapter-strip {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(240px, 1fr);
-    gap: 10px;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-
-  .chapter-chip,
-  .minimap-segment {
-    color: inherit;
-    cursor: pointer;
-    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
-  }
-
-  .chapter-chip {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 12px;
-    align-items: center;
-    padding: 14px 16px;
-    border-radius: 20px;
-    border: 1px solid rgba(216, 243, 255, 0.12);
-    background: rgba(255, 255, 255, 0.03);
-    text-align: left;
-  }
-
-  .chapter-chip:hover,
-  .minimap-segment:hover {
-    transform: translateY(-1px);
-  }
-
-  .chapter-chip.is-active {
-    border-color: rgba(241, 196, 111, 0.42);
-    background: rgba(241, 196, 111, 0.1);
-  }
-
-  .chapter-chip__index {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    border: 1px solid rgba(241, 196, 111, 0.3);
-    color: #f1c46f;
-    font-size: 0.8rem;
-    letter-spacing: 0.18em;
-  }
-
-  .chapter-chip__body {
-    display: grid;
-    gap: 4px;
-  }
-
-  .chapter-chip__body strong {
-    font-size: 0.96rem;
-  }
-
-  .chapter-chip__body small {
-    color: rgba(247, 241, 232, 0.58);
-    font-size: 0.74rem;
-  }
-
-  .atlas__frame {
-    margin-top: 20px;
-  }
-
-  .atlas__summary {
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: end;
-    margin-bottom: 12px;
-    padding: 0 2px;
-  }
-
-  .atlas__summary strong {
-    display: block;
-    max-width: 48ch;
-    margin-top: 4px;
-    color: #f7f1e8;
-  }
-
-  .atlas__summary p:last-child {
-    max-width: 42ch;
-    margin: 0;
-    color: rgba(247, 241, 232, 0.66);
-  }
-
-  .atlas__navigation {
-    display: grid;
-    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
-    padding: 16px 18px;
-    border-radius: 24px;
-  }
-
-  .focus-card {
-    border-radius: 20px;
+  .graph-frame {
     padding: 16px;
-  }
-
-  .focus-card strong,
-  .minimap__header strong {
-    display: block;
-    margin-top: 4px;
-  }
-
-  .focus-card__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: start;
-  }
-
-  .focus-card__status {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid rgba(241, 196, 111, 0.28);
-    background: rgba(241, 196, 111, 0.08);
-    color: #f1c46f;
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .focus-card p {
-    margin: 10px 0 0;
-    color: rgba(247, 241, 232, 0.72);
-    line-height: 1.6;
-  }
-
-  .focus-card__footer {
-    display: grid;
-    gap: 6px;
-    margin-top: 14px;
-  }
-
-  .focus-card small,
-  .minimap__header small {
-    display: block;
-    color: rgba(247, 241, 232, 0.56);
-  }
-
-  .minimap {
-    border-radius: 20px;
-    padding: 16px;
-  }
-
-  .minimap__header {
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: end;
-  }
-
-  .minimap__track {
-    position: relative;
-    margin-top: 14px;
-  }
-
-  .minimap__focus {
-    position: absolute;
-    top: -6px;
-    left: var(--focus-start, 0%);
-    width: var(--focus-width, 0%);
-    height: calc(100% + 12px);
-    border-radius: 18px;
-    border: 1px solid rgba(241, 196, 111, 0.38);
-    background: linear-gradient(180deg, rgba(241, 196, 111, 0.16), rgba(241, 196, 111, 0.03));
-    pointer-events: none;
-  }
-
-  .minimap__segments {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(136px, 1fr);
-    gap: 8px;
-    overflow-x: auto;
-    padding: 4px 0 6px;
-  }
-
-  .minimap-segment {
-    position: relative;
-    min-height: 68px;
-    padding: 14px 12px 12px;
-    border-radius: 18px;
-    border: 1px solid rgba(216, 243, 255, 0.12);
+    border-radius: 28px;
     background:
-      linear-gradient(180deg, rgba(57, 212, 194, 0.08), rgba(57, 212, 194, 0.02)),
-      rgba(255, 255, 255, 0.02);
-    text-align: left;
-  }
-
-  .minimap-segment.is-anchor {
-    border-color: rgba(241, 196, 111, 0.3);
-  }
-
-  .minimap-segment.is-active {
-    border-color: rgba(60, 213, 195, 0.48);
-    background:
-      linear-gradient(180deg, rgba(60, 213, 195, 0.2), rgba(60, 213, 195, 0.05)),
-      rgba(255, 255, 255, 0.03);
-  }
-
-  .minimap-segment__label {
-    display: block;
-    font-size: 0.8rem;
-    line-height: 1.45;
-    color: rgba(247, 241, 232, 0.78);
-  }
-
-  .minimap-segment.is-anchor::after {
-    content: "Chapter";
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    color: #f1c46f;
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+      linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(248, 242, 233, 0.98)),
+      var(--page-panel-strong);
   }
 
   .timeline-shell {
-    overflow: auto;
-    max-height: min(72vh, 960px);
-    border-radius: 26px;
-    border: 1px solid rgba(216, 243, 255, 0.13);
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: min(82vh, 1080px);
+    border-radius: 24px;
+    border: 1px solid rgba(17, 32, 42, 0.14);
     background:
-      linear-gradient(180deg, rgba(5, 12, 17, 0.97), rgba(4, 8, 12, 0.98)),
-      radial-gradient(circle at top left, rgba(60, 213, 195, 0.08), transparent 34%);
-    outline: none;
-    overscroll-behavior: contain;
+      linear-gradient(180deg, rgba(251, 246, 238, 0.98), rgba(245, 237, 225, 0.98)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(17, 32, 42, 0.025) 0,
+        rgba(17, 32, 42, 0.025) 1px,
+        transparent 1px,
+        transparent 48px
+      );
+    scrollbar-gutter: stable both-edges;
   }
 
-  .timeline-shell:focus-visible {
-    box-shadow: 0 0 0 2px rgba(241, 196, 111, 0.55);
+  .timeline-shell::-webkit-scrollbar {
+    height: 14px;
+  }
+
+  .timeline-shell::-webkit-scrollbar-thumb {
+    border: 3px solid rgba(0, 0, 0, 0);
+    border-radius: 999px;
+    background: rgba(17, 32, 42, 0.28);
+    background-clip: padding-box;
   }
 
   svg {
@@ -1139,67 +192,70 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-band__boundary {
-    stroke: rgba(216, 243, 255, 0.12);
+    stroke: rgba(17, 32, 42, 0.08);
     stroke-width: 1;
   }
 
   .timeline-band__label {
-    fill: rgba(247, 241, 232, 0.7);
+    fill: rgba(17, 32, 42, 0.68);
     font-size: 12px;
-    text-transform: uppercase;
+    font-weight: 700;
     letter-spacing: 0.16em;
+    text-transform: uppercase;
   }
 
   .timeline-band--main_roster .timeline-band__fill {
-    fill: rgba(15, 118, 110, 0.16);
+    fill: rgba(0, 117, 109, 0.09);
   }
 
   .timeline-band--two_way .timeline-band__fill {
-    fill: rgba(194, 120, 58, 0.1);
+    fill: rgba(191, 107, 45, 0.08);
   }
 
   .timeline-band--future_picks .timeline-band__fill {
-    fill: rgba(241, 196, 111, 0.08);
+    fill: rgba(155, 123, 23, 0.08);
   }
 
   .timeline-grid__lane {
-    stroke: rgba(216, 243, 255, 0.06);
+    stroke: rgba(17, 32, 42, 0.06);
     stroke-width: 1;
   }
 
   .timeline-axis__tick {
-    stroke: rgba(216, 243, 255, 0.08);
+    stroke: rgba(17, 32, 42, 0.08);
     stroke-width: 1;
   }
 
   .timeline-axis__tick--major {
-    stroke: rgba(241, 196, 111, 0.34);
+    stroke: rgba(143, 34, 49, 0.26);
   }
 
   .timeline-axis__label {
-    fill: rgba(247, 241, 232, 0.5);
+    fill: rgba(17, 32, 42, 0.56);
     font-size: 11px;
     text-anchor: middle;
   }
 
   .timeline-axis__label--major {
-    fill: #f1c46f;
+    fill: var(--accent);
+    font-weight: 700;
   }
 
   .timeline-marker__line {
-    stroke: rgba(241, 196, 111, 0.7);
+    stroke: rgba(143, 34, 49, 0.38);
     stroke-width: 1.5;
     stroke-dasharray: 4 5;
   }
 
   .timeline-marker__badge {
-    fill: rgba(241, 196, 111, 0.18);
-    stroke: rgba(241, 196, 111, 0.34);
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(143, 34, 49, 0.2);
   }
 
   .timeline-marker__text {
-    fill: #f1c46f;
+    fill: var(--accent);
     font-size: 11px;
+    font-weight: 700;
   }
 
   .timeline-strand {
@@ -1212,17 +268,17 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-strand--main_roster {
-    stroke: #39d4c2;
+    stroke: var(--roster);
   }
 
   .timeline-strand--two_way {
-    stroke: #da8f54;
-    stroke-dasharray: 20 12;
+    stroke: var(--two-way);
+    stroke-dasharray: 18 10;
   }
 
   .timeline-strand--future_picks,
   .timeline-strand--pick_line {
-    stroke: #f1c46f;
+    stroke: var(--future-picks);
   }
 
   .timeline-inline-label,
@@ -1231,58 +287,58 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-inline-label__pill {
-    fill: rgba(7, 18, 26, 0.9);
-    stroke: rgba(216, 243, 255, 0.2);
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(17, 32, 42, 0.18);
     stroke-width: 1;
   }
 
   .timeline-inline-label__text {
-    fill: #f7f1e8;
+    fill: var(--page-ink);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     text-anchor: middle;
   }
 
   .timeline-inline-label--main_roster .timeline-inline-label__pill {
-    stroke: rgba(57, 212, 194, 0.42);
+    stroke: rgba(0, 117, 109, 0.32);
   }
 
   .timeline-inline-label--two_way .timeline-inline-label__pill {
-    stroke: rgba(218, 143, 84, 0.42);
+    stroke: rgba(191, 107, 45, 0.32);
   }
 
   .timeline-inline-label--future_picks .timeline-inline-label__pill {
-    stroke: rgba(241, 196, 111, 0.42);
+    stroke: rgba(155, 123, 23, 0.32);
   }
 
   .timeline-identity-marker__pill {
-    fill: rgba(7, 18, 26, 0.94);
-    stroke: rgba(216, 243, 255, 0.2);
+    fill: rgba(255, 253, 249, 0.98);
+    stroke: rgba(17, 32, 42, 0.18);
     stroke-width: 1;
   }
 
   .timeline-identity-marker__text {
-    fill: #f7f1e8;
+    fill: var(--page-ink);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
   .timeline-identity-marker__avatar-frame {
-    fill: rgba(7, 18, 26, 0.98);
-    stroke: rgba(216, 243, 255, 0.24);
+    fill: rgba(255, 253, 249, 0.98);
+    stroke: rgba(17, 32, 42, 0.2);
     stroke-width: 1.5;
   }
 
   .timeline-identity-marker--main_roster .timeline-identity-marker__pill {
-    stroke: rgba(57, 212, 194, 0.42);
+    stroke: rgba(0, 117, 109, 0.32);
   }
 
   .timeline-identity-marker--two_way .timeline-identity-marker__pill {
-    stroke: rgba(218, 143, 84, 0.42);
+    stroke: rgba(191, 107, 45, 0.32);
   }
 
   .timeline-identity-marker--future_picks .timeline-identity-marker__pill {
-    stroke: rgba(241, 196, 111, 0.42);
+    stroke: rgba(155, 123, 23, 0.32);
   }
 
   .timeline-junction__spine,
@@ -1293,7 +349,7 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-junction__spine {
-    stroke: rgba(245, 239, 230, 0.4);
+    stroke: rgba(17, 32, 42, 0.26);
     stroke-width: 1.8;
   }
 
@@ -1303,15 +359,15 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-junction__stem--main_roster {
-    stroke: rgba(57, 212, 194, 0.62);
+    stroke: rgba(0, 117, 109, 0.56);
   }
 
   .timeline-junction__stem--two_way {
-    stroke: rgba(218, 143, 84, 0.58);
+    stroke: rgba(191, 107, 45, 0.54);
   }
 
   .timeline-junction__stem--future_picks {
-    stroke: rgba(241, 196, 111, 0.6);
+    stroke: rgba(155, 123, 23, 0.56);
   }
 
   .timeline-transition {
@@ -1322,18 +378,18 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-transition--same_asset {
-    stroke: rgba(216, 243, 255, 0.94);
-    stroke-width: 2.6;
+    stroke: rgba(17, 32, 42, 0.82);
+    stroke-width: 2.5;
   }
 
   .timeline-transition--pick_to_player {
-    stroke: rgba(241, 196, 111, 0.98);
-    stroke-width: 3.2;
+    stroke: var(--future-picks);
+    stroke-width: 3;
   }
 
   .timeline-transition--event_transition {
-    stroke: rgba(216, 243, 255, 0.72);
-    stroke-width: 2.4;
+    stroke: rgba(17, 32, 42, 0.52);
+    stroke-width: 2.3;
     stroke-dasharray: 10 7;
   }
 
@@ -1342,24 +398,22 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .timeline-node__ring {
-    fill: rgba(7, 18, 26, 0.96);
-    stroke: rgba(247, 241, 232, 0.32);
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(17, 32, 42, 0.28);
     stroke-width: 1.5;
   }
 
   .timeline-node__dot {
-    fill: #f7f1e8;
-    stroke: rgba(7, 18, 26, 0.98);
+    fill: var(--page-ink);
+    stroke: rgba(255, 252, 247, 0.98);
     stroke-width: 2.5;
   }
 
   .timeline-strand.is-focused,
-  .timeline-node.is-focused {
-    filter: drop-shadow(0 0 16px rgba(241, 196, 111, 0.28));
-  }
-
+  .timeline-node.is-focused,
   .timeline-strand:hover,
   .timeline-node:hover {
+    filter: drop-shadow(0 0 10px rgba(143, 34, 49, 0.16));
     opacity: 1;
   }
 
@@ -1368,106 +422,27 @@ const initialPresentedChapterAnchorLabel = initialPresentedChapter?.minimapAncho
   }
 
   .is-muted {
-    opacity: 0.58;
+    opacity: 0.6;
   }
 
-  .support {
-    display: grid;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-    gap: 16px;
-    margin-top: 18px;
-  }
-
-  .panel {
-    border-radius: 24px;
-    padding: 18px;
-  }
-
-  .panel--state span,
-  .inspector-header p {
-    color: rgba(247, 241, 232, 0.72);
-    line-height: 1.6;
-  }
-
-  .context-list {
-    display: grid;
-    gap: 10px;
-    margin-top: 14px;
-  }
-
-  .context-card {
-    display: grid;
-    gap: 6px;
-    padding: 14px;
-    border-radius: 16px;
-    border: 1px solid rgba(216, 243, 255, 0.12);
-    background: rgba(4, 8, 12, 0.54);
-  }
-
-  .inspector-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 18px;
-    align-items: start;
-    margin-bottom: 14px;
-  }
-
-  .ghost {
-    padding: 10px 14px;
-    cursor: pointer;
-  }
-
-  #inspector-body {
-    margin: 0;
-    max-height: 360px;
-    overflow: auto;
-    padding: 18px;
-    border-radius: 16px;
-    background: rgba(4, 8, 12, 0.72);
-    border: 1px solid rgba(216, 243, 255, 0.12);
-    color: #d8f3ff;
-    font-size: 0.86rem;
-    line-height: 1.6;
-  }
-
-  @media (max-width: 1220px) {
-    .masthead,
-    .support,
-    .controls,
-    .story-nav,
-    .atlas__navigation {
-      grid-template-columns: 1fr;
-    }
-
-    .atlas__header,
-    .atlas__summary {
-      flex-direction: column;
-      align-items: start;
-    }
-
-    .legend {
-      justify-content: start;
+  @media (max-width: 1180px) {
+    h1 {
+      max-width: 14ch;
     }
   }
 
   @media (max-width: 760px) {
-    .shell {
-      padding: 16px 12px 30px;
+    .page {
+      padding: 16px 10px 28px;
     }
 
-    .masthead,
-    .atlas,
-    .panel,
-    .control-group {
+    .heading,
+    .graph-frame {
       padding: 16px;
     }
 
     h1 {
-      font-size: clamp(2.3rem, 10vw, 3.9rem);
-    }
-
-    .masthead__meta {
-      grid-template-columns: 1fr;
+      font-size: clamp(2.2rem, 11vw, 3.9rem);
     }
   }
 </style>

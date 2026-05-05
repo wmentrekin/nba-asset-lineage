@@ -1,0 +1,65 @@
+# Contract: implementation handoff from $implement to $review, $test, and $validate
+
+artifact: implementation_report
+feature: "frontend-vision-reset-v2"
+status: complete
+owner_skill: implement
+based_on: "docs/frontend/vision-reset-v2/plan.yaml"
+
+tasks_attempted:
+  - "T1"
+  - "T2"
+  - "T3"
+  - "T4"
+  - "T5"
+  - "T6"
+  - "T7"
+tasks_completed:
+  - "T1"
+  - "T2"
+  - "T3"
+  - "T4"
+  - "T6"
+  - "T5"
+  - "T7"
+
+changes:
+  files:
+    - "docs/frontend/vision-reset-v2/implementation-report.yaml"
+    - "docs/frontend/vision-reset-v2/reset-boundary.md"
+    - "docs/frontend/vision-reset-v2/implementation-notes.md"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "frontend/src/pages/index.astro"
+    - "docs/frontend/vision-reset-v2/readability-checklist.md"
+    - "docs/frontend/vision-reset-v2/product-smoke-notes.md"
+  modules: []
+  docs_updated:
+    - "docs/frontend/vision-reset-v2/reset-boundary.md"
+    - "docs/frontend/vision-reset-v2/implementation-notes.md"
+    - "docs/frontend/vision-reset-v2/readability-checklist.md"
+    - "docs/frontend/vision-reset-v2/product-smoke-notes.md"
+
+local_validation:
+  checks_run:
+    - "T1 boundary docs read back and matched the frozen deletion/retention matrix from the approved plan."
+    - "T2 developer validation: `mise x node@22 -- npm test -- src/lib/timeline.test.ts` passed with 19 tests."
+    - "T2 developer validation: `mise x node@22 -- npm run check` passed with 0 errors, 0 warnings, 0 hints."
+    - "T3/T4 developer validation: `mise run stage8_check` passed."
+    - "T3/T4 developer validation: `mise run stage8_build` passed."
+    - "T3/T4 developer validation: `mise x node@22 -- npm run test -- --run src/lib/timeline.test.ts` passed with 19 tests."
+    - "T3/T4 developer validation: regex check confirmed rejected visible UI strings were removed from `frontend/src/pages/index.astro`."
+    - "T5-T7 developer validation: `mise exec node@22 -- npm run test -- src/lib/timeline.test.ts` passed with 22 tests."
+    - "T5-T7 developer validation: `mise run stage8_check` passed."
+    - "T5-T7 developer validation: `mise run stage8_build` passed."
+  failures: []
+  skipped: []
+
+known_issues:
+  - "Real generated exports still expose 0 `two_way` lane segments, so live two-way visual treatment remains unverified."
+  - "Real generated exports still expose no non-empty pick-protection summary labels, so protection-specific pick labeling remains unverified."
+  - "Real generated editorial data currently exposes only one chapter row; chapter presentation is intentionally suppressed in v2, but broader story-flow smoke coverage remains limited."
+
+blockers: []
+
+recommended_next_step: review

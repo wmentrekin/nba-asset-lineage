@@ -16,9 +16,14 @@ import {
   setTimelineViewportWindow,
   setTimelineZoomLevel,
   shiftTimelineViewport,
+  type TimelineContractEdge,
+  type TimelineContractNode,
   type TimelineChapterExport,
   type TimelineContract,
   type TimelineGeneratedLayoutContract,
+  type TimelineLayoutEvent,
+  type TimelineLayoutLabel,
+  type TimelineLayoutLaneSegment,
   type TimelinePresentationContract,
 } from "./timeline";
 
@@ -32,88 +37,234 @@ function cloneJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function isoPlusDays(value: string, days: number): string {
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+function defaultState(contract: TimelineContract = generatedContract) {
+  return getDefaultUiState(contract, null);
 }
 
-function layoutForWindow(start: string, end: string) {
-  return buildTimelineLayout(generatedContract, {
-    ...getDefaultUiState(generatedContract, null),
-    windowStart: start,
-    windowEnd: end,
-    assetKinds: ["player_tenure", "pick_continuity"],
-  });
+function defaultLayout(contract: TimelineContract = generatedContract) {
+  return buildTimelineLayout(contract, defaultState(contract));
 }
 
-function layoutForContract(contract: TimelineContract, start: string, end: string) {
-  return buildTimelineLayout(contract, {
-    ...getDefaultUiState(contract, null),
-    windowStart: start,
-    windowEnd: end,
-    assetKinds: ["player_tenure", "pick_continuity"],
-  });
+function makeFixtureEdge({
+  edgeId,
+  assetId,
+  label,
+  startDate,
+  endDate,
+  laneGroup = "main_roster",
+  edgeType = "continuity",
+  playerId,
+  assetKind = laneGroup === "future_picks" ? "pick_continuity" : "player_tenure",
+}: {
+  edgeId: string;
+  assetId: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  laneGroup?: string;
+  edgeType?: string;
+  playerId?: string;
+  assetKind?: string;
+}): TimelineContractEdge {
+  return {
+    edge_id: edgeId,
+    asset_id: assetId,
+    source_node_id: `${edgeId}:source`,
+    target_node_id: `${edgeId}:target`,
+    start_date: startDate,
+    end_date: endDate,
+    edge_type: edgeType,
+    lane_group: laneGroup,
+    lane_index: 0,
+    payload: {
+      asset_kind: assetKind,
+      label,
+      player_id: playerId ?? null,
+      player_name: assetKind === "player_tenure" ? label : null,
+    },
+    created_at: "2026-01-01T00:00:00Z",
+  };
+}
+
+function makeFixtureSegment({
+  segmentId,
+  assetId,
+  label,
+  startDate,
+  endDate,
+  laneGroup = "main_roster",
+  bandSlot = 0,
+  markerVariant = "text_only",
+}: {
+  segmentId: string;
+  assetId: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  laneGroup?: string;
+  bandSlot?: number;
+  markerVariant?: "headshot_text" | "text_only";
+}): TimelineLayoutLaneSegment {
+  return {
+    segment_id: segmentId,
+    asset_id: assetId,
+    lane_group: laneGroup,
+    date_start: startDate,
+    date_end: endDate,
+    display_rank: bandSlot,
+    band_slot: bandSlot,
+    compaction_group: null,
+    continuity_anchor: `${assetId}:anchor`,
+    entry_slot: bandSlot,
+    exit_slot: bandSlot,
+    identity_marker: {
+      image_path: null,
+      label_text: label,
+      marker_variant: markerVariant,
+    },
+  };
+}
+
+function makeFixtureLabel({
+  segmentId,
+  assetId,
+  startDate,
+  endDate,
+  inlineLabelAllowed = true,
+  fallbackMarkerRequired = false,
+  labelPriority = 1,
+}: {
+  segmentId: string;
+  assetId: string;
+  startDate: string;
+  endDate: string;
+  inlineLabelAllowed?: boolean;
+  fallbackMarkerRequired?: boolean;
+  labelPriority?: number;
+}): TimelineLayoutLabel {
+  return {
+    segment_id: segmentId,
+    asset_id: assetId,
+    date_start: startDate,
+    date_end: endDate,
+    inline_label_allowed: inlineLabelAllowed,
+    label_priority: labelPriority,
+    fallback_marker_required: fallbackMarkerRequired,
+    marker_side: "left",
+  };
+}
+
+function makeFixtureNode(eventId: string, eventDate: string, label = eventId): TimelineContractNode {
+  return {
+    node_id: `${eventId}:node`,
+    event_id: eventId,
+    event_date: eventDate,
+    event_order: 1,
+    node_type: "transaction",
+    label,
+    payload: {},
+    created_at: "2026-01-01T00:00:00Z",
+  };
+}
+
+function buildFixtureContract({
+  startDate = "2020-01-01",
+  endDate = "2020-12-31",
+  defaultDayWidth = 2,
+  nodes = [],
+  edges,
+  laneLayout,
+  labelLayout,
+  eventLayout = [],
+}: {
+  startDate?: string;
+  endDate?: string;
+  defaultDayWidth?: number;
+  nodes?: TimelineContractNode[];
+  edges: TimelineContractEdge[];
+  laneLayout: TimelineLayoutLaneSegment[];
+  labelLayout: TimelineLayoutLabel[];
+  eventLayout?: TimelineLayoutEvent[];
+}): TimelineContract {
+  return buildTimelineContract(
+    {
+      nodes,
+      edges,
+      lanes: [],
+      meta: {},
+    },
+    {
+      layout_meta: {
+        start_date: startDate,
+        end_date: endDate,
+        default_window_start: startDate,
+        default_window_end: endDate,
+        default_day_width: defaultDayWidth,
+        axis_strategy: {
+          minor_tick_unit: "month",
+          major_tick_unit: "season_boundary",
+          season_boundary_rule: "july_1",
+        },
+        minimap_segments: [],
+      },
+      lane_layout: laneLayout,
+      label_layout: labelLayout,
+      event_layout: eventLayout,
+      chapter_layout: [],
+    },
+    [],
+  );
 }
 
 describe("timeline utilities", () => {
-  it("derives contract bounds and default window from the generated layout artifact", () => {
+  it("uses full contract bounds for the v2 default scene and compatibility viewport metrics", () => {
     const bounds = getContractBounds(generatedContract);
-    const state = normalizeTimelineUiState(generatedContract, getDefaultUiState(generatedContract, null));
+    const state = normalizeTimelineUiState(generatedContract, defaultState());
     const viewport = getTimelineViewportMetrics(generatedContract, state);
+    const scene = buildTimelineScenePrimitives(generatedContract, state);
 
-    expect(bounds.start).toBe("2016-01-07");
-    expect(bounds.end).toBe("2026-04-21");
-    expect(state.windowStart).toBe("2016-01-07");
-    expect(state.windowEnd).toBe("2016-07-05");
-    expect(viewport.defaultWindowDays).toBe(180);
-    expect(viewport.minWindowDays).toBe(30);
-    expect(viewport.maxWindowDays).toBe(180);
+    expect(bounds).toEqual({
+      start: "2016-01-07",
+      end: "2026-04-21",
+    });
+    expect(state.windowStart).toBe(bounds.start);
+    expect(state.windowEnd).toBe(bounds.end);
+    expect(viewport.defaultWindowStart).toBe(bounds.start);
+    expect(viewport.defaultWindowEnd).toBe(bounds.end);
+    expect(viewport.windowStart).toBe(bounds.start);
+    expect(viewport.windowEnd).toBe(bounds.end);
+    expect(viewport.minWindowDays).toBe(viewport.defaultWindowDays);
+    expect(viewport.maxWindowDays).toBe(viewport.defaultWindowDays);
     expect(viewport.minZoom).toBe(1);
-    expect(viewport.maxZoom).toBe(6);
-  });
-
-  it("builds chapter focus primitives from chapter_layout and preserves minimap linkage", () => {
-    const chapter = generatedContract.editorial?.story_chapters?.[0];
-    expect(chapter).toBeDefined();
-
-    const scene = buildTimelineScenePrimitives(generatedContract, getDefaultUiState(generatedContract, chapter!));
-
-    expect(scene.activeFocus).toMatchObject({
-      story_chapter_id: "chapter_deadline_reset",
-      windowStart: "2024-02-08",
-      windowEnd: "2025-06-30",
-      defaultZoom: null,
-      highlightAssetIds: [],
-      highlightEventIds: [],
-      minimapAnchorId: "layout_minimap_segment_cd9fbb9b2c49718691e39207",
-      active: true,
-    });
-  });
-
-  it("keeps chapter focus windows sourced from chapter_layout even if editorial chapter dates differ", () => {
-    const remappedChapters = cloneJson(editorialChapters) as unknown as TimelineChapterExport[];
-    remappedChapters[0]!.start_date = "1999-01-01";
-    remappedChapters[0]!.end_date = "1999-12-31";
-
-    const contract = buildTimelineContract(
-      cloneJson(presentationContract) as unknown as TimelinePresentationContract,
-      cloneJson(layoutContract) as unknown as TimelineGeneratedLayoutContract,
-      remappedChapters,
+    expect(viewport.maxZoom).toBe(1);
+    expect(scene.chronology.dayWidth).toBeLessThan(
+      (generatedContract.layout as TimelineGeneratedLayoutContract).layout_meta.default_day_width,
     );
-    const state = activateTimelineChapter(contract, getDefaultUiState(contract, null), remappedChapters[0]!.story_chapter_id);
-    const scene = buildTimelineScenePrimitives(contract, state);
-
-    expect(scene.activeFocus).toMatchObject({
-      story_chapter_id: "chapter_deadline_reset",
-      windowStart: "2024-02-08",
-      windowEnd: "2025-06-30",
-      minimapAnchorId: "layout_minimap_segment_cd9fbb9b2c49718691e39207",
-      active: true,
-    });
+    expect(viewport.viewportWidth).toBeLessThan(7000);
   });
 
-  it("keeps editorial chapter title and body additive while layout still owns focus windows and anchors", () => {
+  it("builds the same chronology and band surface regardless of compatibility window, zoom, and asset-kind state", () => {
+    const baselineScene = buildTimelineScenePrimitives(generatedContract, defaultState());
+    const variedScene = buildTimelineScenePrimitives(generatedContract, {
+      ...defaultState(),
+      windowStart: "2024-02-08",
+      windowEnd: "2024-02-20",
+      zoom: 6,
+      assetKinds: ["player_tenure"],
+      selectedChapterId: "chapter_deadline_reset",
+    });
+
+    expect(variedScene.chronology.windowStart).toBe(baselineScene.chronology.windowStart);
+    expect(variedScene.chronology.windowEnd).toBe(baselineScene.chronology.windowEnd);
+    expect(variedScene.chronology.axisStrategy).toEqual(baselineScene.chronology.axisStrategy);
+    expect(variedScene.chronology.ticks).toHaveLength(baselineScene.chronology.ticks.length);
+    expect(variedScene.bands.map((band) => [band.lane_group, band.visible])).toEqual(
+      baselineScene.bands.map((band) => [band.lane_group, band.visible]),
+    );
+    expect(variedScene.activeFocus?.story_chapter_id).toBe("chapter_deadline_reset");
+  });
+
+  it("keeps editorial chapter title, body, and dates additive instead of sourcing scene windows from chapter_layout", () => {
     const remappedChapters = cloneJson(editorialChapters) as unknown as TimelineChapterExport[];
     remappedChapters[0]!.title = "Visible chapter title";
     remappedChapters[0]!.body = "Visible chapter body.";
@@ -125,15 +276,83 @@ describe("timeline utilities", () => {
       cloneJson(layoutContract) as unknown as TimelineGeneratedLayoutContract,
       remappedChapters,
     );
-    const scene = buildTimelineScenePrimitives(contract, getDefaultUiState(contract, null));
+    const scene = buildTimelineScenePrimitives(contract, defaultState(contract));
 
     expect(scene.chapters[0]).toMatchObject({
       title: "Visible chapter title",
       body: "Visible chapter body.",
-      windowStart: "2024-02-08",
-      windowEnd: "2025-06-30",
+      windowStart: "1999-01-01",
+      windowEnd: "1999-12-31",
       minimapAnchorId: "layout_minimap_segment_cd9fbb9b2c49718691e39207",
     });
+  });
+
+  it("tolerates missing chapter minimap anchors as compatibility residue while still building the scene", () => {
+    const layout = cloneJson(layoutContract) as unknown as TimelineGeneratedLayoutContract;
+    layout.chapter_layout[0]!.minimap_anchor_id = "missing-anchor";
+
+    const contract = buildTimelineContract(
+      cloneJson(presentationContract) as unknown as TimelinePresentationContract,
+      layout,
+      cloneJson(editorialChapters) as unknown as TimelineChapterExport[],
+    );
+    const scene = buildTimelineScenePrimitives(
+      contract,
+      activateTimelineChapter(contract, defaultState(contract), "chapter_deadline_reset"),
+    );
+
+    expect(scene.activeFocus).toMatchObject({
+      story_chapter_id: "chapter_deadline_reset",
+      minimapAnchorId: "missing-anchor",
+      anchorX: null,
+    });
+    expect(scene.chronology.windowStart).toBe(getContractBounds(contract).start);
+    expect(scene.chronology.windowEnd).toBe(getContractBounds(contract).end);
+  });
+
+  it("keeps chapter and minimap helpers as selection-only compatibility paths that do not change chronology", () => {
+    const bounds = getContractBounds(generatedContract);
+    const chapterState = activateTimelineChapter(generatedContract, defaultState(), "chapter_deadline_reset");
+    const chapterScene = buildTimelineScenePrimitives(generatedContract, chapterState);
+    const linkedJump = jumpTimelineToMinimapSegment(
+      generatedContract,
+      defaultState(),
+      "layout_minimap_segment_cd9fbb9b2c49718691e39207",
+    );
+    const linkedScene = buildTimelineScenePrimitives(generatedContract, linkedJump);
+    const missingJump = jumpTimelineToMinimapSegment(generatedContract, linkedJump, "missing-segment");
+
+    expect(chapterState.windowStart).toBe(bounds.start);
+    expect(chapterState.windowEnd).toBe(bounds.end);
+    expect(chapterScene.activeFocus?.story_chapter_id).toBe("chapter_deadline_reset");
+    expect(linkedScene.activeFocus?.story_chapter_id).toBe("chapter_deadline_reset");
+    expect(
+      linkedScene.chronology.minimapSegments.find(
+        (segment) => segment.segment_id === "layout_minimap_segment_cd9fbb9b2c49718691e39207",
+      ),
+    ).toMatchObject({ active: true });
+    expect(missingJump.selectedChapterId).toBeNull();
+    expect(missingJump.windowStart).toBe(bounds.start);
+    expect(missingJump.windowEnd).toBe(bounds.end);
+  });
+
+  it("treats viewport window, zoom, and shift helpers as no-op compatibility shims for the v2 render path", () => {
+    const baselineState = normalizeTimelineUiState(generatedContract, defaultState());
+    const windowedState = setTimelineViewportWindow(generatedContract, baselineState, "2017-05-15", "2017-08-15");
+    const zoomedState = setTimelineZoomLevel(generatedContract, windowedState, 6);
+    const shiftedState = shiftTimelineViewport(generatedContract, zoomedState, 45);
+    const baselineLayout = buildTimelineLayout(generatedContract, baselineState);
+    const shiftedLayout = buildTimelineLayout(generatedContract, shiftedState);
+
+    expect(windowedState.windowStart).toBe(baselineState.windowStart);
+    expect(windowedState.windowEnd).toBe(baselineState.windowEnd);
+    expect(zoomedState.zoom).toBe(1);
+    expect(shiftedState.windowStart).toBe(baselineState.windowStart);
+    expect(shiftedState.windowEnd).toBe(baselineState.windowEnd);
+    expect(shiftedLayout.width).toBe(baselineLayout.width);
+    expect(shiftedLayout.edges).toHaveLength(baselineLayout.edges.length);
+    expect(shiftedLayout.nodes).toHaveLength(baselineLayout.nodes.length);
+    expect(shiftedLayout.junctions).toHaveLength(baselineLayout.junctions.length);
   });
 
   it("loads the generated artifacts without missing asset, event, or chapter references", () => {
@@ -144,7 +363,7 @@ describe("timeline utilities", () => {
   });
 
   it("consumes only story_chapters from the editorial export in this phase", () => {
-    const layout = buildTimelineLayout(generatedContract, getDefaultUiState(generatedContract, null));
+    const layout = defaultLayout();
 
     expect(generatedContract.editorial).toEqual({
       story_chapters: expect.any(Array),
@@ -157,23 +376,25 @@ describe("timeline utilities", () => {
     expect(layout.markers).toEqual([]);
   });
 
-  it("exposes layout-driven band visibility without inventing missing groups", () => {
-    const fullScene = buildTimelineScenePrimitives(generatedContract, getDefaultUiState(generatedContract, null));
+  it("exposes all layout bands even when compatibility asset-kind state narrows", () => {
+    const fullScene = buildTimelineScenePrimitives(generatedContract, defaultState());
     const playerOnlyScene = buildTimelineScenePrimitives(generatedContract, {
-      ...getDefaultUiState(generatedContract, null),
+      ...defaultState(),
       assetKinds: ["player_tenure"],
     });
 
     expect(fullScene.bands.map((band) => band.lane_group)).toEqual(["main_roster", "future_picks"]);
     expect(fullScene.bands.find((band) => band.lane_group === "main_roster")?.visible).toBe(true);
     expect(fullScene.bands.find((band) => band.lane_group === "future_picks")?.visible).toBe(true);
-    expect(playerOnlyScene.bands.find((band) => band.lane_group === "future_picks")?.visible).toBe(false);
+    expect(playerOnlyScene.bands.find((band) => band.lane_group === "future_picks")?.visible).toBe(true);
   });
 
-  it("builds chronology ticks and minimap segments from layout metadata instead of weekly client guesses", () => {
-    const scene = buildTimelineScenePrimitives(generatedContract, getDefaultUiState(generatedContract, null));
+  it("builds chronology ticks and minimap residue from the full timeline bounds", () => {
+    const scene = buildTimelineScenePrimitives(generatedContract, defaultState());
     const firstSegment = scene.chronology.minimapSegments[0];
 
+    expect(scene.chronology.windowStart).toBe("2016-01-07");
+    expect(scene.chronology.windowEnd).toBe("2026-04-21");
     expect(scene.chronology.axisStrategy).toEqual({
       minor_tick_unit: "month",
       major_tick_unit: "season_boundary",
@@ -191,7 +412,6 @@ describe("timeline utilities", () => {
       major: true,
       kind: "season_boundary",
     });
-    expect(scene.chronology.ticks.some((tick) => tick.date === "2016-01-14")).toBe(false);
     expect(scene.chronology.minimapSegments).toHaveLength(
       (layoutContract as unknown as TimelineGeneratedLayoutContract).layout_meta.minimap_segments.length,
     );
@@ -200,126 +420,11 @@ describe("timeline utilities", () => {
       start_date: "2016-01-07",
       end_date: "2016-07-05",
       label: "Jan 2016 - Jul 2016",
-      active: true,
+      active: false,
     });
     expect(firstSegment.x1).toBe(160);
     expect(firstSegment.anchorX).toBeGreaterThan(firstSegment.x1);
     expect(firstSegment.x2).toBeGreaterThan(firstSegment.anchorX);
-  });
-
-  it("advances the bounded viewport horizontally without mutating contract truth", () => {
-    const baselineState = normalizeTimelineUiState(generatedContract, getDefaultUiState(generatedContract, null));
-    const shiftedState = shiftTimelineViewport(generatedContract, baselineState, 45);
-    const shiftedViewport = getTimelineViewportMetrics(generatedContract, shiftedState);
-    const shiftedLayout = buildTimelineLayout(generatedContract, shiftedState);
-
-    expect(shiftedState.windowStart).toBe(isoPlusDays(baselineState.windowStart, 45));
-    expect(shiftedState.windowEnd).toBe(isoPlusDays(baselineState.windowEnd, 45));
-    expect(shiftedViewport.windowDays).toBe(180);
-    expect(shiftedLayout.width).toBe(1360);
-    expect(generatedContract.layout?.layout_meta.default_window_start).toBe("2016-01-07");
-    expect(generatedContract.layout?.layout_meta.default_window_end).toBe("2016-07-05");
-  });
-
-  it("anchors chapter navigation to the linked minimap segment while preserving the current viewport width when default_zoom is null", () => {
-    const baselineState = normalizeTimelineUiState(generatedContract, getDefaultUiState(generatedContract, null));
-    const zoomedState = setTimelineZoomLevel(generatedContract, baselineState, 6);
-    const chapterState = activateTimelineChapter(generatedContract, zoomedState, "chapter_deadline_reset");
-    const viewport = getTimelineViewportMetrics(generatedContract, chapterState);
-    const anchorSegment = generatedContract.layout?.layout_meta.minimap_segments.find((segment) =>
-      segment.segment_id === "layout_minimap_segment_cd9fbb9b2c49718691e39207"
-    );
-
-    expect(anchorSegment).toBeDefined();
-    expect(chapterState.selectedChapterId).toBe("chapter_deadline_reset");
-    expect(viewport.windowDays).toBe(30);
-    expect(chapterState.windowStart).toBe(isoPlusDays(anchorSegment!.anchor_date, -15));
-    expect(chapterState.windowEnd).toBe(isoPlusDays(chapterState.windowStart, 30));
-  });
-
-  it("uses chapter_layout default_zoom days when a chapter overrides the current viewport width", () => {
-    const contract = cloneJson(generatedContract);
-
-    if (contract.layout?.chapter_layout[0]) {
-      contract.layout.chapter_layout[0].default_zoom = 60;
-    }
-
-    const state = activateTimelineChapter(
-      contract,
-      setTimelineZoomLevel(contract, getDefaultUiState(contract, null), 6),
-      "chapter_deadline_reset",
-    );
-    const viewport = getTimelineViewportMetrics(contract, state);
-
-    expect(viewport.windowDays).toBe(60);
-    expect(state.selectedChapterId).toBe("chapter_deadline_reset");
-  });
-
-  it("jumps to minimap segments on the existing viewport model and clears chapter focus when the target segment is not linked", () => {
-    const baselineState = setTimelineZoomLevel(generatedContract, getDefaultUiState(generatedContract, null), 6);
-    const linkedJump = jumpTimelineToMinimapSegment(
-      generatedContract,
-      baselineState,
-      "layout_minimap_segment_cd9fbb9b2c49718691e39207",
-    );
-    const linkedViewport = getTimelineViewportMetrics(generatedContract, linkedJump);
-    const unlinkedSegment = generatedContract.layout?.layout_meta.minimap_segments.find((segment) =>
-      segment.segment_id !== "layout_minimap_segment_cd9fbb9b2c49718691e39207"
-    );
-
-    expect(unlinkedSegment).toBeDefined();
-    expect(linkedJump.selectedChapterId).toBe("chapter_deadline_reset");
-    expect(linkedViewport.windowDays).toBe(30);
-
-    const unlinkedJump = jumpTimelineToMinimapSegment(generatedContract, linkedJump, unlinkedSegment!.segment_id);
-    const unlinkedViewport = getTimelineViewportMetrics(generatedContract, unlinkedJump);
-    const unlinkedScene = buildTimelineScenePrimitives(generatedContract, unlinkedJump);
-
-    expect(unlinkedJump.selectedChapterId).toBeNull();
-    expect(unlinkedViewport.windowDays).toBe(30);
-    expect(unlinkedScene.activeFocus).toBeNull();
-  });
-
-  it("clamps zoom-driven viewport duration to the frozen 30 to 180 day bounds", () => {
-    const baselineState = normalizeTimelineUiState(generatedContract, getDefaultUiState(generatedContract, null));
-    const maxZoomState = setTimelineZoomLevel(generatedContract, baselineState, 999);
-    const maxZoomViewport = getTimelineViewportMetrics(generatedContract, maxZoomState);
-    const maxZoomLayout = buildTimelineLayout(generatedContract, maxZoomState);
-    const minZoomState = setTimelineZoomLevel(generatedContract, baselineState, 0.1);
-    const minZoomViewport = getTimelineViewportMetrics(generatedContract, minZoomState);
-
-    expect(maxZoomState.zoom).toBe(6);
-    expect(maxZoomViewport.windowDays).toBe(30);
-    expect(maxZoomState.windowEnd).toBe(isoPlusDays(maxZoomState.windowStart, 30));
-    expect(maxZoomLayout.width).toBe(460);
-    expect(minZoomState.zoom).toBe(1);
-    expect(minZoomViewport.windowDays).toBe(180);
-    expect(minZoomState.windowStart).toBe("2016-01-07");
-    expect(minZoomState.windowEnd).toBe("2016-07-05");
-  });
-
-  it("derives visible monthly and season-boundary ticks from the active layout-driven viewport window", () => {
-    const baselineState = normalizeTimelineUiState(generatedContract, getDefaultUiState(generatedContract, null));
-    const focusedState = setTimelineViewportWindow(generatedContract, baselineState, "2017-05-15", "2017-08-15");
-    const scene = buildTimelineScenePrimitives(generatedContract, focusedState);
-
-    expect(scene.chronology.windowStart).toBe("2017-05-15");
-    expect(scene.chronology.windowEnd).toBe("2017-08-15");
-    expect(scene.chronology.ticks.map((tick) => tick.date)).toEqual([
-      "2017-06-01",
-      "2017-07-01",
-      "2017-08-01",
-    ]);
-    expect(scene.chronology.ticks.find((tick) => tick.date === "2017-07-01")).toMatchObject({
-      major: true,
-      kind: "season_boundary",
-      label: "Jul 2017",
-    });
-    expect(scene.chronology.ticks.find((tick) => tick.date === "2017-06-01")).toMatchObject({
-      major: false,
-      kind: "month",
-      label: "Jun 2017",
-    });
   });
 
   it("preserves asset continuity by asset_id when a player_id appears under multiple assets", () => {
@@ -361,17 +466,9 @@ describe("timeline utilities", () => {
       layout,
       editorialChapters as unknown as TimelineChapterExport[],
     );
-    const firstScene = buildTimelineLayout(contract, {
-      ...setTimelineViewportWindow(contract, getDefaultUiState(contract, null), firstEdge.start_date, firstEdge.end_date),
-      assetKinds: ["player_tenure"],
-    });
-    const secondScene = buildTimelineLayout(contract, {
-      ...setTimelineViewportWindow(contract, getDefaultUiState(contract, null), secondEdge.start_date, secondEdge.end_date),
-      assetKinds: ["player_tenure"],
-    });
-
-    const firstLayout = firstScene.edges.find((row) => row.edge_id === firstEdge.edge_id);
-    const secondLayout = secondScene.edges.find((row) => row.edge_id === secondEdge.edge_id);
+    const fullLayout = buildTimelineLayout(contract, defaultState(contract));
+    const firstLayout = fullLayout.edges.find((row) => row.edge_id === firstEdge.edge_id);
+    const secondLayout = fullLayout.edges.find((row) => row.edge_id === secondEdge.edge_id);
 
     expect(firstLayout?.asset_id).toBe(firstEdge.asset_id);
     expect(secondLayout?.asset_id).toBe(secondEdge.asset_id);
@@ -380,7 +477,6 @@ describe("timeline utilities", () => {
   });
 
   it("renders Memphis draft continuity links and pick-to-player conversion from layout transition links", () => {
-    const bounds = getContractBounds(generatedContract);
     const draftCluster = generatedContract.layout?.event_layout.find((row) =>
       row.junction_type === "draft_transition" &&
       row.transition_links.some((link) => link.link_type === "same_asset") &&
@@ -389,7 +485,7 @@ describe("timeline utilities", () => {
 
     expect(draftCluster).toBeDefined();
 
-    const layout = layoutForWindow(bounds.start, bounds.end);
+    const layout = defaultLayout();
     const junction = layout.junctions.find((row) => row.cluster_id === draftCluster!.cluster_id);
 
     expect(junction).toBeDefined();
@@ -415,13 +511,7 @@ describe("timeline utilities", () => {
 
     expect(tradeCluster).toBeDefined();
 
-    const state = setTimelineViewportWindow(
-      generatedContract,
-      getDefaultUiState(generatedContract, null),
-      isoPlusDays(tradeCluster!.cluster_date, -15),
-      isoPlusDays(tradeCluster!.cluster_date, 45),
-    );
-    const layout = buildTimelineLayout(generatedContract, state);
+    const layout = defaultLayout();
     const junction = layout.junctions.find((row) => row.cluster_id === tradeCluster!.cluster_id);
 
     expect(junction).toBeDefined();
@@ -430,16 +520,14 @@ describe("timeline utilities", () => {
     expect(new Set(junction?.stems.map((row) => row.segment_id)).size).toBe(4);
   });
 
-  it("limits rendered nodes and junctions to the active viewport instead of serializing hidden decade-wide SVG", () => {
-    const layout = layoutForWindow("2019-07-01", "2019-08-30");
+  it("renders the full chronology instead of clipping nodes and junctions to a bounded viewport", () => {
+    const layout = defaultLayout();
     const markup = renderTimelineScene(layout);
     const renderedNodeCount = (markup.match(/data-node-id=/g) ?? []).length;
     const renderedJunctionCount = (markup.match(/timeline-junction--/g) ?? []).length;
 
-    expect(layout.nodes.every((row) => row.visible)).toBe(true);
-    expect(layout.junctions.every((row) => row.visible)).toBe(true);
-    expect(layout.nodes.length).toBeLessThan(generatedContract.nodes.length);
-    expect(layout.junctions.length).toBeLessThan(generatedContract.layout?.event_layout.length ?? 0);
+    expect(layout.nodes).toHaveLength(generatedContract.nodes.length);
+    expect(layout.junctions).toHaveLength(generatedContract.layout?.event_layout.length ?? 0);
     expect(renderedNodeCount).toBe(layout.nodes.length);
     expect(renderedJunctionCount).toBe(layout.junctions.length);
     expect(markup).not.toContain("is-hidden");
@@ -447,7 +535,7 @@ describe("timeline utilities", () => {
 
   it("keeps same-day grouped Memphis events separate while sharing one chronology position", () => {
     const groupedDate = "2016-03-12";
-    const layout = layoutForWindow("2016-03-01", "2016-03-31");
+    const layout = defaultLayout();
     const junctions = layout.junctions.filter((row) => row.cluster_date === groupedDate);
 
     expect(junctions).toHaveLength(2);
@@ -466,11 +554,7 @@ describe("timeline utilities", () => {
       playerSegment.lane_group = "two_way";
     }
 
-    const layout = buildTimelineLayout(contract, {
-      ...getDefaultUiState(contract, null),
-      windowStart: "2019-06-01",
-      windowEnd: "2019-07-31",
-    });
+    const layout = buildTimelineLayout(contract, defaultState(contract));
     const markup = renderTimelineScene(layout);
 
     expect(layout.scene.bands.map((row) => row.lane_group)).toEqual(["main_roster", "two_way", "future_picks"]);
@@ -479,9 +563,8 @@ describe("timeline utilities", () => {
     expect(markup).toContain("timeline-band--future_picks");
   });
 
-  it("renders inline strand labels when the layout hint allows them and the visible span is long enough", () => {
-    const bounds = getContractBounds(generatedContract);
-    const layout = layoutForWindow(bounds.start, bounds.end);
+  it("renders inline strand labels when the layout hint allows them and the full visible span is long enough", () => {
+    const layout = defaultLayout();
     const inlineLabel = layout.inlineLabels.find((row) => row.visible);
 
     expect(inlineLabel).toBeDefined();
@@ -495,31 +578,285 @@ describe("timeline utilities", () => {
     ).toBeUndefined();
   });
 
-  it("preserves the left identity marker when an inline-capable strand is clipped too tightly to fit its label", () => {
-    const contract = cloneJson(generatedContract);
-    const candidate = contract.layout?.label_layout.find((row) =>
-      row.inline_label_allowed
-      && !row.fallback_marker_required
-      && row.date_end >= isoPlusDays(row.date_start, 5)
-    );
+  it("preserves the left identity marker when a segment can fit the marker but not the full inline label", () => {
+    const edge = makeFixtureEdge({
+      edgeId: "segment_marker_only",
+      assetId: "asset_marker_only",
+      label: "Marker Return Player",
+      startDate: "2020-01-01",
+      endDate: "2020-03-31",
+      playerId: "player_marker_only",
+    });
+    const contract = buildFixtureContract({
+      edges: [edge],
+      laneLayout: [
+        makeFixtureSegment({
+          segmentId: edge.edge_id,
+          assetId: edge.asset_id,
+          label: "Marker Return Player",
+          startDate: edge.start_date,
+          endDate: edge.end_date,
+        }),
+      ],
+      labelLayout: [
+        makeFixtureLabel({
+          segmentId: edge.edge_id,
+          assetId: edge.asset_id,
+          startDate: edge.start_date,
+          endDate: edge.end_date,
+          inlineLabelAllowed: true,
+          fallbackMarkerRequired: true,
+        }),
+      ],
+    });
 
-    expect(candidate).toBeDefined();
-
-    if (contract.layout?.layout_meta) {
-      contract.layout.layout_meta.default_day_width = 1;
-    }
-
-    const zoomedState = setTimelineZoomLevel(
-      contract,
-      setTimelineViewportWindow(contract, getDefaultUiState(contract, null), candidate!.date_start, candidate!.date_end),
-      999,
-    );
-    const layout = buildTimelineLayout(contract, zoomedState);
-    const inlineLabel = layout.inlineLabels.find((row) => row.segment_id === candidate?.segment_id);
-    const identityMarker = layout.identityMarkers.find((row) => row.segment_id === candidate?.segment_id);
+    const layout = buildTimelineLayout(contract, defaultState(contract));
+    const inlineLabel = layout.inlineLabels.find((row) => row.segment_id === edge.edge_id);
+    const identityMarker = layout.identityMarkers.find((row) => row.segment_id === edge.edge_id);
+    const edgeLayout = layout.edges.find((row) => row.edge_id === edge.edge_id);
 
     expect(inlineLabel).toMatchObject({ visible: false });
     expect(identityMarker).toMatchObject({ visible: true, markerSide: "left" });
+    expect((identityMarker?.x ?? 0) + (identityMarker?.width ?? 0)).toBeLessThanOrEqual(edgeLayout?.x2 ?? 0);
+  });
+
+  it("keeps leave-and-return chapters asset-scoped instead of inventing false cross-gap continuity", () => {
+    const firstEdge = makeFixtureEdge({
+      edgeId: "segment_leave",
+      assetId: "asset_leave",
+      label: "Reggie Return",
+      startDate: "2020-01-01",
+      endDate: "2020-04-30",
+      playerId: "player_reggie",
+    });
+    const secondEdge = makeFixtureEdge({
+      edgeId: "segment_return",
+      assetId: "asset_return",
+      label: "Reggie Return",
+      startDate: "2020-08-01",
+      endDate: "2020-12-31",
+      playerId: "player_reggie",
+    });
+    const contract = buildFixtureContract({
+      edges: [firstEdge, secondEdge],
+      laneLayout: [
+        makeFixtureSegment({
+          segmentId: firstEdge.edge_id,
+          assetId: firstEdge.asset_id,
+          label: "Reggie Return",
+          startDate: firstEdge.start_date,
+          endDate: firstEdge.end_date,
+          bandSlot: 0,
+        }),
+        makeFixtureSegment({
+          segmentId: secondEdge.edge_id,
+          assetId: secondEdge.asset_id,
+          label: "Reggie Return",
+          startDate: secondEdge.start_date,
+          endDate: secondEdge.end_date,
+          bandSlot: 1,
+        }),
+      ],
+      labelLayout: [
+        makeFixtureLabel({
+          segmentId: firstEdge.edge_id,
+          assetId: firstEdge.asset_id,
+          startDate: firstEdge.start_date,
+          endDate: firstEdge.end_date,
+        }),
+        makeFixtureLabel({
+          segmentId: secondEdge.edge_id,
+          assetId: secondEdge.asset_id,
+          startDate: secondEdge.start_date,
+          endDate: secondEdge.end_date,
+          labelPriority: 2,
+        }),
+      ],
+    });
+
+    const layout = buildTimelineLayout(contract, defaultState(contract));
+    const visibleLabels = layout.inlineLabels.filter((row) => row.visible && row.label === "Reggie Return");
+    const [leaveLabel, returnLabel] = visibleLabels;
+
+    expect(visibleLabels).toHaveLength(2);
+    expect(leaveLabel?.asset_id).toBe("asset_leave");
+    expect(returnLabel?.asset_id).toBe("asset_return");
+    expect(leaveLabel?.asset_id).not.toBe(returnLabel?.asset_id);
+    expect((leaveLabel?.x ?? 0) + (leaveLabel?.width ?? 0) / 2).toBeLessThan(
+      (returnLabel?.x ?? 0) - (returnLabel?.width ?? 0) / 2,
+    );
+    expect(layout.identityMarkers.filter((row) => row.visible)).toHaveLength(0);
+  });
+
+  it("hides reacquired-player labels and markers when the visible treatment would extend beyond the reacquired segment", () => {
+    const initialEdge = makeFixtureEdge({
+      edgeId: "segment_initial_tenure",
+      assetId: "asset_initial_tenure",
+      label: "Marcus Return",
+      startDate: "2020-01-01",
+      endDate: "2020-06-30",
+      playerId: "player_marcus",
+    });
+    const reacquiredEdge = makeFixtureEdge({
+      edgeId: "segment_reacquired_tenure",
+      assetId: "asset_reacquired_tenure",
+      label: "Marcus Return Marker",
+      startDate: "2020-09-01",
+      endDate: "2020-09-20",
+      playerId: "player_marcus",
+    });
+    const contract = buildFixtureContract({
+      edges: [initialEdge, reacquiredEdge],
+      laneLayout: [
+        makeFixtureSegment({
+          segmentId: initialEdge.edge_id,
+          assetId: initialEdge.asset_id,
+          label: "Marcus Return",
+          startDate: initialEdge.start_date,
+          endDate: initialEdge.end_date,
+          bandSlot: 0,
+        }),
+        makeFixtureSegment({
+          segmentId: reacquiredEdge.edge_id,
+          assetId: reacquiredEdge.asset_id,
+          label: "Marcus Return Marker",
+          startDate: reacquiredEdge.start_date,
+          endDate: reacquiredEdge.end_date,
+          bandSlot: 1,
+        }),
+      ],
+      labelLayout: [
+        makeFixtureLabel({
+          segmentId: initialEdge.edge_id,
+          assetId: initialEdge.asset_id,
+          startDate: initialEdge.start_date,
+          endDate: initialEdge.end_date,
+        }),
+        makeFixtureLabel({
+          segmentId: reacquiredEdge.edge_id,
+          assetId: reacquiredEdge.asset_id,
+          startDate: reacquiredEdge.start_date,
+          endDate: reacquiredEdge.end_date,
+          fallbackMarkerRequired: true,
+          labelPriority: 2,
+        }),
+      ],
+    });
+
+    const layout = buildTimelineLayout(contract, defaultState(contract));
+    const initialLabel = layout.inlineLabels.find((row) => row.segment_id === initialEdge.edge_id);
+    const reacquiredLabel = layout.inlineLabels.find((row) => row.segment_id === reacquiredEdge.edge_id);
+    const reacquiredMarker = layout.identityMarkers.find((row) => row.segment_id === reacquiredEdge.edge_id);
+    const reacquiredEdgeLayout = layout.edges.find((row) => row.edge_id === reacquiredEdge.edge_id);
+
+    expect(initialLabel).toMatchObject({ visible: true });
+    expect(reacquiredLabel).toMatchObject({ visible: false, asset_id: "asset_reacquired_tenure" });
+    expect(reacquiredMarker).toMatchObject({ visible: false, asset_id: "asset_reacquired_tenure" });
+    expect((reacquiredMarker?.x ?? 0) + (reacquiredMarker?.width ?? 0)).toBeGreaterThan(reacquiredEdgeLayout?.x2 ?? 0);
+  });
+
+  it("shifts pick-to-player identity treatment only at the generated transition boundary", () => {
+    const pickEdge = makeFixtureEdge({
+      edgeId: "segment_pick_asset",
+      assetId: "asset_pick_asset",
+      label: "2024 MEM 1st",
+      startDate: "2020-01-01",
+      endDate: "2020-06-20",
+      laneGroup: "future_picks",
+      edgeType: "pick_line",
+      assetKind: "pick_continuity",
+    });
+    const playerEdge = makeFixtureEdge({
+      edgeId: "segment_player_asset",
+      assetId: "asset_player_asset",
+      label: "Rookie Example",
+      startDate: "2020-06-21",
+      endDate: "2020-12-31",
+      laneGroup: "main_roster",
+      playerId: "player_rookie",
+    });
+    const draftEventId = "event_draft_transition";
+    const contract = buildFixtureContract({
+      nodes: [makeFixtureNode(draftEventId, "2020-06-21", "Draft night")],
+      edges: [pickEdge, playerEdge],
+      laneLayout: [
+        makeFixtureSegment({
+          segmentId: pickEdge.edge_id,
+          assetId: pickEdge.asset_id,
+          label: "2024 MEM 1st",
+          startDate: pickEdge.start_date,
+          endDate: pickEdge.end_date,
+          laneGroup: "future_picks",
+          bandSlot: 0,
+        }),
+        makeFixtureSegment({
+          segmentId: playerEdge.edge_id,
+          assetId: playerEdge.asset_id,
+          label: "Rookie Example",
+          startDate: playerEdge.start_date,
+          endDate: playerEdge.end_date,
+          laneGroup: "main_roster",
+          bandSlot: 0,
+        }),
+      ],
+      labelLayout: [
+        makeFixtureLabel({
+          segmentId: pickEdge.edge_id,
+          assetId: pickEdge.asset_id,
+          startDate: pickEdge.start_date,
+          endDate: pickEdge.end_date,
+        }),
+        makeFixtureLabel({
+          segmentId: playerEdge.edge_id,
+          assetId: playerEdge.asset_id,
+          startDate: playerEdge.start_date,
+          endDate: playerEdge.end_date,
+          labelPriority: 2,
+        }),
+      ],
+      eventLayout: [
+        {
+          event_id: draftEventId,
+          cluster_id: "cluster_draft_transition",
+          cluster_date: "2020-06-21",
+          cluster_order: 1,
+          junction_type: "draft_transition",
+          member_event_ids: [draftEventId],
+          connected_asset_ids: [pickEdge.asset_id, playerEdge.asset_id],
+          incoming_slots: {
+            [pickEdge.edge_id]: 0,
+          },
+          outgoing_slots: {
+            [playerEdge.edge_id]: 0,
+          },
+          transition_anchors: [],
+          transition_links: [
+            {
+              transition_link_id: "transition_pick_to_player",
+              source_segment_id: pickEdge.edge_id,
+              target_segment_id: playerEdge.edge_id,
+              source_asset_id: pickEdge.asset_id,
+              target_asset_id: playerEdge.asset_id,
+              link_type: "pick_to_player",
+            },
+          ],
+        },
+      ],
+    });
+
+    const layout = buildTimelineLayout(contract, defaultState(contract));
+    const pickLabel = layout.inlineLabels.find((row) => row.segment_id === pickEdge.edge_id);
+    const playerLabel = layout.inlineLabels.find((row) => row.segment_id === playerEdge.edge_id);
+    const pickEdgeLayout = layout.edges.find((row) => row.edge_id === pickEdge.edge_id);
+    const playerEdgeLayout = layout.edges.find((row) => row.edge_id === playerEdge.edge_id);
+    const transition = layout.junctions[0]?.transitions.find((row) => row.link_type === "pick_to_player");
+
+    expect(pickLabel).toMatchObject({ visible: true, asset_id: "asset_pick_asset", label: "2024 MEM 1st" });
+    expect(playerLabel).toMatchObject({ visible: true, asset_id: "asset_player_asset", label: "Rookie Example" });
+    expect((pickLabel?.x ?? 0) + (pickLabel?.width ?? 0) / 2).toBeLessThanOrEqual(pickEdgeLayout?.x2 ?? 0);
+    expect((playerLabel?.x ?? 0) - (playerLabel?.width ?? 0) / 2).toBeGreaterThanOrEqual(playerEdgeLayout?.x1 ?? 0);
+    expect(pickEdgeLayout?.x2).toBeLessThan(playerEdgeLayout?.x1 ?? 0);
+    expect(transition).toMatchObject({ visible: true, source_segment_id: pickEdge.edge_id, target_segment_id: playerEdge.edge_id });
   });
 
   it("supports headshot-plus-text markers when a local image path exists and falls back to text-only otherwise", () => {
@@ -533,22 +870,35 @@ describe("timeline utilities", () => {
 
     const headshotSegment = contract.layout?.lane_layout.find((row) => row.segment_id === headshotCandidate?.segment_id);
     const textOnlySegment = contract.layout?.lane_layout.find((row) => row.segment_id === textOnlyCandidate?.segment_id);
+    const headshotEdge = contract.edges.find((row) => row.edge_id === headshotCandidate?.segment_id);
+    const textOnlyEdge = contract.edges.find((row) => row.edge_id === textOnlyCandidate?.segment_id);
 
     expect(headshotSegment).toBeDefined();
     expect(textOnlySegment).toBeDefined();
+    expect(headshotEdge).toBeDefined();
+    expect(textOnlyEdge).toBeDefined();
 
     if (headshotSegment) {
       headshotSegment.identity_marker.image_path = "headshots/placeholder-headshot.svg";
       headshotSegment.identity_marker.marker_variant = "headshot_text";
+      headshotSegment.date_end = "2026-04-21";
     }
 
     if (textOnlySegment) {
       textOnlySegment.identity_marker.image_path = null;
       textOnlySegment.identity_marker.marker_variant = "headshot_text";
+      textOnlySegment.date_end = "2026-04-21";
     }
 
-    const bounds = getContractBounds(contract);
-    const layout = layoutForContract(contract, bounds.start, bounds.end);
+    if (headshotEdge) {
+      headshotEdge.end_date = "2026-04-21";
+    }
+
+    if (textOnlyEdge) {
+      textOnlyEdge.end_date = "2026-04-21";
+    }
+
+    const layout = buildTimelineLayout(contract, defaultState(contract));
     const markup = renderTimelineScene(layout);
     const headshotMarker = layout.identityMarkers.find((row) => row.segment_id === headshotCandidate?.segment_id);
     const textOnlyMarker = layout.identityMarkers.find((row) => row.segment_id === textOnlyCandidate?.segment_id);
