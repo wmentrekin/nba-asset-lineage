@@ -82,8 +82,21 @@ The checked-in Python CLI now also supports reset-era foundation tasks such as:
 - foundation ingest bootstrap
 - normalization workbench preview
 - sample ingest bundle build
+- derived entity preview/load from the live `source_event` baseline
 - live Basketball-Reference transaction preview/load
 - live NBA stats reference preview/load
+
+The first graph-ready export contract is intentionally narrow:
+
+- it reads from current `foundation.player`, `foundation.pick`,
+  `foundation.asset`, `foundation.canonical_event`, and
+  `foundation.event_asset_transition` tables
+- it can enrich `player_assets` from `foundation.roster_baseline_player`
+  when baseline roster data exists
+- it emits `events`, `player_assets`, `pick_assets`, `transitions`, and
+  `roster_snapshots`
+- `roster_snapshots` remains empty for now
+- it does not yet include roster-state validation or frontend layout semantics
 
 ## Environment
 

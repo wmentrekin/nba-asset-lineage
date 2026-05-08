@@ -1,102 +1,189 @@
 ---
-import { RESET_STATUS_CARDS } from "../lib/foundation";
+import foundationGraph from "../data/generated/foundation-graph.json";
+import { buildTimelineLayout, type GraphExport } from "../lib/graph";
+
+const graph = foundationGraph as GraphExport;
+const layout = buildTimelineLayout(graph);
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Memphis Asset Lineage Reset</title>
+    <title>Memphis Asset Lineage</title>
     <meta
       name="description"
-      content="Reset-era scaffold for rebuilding the Memphis asset lineage graph from first principles."
+      content="Memphis Grizzlies asset lineage graph built from the reset-era foundation export."
     />
   </head>
   <body>
     <main class="page">
       <section class="hero">
-        <p class="eyebrow">Foundation reset</p>
-        <h1>Memphis asset lineage is being rebuilt from the data layer up.</h1>
+        <p class="eyebrow">Memphis asset lineage</p>
+        <h1>Ten years of roster evolution from the current foundation export.</h1>
         <p class="lede">
-          The active repository focus is no longer the previous staged timeline prototype.
-          The next version starts with a smaller truth surface: transactions, assets, transitions,
-          and roster state.
+          This page is now wired to real foundation data: canonical events, player and pick assets,
+          and event transitions. It is intentionally minimal and graph-first.
         </p>
+        <dl class="stats">
+          <div><dt>Events</dt><dd>{graph.events.length}</dd></div>
+          <div><dt>Players</dt><dd>{graph.player_assets.length}</dd></div>
+          <div><dt>Picks</dt><dd>{graph.pick_assets.length}</dd></div>
+          <div><dt>Transitions</dt><dd>{graph.transitions.length}</dd></div>
+        </dl>
       </section>
 
-      <section class="status-grid" aria-label="Reset status">
-        {RESET_STATUS_CARDS.map((card) => (
-          <article class="status-card">
-            <h2>{card.title}</h2>
-            <p>{card.body}</p>
-          </article>
-        ))}
-      </section>
-
-      <section class="graph-shell" aria-label="Base graph target">
-        <header class="graph-shell__header">
-          <h2>Base graph target</h2>
-          <p>Transactions as nodes. Assets as continuity strands. No narrative layer yet.</p>
+      <section class="graph-panel">
+        <header class="graph-panel__header">
+          <div>
+            <h2>Asset graph</h2>
+            <p>{graph.span_start} to {graph.span_end}</p>
+          </div>
         </header>
 
-        <div class="graph-shell__canvas">
-          <div class="strand strand--top"></div>
-          <div class="strand strand--mid"></div>
-          <div class="strand strand--bot"></div>
-          <div class="node node--a"></div>
-          <div class="node node--b"></div>
-          <div class="node node--c"></div>
+        <div class="graph-scroll">
+          <svg
+            class="graph"
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            width={layout.width}
+            height={layout.height}
+            role="img"
+            aria-label="Memphis asset lineage graph"
+          >
+            <g class="grid">
+              {layout.rows.map((row) => (
+                <line x1="0" y1={row.y} x2={layout.width} y2={row.y} class:list={["grid-line", row.band === "pick" ? "grid-line--pick" : ""]} />
+              ))}
+              <line x1="0" y1={layout.playerBandEndY + 16} x2={layout.width} y2={layout.playerBandEndY + 16} class="band-divider" />
+            </g>
+
+            <g class="asset-segments">
+              {layout.segments.map((segment) => (
+                <>
+                  <line
+                    x1={segment.x1}
+                    y1={segment.y}
+                    x2={segment.x2}
+                    y2={segment.y}
+                    class:list={["segment", segment.kind === "pick" ? "segment--pick" : "segment--player"]}
+                  />
+                  <text
+                    x={segment.x1 + 6}
+                    y={segment.y - 7}
+                    class:list={["segment-label", segment.kind === "pick" ? "segment-label--pick" : "segment-label--player"]}
+                  >
+                    {segment.label}
+                  </text>
+                </>
+              ))}
+            </g>
+
+            <g class="slot-labels">
+              {layout.rows.map((row) => (
+                <>
+                  <text x="14" y={row.y + 4} class:list={["slot-label", row.band === "pick" ? "slot-label--pick" : ""]}>
+                    {row.label}
+                  </text>
+                  <circle cx="58" cy={row.y} r="4.5" class:list={["slot-dot", row.band === "pick" ? "slot-dot--pick" : ""]} />
+                </>
+              ))}
+            </g>
+
+            <g class="event-connectors">
+              {layout.eventPoints.map((event) => (
+                <line
+                  x1={event.x}
+                  y1={event.minY}
+                  x2={event.x}
+                  y2={event.maxY}
+                  class:list={["event-spine", `event-spine--${event.eventType}`]}
+                />
+              ))}
+              {layout.connectors.map((connector) => (
+                <path
+                  d={connector.direction === "move"
+                    ? `M ${connector.x1} ${connector.y1} Q ${connector.x} ${connector.y1} ${connector.x} ${(connector.y1 + connector.y2) / 2} Q ${connector.x} ${connector.y2} ${connector.x2} ${connector.y2}`
+                    : connector.direction === "out"
+                      ? `M ${connector.x1} ${connector.y1} Q ${connector.x} ${(connector.y1 + connector.y2) / 2} ${connector.x2} ${connector.y2}`
+                      : `M ${connector.x1} ${connector.y1} Q ${connector.x} ${(connector.y1 + connector.y2) / 2} ${connector.x2} ${connector.y2}`}
+                  class:list={[
+                    "connector",
+                    connector.direction === "out"
+                      ? "connector--out"
+                      : connector.direction === "move"
+                        ? "connector--move"
+                        : "connector--in",
+                  ]}
+                />
+              ))}
+            </g>
+
+            <g class="event-points">
+              {layout.eventPoints.map((event) => (
+                <>
+                  <line x1={event.x} y1="24" x2={event.x} y2={layout.height - 24} class="event-guide" />
+                  <circle
+                    cx={event.x}
+                    cy={event.anchorY}
+                    r="6.5"
+                    class:list={["event-point", `event-point--${event.eventType}`]}
+                  />
+                  <title>{event.label}</title>
+                  <text x={event.x + 12} y="20" class="event-date">{event.date}</text>
+                </>
+              ))}
+            </g>
+          </svg>
         </div>
       </section>
     </main>
   </body>
 </html>
 
-<style>
+<style is:global>
   :root {
     color-scheme: light;
-    --ink: #13222d;
-    --muted: #56646f;
-    --line: rgba(19, 34, 45, 0.14);
-    --paper: #f7f2ea;
+    --ink: #10212b;
+    --muted: #5f6d76;
+    --line: rgba(16, 33, 43, 0.14);
+    --paper: #f4ecdf;
     --panel: #fffdf8;
-    --teal: #00756d;
-    --sand: #c08c32;
-    --red: #8f2231;
+    --player: #116d67;
+    --pick: #9a5b1f;
+    --event-trade: #8f2231;
+    --event-signing: #204d8d;
+    --event-waiver: #7c6b4d;
+    --event-draft: #6a3ba5;
   }
 
   body {
     margin: 0;
     color: var(--ink);
-    background:
-      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 24%),
-      linear-gradient(180deg, #faf6ef 0%, #f1e8db 100%);
+    background: linear-gradient(180deg, #faf6ee 0%, #efe3d1 100%);
     font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   }
 
   .page {
-    max-width: 1100px;
+    max-width: none;
     margin: 0 auto;
-    padding: 28px 18px 64px;
+    padding: 20px 16px 40px;
   }
 
   .hero,
-  .status-card,
-  .graph-shell {
+  .graph-panel {
     border: 1px solid var(--line);
-    border-radius: 24px;
-    background: rgba(255, 253, 248, 0.94);
-    box-shadow: 0 18px 40px rgba(60, 38, 14, 0.06);
+    border-radius: 22px;
+    background: rgba(255, 253, 248, 0.96);
+    box-shadow: 0 16px 34px rgba(50, 34, 14, 0.06);
   }
 
-  .hero,
-  .graph-shell {
-    padding: 24px;
+  .hero {
+    padding: 22px;
   }
 
   .eyebrow {
     margin: 0 0 10px;
-    color: var(--red);
+    color: var(--event-trade);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -110,88 +197,213 @@ import { RESET_STATUS_CARDS } from "../lib/foundation";
   }
 
   h1 {
-    max-width: 12ch;
-    font-size: clamp(2.3rem, 4vw, 4.1rem);
+    max-width: 16ch;
+    font-size: clamp(1.9rem, 3.2vw, 3.2rem);
     line-height: 0.95;
   }
 
   .lede {
-    max-width: 68ch;
+    max-width: 70ch;
     margin: 16px 0 0;
     color: var(--muted);
     line-height: 1.6;
   }
 
-  .status-grid {
+  .stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-    margin: 20px 0;
+    grid-template-columns: repeat(4, minmax(100px, 1fr));
+    gap: 12px;
+    margin: 20px 0 0;
   }
 
-  .status-card {
-    padding: 18px;
+  .stats div {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
   }
 
-  .status-card p,
-  .graph-shell__header p {
-    margin: 10px 0 0;
+  .stats dt {
     color: var(--muted);
-    line-height: 1.55;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
-  .graph-shell__canvas {
-    position: relative;
-    height: 320px;
+  .stats dd {
+    margin: 8px 0 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .graph-panel {
     margin-top: 18px;
-    overflow: hidden;
+    padding: 14px;
+  }
+
+  .graph-panel__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .graph-panel__header p {
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .graph-scroll {
+    margin-top: 12px;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+    border: 1px solid var(--line);
     border-radius: 18px;
-    border: 1px solid rgba(19, 34, 45, 0.1);
-    background:
-      repeating-linear-gradient(
-        90deg,
-        rgba(19, 34, 45, 0.03) 0,
-        rgba(19, 34, 45, 0.03) 1px,
-        transparent 1px,
-        transparent 52px
-      ),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(247, 241, 231, 0.92));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 242, 233, 0.98));
   }
 
-  .strand {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 10px;
-    border-radius: 999px;
-    opacity: 0.85;
+  .graph {
+    display: block;
   }
 
-  .strand--top {
-    top: 72px;
-    background: linear-gradient(90deg, var(--teal), rgba(0, 117, 109, 0.2));
+  .grid-line {
+    stroke: rgba(16, 33, 43, 0.06);
+    stroke-width: 1;
   }
 
-  .strand--mid {
-    top: 148px;
-    background: linear-gradient(90deg, var(--sand), rgba(192, 140, 50, 0.2));
+  .grid-line--pick {
+    stroke: rgba(154, 91, 31, 0.06);
   }
 
-  .strand--bot {
-    top: 224px;
-    background: linear-gradient(90deg, var(--red), rgba(143, 34, 49, 0.2));
+  .band-divider {
+    stroke: rgba(16, 33, 43, 0.22);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
   }
 
-  .node {
-    position: absolute;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--ink);
-    box-shadow: 0 0 0 6px rgba(19, 34, 45, 0.08);
+  .segment {
+    stroke: var(--player);
+    stroke-width: 4.5;
+    stroke-linecap: round;
   }
 
-  .node--a { top: 68px; left: 24%; }
-  .node--b { top: 144px; left: 52%; }
-  .node--c { top: 220px; left: 74%; }
+  .segment--pick {
+    stroke: var(--pick);
+    stroke-width: 2.5;
+    stroke-dasharray: 7 5;
+  }
+
+  .segment-label {
+    fill: var(--ink);
+    font-size: 10px;
+  }
+
+  .segment-label--player {
+    fill: rgba(16, 33, 43, 0.76);
+  }
+
+  .segment-label--pick {
+    fill: var(--pick);
+  }
+
+  .slot-label {
+    fill: rgba(16, 33, 43, 0.55);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .slot-label--pick {
+    fill: rgba(154, 91, 31, 0.8);
+  }
+
+  .slot-dot {
+    fill: var(--player);
+  }
+
+  .slot-dot--pick {
+    fill: var(--pick);
+  }
+
+  .connector {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+
+  .connector--in {
+    stroke: rgba(17, 109, 103, 0.45);
+  }
+
+  .connector--out {
+    stroke: rgba(143, 34, 49, 0.45);
+  }
+
+  .connector--move {
+    stroke: rgba(16, 33, 43, 0.3);
+  }
+
+  .event-guide {
+    stroke: rgba(16, 33, 43, 0.1);
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+  }
+
+  .event-spine {
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+
+  .event-spine--trade {
+    stroke: rgba(143, 34, 49, 0.35);
+  }
+
+  .event-spine--signing {
+    stroke: rgba(32, 77, 141, 0.28);
+  }
+
+  .event-spine--waiver {
+    stroke: rgba(124, 107, 77, 0.28);
+  }
+
+  .event-spine--draft {
+    stroke: rgba(106, 59, 165, 0.28);
+  }
+
+  .event-point {
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 3;
+  }
+
+  .event-point--trade {
+    fill: var(--event-trade);
+  }
+
+  .event-point--signing {
+    fill: var(--event-signing);
+  }
+
+  .event-point--waiver {
+    fill: var(--event-waiver);
+  }
+
+  .event-point--draft {
+    fill: var(--event-draft);
+  }
+
+  .event-date,
+  .event-label {
+    fill: var(--ink);
+    font-size: 10px;
+  }
+
+  .event-date {
+    font-weight: 700;
+  }
+
+  @media (max-width: 720px) {
+    .stats {
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
+    }
+  }
 </style>

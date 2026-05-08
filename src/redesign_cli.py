@@ -9,11 +9,23 @@ import psycopg
 from psycopg import sql
 
 from db_config import load_database_url
-from foundation.export import build_empty_base_export
-from foundation.ingest import bootstrap_foundation_ingest_schema, serialize_foundation_ingest_sample_bundle
+from foundation.canonical import (
+    bootstrap_foundation_canonical_schema,
+    derive_foundation_canonical_bundle_from_database,
+    load_foundation_canonical_bundle,
+)
+from foundation.export import build_base_export_from_database, build_empty_base_export
+from foundation.ingest import (
+    bootstrap_foundation_ingest_schema,
+    derive_foundation_entities_from_database,
+    load_derived_foundation_entities,
+    serialize_foundation_ingest_sample_bundle,
+)
 from foundation.live_sources import (
+    load_bref_roster_baseline,
     load_bref_source_events,
     load_nba_reference,
+    preview_bref_roster_baseline,
     preview_bref_source_events,
     preview_nba_reference,
 )
@@ -41,12 +53,28 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("reset-db-state", help="Drop current non-system schemas and clear public objects to restart from scratch.")
     bootstrap_foundation_parser = subparsers.add_parser("bootstrap-foundation-ingest", help="Apply the reset-era foundation ingest bootstrap SQL.")
     bootstrap_foundation_parser.add_argument("--sql-path", default="sql/0001_foundation_ingest_bootstrap.sql")
+    bootstrap_roster_parser = subparsers.add_parser("bootstrap-foundation-roster-baseline", help="Apply the reset-era foundation roster baseline bootstrap SQL.")
+    bootstrap_roster_parser.add_argument("--sql-path", default="sql/0003_foundation_roster_baseline_bootstrap.sql")
+    bootstrap_canonical_parser = subparsers.add_parser("bootstrap-foundation-canonical", help="Apply the reset-era foundation canonical bootstrap SQL.")
+    bootstrap_canonical_parser.add_argument("--sql-path", default="sql/0002_foundation_canonical_bootstrap.sql")
+    subparsers.add_parser("preview-derived-foundation-entities", help="Build player, pick, and asset rows from the current foundation.source_event table without writing.")
+    subparsers.add_parser("load-derived-foundation-entities", help="Build and load player, pick, and asset rows from the current foundation.source_event table.")
+    subparsers.add_parser("preview-foundation-canonical", help="Build canonical events, members, and transitions from the current foundation tables without writing.")
+    subparsers.add_parser("load-foundation-canonical", help="Build and load canonical events, members, and transitions from the current foundation tables.")
+    export_graph_parser = subparsers.add_parser("export-foundation-graph", help="Build the first graph-ready export from the current foundation tables.")
+    export_graph_parser.add_argument("--output-path", default=None)
     preview_bref_parser = subparsers.add_parser("preview-bref-source-events", help="Fetch and normalize one Basketball-Reference transactions season without writing to the database.")
     preview_bref_parser.add_argument("--team-code", default="MEM")
     preview_bref_parser.add_argument("--season-end-year", type=int, required=True)
     load_bref_parser = subparsers.add_parser("load-bref-source-events", help="Fetch and load one Basketball-Reference transactions season into foundation.source_record and foundation.source_event.")
     load_bref_parser.add_argument("--team-code", default="MEM")
     load_bref_parser.add_argument("--season-end-year", type=int, required=True)
+    preview_bref_roster_parser = subparsers.add_parser("preview-bref-roster-baseline", help="Fetch and normalize one Basketball-Reference team roster page without writing to the database.")
+    preview_bref_roster_parser.add_argument("--team-code", default="MEM")
+    preview_bref_roster_parser.add_argument("--season-end-year", type=int, required=True)
+    load_bref_roster_parser = subparsers.add_parser("load-bref-roster-baseline", help="Fetch and load one Basketball-Reference team roster baseline into foundation.source_record, foundation.player, and foundation.roster_baseline_player.")
+    load_bref_roster_parser.add_argument("--team-code", default="MEM")
+    load_bref_roster_parser.add_argument("--season-end-year", type=int, required=True)
     preview_nba_parser = subparsers.add_parser("preview-nba-reference", help="Fetch and normalize NBA stats player and roster reference data without writing to the database.")
     preview_nba_parser.add_argument("--season", required=True)
     preview_nba_parser.add_argument("--team-id", type=int, default=1610612763)
@@ -195,10 +223,22 @@ def command_inspect_foundation_counts() -> dict[str, object]:
     counts: dict[str, int] = {}
     with psycopg.connect(database_url, connect_timeout=10) as connection:
         with connection.cursor() as cursor:
-            for table_name in ("source_record", "source_event", "player", "pick", "asset"):
-                cursor.execute(
-                    sql.SQL("select count(*) from foundation.{}").format(sql.Identifier(table_name))
-                )
+            for table_name in (
+                "source_record",
+                "source_event",
+                "player",
+                "pick",
+                "asset",
+                "roster_baseline_player",
+                "canonical_event",
+                "canonical_event_member",
+                "event_asset_transition",
+            ):
+                cursor.execute("select to_regclass(%s)", (f"foundation.{table_name}",))
+                if cursor.fetchone()[0] is None:
+                    counts[table_name] = 0
+                    continue
+                cursor.execute(sql.SQL("select count(*) from foundation.{}").format(sql.Identifier(table_name)))
                 counts[table_name] = int(cursor.fetchone()[0])
     return {
         "status": "ok",
@@ -222,6 +262,57 @@ def main() -> None:
     elif args.command == "bootstrap-foundation-ingest":
         bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
         payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "bootstrap-foundation-roster-baseline":
+        bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
+        payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "bootstrap-foundation-canonical":
+        bootstrap_foundation_canonical_schema(load_database_url(), sql_path=Path(args.sql_path))
+        payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "preview-derived-foundation-entities":
+        derived = derive_foundation_entities_from_database(load_database_url())
+        payload = {
+            "status": "ok",
+            "players": len(derived.players),
+            "picks": len(derived.picks),
+            "assets": len(derived.assets),
+            "first_player": derived.players[0].model_dump(mode="json") if derived.players else None,
+            "first_pick": derived.picks[0].model_dump(mode="json") if derived.picks else None,
+            "first_asset": derived.assets[0].model_dump(mode="json") if derived.assets else None,
+        }
+    elif args.command == "load-derived-foundation-entities":
+        counts = load_derived_foundation_entities(load_database_url())
+        payload = {"status": "ok", **counts}
+    elif args.command == "preview-foundation-canonical":
+        bundle = derive_foundation_canonical_bundle_from_database(load_database_url())
+        payload = {
+            "status": "ok",
+            "canonical_events": len(bundle.canonical_events),
+            "canonical_event_members": len(bundle.canonical_event_members),
+            "event_asset_transitions": len(bundle.event_asset_transitions),
+            "first_canonical_event": bundle.canonical_events[0].model_dump(mode="json") if bundle.canonical_events else None,
+            "first_transition": bundle.event_asset_transitions[0].model_dump(mode="json") if bundle.event_asset_transitions else None,
+        }
+    elif args.command == "load-foundation-canonical":
+        counts = load_foundation_canonical_bundle(load_database_url())
+        payload = {"status": "ok", **counts}
+    elif args.command == "preview-bref-roster-baseline":
+        payload = preview_bref_roster_baseline(team_code=args.team_code, season_end_year=args.season_end_year)
+    elif args.command == "load-bref-roster-baseline":
+        payload = load_bref_roster_baseline(load_database_url(), team_code=args.team_code, season_end_year=args.season_end_year)
+    elif args.command == "export-foundation-graph":
+        export = build_base_export_from_database(load_database_url())
+        payload = export.model_dump(mode="json")
+        if args.output_path:
+            Path(args.output_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+            payload = {
+                "status": "ok",
+                "output_path": args.output_path,
+                "events": len(export.events),
+                "player_assets": len(export.player_assets),
+                "pick_assets": len(export.pick_assets),
+                "transitions": len(export.transitions),
+                "roster_snapshots": len(export.roster_snapshots),
+            }
     elif args.command == "preview-bref-source-events":
         payload = preview_bref_source_events(team_code=args.team_code, season_end_year=args.season_end_year)
     elif args.command == "load-bref-source-events":

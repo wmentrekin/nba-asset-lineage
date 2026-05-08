@@ -34,8 +34,40 @@ The data model is split into four conceptual layers:
 3. reference entities
 4. frontend export
 
-The frontend export is derived later. The durable truth lives in the first
-three layers.
+The frontend export is now intentionally constrained to a first graph-ready
+shape derived from the current foundation tables. The durable truth still lives
+in the first three layers.
+
+## First Graph-Ready Export
+
+The first export contract should read from the current reset-era tables only:
+
+- `foundation.player`
+- `foundation.pick`
+- `foundation.asset`
+- `foundation.canonical_event`
+- `foundation.event_asset_transition`
+- `foundation.roster_baseline_player` as an optional player-enrichment layer
+
+The export payload contains exactly these top-level sections for now:
+
+- `events`
+- `player_assets`
+- `pick_assets`
+- `transitions`
+- `roster_snapshots`
+
+Current export constraints:
+
+- `events` come from `canonical_event`
+- `player_assets` come from `asset` joined to `player`, with optional
+  `baseline_order` and `years_experience` enrichment from
+  `roster_baseline_player`
+- `pick_assets` come from `asset` joined to `pick`
+- `transitions` come from `event_asset_transition`
+- `roster_snapshots` remains an empty array in the first pass
+- no roster-state validation is required yet
+- no frontend layout or rendering semantics belong in this contract yet
 
 ## Object Definitions
 
@@ -71,6 +103,8 @@ Proposed fields:
 - `draft_year`
 - `round_number`
 - `original_team`
+  - nullable in the current reset-era table when source text does not yet give a
+    clean team identity
 - `protection_text`
   - normalized text summary
 - `swap_text`
@@ -97,9 +131,10 @@ Proposed fields:
   - nullable, required when `asset_kind = player`
 - `pick_id`
   - nullable, required when `asset_kind = pick`
-- `start_canonical_event_id`
-  - nullable for pre-scope continuity
-- `end_canonical_event_id`
+- `start_source_event_id`
+  - current reset-era table anchor before canonical continuity boundaries are
+    frozen
+- `end_source_event_id`
   - nullable while continuity remains active
 
 ### `source_record`
@@ -198,6 +233,28 @@ Proposed fields:
 - `display_text`
   - optional normalized text for diagnostics/debugging
 
+## First-Pass Canonical Rules
+
+The first canonical implementation should stay smaller than the eventual full
+lineage system.
+
+Lock these rules first:
+
+- non-trade `source_event` rows remain one-to-one `canonical_event` rows
+- same-day Memphis `trade` `source_event` rows group into one canonical trade
+  event
+- every grouped source row must appear in `canonical_event_member`
+- `event_asset_transition` is derived from grouped member
+  `normalized_payload` assets:
+  - inbound assets create `in` transitions
+  - outbound assets create `out` transitions
+- the canonical layer does not add narrative, editorial, or chapter concepts
+
+The first pass does not yet freeze a richer interpretation layer for cases like
+`conversion`, `re_signing`, or `extension`. Until that mapping is agreed, the
+canonical build should preserve the normalized source meaning rather than invent
+new editorial semantics.
+
 ### `roster_snapshot`
 
 Represents Memphis-held current state after an event or at a checkpoint.
@@ -221,6 +278,9 @@ Recommended child rows:
   - `asset_id`
 
 These should be normalized child tables rather than arrays in the base schema.
+
+The first graph-ready export does not populate these yet. They remain a future
+validation/state layer once the underlying roster truth is stable.
 
 ## Source Areas
 

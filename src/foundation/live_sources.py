@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 import psycopg
 
-from foundation.ingest import PlayerRow, SourceEventRow, SourceRecordRow
+from foundation.ingest import PlayerRow, RosterBaselinePlayerRow, SourceEventRow, SourceRecordRow, upsert_roster_baseline_players
 from foundation.prototypes import normalize_common_all_players_row, normalize_common_team_roster_row
 from foundation.workbench import normalize_bref_transaction_block
 
@@ -32,9 +32,20 @@ def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
     return f"https://www.basketball-reference.com/teams/{team_code.upper()}/{season_end_year}_transactions.html"
 
 
+def build_bref_team_season_url(team_code: str, season_end_year: int) -> str:
+    return f"https://www.basketball-reference.com/teams/{team_code.upper()}/{season_end_year}.html"
+
+
 def fetch_bref_transactions_html(team_code: str, season_end_year: int) -> str:
     return fetch_text(
         build_bref_transactions_url(team_code=team_code, season_end_year=season_end_year),
+        headers={"User-Agent": BREF_USER_AGENT},
+    )
+
+
+def fetch_bref_team_season_html(team_code: str, season_end_year: int) -> str:
+    return fetch_text(
+        build_bref_team_season_url(team_code=team_code, season_end_year=season_end_year),
         headers={"User-Agent": BREF_USER_AGENT},
     )
 
@@ -157,6 +168,137 @@ def preview_bref_source_events(*, team_code: str, season_end_year: int) -> dict[
         "source_events": len(source_events),
         "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
         "first_source_event": source_events[0].model_dump(mode="json") if source_events else None,
+        "season_end_year": season_end_year,
+        "team_code": team_code.upper(),
+    }
+
+
+def extract_bref_roster_rows(html: str) -> list[dict[str, object]]:
+    roster_match = re.search(r'<table[^>]*id="roster"[^>]*>(?P<body>.*?)</table>', html, re.S | re.I)
+    if not roster_match:
+        return []
+    body = roster_match.group("body")
+    row_pattern = re.compile(r"<tr[^>]*>(?P<row>.*?)</tr>", re.S | re.I)
+    cell_pattern = re.compile(r'<(?:th|td)(?P<attrs>[^>]*)>(?P<value>.*?)</(?:th|td)>', re.S | re.I)
+
+    rows: list[dict[str, object]] = []
+    for row_match in row_pattern.finditer(body):
+        row_html = row_match.group("row")
+        row: dict[str, object] = {}
+        for cell_match in cell_pattern.finditer(row_html):
+            attrs = cell_match.group("attrs")
+            key_match = re.search(r'data-stat="(?P<key>[^"]+)"', attrs)
+            if not key_match:
+                continue
+            key = key_match.group("key")
+            value = clean_html(cell_match.group("value"))
+            row[key] = value
+            csv_match = re.search(r'data-append-csv="(?P<csv>[^"]+)"', attrs)
+            csv_value = csv_match.group("csv") if csv_match else None
+            if csv_value:
+                row[f"{key}_ref"] = csv_value
+        if (
+            "player" in row
+            and isinstance(row["player"], str)
+            and row["player"]
+            and row["player"] != "Player"
+        ):
+            rows.append(row)
+    return rows
+
+
+def build_bref_roster_rows(
+    *,
+    team_code: str,
+    season_end_year: int,
+    html: str,
+) -> tuple[list[SourceRecordRow], list[PlayerRow], list[RosterBaselinePlayerRow]]:
+    roster_rows = extract_bref_roster_rows(html)
+    source_record_id = f"bref:{team_code.lower()}:{season_end_year}:roster"
+    source_record = SourceRecordRow(
+        source_record_id=source_record_id,
+        source_system="basketball_reference",
+        source_type="team_roster_page",
+        source_locator=build_bref_team_season_url(team_code=team_code, season_end_year=season_end_year),
+        fetched_at=utc_now_iso(),
+        raw_payload={
+            "team_code": team_code.upper(),
+            "season_end_year": season_end_year,
+            "roster_rows": roster_rows,
+        },
+    )
+
+    players: list[PlayerRow] = []
+    baseline_rows: list[RosterBaselinePlayerRow] = []
+    season = f"{season_end_year - 1}-{str(season_end_year)[-2:]}"
+    for roster_order, row in enumerate(roster_rows, start=1):
+        display_name = str(row["player"])
+        bbr_ref = str(row.get("player_ref")) if row.get("player_ref") else None
+        player_id = f"player:{slugify_name(display_name)}"
+        players.append(
+            PlayerRow(
+                player_id=player_id,
+                display_name=display_name,
+                nba_player_ref=bbr_ref,
+                birth_date=str(row.get("birth_date")) if row.get("birth_date") else None,
+                position_text=str(row.get("pos")) if row.get("pos") else None,
+            )
+        )
+        experience_raw = row.get("years_experience")
+        years_experience = int(experience_raw) if isinstance(experience_raw, str) and experience_raw.isdigit() else None
+        baseline_rows.append(
+            RosterBaselinePlayerRow(
+                season=season,
+                team_code=team_code.upper(),
+                player_id=player_id,
+                display_name=display_name,
+                source_record_id=source_record_id,
+                roster_order=roster_order,
+                nba_player_ref=bbr_ref,
+                birth_date=str(row.get("birth_date")) if row.get("birth_date") else None,
+                position_text=str(row.get("pos")) if row.get("pos") else None,
+                years_experience=years_experience,
+            )
+        )
+
+    return [source_record], players, baseline_rows
+
+
+def preview_bref_roster_baseline(*, team_code: str, season_end_year: int) -> dict[str, object]:
+    html = fetch_bref_team_season_html(team_code=team_code, season_end_year=season_end_year)
+    source_records, players, baseline_rows = build_bref_roster_rows(
+        team_code=team_code,
+        season_end_year=season_end_year,
+        html=html,
+    )
+    return {
+        "status": "ok",
+        "source_records": len(source_records),
+        "players": len(players),
+        "baseline_rows": len(baseline_rows),
+        "first_player": players[0].model_dump(mode="json") if players else None,
+        "season_end_year": season_end_year,
+        "team_code": team_code.upper(),
+    }
+
+
+def load_bref_roster_baseline(database_url: str, *, team_code: str, season_end_year: int) -> dict[str, object]:
+    html = fetch_bref_team_season_html(team_code=team_code, season_end_year=season_end_year)
+    source_records, players, baseline_rows = build_bref_roster_rows(
+        team_code=team_code,
+        season_end_year=season_end_year,
+        html=html,
+    )
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        upsert_players(connection, players)
+        upsert_roster_baseline_players(connection, baseline_rows)
+        connection.commit()
+    return {
+        "status": "ok",
+        "source_records": len(source_records),
+        "players": len(players),
+        "baseline_rows": len(baseline_rows),
         "season_end_year": season_end_year,
         "team_code": team_code.upper(),
     }
@@ -339,6 +481,12 @@ def upsert_players(connection: psycopg.Connection, rows: list[PlayerRow]) -> Non
                     row.position_text,
                 ),
             )
+
+
+def slugify_name(value: str) -> str:
+    normalized = value.lower()
+    normalized = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
+    return normalized
 
 
 def fetch_text(url: str, headers: dict[str, str], timeout: int = 20, retries: int = 3, retry_delay: float = 1.0) -> str:

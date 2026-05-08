@@ -13,7 +13,13 @@ lineage page:
 
 - transactions as nodes
 - player and pick continuity as strands
-- roster state used to validate continuity
+- export sections for `events`, `player_assets`, `pick_assets`, `transitions`,
+  and `roster_snapshots`
+- `player_assets` may carry roster-baseline metadata like `baseline_order` and
+  `years_experience` to support slot ordering in the frontend
+- `roster_snapshots` present but empty for the first pass
+- no roster-state validation yet
+- no frontend layout semantics yet
 
 ## Planned Work Areas
 
@@ -39,6 +45,25 @@ The repo now has:
 - first live-source loader scaffolding for:
   - Basketball-Reference transactions
   - NBA stats player and roster references
+- a checked-in derivation path from `foundation.source_event` into:
+  - `foundation.player`
+  - `foundation.pick`
+  - `foundation.asset`
+- a documented first-pass canonical contract for:
+  - `canonical_event`
+  - `canonical_event_member`
+  - `event_asset_transition`
+- a first graph-ready export contract defined around current foundation tables:
+  - reads from `foundation.player`
+  - reads from `foundation.pick`
+  - reads from `foundation.asset`
+  - reads from `foundation.canonical_event`
+  - reads from `foundation.event_asset_transition`
+  - enriches `player_assets` from `foundation.roster_baseline_player` when
+    baseline data exists
+  - emits empty `roster_snapshots` until roster-state truth is added
+- a roster-baseline layer for filling in current-team player presence even when
+  the transaction baseline alone would miss long-tenured incumbents
 - checked-in inspection commands for:
   - overall schema state
   - active `foundation` table row counts

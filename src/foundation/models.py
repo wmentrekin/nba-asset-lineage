@@ -8,14 +8,9 @@ from pydantic import BaseModel, Field
 AssetKind = Literal["player", "pick"]
 EventType = Literal[
     "trade",
-    "draft_pick",
+    "draft",
     "waiver",
     "signing",
-    "re_signing",
-    "extension",
-    "conversion",
-    "release",
-    "other",
 ]
 TransitionType = Literal["continuity", "pick_to_player", "acquired", "departed"]
 
@@ -24,6 +19,8 @@ class PlayerAsset(BaseModel):
     asset_id: str
     player_id: str
     display_name: str
+    years_experience: int | None = None
+    baseline_order: int | None = None
     kind: Literal["player"] = "player"
 
 
