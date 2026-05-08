@@ -21,8 +21,9 @@ The current build order is:
 2. define the source systems required for that output
 3. define the durable Supabase storage model
 4. ingest and validate the source data
-5. export a graph-ready lineage dataset
-6. render that dataset in Astro
+5. group events and build lineage truth
+6. export a graph-ready lineage dataset
+7. render that dataset in Astro
 
 The important constraint is that schema and frontend work should follow the data
 truth, not get ahead of it.
@@ -73,6 +74,16 @@ mise run frontend_build
 ```
 
 These are temporary scaffolding commands, not the long-term workflow.
+
+The checked-in Python CLI now also supports reset-era foundation tasks such as:
+
+- DB inspection and reset
+- foundation table row-count inspection
+- foundation ingest bootstrap
+- normalization workbench preview
+- sample ingest bundle build
+- live Basketball-Reference transaction preview/load
+- live NBA stats reference preview/load
 
 ## Environment
 

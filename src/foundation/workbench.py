@@ -347,7 +347,7 @@ def parse_trade_sentence(sentence: str) -> tuple[WorkbenchAssetParse, WorkbenchA
             notes.append("trade_exception_ignored")
             continue
 
-            notes.append(f"unparsed_trade_clause:{raw_clause}")
+        notes.append(f"unparsed_trade_clause:{raw_clause}")
 
     inbound = WorkbenchAssetParse(
         players=inbound_players,
