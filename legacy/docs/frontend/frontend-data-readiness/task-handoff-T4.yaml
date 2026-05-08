@@ -1,0 +1,52 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-data-readiness"
+task_id: "T4"
+owner_skill: implement
+
+objective: "Run the reproducible readiness workflow against the live Memphis generated artifacts and write the durable readiness report and summary."
+why_this_matters: "The project needs a committed, reproducible readiness report that separates frontend blockers from limited-evidence upstream data limitations."
+
+inputs:
+  requirements: "docs/frontend/frontend-data-readiness/requirements.yaml"
+  plan: "docs/frontend/frontend-data-readiness/plan.yaml"
+  relevant_paths:
+    - "docs/frontend/frontend-data-readiness/plan.yaml"
+    - "docs/frontend/frontend-data-readiness/requirements.yaml"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-report.yaml"
+    - "docs/frontend/frontend-data-readiness/summary.md"
+    - "src/redesign_cli.py"
+    - "mise.toml"
+    - "frontend/src/data/generated/"
+
+scope:
+  owned:
+    - "docs/frontend/frontend-data-readiness/readiness-report.yaml"
+    - "docs/frontend/frontend-data-readiness/summary.md"
+  forbidden:
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "frontend/src/lib/"
+    - "src/presentation/validate.py"
+    - "src/redesign_cli.py"
+
+implementation_notes:
+  - "This is the first task that must enforce full chapter selector satisfaction end to end."
+  - "If regeneration cannot run, write a blocked-mode report rather than using stale artifacts."
+  - "A blocked-mode report is acceptable only as a blocked implementation state, not as final completion."
+
+validation_expected:
+  - "`mise run frontend_data_readiness_audit` runs or fails into blocked mode deterministically."
+  - "A committed readiness report exists and matches the frozen report schema."
+  - "The summary distinguishes frontend-only concerns from limited-evidence upstream data limitations."
+  - "If the environment cannot regenerate, the report is blocked-mode and says so explicitly."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

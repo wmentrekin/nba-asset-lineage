@@ -1,0 +1,70 @@
+# Contract: implementation handoff from $implement to $review, $test, and $validate
+
+artifact: implementation_report
+feature: "frontend-data-readiness"
+status: draft
+owner_skill: implement
+based_on: "docs/frontend/frontend-data-readiness/plan.yaml"
+
+tasks_attempted:
+  - "T1"
+  - "T2"
+  - "T3"
+  - "T4"
+tasks_completed:
+  - "T1"
+  - "T2"
+  - "T3"
+
+changes:
+  files:
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "src/presentation/validate.py"
+    - "src/redesign_cli.py"
+    - "mise.toml"
+    - "tests/presentation/test_frontend_data_readiness.py"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "docs/frontend/frontend-data-readiness/readiness-report.yaml"
+    - "docs/frontend/frontend-data-readiness/summary.md"
+  modules:
+    - "frontend data readiness rubric/report contract"
+    - "frontend data readiness audit classifier and CLI"
+    - "frontend chapter contract alignment"
+    - "blocked-mode readiness reporting"
+  docs_updated:
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "docs/frontend/frontend-data-readiness/readiness-report.yaml"
+    - "docs/frontend/frontend-data-readiness/summary.md"
+
+local_validation:
+  checks_run:
+    - "T1: YAML parse and selector-format validation for `readiness-matrix.yaml`."
+    - "T1: `rg` presence check for required rubric/report-contract terms."
+    - "T2: `uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help`."
+    - "T2: `rg -n \"frontend_data_readiness_audit\" mise.toml`."
+    - "T2: `uv --cache-dir /tmp/uv-cache run pytest -q tests/presentation/test_frontend_data_readiness.py` -> passed (`5 passed`)."
+    - "T2: `uv --cache-dir /tmp/uv-cache run pytest -q tests/presentation` -> passed (`21 passed`)."
+    - "T3: `mise run stage8_test` -> passed (`22 passed`)."
+    - "T3: `mise run stage8_build` -> passed."
+    - "T4: `mise run frontend_data_readiness_audit` -> wrote blocked-mode report after `stage6_export` host-resolution failure."
+    - "T4: read-back verification of blocked-mode report semantics."
+  failures:
+    - "Live regeneration during T4 failed at `stage6_export` because the configured database host could not be resolved in the current environment."
+  skipped:
+    - "Non-blocked live readiness report generation was not completed because T4 could not reach the database."
+
+known_issues:
+  - "The committed `readiness-report.yaml` and `summary.md` are blocked-mode artifacts, not a successful live readiness audit."
+  - "Live readiness classification remains unknown until `mise run frontend_data_readiness_audit` can complete in a DB-capable environment."
+  - "Chapter selector satisfaction is implemented in the frontend and enforced by plan, but T4 could not reach the end-to-end non-blocked audit state."
+
+blockers:
+  - "T4 is blocked by environment/network access to the configured Supabase host during `stage6_export`."
+  - "A follow-up escalated rerun was interrupted, so there is no successful DB-backed rerun result in this turn."
+
+recommended_next_step: debug

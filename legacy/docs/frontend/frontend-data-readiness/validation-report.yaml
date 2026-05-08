@@ -1,0 +1,50 @@
+# Contract: final readiness decision from $validate
+
+artifact: validation_report
+feature: "frontend-data-readiness"
+status: draft
+owner_skill: validate
+based_on:
+  requirements: "docs/frontend/frontend-data-readiness/requirements.yaml"
+  plan: "docs/frontend/frontend-data-readiness/plan.yaml"
+  implementation: "docs/frontend/frontend-data-readiness/implementation-report.yaml"
+
+final_status: READY_WITH_CAVEATS
+
+acceptance_criteria_status:
+  satisfied:
+    - "The implementation produced a bounded frontend-data-readiness audit surface rather than reopening frontend redesign work."
+    - "The workflow now audits live frontend-facing exports end to end instead of only inspecting checked-in artifacts."
+    - "The readiness report explicitly distinguishes schema support, live population, and frontend consumption."
+    - "The live audit captures both current strengths and current gaps, including pick-to-player and `asset_id`-scoped continuity strengths plus weak `two_way`, protection, chapter, and identity-marker areas."
+    - "The chapter export / chapter-layout / frontend-consumption mismatch was addressed in frontend code, and the readiness workflow now evaluates chapter-related rows through the approved contract boundary."
+    - "The report distinguishes live generated-data coverage from schema/test support."
+  unsatisfied:
+    - "The underlying frontend data itself is not yet strong enough for a `ready` audit outcome; the live report remains `weak`."
+  unverified:
+    - "No separate `$review` phase was run after implementation; this validation relies on the task-level validations and the live audit output."
+
+evidence:
+  review_status: "No dedicated `$review` run in this workflow."
+  test_status: "Acceptable task-level validation: T2 pytest coverage passed (`tests/presentation/test_frontend_data_readiness.py` and full `tests/presentation`), T3 `mise run stage8_test` and `mise run stage8_build` passed, and the live `mise run frontend_data_readiness_audit` workflow completed successfully outside the sandbox."
+  pre_commit_checks:
+    - "T1: YAML parse and selector-format validation for `docs/frontend/frontend-data-readiness/readiness-matrix.yaml`."
+    - "T2: `uv --cache-dir /tmp/uv-cache run pytest -q tests/presentation/test_frontend_data_readiness.py`."
+    - "T2: `uv --cache-dir /tmp/uv-cache run pytest -q tests/presentation`."
+    - "T3: `mise run stage8_test`."
+    - "T3: `mise run stage8_build`."
+    - "T4: `mise run frontend_data_readiness_audit` (successful live rerun outside sandbox)."
+
+remaining_caveats:
+  - "The current live readiness result is `weak`, not `ready`."
+  - "`two_way` remains weak because no live `two_way` rows are present in presentation or layout exports."
+  - "`pick_protections_swaps` remains weak because live pick strands have zero non-null `protection_summary` and zero non-empty `protection_payload`."
+  - "`chapter_rows` remains weak because only one editorial chapter row and one `chapter_layout` row are currently exported."
+  - "`chapter_focus_fields` remains weak because no exported chapter row currently has populated focus fields."
+  - "`identity_markers` remains weak because all live identity markers are text-only and no image-backed markers are populated."
+  - "The successful live audit required running outside the sandbox; sandboxed runs still fail at host resolution."
+
+next_actions:
+  - "Use the generated live readiness report as the source of truth for deciding the next data-pipeline follow-up."
+  - "If the next goal is to improve the weak rows, run `$implement frontend/frontend-data-readiness` or a new bounded follow-up feature focused on one or more of: `two_way`, `pick_protections_swaps`, chapter population, or headshot-backed identity markers."
+  - "If the repo record should reflect the successful live rerun, do a short bookkeeping implementation pass to update `docs/frontend/frontend-data-readiness/implementation-report.yaml`."

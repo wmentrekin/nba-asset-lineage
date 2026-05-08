@@ -3,9 +3,6 @@ __pycache__/
 *.py[codz]
 *$py.class
 
-# Agent files
-agent-context/private/
-
 # Generated artifacts
 exports/
 frontend/node_modules/

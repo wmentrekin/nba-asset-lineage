@@ -1,112 +1,102 @@
 ---
-import presentationContract from "../data/generated/presentation-contract.json";
-import layoutContract from "../data/generated/layout-contract.json";
-import editorialChapters from "../data/generated/editorial-chapters.json";
-import {
-  buildTimelineContract,
-  buildTimelineLayout,
-  coerceGeneratedLayoutContract,
-  getContractBounds,
-  getDefaultUiState,
-  normalizeTimelineUiState,
-  renderTimelineScene,
-  type TimelineContract,
-} from "../lib/timeline";
-
-const timelineContract = buildTimelineContract(
-  presentationContract,
-  coerceGeneratedLayoutContract(layoutContract),
-  editorialChapters,
-) as TimelineContract;
-const bounds = getContractBounds(timelineContract);
-const initialState = normalizeTimelineUiState(timelineContract, getDefaultUiState(timelineContract, null));
-const initialLayout = buildTimelineLayout(timelineContract, initialState);
-const sceneMarkup = renderTimelineScene(initialLayout);
+import { RESET_STATUS_CARDS } from "../lib/foundation";
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Memphis Asset Lineage Atlas</title>
+    <title>Memphis Asset Lineage Reset</title>
     <meta
       name="description"
-      content="A graph-first Memphis asset lineage page that begins at the earliest contract date and carries through the full chronology."
+      content="Reset-era scaffold for rebuilding the Memphis asset lineage graph from first principles."
     />
   </head>
   <body>
     <main class="page">
-      <header class="heading">
-        <p class="eyebrow">Memphis Grizzlies asset lineage</p>
-        <h1>Memphis asset lineage atlas</h1>
-        <p class="heading__range">{bounds.start} to {bounds.end}</p>
-      </header>
+      <section class="hero">
+        <p class="eyebrow">Foundation reset</p>
+        <h1>Memphis asset lineage is being rebuilt from the data layer up.</h1>
+        <p class="lede">
+          The active repository focus is no longer the previous staged timeline prototype.
+          The next version starts with a smaller truth surface: transactions, assets, transitions,
+          and roster state.
+        </p>
+      </section>
 
-      <section class="atlas" aria-label="Memphis asset lineage timeline">
-        <div class="graph-frame">
-          <div class="timeline-shell">
-            <svg
-              id="timeline-svg"
-              viewBox={`0 0 ${initialLayout.width} ${initialLayout.height}`}
-              width={initialLayout.width}
-              height={initialLayout.height}
-              role="img"
-              aria-label="Memphis asset lineage graph"
-            >
-              <g id="timeline-scene" set:html={sceneMarkup}></g>
-            </svg>
-          </div>
+      <section class="status-grid" aria-label="Reset status">
+        {RESET_STATUS_CARDS.map((card) => (
+          <article class="status-card">
+            <h2>{card.title}</h2>
+            <p>{card.body}</p>
+          </article>
+        ))}
+      </section>
+
+      <section class="graph-shell" aria-label="Base graph target">
+        <header class="graph-shell__header">
+          <h2>Base graph target</h2>
+          <p>Transactions as nodes. Assets as continuity strands. No narrative layer yet.</p>
+        </header>
+
+        <div class="graph-shell__canvas">
+          <div class="strand strand--top"></div>
+          <div class="strand strand--mid"></div>
+          <div class="strand strand--bot"></div>
+          <div class="node node--a"></div>
+          <div class="node node--b"></div>
+          <div class="node node--c"></div>
         </div>
       </section>
     </main>
   </body>
 </html>
 
-<style is:global>
-  :global(:root) {
-    --page-ink: #11202a;
-    --page-muted: rgba(17, 32, 42, 0.7);
-    --page-line: rgba(17, 32, 42, 0.12);
-    --page-panel: rgba(255, 251, 245, 0.86);
-    --page-panel-strong: rgba(255, 253, 249, 0.94);
-    --roster: #00756d;
-    --two-way: #bf6b2d;
-    --future-picks: #9b7b17;
-    --accent: #8f2231;
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #13222d;
+    --muted: #56646f;
+    --line: rgba(19, 34, 45, 0.14);
+    --paper: #f7f2ea;
+    --panel: #fffdf8;
+    --teal: #00756d;
+    --sand: #c08c32;
+    --red: #8f2231;
   }
 
-  :global(body) {
+  body {
     margin: 0;
-    color: var(--page-ink);
+    color: var(--ink);
     background:
-      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 26%),
-      radial-gradient(circle at right, rgba(191, 107, 45, 0.12), transparent 24%),
-      linear-gradient(180deg, #f7f1e5 0%, #efe6d6 48%, #f9f6ef 100%);
+      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 24%),
+      linear-gradient(180deg, #faf6ef 0%, #f1e8db 100%);
     font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   }
 
   .page {
-    max-width: 1680px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 24px 18px 36px;
+    padding: 28px 18px 64px;
   }
 
-  .heading,
-  .graph-frame {
-    border: 1px solid var(--page-line);
-    background: var(--page-panel);
-    box-shadow: 0 22px 56px rgba(90, 62, 33, 0.08);
-  }
-
-  .heading {
-    margin-bottom: 16px;
-    padding: 20px 22px;
+  .hero,
+  .status-card,
+  .graph-shell {
+    border: 1px solid var(--line);
     border-radius: 24px;
+    background: rgba(255, 253, 248, 0.94);
+    box-shadow: 0 18px 40px rgba(60, 38, 14, 0.06);
+  }
+
+  .hero,
+  .graph-shell {
+    padding: 24px;
   }
 
   .eyebrow {
-    margin: 0 0 12px;
-    color: var(--accent);
+    margin: 0 0 10px;
+    color: var(--red);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -116,333 +106,92 @@ const sceneMarkup = renderTimelineScene(initialLayout);
   h1,
   h2 {
     margin: 0;
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-    font-weight: 600;
+    font-family: "Iowan Old Style", Georgia, serif;
   }
 
   h1 {
     max-width: 12ch;
-    font-size: clamp(2.2rem, 4vw, 3.8rem);
+    font-size: clamp(2.3rem, 4vw, 4.1rem);
     line-height: 0.95;
-    letter-spacing: -0.03em;
   }
 
-  h2 {
-    max-width: 20ch;
-    font-size: clamp(1.55rem, 2.1vw, 2.15rem);
-    line-height: 1;
+  .lede {
+    max-width: 68ch;
+    margin: 16px 0 0;
+    color: var(--muted);
+    line-height: 1.6;
   }
 
-  .heading__range {
-    margin: 12px 0 0;
-    color: var(--page-muted);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
   }
 
-  .atlas {
-    margin: 0;
+  .status-card {
+    padding: 18px;
   }
 
-  .graph-frame {
-    padding: 16px;
-    border-radius: 28px;
+  .status-card p,
+  .graph-shell__header p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .graph-shell__canvas {
+    position: relative;
+    height: 320px;
+    margin-top: 18px;
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(19, 34, 45, 0.1);
     background:
-      linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(248, 242, 233, 0.98)),
-      var(--page-panel-strong);
-  }
-
-  .timeline-shell {
-    overflow-x: auto;
-    overflow-y: hidden;
-    min-height: min(82vh, 1080px);
-    border-radius: 24px;
-    border: 1px solid rgba(17, 32, 42, 0.14);
-    background:
-      linear-gradient(180deg, rgba(251, 246, 238, 0.98), rgba(245, 237, 225, 0.98)),
       repeating-linear-gradient(
         90deg,
-        rgba(17, 32, 42, 0.025) 0,
-        rgba(17, 32, 42, 0.025) 1px,
+        rgba(19, 34, 45, 0.03) 0,
+        rgba(19, 34, 45, 0.03) 1px,
         transparent 1px,
-        transparent 48px
-      );
-    scrollbar-gutter: stable both-edges;
+        transparent 52px
+      ),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(247, 241, 231, 0.92));
   }
 
-  .timeline-shell::-webkit-scrollbar {
-    height: 14px;
-  }
-
-  .timeline-shell::-webkit-scrollbar-thumb {
-    border: 3px solid rgba(0, 0, 0, 0);
+  .strand {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 10px;
     border-radius: 999px;
-    background: rgba(17, 32, 42, 0.28);
-    background-clip: padding-box;
+    opacity: 0.85;
   }
 
-  svg {
-    display: block;
+  .strand--top {
+    top: 72px;
+    background: linear-gradient(90deg, var(--teal), rgba(0, 117, 109, 0.2));
   }
 
-  .timeline-band__fill {
-    stroke: none;
+  .strand--mid {
+    top: 148px;
+    background: linear-gradient(90deg, var(--sand), rgba(192, 140, 50, 0.2));
   }
 
-  .timeline-band__boundary {
-    stroke: rgba(17, 32, 42, 0.08);
-    stroke-width: 1;
+  .strand--bot {
+    top: 224px;
+    background: linear-gradient(90deg, var(--red), rgba(143, 34, 49, 0.2));
   }
 
-  .timeline-band__label {
-    fill: rgba(17, 32, 42, 0.68);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+  .node {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--ink);
+    box-shadow: 0 0 0 6px rgba(19, 34, 45, 0.08);
   }
 
-  .timeline-band--main_roster .timeline-band__fill {
-    fill: rgba(0, 117, 109, 0.09);
-  }
-
-  .timeline-band--two_way .timeline-band__fill {
-    fill: rgba(191, 107, 45, 0.08);
-  }
-
-  .timeline-band--future_picks .timeline-band__fill {
-    fill: rgba(155, 123, 23, 0.08);
-  }
-
-  .timeline-grid__lane {
-    stroke: rgba(17, 32, 42, 0.06);
-    stroke-width: 1;
-  }
-
-  .timeline-axis__tick {
-    stroke: rgba(17, 32, 42, 0.08);
-    stroke-width: 1;
-  }
-
-  .timeline-axis__tick--major {
-    stroke: rgba(143, 34, 49, 0.26);
-  }
-
-  .timeline-axis__label {
-    fill: rgba(17, 32, 42, 0.56);
-    font-size: 11px;
-    text-anchor: middle;
-  }
-
-  .timeline-axis__label--major {
-    fill: var(--accent);
-    font-weight: 700;
-  }
-
-  .timeline-marker__line {
-    stroke: rgba(143, 34, 49, 0.38);
-    stroke-width: 1.5;
-    stroke-dasharray: 4 5;
-  }
-
-  .timeline-marker__badge {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(143, 34, 49, 0.2);
-  }
-
-  .timeline-marker__text {
-    fill: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .timeline-strand {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    opacity: 0.96;
-    cursor: pointer;
-    transition: opacity 120ms ease, filter 120ms ease;
-  }
-
-  .timeline-strand--main_roster {
-    stroke: var(--roster);
-  }
-
-  .timeline-strand--two_way {
-    stroke: var(--two-way);
-    stroke-dasharray: 18 10;
-  }
-
-  .timeline-strand--future_picks,
-  .timeline-strand--pick_line {
-    stroke: var(--future-picks);
-  }
-
-  .timeline-inline-label,
-  .timeline-identity-marker {
-    pointer-events: none;
-  }
-
-  .timeline-inline-label__pill {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(17, 32, 42, 0.18);
-    stroke-width: 1;
-  }
-
-  .timeline-inline-label__text {
-    fill: var(--page-ink);
-    font-size: 12px;
-    font-weight: 700;
-    text-anchor: middle;
-  }
-
-  .timeline-inline-label--main_roster .timeline-inline-label__pill {
-    stroke: rgba(0, 117, 109, 0.32);
-  }
-
-  .timeline-inline-label--two_way .timeline-inline-label__pill {
-    stroke: rgba(191, 107, 45, 0.32);
-  }
-
-  .timeline-inline-label--future_picks .timeline-inline-label__pill {
-    stroke: rgba(155, 123, 23, 0.32);
-  }
-
-  .timeline-identity-marker__pill {
-    fill: rgba(255, 253, 249, 0.98);
-    stroke: rgba(17, 32, 42, 0.18);
-    stroke-width: 1;
-  }
-
-  .timeline-identity-marker__text {
-    fill: var(--page-ink);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .timeline-identity-marker__avatar-frame {
-    fill: rgba(255, 253, 249, 0.98);
-    stroke: rgba(17, 32, 42, 0.2);
-    stroke-width: 1.5;
-  }
-
-  .timeline-identity-marker--main_roster .timeline-identity-marker__pill {
-    stroke: rgba(0, 117, 109, 0.32);
-  }
-
-  .timeline-identity-marker--two_way .timeline-identity-marker__pill {
-    stroke: rgba(191, 107, 45, 0.32);
-  }
-
-  .timeline-identity-marker--future_picks .timeline-identity-marker__pill {
-    stroke: rgba(155, 123, 23, 0.32);
-  }
-
-  .timeline-junction__spine,
-  .timeline-junction__stem {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .timeline-junction__spine {
-    stroke: rgba(17, 32, 42, 0.26);
-    stroke-width: 1.8;
-  }
-
-  .timeline-junction__stem {
-    stroke-width: 2.4;
-    opacity: 0.88;
-  }
-
-  .timeline-junction__stem--main_roster {
-    stroke: rgba(0, 117, 109, 0.56);
-  }
-
-  .timeline-junction__stem--two_way {
-    stroke: rgba(191, 107, 45, 0.54);
-  }
-
-  .timeline-junction__stem--future_picks {
-    stroke: rgba(155, 123, 23, 0.56);
-  }
-
-  .timeline-transition {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    opacity: 0.94;
-  }
-
-  .timeline-transition--same_asset {
-    stroke: rgba(17, 32, 42, 0.82);
-    stroke-width: 2.5;
-  }
-
-  .timeline-transition--pick_to_player {
-    stroke: var(--future-picks);
-    stroke-width: 3;
-  }
-
-  .timeline-transition--event_transition {
-    stroke: rgba(17, 32, 42, 0.52);
-    stroke-width: 2.3;
-    stroke-dasharray: 10 7;
-  }
-
-  .timeline-node {
-    cursor: pointer;
-  }
-
-  .timeline-node__ring {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(17, 32, 42, 0.28);
-    stroke-width: 1.5;
-  }
-
-  .timeline-node__dot {
-    fill: var(--page-ink);
-    stroke: rgba(255, 252, 247, 0.98);
-    stroke-width: 2.5;
-  }
-
-  .timeline-strand.is-focused,
-  .timeline-node.is-focused,
-  .timeline-strand:hover,
-  .timeline-node:hover {
-    filter: drop-shadow(0 0 10px rgba(143, 34, 49, 0.16));
-    opacity: 1;
-  }
-
-  .is-hidden {
-    display: none;
-  }
-
-  .is-muted {
-    opacity: 0.6;
-  }
-
-  @media (max-width: 1180px) {
-    h1 {
-      max-width: 14ch;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .page {
-      padding: 16px 10px 28px;
-    }
-
-    .heading,
-    .graph-frame {
-      padding: 16px;
-    }
-
-    h1 {
-      font-size: clamp(2.2rem, 11vw, 3.9rem);
-    }
-  }
+  .node--a { top: 68px; left: 24%; }
+  .node--b { top: 144px; left: 52%; }
+  .node--c { top: 220px; left: 74%; }
 </style>

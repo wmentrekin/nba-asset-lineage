@@ -1,0 +1,47 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-data-readiness"
+task_id: "T3"
+owner_skill: implement
+
+objective: "Resolve the chapter contract/frontend mismatch so the frontend consumes chapter focus/navigation truth from `chapter_layout` and satisfies the selectors frozen by T1."
+why_this_matters: "The readiness audit cannot truthfully classify chapter rows if the frontend still expects nonexistent chapter-export focus payloads."
+
+inputs:
+  requirements: "docs/frontend/frontend-data-readiness/requirements.yaml"
+  plan: "docs/frontend/frontend-data-readiness/plan.yaml"
+  relevant_paths:
+    - "docs/frontend/frontend-data-readiness/plan.yaml"
+    - "docs/frontend/frontend-data-readiness/requirements.yaml"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+
+scope:
+  owned:
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+  forbidden:
+    - "src/"
+    - "tests/presentation/"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+
+implementation_notes:
+  - "Do not edit the matrix; conform the frontend code/tests to the selectors frozen by T1."
+  - "Do not add generic audit-classifier logic here."
+  - "Do not reintroduce visible chapter UI or move focus truth into `editorial-chapters.json`."
+
+validation_expected:
+  - "The timeline layer no longer expects nonexistent `focus_payload`-style fields from chapter export rows."
+  - "The frontend consumes chapter focus/navigation truth from `chapter_layout`."
+  - "The selectors frozen for chapter rows in the matrix are now satisfied by checked-in frontend code/tests."
+  - "`mise run stage8_test` and `mise run stage8_build` pass."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

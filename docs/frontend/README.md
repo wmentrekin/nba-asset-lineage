@@ -1,19 +1,14 @@
-# Frontend Docs
+# Frontend Reset
 
-This folder holds the durable frontend planning and implementation docs.
+The active frontend is intentionally reduced to a scaffold while the data and
+lineage foundation are being reset.
 
-## Main Threads
+Current assumptions:
 
-- [Vision Reset](/Users/wentrekin/Documents/nba-asset-lineage/docs/frontend/vision-reset/requirements.yaml)
-- [Vision Reset V2](/Users/wentrekin/Documents/nba-asset-lineage/docs/frontend/vision-reset-v2/requirements.yaml)
+- Astro remains the host framework
+- the first real page is a single graph-first Memphis lineage surface
+- narrative, chaptering, minimaps, and editorial overlays are out of scope for
+  the base reset
 
-## Supporting Notes
-
-- [Design Notes](/Users/wentrekin/Documents/nba-asset-lineage/docs/frontend/design-notes.md)
-
-## Layout
-
-- `vision-reset/`
-  - original frontend reset requirements, plan, implementation report, and supporting contract/smoke notes
-- `vision-reset-v2/`
-  - simplification-reset requirements, plan, implementation report, and supporting readability/smoke notes
+The previous frontend exploration and prototype artifacts have been archived
+under [`legacy/docs/frontend/`](../../legacy/docs/frontend).

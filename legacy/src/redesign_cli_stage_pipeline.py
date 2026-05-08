@@ -1,0 +1,1893 @@
+from __future__ import annotations
+
+import argparse
+import json
+from datetime import date, datetime, timezone
+from pathlib import Path
+from typing import Sequence
+
+from canonical.events import bootstrap_canonical_events_schema, build_and_persist_canonical_events
+from canonical.event_asset_flow import (
+    bootstrap_canonical_event_asset_flow_schema,
+    build_and_persist_canonical_event_asset_flows,
+)
+from canonical.pick_lifecycle import (
+    bootstrap_canonical_pick_lifecycle_schema,
+    build_and_persist_canonical_pick_lifecycle,
+)
+from canonical.player_tenure import (
+    bootstrap_canonical_player_tenure_schema,
+    build_and_persist_canonical_player_tenures,
+)
+from canonical.validate import validate_canonical_events
+from canonical.validate_event_asset_flow import validate_canonical_event_asset_flows
+from canonical.validate_pick_lifecycle import validate_canonical_pick_lifecycle
+from canonical.validate_player_tenure import validate_canonical_player_tenures
+from db_config import load_database_url
+from evidence.ingest import (
+    bootstrap_evidence_schema,
+    build_live_source_records,
+    fetch_source_records,
+    insert_normalized_claims,
+    insert_source_records,
+    normalize_source_records,
+)
+from evidence.normalize import normalize_source_record
+from evidence.overrides import insert_override_bundle, load_override_bundle
+from evidence.validate import validate_stage1_rows
+from editorial.contract import (
+    build_and_persist_editorial_overlays,
+    bootstrap_editorial_overlay_schema,
+    export_editorial_overlays_json,
+    fetch_editorial_overlays,
+    validate_editorial_overlay_bundle,
+)
+from presentation.contract import (
+    build_layout_contract,
+    build_layout_contract_from_db,
+    bootstrap_presentation_contract_schema,
+    build_and_persist_presentation_contract,
+    export_layout_contract_json,
+    export_presentation_contract_json,
+    fetch_presentation_contract,
+)
+from presentation.validate import (
+    DEFAULT_FRONTEND_DATA_READINESS_MATRIX_PATH,
+    DEFAULT_FRONTEND_DATA_READINESS_REPORT_PATH,
+    DEFAULT_FRONTEND_DATA_READINESS_SUMMARY_PATH,
+    audit_frontend_data_readiness,
+    validate_layout_contract,
+    validate_presentation_contract,
+    write_frontend_data_readiness_outputs,
+)
+
+
+GENERATED_FRONTEND_DATA_DIR = Path("frontend/src/data/generated")
+DEFAULT_PRESENTATION_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "presentation-contract.json"
+DEFAULT_LAYOUT_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "layout-contract.json"
+DEFAULT_EDITORIAL_CHAPTER_EXPORT_PATH = GENERATED_FRONTEND_DATA_DIR / "editorial-chapters.json"
+DEFAULT_FRONTEND_DATA_READINESS_WRAPPER_COMMAND = "mise run frontend_data_readiness_audit"
+DEFAULT_FRONTEND_DATA_READINESS_AUDIT_COMMAND = (
+    "uv --cache-dir /tmp/uv-cache run python -m redesign_cli audit-frontend-data-readiness"
+)
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run redesign implementation tasks.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    bootstrap_parser = subparsers.add_parser("bootstrap-evidence", help="Apply the Stage 1 evidence bootstrap SQL.")
+    bootstrap_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0001_evidence_bootstrap.sql"),
+    )
+
+    bootstrap_canonical_parser = subparsers.add_parser(
+        "bootstrap-canonical-events",
+        help="Apply the Stage 2 canonical event bootstrap SQL.",
+    )
+    bootstrap_canonical_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0002_canonical_events_bootstrap.sql"),
+    )
+
+    build_parser = subparsers.add_parser(
+        "build-evidence",
+        help="Ingest live evidence, normalize claims, load overrides, and validate Stage 1 rows.",
+    )
+    build_parser.add_argument("--sources", default="spotrac,nba_api")
+    build_parser.add_argument("--team-slug", default="memphis-grizzlies")
+    build_parser.add_argument("--team-code", default="mem")
+    build_parser.add_argument("--team-abbrevs", default="MEM,VAN")
+    build_parser.add_argument("--start-date", default="2016-01-01")
+    build_parser.add_argument("--end-date", default=date.today().isoformat())
+    build_parser.add_argument("--parser-version", default="stage1-live-v1")
+    build_parser.add_argument("--normalizer-version", default="stage1-normalizer-v1")
+    build_parser.add_argument("--overrides-path", type=Path, default=Path("configs/data"))
+
+    normalize_parser = subparsers.add_parser("normalize-evidence", help="Normalize source records already loaded in DB.")
+    normalize_parser.add_argument("--normalizer-version", default="stage1-normalizer-v1")
+    normalize_parser.add_argument("--source-record-id")
+
+    override_parser = subparsers.add_parser("load-overrides", help="Load override files into evidence.overrides.")
+    override_parser.add_argument("--overrides-path", type=Path, default=Path("configs/data"))
+
+    validate_parser = subparsers.add_parser("validate-evidence", help="Validate Stage 1 evidence rows currently in DB.")
+    validate_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    canonical_build_parser = subparsers.add_parser(
+        "build-canonical-events",
+        help="Build Stage 2 canonical events and provenance from evidence plus overrides.",
+    )
+    canonical_build_parser.add_argument("--builder-version", default="stage2-events-v1")
+
+    canonical_validate_parser = subparsers.add_parser(
+        "validate-canonical-events",
+        help="Validate canonical events and event provenance currently stored in DB.",
+    )
+    canonical_validate_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    bootstrap_pick_lifecycle_parser = subparsers.add_parser(
+        "bootstrap-canonical-pick-lifecycle",
+        help="Apply the Stage 4 canonical pick lifecycle bootstrap SQL.",
+    )
+    bootstrap_pick_lifecycle_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0004_pick_lifecycle_bootstrap.sql"),
+    )
+
+    bootstrap_event_asset_flow_parser = subparsers.add_parser(
+        "bootstrap-canonical-event-asset-flow",
+        help="Apply the Stage 5 canonical event asset flow bootstrap SQL.",
+    )
+    bootstrap_event_asset_flow_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0005_event_asset_flow_bootstrap.sql"),
+    )
+
+    build_pick_lifecycle_parser = subparsers.add_parser(
+        "build-canonical-pick-lifecycle",
+        help="Build Stage 4 canonical pick assets, transitions, and provenance from evidence plus Stage 2 events.",
+    )
+    build_pick_lifecycle_parser.add_argument("--builder-version", default="stage4-pick-lifecycle-v1")
+
+    build_event_asset_flow_parser = subparsers.add_parser(
+        "build-canonical-event-asset-flows",
+        help="Build Stage 5 canonical event asset flows and provenance from Stage 2-4 canonical rows.",
+    )
+    build_event_asset_flow_parser.add_argument("--builder-version", default="stage5-event-asset-flow-v1")
+
+    validate_pick_lifecycle_parser = subparsers.add_parser(
+        "validate-canonical-pick-lifecycle",
+        help="Validate canonical pick lifecycle tables currently stored in DB.",
+    )
+    validate_pick_lifecycle_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    validate_event_asset_flow_parser = subparsers.add_parser(
+        "validate-canonical-event-asset-flows",
+        help="Validate canonical event asset flow tables currently stored in DB.",
+    )
+    validate_event_asset_flow_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    bootstrap_presentation_parser = subparsers.add_parser(
+        "bootstrap-presentation-contract",
+        help="Apply the Stage 6 presentation contract bootstrap SQL.",
+    )
+    bootstrap_presentation_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0006_presentation_contract_bootstrap.sql"),
+    )
+
+    build_presentation_parser = subparsers.add_parser(
+        "build-presentation-contract",
+        help="Build Stage 6 presentation timeline nodes, edges, lanes, and build metadata.",
+    )
+    build_presentation_parser.add_argument("--builder-version", default="stage6-presentation-contract-v1")
+
+    validate_presentation_parser = subparsers.add_parser(
+        "validate-presentation-contract",
+        help="Validate Stage 6 presentation contract tables currently stored in DB.",
+    )
+    validate_presentation_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    export_presentation_parser = subparsers.add_parser(
+        "export-presentation-contract",
+        help="Export the latest Stage 6 presentation contract as JSON.",
+    )
+    export_presentation_parser.add_argument("--output-path", type=Path)
+    export_presentation_parser.add_argument(
+        "--include-editorial",
+        action="store_true",
+        help="Include Stage 7 editorial overlays in the exported JSON under an editorial key.",
+    )
+
+    build_layout_parser = subparsers.add_parser(
+        "build-layout-contract",
+        help="Build the Stage 8 layout contract from the latest Stage 6 presentation and optional Stage 7 editorial data.",
+    )
+    build_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    build_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    build_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    validate_layout_parser = subparsers.add_parser(
+        "validate-layout-contract",
+        help="Validate a generated Stage 8 layout contract against the latest Stage 6 presentation and optional Stage 7 editorial data.",
+    )
+    validate_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    validate_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    validate_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    export_layout_parser = subparsers.add_parser(
+        "export-layout-contract",
+        help="Export the Stage 8 layout contract as JSON.",
+    )
+    export_layout_parser.add_argument("--output-path", type=Path)
+    export_layout_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    export_layout_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    export_layout_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    bootstrap_editorial_parser = subparsers.add_parser(
+        "bootstrap-editorial-overlays",
+        help="Apply the Stage 7 editorial overlay bootstrap SQL.",
+    )
+    bootstrap_editorial_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0007_editorial_overlay_bootstrap.sql"),
+    )
+
+    load_editorial_parser = subparsers.add_parser(
+        "load-editorial-overlays",
+        help="Load Stage 7 editorial overlay rows from tracked structured files and persist them.",
+    )
+    load_editorial_parser.add_argument(
+        "--input-path",
+        type=Path,
+        default=Path("configs/data"),
+    )
+    load_editorial_parser.add_argument(
+        "--builder-version",
+        default="stage7-editorial-overlay-v1",
+    )
+
+    validate_editorial_parser = subparsers.add_parser(
+        "validate-editorial-overlays",
+        help="Validate Stage 7 editorial overlay rows currently stored in DB.",
+    )
+
+    export_editorial_parser = subparsers.add_parser(
+        "export-editorial-overlays",
+        help="Export the latest Stage 7 editorial overlays as JSON.",
+    )
+    export_editorial_parser.add_argument("--output-path", type=Path)
+
+    export_editorial_chapters_parser = subparsers.add_parser(
+        "export-editorial-chapters",
+        help="Export only Stage 7 story chapters as frontend-ready JSON.",
+    )
+    export_editorial_chapters_parser.add_argument("--output-path", type=Path)
+    export_editorial_chapters_parser.add_argument("--builder-version", default="stage8-layout-contract-v1")
+    export_editorial_chapters_parser.add_argument("--headshot-manifest-path", type=Path, default=Path("configs/data/stage8_headshot_manifest.yaml"))
+    export_editorial_chapters_parser.add_argument("--frontend-public-root", type=Path, default=Path("frontend/public"))
+
+    bootstrap_player_tenure_parser = subparsers.add_parser(
+        "bootstrap-canonical-player-tenure",
+        help="Apply the Stage 3 canonical player tenure bootstrap SQL.",
+    )
+    bootstrap_player_tenure_parser.add_argument(
+        "--sql-path",
+        type=Path,
+        default=Path("sql/0003_player_tenure_bootstrap.sql"),
+    )
+
+    build_player_tenure_parser = subparsers.add_parser(
+        "build-canonical-player-tenures",
+        help="Build Stage 3 canonical player tenures, assets, and provenance from evidence plus Stage 2 events.",
+    )
+    build_player_tenure_parser.add_argument("--builder-version", default="stage3-player-tenure-v1")
+
+    validate_player_tenure_parser = subparsers.add_parser(
+        "validate-canonical-player-tenures",
+        help="Validate canonical player tenure tables currently stored in DB.",
+    )
+    validate_player_tenure_parser.add_argument("--sample-limit", type=int, default=5000)
+
+    audit_frontend_data_readiness_parser = subparsers.add_parser(
+        "audit-frontend-data-readiness",
+        help="Audit freshly regenerated frontend-facing artifacts against the frontend data readiness matrix.",
+    )
+    audit_frontend_data_readiness_parser.add_argument("--presentation-path", type=Path, default=DEFAULT_PRESENTATION_EXPORT_PATH)
+    audit_frontend_data_readiness_parser.add_argument("--layout-path", type=Path, default=DEFAULT_LAYOUT_EXPORT_PATH)
+    audit_frontend_data_readiness_parser.add_argument(
+        "--editorial-chapters-path",
+        type=Path,
+        default=DEFAULT_EDITORIAL_CHAPTER_EXPORT_PATH,
+    )
+    audit_frontend_data_readiness_parser.add_argument(
+        "--matrix-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_MATRIX_PATH,
+    )
+    audit_frontend_data_readiness_parser.add_argument(
+        "--report-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_REPORT_PATH,
+    )
+    audit_frontend_data_readiness_parser.add_argument(
+        "--summary-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_SUMMARY_PATH,
+    )
+    audit_frontend_data_readiness_parser.add_argument("--workflow-start-time")
+    audit_frontend_data_readiness_parser.add_argument(
+        "--wrapper-command",
+        default=DEFAULT_FRONTEND_DATA_READINESS_WRAPPER_COMMAND,
+    )
+    audit_frontend_data_readiness_parser.add_argument(
+        "--audit-command",
+        default=DEFAULT_FRONTEND_DATA_READINESS_AUDIT_COMMAND,
+    )
+    audit_frontend_data_readiness_parser.add_argument(
+        "--enforce-chapter-selector-satisfaction",
+        action="store_true",
+        help="Require exact chapter selector matches instead of the T2 file-existence-only policy.",
+    )
+
+    run_frontend_data_readiness_workflow_parser = subparsers.add_parser(
+        "run-frontend-data-readiness-workflow",
+        help="Regenerate frontend-facing artifacts, then run the frontend data readiness audit.",
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--presentation-path",
+        type=Path,
+        default=DEFAULT_PRESENTATION_EXPORT_PATH,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument("--layout-path", type=Path, default=DEFAULT_LAYOUT_EXPORT_PATH)
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--editorial-chapters-path",
+        type=Path,
+        default=DEFAULT_EDITORIAL_CHAPTER_EXPORT_PATH,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--matrix-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_MATRIX_PATH,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--report-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_REPORT_PATH,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--summary-path",
+        type=Path,
+        default=DEFAULT_FRONTEND_DATA_READINESS_SUMMARY_PATH,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--wrapper-command",
+        default=DEFAULT_FRONTEND_DATA_READINESS_WRAPPER_COMMAND,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--audit-command",
+        default=DEFAULT_FRONTEND_DATA_READINESS_AUDIT_COMMAND,
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--builder-version",
+        default="stage8-layout-contract-v1",
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--headshot-manifest-path",
+        type=Path,
+        default=Path("configs/data/stage8_headshot_manifest.yaml"),
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--frontend-public-root",
+        type=Path,
+        default=Path("frontend/public"),
+    )
+    run_frontend_data_readiness_workflow_parser.add_argument(
+        "--enforce-chapter-selector-satisfaction",
+        action="store_true",
+        help="Require exact chapter selector matches instead of the T2 file-existence-only policy.",
+    )
+
+    return parser.parse_args(argv)
+
+
+def _connect():
+    try:
+        import psycopg
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("psycopg is required for redesign CLI database commands.") from exc
+    return psycopg.connect(load_database_url())
+
+
+def _emit(payload: dict[str, object]) -> int:
+    print(json.dumps(payload, sort_keys=True, default=str))
+    return 0
+
+
+def _prepare_output_path(output_path: Path | None) -> Path | None:
+    if output_path is None:
+        return None
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return output_path
+
+
+def _build_editorial_chapter_rows(editorial_result) -> list[dict[str, object]]:
+    return [
+        {
+            "story_chapter_id": row.story_chapter_id,
+            "slug": row.slug,
+            "chapter_order": row.chapter_order,
+            "title": row.title,
+            "body": row.body,
+            "start_date": row.start_date,
+            "end_date": row.end_date,
+        }
+        for row in sorted(
+            editorial_result.story_chapters,
+            key=lambda row: (row.chapter_order, row.start_date, row.story_chapter_id),
+        )
+    ]
+
+
+def _validate_editorial_chapter_rows(
+    chapter_rows: Sequence[dict[str, object]],
+    *,
+    chapter_layout_ids: set[str],
+) -> None:
+    chapter_ids = [str(row["story_chapter_id"]) for row in chapter_rows]
+    duplicate_ids = sorted({chapter_id for chapter_id in chapter_ids if chapter_ids.count(chapter_id) > 1})
+    if duplicate_ids:
+        raise RuntimeError(f"editorial chapter export has duplicate story_chapter_id values: {', '.join(duplicate_ids)}")
+    chapter_id_set = set(chapter_ids)
+    if chapter_id_set != chapter_layout_ids:
+        missing_from_export = sorted(chapter_layout_ids - chapter_id_set)
+        missing_from_layout = sorted(chapter_id_set - chapter_layout_ids)
+        details: list[str] = []
+        if missing_from_export:
+            details.append(f"missing from export: {', '.join(missing_from_export)}")
+        if missing_from_layout:
+            details.append(f"missing from layout: {', '.join(missing_from_layout)}")
+        raise RuntimeError(f"editorial chapter export is out of sync with chapter_layout ({'; '.join(details)})")
+
+
+def export_editorial_chapters_json(
+    output_path: Path | str | None = None,
+    *,
+    builder_version: str = "stage8-layout-contract-v1",
+    headshot_manifest_path: Path | str = Path("configs/data/stage8_headshot_manifest.yaml"),
+    frontend_public_root: Path | str = Path("frontend/public"),
+) -> str:
+    with _connect() as conn:
+        presentation_result = fetch_presentation_contract(conn)
+        editorial_result = fetch_editorial_overlays(conn)
+    layout_result = build_layout_contract(
+        presentation_result=presentation_result,
+        editorial_overlays=editorial_result,
+        builder_version=builder_version,
+        headshot_manifest_path=headshot_manifest_path,
+        frontend_public_root=frontend_public_root,
+    )
+    report = validate_layout_contract(
+        result=layout_result,
+        presentation_result=presentation_result,
+        editorial_overlays=editorial_result,
+        frontend_public_root=frontend_public_root,
+    )
+    if not report.ok:
+        raise RuntimeError(
+            "cannot export editorial chapters because the layout contract is invalid: "
+            + "; ".join(report.errors)
+        )
+    chapter_rows = _build_editorial_chapter_rows(editorial_result)
+    _validate_editorial_chapter_rows(
+        chapter_rows,
+        chapter_layout_ids={row.story_chapter_id for row in layout_result.chapter_layout},
+    )
+    payload = json.dumps(chapter_rows, sort_keys=True, indent=2, default=str)
+    if output_path is not None:
+        Path(output_path).write_text(payload + "\n", encoding="utf-8")
+    return payload
+
+
+def _run_frontend_data_readiness_audit(
+    *,
+    presentation_path: Path,
+    layout_path: Path,
+    editorial_chapters_path: Path,
+    matrix_path: Path,
+    report_path: Path,
+    summary_path: Path,
+    workflow_start_time: datetime | str | None,
+    wrapper_command: str,
+    audit_command: str,
+    prerequisites: Sequence[dict[str, object]] = (),
+    blocked_mode_reason: str | None = None,
+    enforce_chapter_selector_satisfaction: bool = False,
+    command_name: str = "audit-frontend-data-readiness",
+) -> int:
+    result = audit_frontend_data_readiness(
+        presentation_path=presentation_path,
+        layout_path=layout_path,
+        editorial_chapters_path=editorial_chapters_path,
+        matrix_path=matrix_path,
+        report_path=report_path,
+        summary_path=summary_path,
+        workflow_start_time=workflow_start_time,
+        wrapper_command=wrapper_command,
+        audit_command=audit_command,
+        prerequisites=prerequisites,
+        blocked_mode_reason=blocked_mode_reason,
+        enforce_chapter_selector_satisfaction=enforce_chapter_selector_satisfaction,
+    )
+    write_frontend_data_readiness_outputs(
+        report=result.report,
+        report_path=result.report_path,
+        summary_path=result.summary_path,
+    )
+    _emit(
+        {
+            "command": command_name,
+            "status": "success" if result.exit_code == 0 else "blocked",
+            "overall_status": result.report["overall_status"]["status"],
+            "report_path": str(result.report_path),
+            "summary_path": str(result.summary_path),
+            "prerequisites": list(prerequisites),
+        }
+    )
+    return result.exit_code
+
+
+def _run_frontend_data_readiness_workflow(args: argparse.Namespace) -> int:
+    workflow_start_time = datetime.now(timezone.utc)
+    prerequisites: list[dict[str, object]] = []
+    blocked_mode_reason: str | None = None
+
+    prerequisite_steps = [
+        (
+            "stage6_export",
+            f"uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract --output-path {args.presentation_path}",
+            lambda: export_presentation_contract_json(_prepare_output_path(args.presentation_path)),
+        ),
+        (
+            "stage8_layout_export",
+            "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-layout-contract "
+            f"--output-path {args.layout_path} --builder-version {args.builder_version} "
+            f"--headshot-manifest-path {args.headshot_manifest_path} --frontend-public-root {args.frontend_public_root}",
+            lambda: export_layout_contract_json(
+                _prepare_output_path(args.layout_path),
+                builder_version=args.builder_version,
+                headshot_manifest_path=args.headshot_manifest_path,
+                frontend_public_root=args.frontend_public_root,
+            ),
+        ),
+        (
+            "stage8_chapter_export",
+            "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-chapters "
+            f"--output-path {args.editorial_chapters_path} --builder-version {args.builder_version} "
+            f"--headshot-manifest-path {args.headshot_manifest_path} --frontend-public-root {args.frontend_public_root}",
+            lambda: export_editorial_chapters_json(
+                _prepare_output_path(args.editorial_chapters_path),
+                builder_version=args.builder_version,
+                headshot_manifest_path=args.headshot_manifest_path,
+                frontend_public_root=args.frontend_public_root,
+            ),
+        ),
+    ]
+
+    for step_name, command_text, runner in prerequisite_steps:
+        try:
+            runner()
+            prerequisites.append({"name": step_name, "command": command_text, "status": "success"})
+        except Exception as exc:
+            prerequisites.append(
+                {
+                    "name": step_name,
+                    "command": command_text,
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            )
+            blocked_mode_reason = f"prerequisite failed: {step_name}: {exc}"
+            break
+
+    return _run_frontend_data_readiness_audit(
+        presentation_path=args.presentation_path,
+        layout_path=args.layout_path,
+        editorial_chapters_path=args.editorial_chapters_path,
+        matrix_path=args.matrix_path,
+        report_path=args.report_path,
+        summary_path=args.summary_path,
+        workflow_start_time=workflow_start_time,
+        wrapper_command=args.wrapper_command,
+        audit_command=args.audit_command,
+        prerequisites=prerequisites,
+        blocked_mode_reason=blocked_mode_reason,
+        enforce_chapter_selector_satisfaction=args.enforce_chapter_selector_satisfaction,
+        command_name="run-frontend-data-readiness-workflow",
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    if args.command == "bootstrap-evidence":
+        bootstrap_evidence_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-events":
+        bootstrap_canonical_events_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-pick-lifecycle":
+        bootstrap_canonical_pick_lifecycle_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-canonical-event-asset-flow":
+        bootstrap_canonical_event_asset_flow_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-presentation-contract":
+        bootstrap_presentation_contract_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "bootstrap-editorial-overlays":
+        bootstrap_editorial_overlay_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "build-evidence":
+        sources = {entry.strip().lower() for entry in args.sources.split(",") if entry.strip()}
+        team_abbrevs = {entry.strip().upper() for entry in args.team_abbrevs.split(",") if entry.strip()}
+        source_records = build_live_source_records(
+            sources=sources,
+            team_slug=args.team_slug,
+            team_code=args.team_code,
+            team_abbrevs=team_abbrevs,
+            start_date=date.fromisoformat(args.start_date),
+            end_date=date.fromisoformat(args.end_date),
+            parser_version=args.parser_version,
+        )
+        override_bundle = load_override_bundle(args.overrides_path)
+
+        with _connect() as conn:
+            inserted_source_records = insert_source_records(conn, source_records)
+            normalized_claims = [
+                claim
+                for record in source_records
+                for claim in normalize_source_record(
+                    record,
+                    normalizer_version=args.normalizer_version,
+                )
+            ]
+            inserted_claims = insert_normalized_claims(conn, normalized_claims)
+            override_counts = insert_override_bundle(conn, override_bundle)
+            conn.commit()
+
+        report = validate_stage1_rows(
+            source_records=source_records,
+            normalized_claims=normalized_claims,
+            overrides=override_bundle.overrides,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "source_record_count": len(source_records),
+                "inserted_source_record_count": inserted_source_records,
+                "normalized_claim_count": len(normalized_claims),
+                "inserted_claim_count": inserted_claims,
+                **override_counts,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "normalize-evidence":
+        with _connect() as conn:
+            claims = normalize_source_records(
+                conn,
+                normalizer_version=args.normalizer_version,
+                source_record_id=args.source_record_id,
+            )
+            inserted_claims = insert_normalized_claims(conn, claims)
+            conn.commit()
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success",
+                "normalized_claim_count": len(claims),
+                "inserted_claim_count": inserted_claims,
+            }
+        )
+
+    if args.command == "load-overrides":
+        bundle = load_override_bundle(args.overrides_path)
+        with _connect() as conn:
+            counts = insert_override_bundle(conn, bundle)
+            conn.commit()
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "validate-evidence":
+        with _connect() as conn:
+            source_records = fetch_source_records(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        claim_id,
+                        source_record_id,
+                        claim_type,
+                        claim_subject_type,
+                        claim_subject_key,
+                        claim_group_hint,
+                        claim_date,
+                        source_sequence,
+                        claim_payload,
+                        confidence_flag,
+                        normalizer_version,
+                        created_at
+                    from evidence.normalized_claims
+                    order by created_at, claim_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                claim_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        override_id,
+                        override_type,
+                        target_type,
+                        target_key,
+                        payload,
+                        reason,
+                        authored_by,
+                        authored_at,
+                        is_active
+                    from evidence.overrides
+                    order by authored_at, override_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                override_rows = cur.fetchall()
+
+        from evidence.models import NormalizedClaim, OverrideRecord
+
+        claims = [
+            NormalizedClaim(
+                claim_id=row[0],
+                source_record_id=row[1],
+                claim_type=row[2],
+                claim_subject_type=row[3],
+                claim_subject_key=row[4],
+                claim_group_hint=row[5],
+                claim_date=row[6],
+                source_sequence=row[7],
+                claim_payload=row[8],
+                confidence_flag=row[9],
+                normalizer_version=row[10],
+                created_at=row[11],
+            )
+            for row in claim_rows
+        ]
+        overrides = [
+            OverrideRecord(
+                override_id=row[0],
+                override_type=row[1],
+                target_type=row[2],
+                target_key=row[3],
+                payload=row[4],
+                reason=row[5],
+                authored_by=row[6],
+                authored_at=row[7],
+                is_active=row[8],
+            )
+            for row in override_rows
+        ]
+        report = validate_stage1_rows(
+            source_records=source_records,
+            normalized_claims=claims,
+            overrides=overrides,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "source_record_count": report.source_record_count,
+                "normalized_claim_count": report.normalized_claim_count,
+                "override_count": report.override_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-editorial-overlays":
+        with _connect() as conn:
+            editorial_result = fetch_editorial_overlays(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    """
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    order by asset_id
+                    """
+                )
+                asset_rows = cur.fetchall()
+
+        from canonical.models import CanonicalAsset, CanonicalEvent
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        report = validate_editorial_overlay_bundle(
+            editorial_result,
+            canonical_events=events,
+            canonical_assets=assets,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "annotation_count": report.annotation_count,
+                "calendar_marker_count": report.calendar_marker_count,
+                "game_overlay_count": report.game_overlay_count,
+                "era_count": report.era_count,
+                "story_chapter_count": report.story_chapter_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "build-canonical-events":
+        counts = build_and_persist_canonical_events(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-canonical-pick-lifecycle":
+        counts = build_and_persist_canonical_pick_lifecycle(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-canonical-event-asset-flows":
+        counts = build_and_persist_canonical_event_asset_flows(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-presentation-contract":
+        counts = build_and_persist_presentation_contract(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "build-layout-contract":
+        result = build_layout_contract_from_db(
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        return _emit({"command": args.command, "status": "success", **result.counts()})
+
+    if args.command == "load-editorial-overlays":
+        counts = build_and_persist_editorial_overlays(
+            input_path=args.input_path,
+            builder_version=args.builder_version,
+        )
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "bootstrap-canonical-player-tenure":
+        bootstrap_canonical_player_tenure_schema(args.sql_path)
+        return _emit({"command": args.command, "sql_path": str(args.sql_path), "status": "success"})
+
+    if args.command == "build-canonical-player-tenures":
+        counts = build_and_persist_canonical_player_tenures(builder_version=args.builder_version)
+        return _emit({"command": args.command, "status": "success", **counts})
+
+    if args.command == "validate-canonical-events":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    """,
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_provenance_id,
+                        event_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.event_provenance
+                    order by created_at, event_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                provenance_rows = cur.fetchall()
+
+        from canonical.models import CanonicalEvent, EventProvenance
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        provenance = [
+            EventProvenance(
+                event_provenance_id=row[0],
+                event_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in provenance_rows
+        ]
+        report = validate_canonical_events(events=events, provenance_rows=provenance)
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "event_count": report.event_count,
+                "provenance_count": report.provenance_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-canonical-pick-lifecycle":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        pick_asset_id,
+                        origin_team_code,
+                        draft_year,
+                        draft_round,
+                        protection_summary,
+                        protection_payload,
+                        drafted_player_id,
+                        current_pick_stage,
+                        created_at,
+                        updated_at
+                    from canonical.pick_asset
+                    order by created_at, pick_asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_asset_provenance_id,
+                        pick_asset_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.pick_asset_provenance
+                    order by created_at, pick_asset_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_asset_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_resolution_id,
+                        pick_asset_id,
+                        state_type,
+                        effective_start_date,
+                        effective_end_date,
+                        overall_pick_number,
+                        lottery_context,
+                        drafted_player_id,
+                        source_event_id,
+                        state_payload,
+                        created_at,
+                        updated_at
+                    from canonical.pick_resolution
+                    order by created_at, pick_resolution_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_resolution_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        pick_resolution_provenance_id,
+                        pick_resolution_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.pick_resolution_provenance
+                    order by created_at, pick_resolution_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                pick_resolution_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    where pick_asset_id is not null
+                    order by created_at, asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_provenance_id,
+                        asset_id,
+                        player_tenure_id,
+                        pick_asset_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.asset_provenance
+                    where pick_asset_id is not null
+                    order by created_at, asset_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        player_id,
+                        display_name,
+                        normalized_name,
+                        nba_person_id,
+                        created_at,
+                        updated_at
+                    from canonical.player_identity
+                    order by created_at, player_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                player_identity_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+
+        from canonical.models import (
+            AssetProvenance,
+            CanonicalAsset,
+            CanonicalEvent,
+            CanonicalPickAsset,
+            CanonicalPickResolution,
+            CanonicalPlayerIdentity,
+            PickAssetProvenance,
+            PickResolutionProvenance,
+        )
+
+        pick_assets = [
+            CanonicalPickAsset(
+                pick_asset_id=row[0],
+                origin_team_code=row[1],
+                draft_year=row[2],
+                draft_round=row[3],
+                protection_summary=row[4],
+                protection_payload=row[5],
+                drafted_player_id=row[6],
+                current_pick_stage=row[7],
+                created_at=row[8],
+                updated_at=row[9],
+            )
+            for row in pick_asset_rows
+        ]
+        pick_asset_provenance = [
+            PickAssetProvenance(
+                pick_asset_provenance_id=row[0],
+                pick_asset_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in pick_asset_provenance_rows
+        ]
+        pick_resolutions = [
+            CanonicalPickResolution(
+                pick_resolution_id=row[0],
+                pick_asset_id=row[1],
+                state_type=row[2],
+                effective_start_date=row[3],
+                effective_end_date=row[4],
+                overall_pick_number=row[5],
+                lottery_context=row[6],
+                drafted_player_id=row[7],
+                source_event_id=row[8],
+                state_payload=row[9],
+                created_at=row[10],
+                updated_at=row[11],
+            )
+            for row in pick_resolution_rows
+        ]
+        pick_resolution_provenance = [
+            PickResolutionProvenance(
+                pick_resolution_provenance_id=row[0],
+                pick_resolution_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in pick_resolution_provenance_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        asset_provenance = [
+            AssetProvenance(
+                asset_provenance_id=row[0],
+                asset_id=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                source_record_id=row[4],
+                claim_id=row[5],
+                override_id=row[6],
+                provenance_role=row[7],
+                fallback_reason=row[8],
+                created_at=row[9],
+            )
+            for row in asset_provenance_rows
+        ]
+        player_identities = [
+            CanonicalPlayerIdentity(
+                player_id=row[0],
+                display_name=row[1],
+                normalized_name=row[2],
+                nba_person_id=row[3],
+                created_at=row[4],
+                updated_at=row[5],
+            )
+            for row in player_identity_rows
+        ]
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        report = validate_canonical_pick_lifecycle(
+            player_identities=player_identities,
+            pick_assets=pick_assets,
+            pick_asset_provenance_rows=pick_asset_provenance,
+            pick_resolutions=pick_resolutions,
+            pick_resolution_provenance_rows=pick_resolution_provenance,
+            assets=assets,
+            asset_provenance_rows=asset_provenance,
+            events=events,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "pick_asset_count": report.pick_asset_count,
+                "pick_asset_provenance_count": report.pick_asset_provenance_count,
+                "pick_resolution_count": report.pick_resolution_count,
+                "pick_resolution_provenance_count": report.pick_resolution_provenance_count,
+                "asset_count": report.asset_count,
+                "asset_provenance_count": report.asset_provenance_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-canonical-event-asset-flows":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    order by asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_asset_flow_id,
+                        event_id,
+                        asset_id,
+                        flow_direction,
+                        flow_role,
+                        flow_order,
+                        effective_date,
+                        created_at
+                    from canonical.event_asset_flow
+                    order by event_id, flow_order, event_asset_flow_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                flow_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        event_asset_flow_provenance_id,
+                        event_asset_flow_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.event_asset_flow_provenance
+                    order by created_at, event_asset_flow_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                provenance_rows = cur.fetchall()
+
+        from canonical.models import CanonicalAsset, CanonicalEvent, CanonicalEventAssetFlow, EventAssetFlowProvenance
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        flows = [
+            CanonicalEventAssetFlow(
+                event_asset_flow_id=row[0],
+                event_id=row[1],
+                asset_id=row[2],
+                flow_direction=row[3],
+                flow_role=row[4],
+                flow_order=row[5],
+                effective_date=row[6],
+                created_at=row[7],
+            )
+            for row in flow_rows
+        ]
+        provenance = [
+            EventAssetFlowProvenance(
+                event_asset_flow_provenance_id=row[0],
+                event_asset_flow_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in provenance_rows
+        ]
+        report = validate_canonical_event_asset_flows(events=events, assets=assets, flows=flows, provenance_rows=provenance)
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "event_count": report.event_count,
+                "asset_count": report.asset_count,
+                "flow_count": report.flow_count,
+                "provenance_count": report.provenance_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-presentation-contract":
+        with _connect() as conn:
+            result = fetch_presentation_contract(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        event_id,
+                        event_type,
+                        event_date,
+                        event_order,
+                        event_label,
+                        description,
+                        transaction_group_key,
+                        is_compound,
+                        notes,
+                        created_at,
+                        updated_at
+                    from canonical.events
+                    order by event_date, event_order, event_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                event_rows = cur.fetchall()
+
+        from canonical.models import CanonicalEvent
+
+        events = [
+            CanonicalEvent(
+                event_id=row[0],
+                event_type=row[1],
+                event_date=row[2],
+                event_order=row[3],
+                event_label=row[4],
+                description=row[5],
+                transaction_group_key=row[6],
+                is_compound=row[7],
+                notes=row[8],
+                created_at=row[9],
+                updated_at=row[10],
+            )
+            for row in event_rows
+        ]
+        report = validate_presentation_contract(
+            nodes=result.nodes,
+            edges=result.edges,
+            lanes=result.lanes,
+            canonical_events=events,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "node_count": report.node_count,
+                "edge_count": report.edge_count,
+                "lane_count": report.lane_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "validate-layout-contract":
+        with _connect() as conn:
+            presentation_result = fetch_presentation_contract(conn)
+            try:
+                editorial_result = fetch_editorial_overlays(conn)
+            except RuntimeError:
+                editorial_result = None
+        layout_result = build_layout_contract(
+            presentation_result=presentation_result,
+            editorial_overlays=editorial_result,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        report = validate_layout_contract(
+            result=layout_result,
+            presentation_result=presentation_result,
+            editorial_overlays=editorial_result,
+            frontend_public_root=args.frontend_public_root,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "lane_layout_count": report.lane_layout_count,
+                "event_layout_count": report.event_layout_count,
+                "label_layout_count": report.label_layout_count,
+                "chapter_layout_count": report.chapter_layout_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    if args.command == "export-presentation-contract":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_presentation_contract_json(output_path, include_editorial=args.include_editorial)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-layout-contract":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_layout_contract_json(
+            output_path,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-editorial-overlays":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_editorial_overlays_json(output_path)
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "export-editorial-chapters":
+        output_path = _prepare_output_path(args.output_path)
+        payload = export_editorial_chapters_json(
+            output_path,
+            builder_version=args.builder_version,
+            headshot_manifest_path=args.headshot_manifest_path,
+            frontend_public_root=args.frontend_public_root,
+        )
+        if args.output_path is None:
+            print(payload)
+            return 0
+        return _emit({"command": args.command, "status": "success", "output_path": str(args.output_path)})
+
+    if args.command == "audit-frontend-data-readiness":
+        return _run_frontend_data_readiness_audit(
+            presentation_path=args.presentation_path,
+            layout_path=args.layout_path,
+            editorial_chapters_path=args.editorial_chapters_path,
+            matrix_path=args.matrix_path,
+            report_path=args.report_path,
+            summary_path=args.summary_path,
+            workflow_start_time=args.workflow_start_time,
+            wrapper_command=args.wrapper_command,
+            audit_command=args.audit_command,
+            enforce_chapter_selector_satisfaction=args.enforce_chapter_selector_satisfaction,
+        )
+
+    if args.command == "run-frontend-data-readiness-workflow":
+        return _run_frontend_data_readiness_workflow(args)
+
+    if args.command == "validate-canonical-player-tenures":
+        with _connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select
+                        player_id,
+                        display_name,
+                        normalized_name,
+                        nba_person_id,
+                        created_at,
+                        updated_at
+                    from canonical.player_identity
+                    order by player_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                player_identity_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        player_identity_provenance_id,
+                        player_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.player_identity_provenance
+                    order by created_at, player_identity_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                player_identity_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        player_tenure_id,
+                        player_id,
+                        tenure_start_date,
+                        tenure_end_date,
+                        entry_event_id,
+                        exit_event_id,
+                        tenure_type,
+                        roster_path_type,
+                        created_at,
+                        updated_at
+                    from canonical.player_tenure
+                    order by player_id, tenure_start_date, player_tenure_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                player_tenure_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_id,
+                        asset_kind,
+                        player_tenure_id,
+                        pick_asset_id,
+                        asset_label,
+                        created_at,
+                        updated_at
+                    from canonical.asset
+                    order by asset_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_provenance_id,
+                        asset_id,
+                        player_tenure_id,
+                        pick_asset_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.asset_provenance
+                    order by created_at, asset_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_provenance_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_state_id,
+                        asset_id,
+                        state_type,
+                        effective_start_date,
+                        effective_end_date,
+                        state_payload,
+                        source_event_id,
+                        created_at,
+                        updated_at
+                    from canonical.asset_state
+                    order by created_at, asset_state_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_state_rows = cur.fetchall()
+                cur.execute(
+                    """
+                    select
+                        asset_state_provenance_id,
+                        asset_state_id,
+                        source_record_id,
+                        claim_id,
+                        override_id,
+                        provenance_role,
+                        fallback_reason,
+                        created_at
+                    from canonical.asset_state_provenance
+                    order by created_at, asset_state_provenance_id
+                    limit %s
+                    """,
+                    (args.sample_limit,),
+                )
+                asset_state_provenance_rows = cur.fetchall()
+
+        from canonical.models import (
+            AssetProvenance,
+            AssetState,
+            AssetStateProvenance,
+            CanonicalAsset,
+            CanonicalPlayerIdentity,
+            CanonicalPlayerTenure,
+            PlayerIdentityProvenance,
+        )
+
+        player_identities = [
+            CanonicalPlayerIdentity(
+                player_id=row[0],
+                display_name=row[1],
+                normalized_name=row[2],
+                nba_person_id=row[3],
+                created_at=row[4],
+                updated_at=row[5],
+            )
+            for row in player_identity_rows
+        ]
+        player_identity_provenance = [
+            PlayerIdentityProvenance(
+                player_identity_provenance_id=row[0],
+                player_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in player_identity_provenance_rows
+        ]
+        tenures = [
+            CanonicalPlayerTenure(
+                player_tenure_id=row[0],
+                player_id=row[1],
+                tenure_start_date=row[2],
+                tenure_end_date=row[3],
+                entry_event_id=row[4],
+                exit_event_id=row[5],
+                tenure_type=row[6],
+                roster_path_type=row[7],
+                created_at=row[8],
+                updated_at=row[9],
+            )
+            for row in player_tenure_rows
+        ]
+        assets = [
+            CanonicalAsset(
+                asset_id=row[0],
+                asset_kind=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                asset_label=row[4],
+                created_at=row[5],
+                updated_at=row[6],
+            )
+            for row in asset_rows
+        ]
+        asset_provenance = [
+            AssetProvenance(
+                asset_provenance_id=row[0],
+                asset_id=row[1],
+                player_tenure_id=row[2],
+                pick_asset_id=row[3],
+                source_record_id=row[4],
+                claim_id=row[5],
+                override_id=row[6],
+                provenance_role=row[7],
+                fallback_reason=row[8],
+                created_at=row[9],
+            )
+            for row in asset_provenance_rows
+        ]
+        asset_states = [
+            AssetState(
+                asset_state_id=row[0],
+                asset_id=row[1],
+                state_type=row[2],
+                effective_start_date=row[3],
+                effective_end_date=row[4],
+                state_payload=row[5],
+                source_event_id=row[6],
+                created_at=row[7],
+                updated_at=row[8],
+            )
+            for row in asset_state_rows
+        ]
+        asset_state_provenance = [
+            AssetStateProvenance(
+                asset_state_provenance_id=row[0],
+                asset_state_id=row[1],
+                source_record_id=row[2],
+                claim_id=row[3],
+                override_id=row[4],
+                provenance_role=row[5],
+                fallback_reason=row[6],
+                created_at=row[7],
+            )
+            for row in asset_state_provenance_rows
+        ]
+        report = validate_canonical_player_tenures(
+            player_identities=player_identities,
+            player_identity_provenance_rows=player_identity_provenance,
+            player_tenures=tenures,
+            assets=assets,
+            asset_provenance_rows=asset_provenance,
+            asset_states=asset_states,
+            asset_state_provenance_rows=asset_state_provenance,
+        )
+        return _emit(
+            {
+                "command": args.command,
+                "status": "success" if report.ok else "validation_failed",
+                "player_identity_count": report.player_identity_count,
+                "player_tenure_count": report.player_tenure_count,
+                "asset_count": report.asset_count,
+                "asset_state_count": report.asset_state_count,
+                "errors": report.errors,
+                "warnings": report.warnings,
+            }
+        )
+
+    raise RuntimeError(f"Unsupported command: {args.command}")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

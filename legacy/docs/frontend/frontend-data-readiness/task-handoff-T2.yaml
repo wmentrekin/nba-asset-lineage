@@ -1,0 +1,53 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-data-readiness"
+task_id: "T2"
+owner_skill: implement
+
+objective: "Implement the audit command surface, wrapper workflow, and generic classifier using the T1 rubric as the only machine-readable proof source."
+why_this_matters: "Without the CLI/task surface and classifier, the project cannot reproducibly audit frontend data readiness or produce the required readiness report."
+
+inputs:
+  requirements: "docs/frontend/frontend-data-readiness/requirements.yaml"
+  plan: "docs/frontend/frontend-data-readiness/plan.yaml"
+  relevant_paths:
+    - "docs/frontend/frontend-data-readiness/plan.yaml"
+    - "docs/frontend/frontend-data-readiness/requirements.yaml"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "src/redesign_cli.py"
+    - "src/presentation/validate.py"
+    - "tests/presentation/"
+    - "mise.toml"
+
+scope:
+  owned:
+    - "src/redesign_cli.py"
+    - "src/presentation/validate.py"
+    - "tests/presentation/"
+    - "mise.toml"
+  forbidden:
+    - "frontend/src/lib/timeline.ts"
+    - "frontend/src/lib/timeline.test.ts"
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+
+implementation_notes:
+  - "Use `docs/frontend/frontend-data-readiness/readiness-matrix.yaml` as the sole runtime proof source."
+  - "For chapter-related rows, T2 should validate matrix shape, selector format, and file-existence lookup only; do not require selector satisfaction against frontend files before T3."
+  - "Implement both the audit-only CLI and the wrapper workflow surfaced through `mise run frontend_data_readiness_audit`."
+  - "Keep this task free of frontend alignment changes."
+
+validation_expected:
+  - "`python -m redesign_cli --help` exposes `audit-frontend-data-readiness` and `run-frontend-data-readiness-workflow`."
+  - "The `mise` wrapper task exists."
+  - "Targeted tests cover row classification, blocked-mode behavior, freshness gate behavior, and matrix parsing/proof lookup rules."
+  - "Chapter rows are treated as deferred selector-satisfaction checks until after T3."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

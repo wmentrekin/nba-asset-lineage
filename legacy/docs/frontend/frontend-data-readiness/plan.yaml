@@ -1,0 +1,371 @@
+artifact: plan
+feature: "frontend-data-readiness"
+status: draft
+owner_skill: plan
+based_on: "docs/frontend/frontend-data-readiness/requirements.yaml"
+
+summary:
+  objective: "Add a reproducible frontend-data-readiness audit surface that verifies live frontend-facing export coverage, classifies export/frontend readiness, and resolves the known chapter contract/frontend consumption mismatch before more frontend design work continues."
+  design_overview: "Treat readiness as a three-layer audit problem: what the redesign schema supports, what the current Memphis dataset actually populates in the freshly regenerated frontend-facing artifacts, and what the frontend currently consumes. The plan adds a dedicated audit/report workflow in the redesign track rather than relying on visual inspection alone. The canonical freshness anchor is a workflow-level start time captured before any regeneration command runs; the committed report must be generated from artifacts whose mtimes are all later than that workflow start time, not from stale checked-in JSON and not from a direct DB-only reporting path. The audit should report live coverage for main roster, two-way, future picks, protections/swaps, pick-to-player transitions, leave-and-return cases, reacquired-player cases, chapter focus data, and identity markers. One explicit code-alignment task is included: make the frontend consume chapter focus/navigation truth from `chapter_layout` only, so the audit is not undermined by a known contract mismatch."
+
+decisions:
+  - "This is a bounded data-readiness plan, not a frontend redesign plan."
+  - "The audit should classify readiness across three layers: schema-supported, live-populated, and frontend-consumed."
+  - "The canonical frontend-facing inputs remain `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json`."
+  - "The audit surface should be reproducible through a dedicated CLI command and a `mise` task, not only through manual inspection."
+  - "The canonical audit input set is frozen to freshly regenerated `frontend/src/data/generated/presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json`."
+  - "The canonical workflow is split explicitly into two concepts: `audit-frontend-data-readiness` is the audit-only classifier command; `mise run frontend_data_readiness_audit` is the wrapper workflow that captures workflow start time, runs regeneration, then runs the audit-only classifier."
+  - "DB access is required only to regenerate the frontend-facing artifacts through the existing export tasks; the readiness audit command itself evaluates the regenerated artifacts plus frontend code/tests and does not run as a separate DB-only classifier."
+  - "Known sparse classes such as `two_way`, pick protection summaries, headshot-backed markers, and multi-row chapter coverage should be reported diagnostically rather than silently coerced to pass."
+  - "The plan includes one bounded alignment fix: chapter focus/navigation truth remains owned by `chapter_layout`, and the frontend should stop expecting nonexistent chapter-export focus payloads."
+  - "This plan is limited to export/frontend readiness classification. It may identify likely upstream gaps, but it does not perform a separate source-vs-export attribution pass."
+  - "No canonical identity or visual product semantics are changed in this pass."
+  - "The allowed audit heuristic for leave-and-return and reacquired-player reporting is frozen to descriptive repeated exported display-name checks across multiple distinct `asset_id` values with non-overlapping exported date ranges; this pass must not introduce new person-level identity resolution logic."
+  - "The `frontend_consumed` classification rule is frozen as follows: a readiness area is `frontend_consumed` only when the relevant exported field or structure is referenced by the frontend contract/timeline code path and the checked-in runtime rubric names exact qualifying test identifiers or assertion targets whose continued presence is verified by the audit."
+  - "The status rollup contract is frozen as follows: `ready` means `schema_supported=true`, `live_populated=true`, and `frontend_consumed=true`; `weak` means `schema_supported=true` with either sparse/null live population or missing frontend-consumption evidence, but no blocked prerequisite; `blocked` means the audit could not evaluate the area due to a failed prerequisite such as regeneration failure or missing required artifact; `unresolved` means the area is evaluable but the evidence is internally inconsistent across export and frontend expectations."
+  - "The audit may classify an issue as an `upstream data limitation` only when the freshly regenerated frontend-facing artifacts themselves show absent or null-heavy population for a schema-supported area and the frontend/export code path does not drop that field locally. The audit does not perform deeper source-stage attribution beyond that limited evidence standard."
+  - "Artifact provenance for the committed readiness report is frozen to observable metadata only: the exact artifact file paths audited, file modification timestamps, and file sizes. This plan does not introduce a separate regeneration manifest."
+  - "The audit command interface is frozen to default output paths under `docs/frontend/frontend-data-readiness/` and should fail non-destructively: on prerequisite failure it writes a blocked-state summary when possible and exits non-zero rather than silently falling back to stale artifacts."
+  - "Freshness is frozen as a hard gate: every audited artifact must have a file modification time later than the recorded workflow start time captured before regeneration begins; otherwise the audit reports `blocked` and must not evaluate readiness rows from mixed fresh/stale inputs."
+  - "Mixed prerequisite outcomes are frozen to full blocked-mode behavior: if any regeneration step fails, the audit must not classify readiness rows from the partially refreshed artifact set."
+  - "The frontend validation path in this plan is frozen to explicit commands rather than an implicit task alias: `mise run stage8_test` for targeted timeline tests and `mise run stage8_build` for frontend build verification."
+  - "Each readiness row must use a frozen evidence matrix naming the JSON path(s) inspected, the frontend-consuming code path(s), and the qualifying test location(s) required for `frontend_consumed=true`."
+  - "The authoritative mechanism for `frontend_consumed` evidence is a checked-in YAML mapping table at `docs/frontend/frontend-data-readiness/readiness-matrix.yaml`. The audit reads that mapping and verifies the declared frontend code paths plus the exact named test identifiers or assertion-target strings listed for each row; path existence alone is insufficient, and the audit still must not infer frontend consumption heuristically from arbitrary code scanning."
+  - "The runtime rubric must also name the authoritative schema-support evidence for each row, using explicit source paths under `src/presentation/models.py`, `src/presentation/contract.py`, or `tests/presentation/test_layout_contract.py`; `schema_supported=true` only when that declared source evidence is present."
+  - "Per-row live-population thresholds are frozen in the plan/rubric rather than invented during implementation."
+  - "Status rollup to `unresolved` is frozen to cases where export-side evidence and frontend-consumption evidence disagree materially for a schema-supported area, such as a non-empty exported field that the frontend contract does not read, or a frontend consumption mapping that points to fields absent from the regenerated artifacts."
+  - "Machine-verified evidence selectors are frozen to one exact format: `relative/path::exact_substring`. The classifier treats a selector as present only when the referenced file exists and contains that exact substring byte-for-byte."
+  - "The `frontend_test_ids` field is frozen to the same selector scheme as an exact substring proof only. This phase does not allow mixed proof types such as prose aliases, inferred function names, or fuzzy test-title matching."
+  - "Blocked-mode output is frozen as follows: `coverage` must still contain one row per required readiness area, each row must use `status=blocked`, `schema_supported=null`, `live_populated=null`, `frontend_consumed=null`, empty evidence lists except for blocked-mode notes, and `overall_status.status=blocked` with every readiness row listed under `blocked_rows`."
+  - "If a readiness area currently has no direct frontend field consumer, `frontend_code_paths` must be an empty array and `frontend_consumed` must remain false for that row. This phase must not use type declarations or unrelated payload shapes as substitute consumption evidence."
+  - "For chapter-related rows only, T2 validates matrix shape, selector format, and file-existence lookup, but does not require selector satisfaction against frontend chapter code before T3 lands. The first required selector-satisfaction check for chapter `frontend_code_paths` and `frontend_test_ids` occurs after T3 alignment work and is enforced by T3/T4 validation."
+
+contracts:
+  interfaces:
+    - "Add a redesign CLI command `audit-frontend-data-readiness` that reads the freshly regenerated frontend-facing generated artifacts and evaluates them against the frontend contract/code expectations."
+    - "Add a `mise` task `frontend_data_readiness_audit` as the wrapper workflow, following the current `stage6_export`, `stage8_layout_export`, and `stage8_chapter_export` task naming pattern."
+    - "The audit command should be able to write a durable report under `docs/frontend/frontend-data-readiness/`."
+    - "Frontend chapter consumption should align to the frozen contract boundary: chapter text/order from `editorial-chapters.json`, focus/navigation truth from `layout-contract.json`."
+    - "The audit command should default to reading `frontend/src/data/generated/presentation-contract.json`, `frontend/src/data/generated/layout-contract.json`, and `frontend/src/data/generated/editorial-chapters.json`, and default to writing `docs/frontend/frontend-data-readiness/readiness-report.yaml` plus `summary.md`."
+    - "The wrapper task should capture a workflow start timestamp before regeneration, pass that timestamp to the audit-only command, and enforce all-or-nothing blocked behavior if any prerequisite regeneration step fails."
+    - "The wrapper workflow implementation shape is frozen to a Python-owned entrypoint in `src/redesign_cli.py`, exposed as `run-frontend-data-readiness-workflow`; the `mise` task is only a thin alias over that entrypoint."
+  schemas:
+    - "Add a readiness-report artifact with a fully frozen schema rather than only example groups."
+    - "Coverage rows should be recorded for exactly these readiness areas in this phase: `main_roster`, `two_way`, `future_picks`, `pick_protections_swaps`, `pick_to_player`, `leave_and_return`, `reacquired_players`, `chapter_rows`, `chapter_focus_fields`, and `identity_markers`."
+    - "Each readiness row should distinguish whether the case is `schema_supported`, `live_populated`, and `frontend_consumed`."
+    - "The chapter alignment check should explicitly compare `chapter_layout.window_*`, `highlight_*`, and `default_zoom` against what the frontend timeline layer reads and uses."
+    - "The readiness report should record observable artifact provenance so stale-report generation is detectable: audited file paths, file modification timestamps, and file sizes."
+    - "The readiness rubric/report contract should include a row-by-row evidence matrix with: `schema_source_paths`, `schema_supported_rule`, `json_paths`, `population_rule`, `frontend_code_paths`, `frontend_test_paths`, `frontend_test_ids`, and `frontend_consumed_rule`."
+    - "The blocked-mode report contract should include: audit workflow start time, each prerequisite command attempted, the first failed prerequisite, whether any artifact mtimes failed freshness, and an explicit statement that no mixed fresh/stale readiness classification was performed."
+    - "The readiness rubric/report contract should include a checked-in evidence matrix at `docs/frontend/frontend-data-readiness/readiness-matrix.yaml` with one row per readiness area containing: `schema_source_paths`, `schema_supported_rule`, `json_paths`, `population_rule`, `frontend_code_paths`, `frontend_test_paths`, `frontend_test_ids`, and `frontend_consumed_rule`."
+    - "The readiness-report schema is frozen to these required top-level keys: `artifact_summary`, `workflow`, `coverage`, `population_gaps`, `alignment_gaps`, `strengths`, `blockers`, and `overall_status`."
+    - "`artifact_summary` is frozen to nested keys `presentation_contract`, `layout_contract`, and `editorial_chapters`; each nested object must contain `path`, `mtime`, `size_bytes`, and `fresh_after_workflow_start`."
+    - "`workflow` is frozen to required keys `workflow_start_time`, `wrapper_command`, `audit_command`, `prerequisites`, `freshness_gate_passed`, `used_checked_in_artifacts_as_substitute`, and `blocked_mode_reason`."
+    - "`coverage` is a required array of row objects, each with keys: `row`, `status`, `schema_supported`, `live_populated`, `frontend_consumed`, `schema_evidence`, `live_evidence`, `frontend_evidence`, and `notes`."
+    - "`population_gaps`, `alignment_gaps`, `strengths`, and `blockers` are each required arrays of flat entries with keys `row` and `detail`."
+    - "`overall_status` is frozen to required keys `status`, `ready_rows`, `weak_rows`, `blocked_rows`, and `unresolved_rows`, where `status` must be one of `ready`, `weak`, `blocked`, or `unresolved`."
+    - "`schema_source_paths`, `frontend_code_paths`, and `frontend_test_ids` are frozen to arrays of `relative/path::exact_substring` selectors; the classifier must not interpret free-form prose in those fields."
+    - "Blocked-mode report semantics are frozen: `coverage` must contain one blocked row for every required readiness area; `schema_evidence`, `live_evidence`, and `frontend_evidence` must be empty arrays; `notes` must explain the blocked prerequisite; `blockers` must contain at least one entry naming the first failed prerequisite or freshness failure; `population_gaps`, `alignment_gaps`, and `strengths` must be empty arrays."
+  config_changes:
+    - "Add a `mise` task `frontend_data_readiness_audit` for frontend data readiness auditing."
+    - "Document the canonical readiness sequence as: regenerate frontend artifacts, run the readiness audit, then inspect the generated report."
+
+tasks:
+  - id: "T1"
+    title: "Codify Readiness Rubric"
+    objective: "Codify the already-settled readiness rubric and report contract so implementation does not drift into vague visual debugging or ad hoc data inspection."
+    owned_scope:
+      - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+      - "docs/frontend/frontend-data-readiness/report-contract.md"
+      - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+    forbidden_scope:
+      - "Do not change export code or frontend code in this task."
+      - "Do not reopen product-level frontend design decisions."
+    dependencies: []
+    parallelizable: false
+    expected_validation:
+      - "A committed rubric exists that defines the audit categories `schema_supported`, `live_populated`, and `frontend_consumed`."
+      - "A committed report-contract artifact codifies the already-frozen readiness rows, the `frontend_consumed` rule, the descriptive repeated-name heuristic for leave-and-return and reacquired-player continuity checks, the `ready|weak|blocked|unresolved` rollup rules, the limited `upstream data limitation` evidence standard, the observable artifact-provenance requirement, and the frozen `readiness-report.yaml` schema."
+      - "The rubric/report contract includes a row-by-row evidence matrix for at least: `main_roster`, `two_way`, `future_picks`, `pick_protections_swaps`, `pick_to_player`, `leave_and_return`, `reacquired_players`, `chapter_rows`, `chapter_focus_fields`, and `identity_markers`."
+      - "The rubric/report contract freezes the blocked-mode payload and the freshness gate rule."
+      - "The rubric/report contract freezes the per-row population thresholds and null/sparse rules for each required readiness row."
+      - "The machine-readable runtime rubric exists at `docs/frontend/frontend-data-readiness/readiness-matrix.yaml` and is the sole evidence source consumed by the classifier."
+      - "The machine-readable runtime rubric includes exact `frontend_test_ids` strings per row so `frontend_consumed` can be proven by explicit identifier lookup instead of path existence alone."
+      - "For chapter-related rows, T1 must predeclare the exact post-T3 selectors that the aligned frontend code/tests are required to satisfy; T3 may conform implementation to those selectors but does not own the matrix."
+
+  - id: "T2"
+    title: "Implement Audit Command Surface And Classifier"
+    objective: "Add a reproducible CLI/task surface and the generic readiness-classification logic so current and future export states can be assessed without manual repo spelunking."
+    owned_scope:
+      - "src/redesign_cli.py"
+      - "src/presentation/validate.py"
+      - "tests/presentation/"
+      - "mise.toml"
+    forbidden_scope:
+      - "Do not change frontend rendering behavior in this task."
+      - "Do not silently bake visual assumptions into the audit logic."
+    dependencies:
+      - "T1"
+    parallelizable: false
+    expected_validation:
+      - "`uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help` shows `audit-frontend-data-readiness`."
+      - "`uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help` shows `run-frontend-data-readiness-workflow`."
+      - "A `mise` task `frontend_data_readiness_audit` exists as the wrapper workflow, distinct from the audit-only CLI command."
+      - "Targeted pytest coverage exists for report classification logic and required report fields."
+      - "The generic readiness classifier explicitly reports live counts or absence for `main_roster`, `two_way`, `future_picks`, `pick_to_player`, leave-and-return cases, reacquired-player cases, pick protection/swap strand data, and identity-marker population."
+      - "The readiness audit explicitly reports whether protection/swap truth is populated on frontend-consumed pick strands versus only on event descriptions."
+      - "The readiness audit explicitly reports non-null `identity_marker.image_path` coverage and `headshot_text` versus `text_only` marker counts."
+      - "Targeted tests cover both populated and null/sparse readiness outcomes."
+      - "Targeted tests cover the rollup mapping for `ready`, `weak`, `blocked`, and `unresolved`, plus non-zero blocked-mode behavior when a required artifact is missing."
+      - "Targeted tests cover the freshness gate and the all-or-nothing blocked behavior for mixed fresh/stale artifact sets."
+      - "Targeted tests cover the checked-in `frontend_consumed` YAML matrix as the only accepted source of frontend-consumption proof, including exact test-id/assertion-target lookup rather than path-existence-only verification."
+      - "For chapter-related rows, T2 validation may stop at selector-format and file-existence checks; satisfied chapter selector matching is not required until after T3 updates the frontend code/tests."
+
+  - id: "T3"
+    title: "Resolve Chapter Contract Alignment"
+    objective: "Remove the known chapter contract/frontend mismatch so chapter readiness is audited against the actual intended boundary: chapter text from editorial export, focus/navigation truth from `chapter_layout`."
+    owned_scope:
+      - "frontend/src/lib/timeline.ts"
+      - "frontend/src/lib/timeline.test.ts"
+    forbidden_scope:
+      - "Do not reintroduce visible chapter UI."
+      - "Do not move focus/navigation truth into `editorial-chapters.json` without a new plan."
+      - "Do not add new generic readiness-classifier logic in this task."
+      - "Do not edit `docs/frontend/frontend-data-readiness/readiness-matrix.yaml`; T3 must conform to the selectors frozen by T1."
+    dependencies:
+      - "T2"
+    parallelizable: false
+    expected_validation:
+      - "Targeted frontend tests prove the timeline layer no longer expects nonexistent `focus_payload`-style fields from chapter export rows."
+      - "Frontend-only validation proves the timeline layer now consumes chapter focus/navigation truth from `chapter_layout` without adding new audit-classifier ownership in this task."
+      - "T3 is the first task that must make the frozen chapter `frontend_code_paths` and `frontend_test_ids` selectors true in the checked-in frontend files."
+      - "`mise run stage8_test` and `mise run stage8_build` pass after the alignment fix."
+
+  - id: "T4"
+    title: "Generate Live Readiness Report"
+    objective: "Run the reproducible readiness workflow against the current Memphis generated artifacts and write a durable report that separates frontend blockers from upstream data limitations."
+    owned_scope:
+      - "docs/frontend/frontend-data-readiness/readiness-report.yaml"
+      - "docs/frontend/frontend-data-readiness/summary.md"
+    forbidden_scope:
+      - "Do not claim readiness for cases that remain absent or null-heavy in live exports."
+      - "Do not broaden into frontend design proposals beyond blocker classification."
+      - "Do not rewrite T1-owned rubric, matrix, or report-contract artifacts in this task."
+    dependencies:
+      - "T2"
+      - "T3"
+    parallelizable: false
+    expected_validation:
+      - "The readiness workflow is documented and runnable from this repo using the exact sequence: `mise run frontend_data_readiness_audit`, where the Python-owned wrapper captures workflow start time, runs `stage6_export`, `stage8_layout_export`, `stage8_chapter_export`, and then runs the audit-only classifier."
+      - "A committed readiness report exists for the current live Memphis generated artifacts."
+      - "The report clearly classifies each audited area as ready, weak, blocked, or unresolved."
+      - "T4 is the first task that must run the full selector-satisfaction check for chapter-related rows as part of the end-to-end workflow."
+      - "The summary clearly separates frontend-only concerns from limited-evidence `upstream data limitation` classifications without claiming deeper source-stage attribution."
+      - "The report records observable artifact provenance used for the run: audited file paths, file modification timestamps, and file sizes."
+      - "If regeneration cannot run in the current environment, T4 overwrites or writes the report in blocked mode rather than emitting a partial or stale readiness report, including the audit workflow start time, every prerequisite attempted, the first failed prerequisite, whether any artifact mtimes failed freshness, and an explicit statement that the existing checked-in artifacts were not used as a substitute."
+      - "A blocked-mode report is an acceptable artifact only for a blocked implementation state; the feature is not considered complete until T4 is rerun in a DB-capable environment and produces a non-blocked live report."
+
+execution:
+  order:
+    - "T1"
+    - "T2"
+    - "T3"
+    - "T4"
+  notes:
+    - "This plan should add durable audit/report infrastructure, not another temporary debugging pass."
+    - "T3 is intentionally included because the known chapter mismatch would otherwise make the readiness report untrustworthy."
+    - "T4 must use the current live generated Memphis artifacts, not synthetic fixtures, for the committed report."
+    - "Any deeper source-vs-export attribution is out of scope for this plan and should be handled by a later dedicated audit if still needed."
+    - "The wrapper workflow and the audit-only classifier are intentionally separate so freshness and blocked-mode semantics remain unambiguous."
+
+row_criteria:
+  - row: "main_roster"
+    schema_source_paths:
+      - "src/presentation/contract.py::LANE_GROUPS = {\"main_roster\", \"two_way\", \"future_picks\"}"
+      - "src/presentation/models.py::lane_layout: list[LaneLayoutRow]"
+    schema_supported_rule: "schema_supported=true when `main_roster` is declared in `src/presentation/contract.py::LANE_GROUPS`, the presentation/layout models still carry lane-group fields, and at least one checked-in contract or timeline test identifier still references main-roster band behavior."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true when both exports contain at least one `main_roster` row."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = [\"main_roster\", \"two_way\", \"future_picks\"];"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::builds the same chronology and band surface regardless of compatibility window, zoom, and asset-kind state"
+    frontend_consumed_rule: "true only when the readiness matrix names the relevant timeline code path and the exact named test identifier remains present in the referenced test file."
+  - row: "two_way"
+    schema_source_paths:
+      - "src/presentation/contract.py::TWO_WAY_VALUES = {\"two_way\", \"two-way\", \"two way\"}"
+      - "tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():"
+    schema_supported_rule: "schema_supported=true when `src/presentation/contract.py::LANE_GROUPS` and `TWO_WAY_VALUES` still support `two_way`, and checked-in contract tests still include explicit two-way fixture coverage."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true only when both exports contain at least one `two_way` row; otherwise `weak` if schema-supported but absent."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::if (segment?.lane_group === \"two_way\") {"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the layout contract exposes main-roster, two-way, and future-pick rows"
+      - "tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():"
+    frontend_consumed_rule: "true only when the readiness matrix names the frontend lane-group code path and the exact named two-way-capable test identifiers remain present."
+  - row: "future_picks"
+    schema_source_paths:
+      - "src/presentation/contract.py::LANE_GROUPS = {\"main_roster\", \"two_way\", \"future_picks\"}"
+      - "src/presentation/models.py::lane_layout: list[LaneLayoutRow]"
+    schema_supported_rule: "schema_supported=true when `future_picks` is declared in contract code, the layout/presentation models still expose lane-group-bearing rows, and checked-in tests still exercise future-pick band behavior."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true when both exports contain at least one `future_picks` row."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = [\"main_roster\", \"two_way\", \"future_picks\"];"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the layout contract exposes main-roster, two-way, and future-pick rows"
+    frontend_consumed_rule: "true only when the readiness matrix names the future-pick timeline code path and the exact named test identifier remains present."
+  - row: "pick_protections_swaps"
+    schema_source_paths:
+      - "src/presentation/contract.py::protection_summary,"
+      - "src/presentation/contract.py::protection_payload"
+    schema_supported_rule: "schema_supported=true when contract export code still emits `protection_summary` and `protection_payload` fields on pick-bearing payloads and checked-in contract tests still reference those exact field names."
+    json_paths:
+      - "presentation-contract.json edges[].payload.protection_summary"
+      - "presentation-contract.json edges[].payload.protection_payload"
+    population_rule: "live_populated=true only when at least one frontend-consumed pick strand has a non-null `protection_summary` or non-empty `protection_payload`; description-only event text classifies as `weak`, not populated."
+    frontend_code_paths: []
+    frontend_test_paths:
+      - "tests/presentation/test_contract.py"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "tests/presentation/test_contract.py::def test_json_contract_shape_has_nodes_edges_lanes_and_meta():"
+      - "tests/presentation/test_contract.py::protection_summary=None"
+    frontend_consumed_rule: "true only when the readiness matrix names at least one direct strand-level protection-field consumer and the exact named assertion-target string remains present in the referenced tests; otherwise this row must report `frontend_consumed=false`."
+  - row: "pick_to_player"
+    schema_source_paths:
+      - "src/presentation/contract.py::\"pick_to_player\""
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():"
+    schema_supported_rule: "schema_supported=true when contract code still emits `pick_to_player` transition links and checked-in contract tests still assert both single-hop and multi-hop draft transition coverage."
+    json_paths:
+      - "layout-contract.json event_layout[].transition_links[].link_type"
+      - "presentation-contract.json edges[].payload.drafted_player_name"
+    population_rule: "live_populated=true when at least one `pick_to_player` transition link exists and at least one paired drafted-player payload is non-null."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::link_type: \"same_asset\" | \"pick_to_player\" | \"event_transition\";"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders Memphis draft continuity links and pick-to-player conversion from layout transition links"
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():"
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_multi_hop_draft_transition_clusters():"
+    frontend_consumed_rule: "true only when the readiness matrix names the transition-rendering code path and the exact named pick-to-player test identifiers remain present."
+  - row: "leave_and_return"
+    schema_source_paths:
+      - "src/presentation/contract.py::player_name"
+      - "src/presentation/contract.py::asset_id"
+    schema_supported_rule: "schema_supported=true when the exported presentation edge shape still carries both `asset_id` and player-display-name payloads and the frontend contract layer can render separate non-overlapping asset-scoped chapters for one repeated player display name."
+    json_paths:
+      - "presentation-contract.json edges[].asset_id"
+      - "presentation-contract.json edges[].payload.player_name"
+    population_rule: "live_populated=true when at least one player display name appears on more than one distinct `asset_id` and the exported date ranges for those assets do not overlap with at least one visible gap between the earlier end date and later start date."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::row.asset_id"
+      - "frontend/src/lib/timeline.ts::return segment.identity_marker.label_text"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::keeps leave-and-return chapters asset-scoped instead of inventing false cross-gap continuity"
+    frontend_consumed_rule: "true only when the readiness matrix names the asset-scoped continuity code paths and the exact leave-and-return test selector remains present."
+  - row: "reacquired_players"
+    schema_source_paths:
+      - "src/presentation/contract.py::player_name"
+      - "src/presentation/contract.py::asset_id"
+    schema_supported_rule: "schema_supported=true when the exported presentation edge shape still carries both `asset_id` and player-display-name payloads and the frontend contract layer can suppress overflowed reacquired-player labels and markers without inventing person-level continuity."
+    json_paths:
+      - "presentation-contract.json edges[].asset_id"
+      - "presentation-contract.json edges[].payload.player_name"
+    population_rule: "live_populated=true when at least one repeated player display name spans more than one distinct `asset_id` and at least one later reacquired segment is short enough that overflow suppression rules can be exercised independently of the first tenure."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::row.asset_id"
+      - "frontend/src/lib/timeline.ts::segment.identity_marker.label_text"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::hides reacquired-player labels and markers when the visible treatment would extend beyond the reacquired segment"
+    frontend_consumed_rule: "true only when the readiness matrix names the asset-scoped continuity code paths and the exact reacquired-player test selector remains present."
+  - row: "chapter_rows"
+    schema_source_paths:
+      - "src/presentation/contract.py::chapter_layout.append("
+      - "tests/presentation/test_layout_contract.py::chapter_layout_ids={row.story_chapter_id for row in layout_result.chapter_layout}"
+    schema_supported_rule: "schema_supported=true when contract/export code still emits `story_chapter_id` rows in both chapter exports and the frontend contract layer still validates cross-artifact chapter identity."
+    json_paths:
+      - "editorial-chapters.json[].story_chapter_id"
+      - "layout-contract.json chapter_layout[].story_chapter_id"
+    population_rule: "live_populated=true when both exports contain at least 2 chapter rows; classify as `weak` when both exports contain exactly 1 row; classify as `blocked` if either export contains 0 rows."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::chapterLayoutById"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::loads the generated artifacts without missing asset, event, or chapter references"
+    frontend_consumed_rule: "true only when the readiness matrix names the cross-artifact chapter validation path and the exact named test identifier remains present."
+  - row: "chapter_focus_fields"
+    schema_source_paths:
+      - "src/presentation/contract.py::default_zoom=_chapter_default_zoom("
+      - "tests/presentation/test_layout_contract.py::chapter = layout_result.chapter_layout[0]"
+    schema_supported_rule: "schema_supported=true when chapter focus fields are emitted by `layout-contract.json chapter_layout` rows in contract code and directly consumed by the frontend timeline layer, with no dependency on editorial-export focus payloads."
+    json_paths:
+      - "layout-contract.json chapter_layout[].window_start"
+      - "layout-contract.json chapter_layout[].window_end"
+      - "layout-contract.json chapter_layout[].highlight_asset_ids"
+      - "layout-contract.json chapter_layout[].highlight_event_ids"
+      - "layout-contract.json chapter_layout[].default_zoom"
+    population_rule: "live_populated=true only when at least one chapter row has non-empty `window_start`/`window_end` plus either a non-empty highlight list or non-null `default_zoom`; all-empty highlight arrays with null zoom classify as `weak`."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::chapterLayoutById.get(chapter.story_chapter_id)"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::keeps editorial chapter title, body, and dates additive instead of sourcing scene windows from chapter_layout"
+    frontend_consumed_rule: "true only when the readiness matrix names the direct `chapter_layout` focus-consumption path and the exact named chapter-focus test identifier remains present."
+  - row: "identity_markers"
+    schema_source_paths:
+      - "src/presentation/contract.py::identity_marker=_resolved_identity_marker("
+      - "tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path: Path):"
+    schema_supported_rule: "schema_supported=true when contract code still emits `identity_marker` fields and checked-in contract tests still assert both image-backed and text-only cases."
+    json_paths:
+      - "layout-contract.json lane_layout[].identity_marker.image_path"
+      - "layout-contract.json lane_layout[].identity_marker.marker_variant"
+      - "layout-contract.json lane_layout[].identity_marker.label_text"
+    population_rule: "live_populated=true when at least one non-null `image_path` exists; all-text-only/null-image coverage classifies as `weak`, not blocked."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::segment.identity_marker.marker_variant === \"headshot_text\""
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::supports headshot-plus-text markers when a local image path exists and falls back to text-only otherwise"
+      - "tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path: Path):"
+    frontend_consumed_rule: "true only when the readiness matrix names the identity-marker rendering path and the exact named headshot/text fallback test identifiers remain present."
+
+risks:
+  - "Some missing coverage may prove to be true upstream/source-data absence rather than export bugs, which could limit how much this pass can 'fix'."
+  - "A DB-backed audit step may be needed to distinguish missing source data from dropped export data for some classes such as `two_way`."
+  - "The current generated artifacts may change between runs, so the committed readiness report can become stale if regeneration steps are skipped."
+  - "The chapter alignment task can drift into broader frontend behavior changes if it is not kept tightly scoped."
+
+open_questions:
+  - "If protection/swap truth is not present on frontend-consumed pick strands, should a later plan move that truth into presentation/layout exports or explicitly accept event-description-only coverage?"
+  - "If live `two_way` coverage is still absent after the audit, should the next pass target upstream source derivation or frontend contract expectations?"
+  - "If headshot-backed markers remain universally null, should future frontend design continue assuming image-backed identity markers at all?"
+
+approval:
+  refine_status: approved
+  review_cycles: 3
+  approved_for_implementation: true

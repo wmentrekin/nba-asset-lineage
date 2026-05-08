@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nba-asset-lineage"
-version = "0.1.0"
-description = "Deterministic NBA asset lineage pipeline"
+version = "0.2.0"
+description = "Memphis asset lineage foundation reset scaffold"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -13,7 +13,6 @@ dependencies = [
   "pydantic>=2.8",
   "PyYAML>=6.0",
   "psycopg[binary]>=3.2",
-  "nba_api>=1.7",
 ]
 
 [project.scripts]
@@ -25,10 +24,10 @@ py-modules = ["db_config", "redesign_cli"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["canonical*", "editorial*", "evidence*", "presentation*", "shared*"]
+include = ["foundation*"]
 namespaces = true
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.3",
+  "pytest>=9.0.3",
 ]

@@ -1,202 +1,91 @@
 # nba-asset-lineage
 
-This repository is being redesigned into a public-facing Memphis Grizzlies asset
-lineage and storytelling system.
+This repository is being rebuilt from scratch around a smaller and more
+trustworthy goal:
 
-The active implementation path is the redesigned evidence/canonical pipeline.
-The old Bronze/Silver/Gold prototype has been removed from the active repo
-structure; historical implementation details should be recovered from git
-history if needed.
+- one Memphis-only Astro page
+- one 10-year asset evolution graph
+- transactions as graph nodes
+- asset continuity as graph strands
+- no narrative, chaptering, or editorial layer in the base product
 
-## Product Direction
+The repo is intentionally in a reset phase. The previous staged redesign and
+frontend prototype were not discarded, but they are no longer the active target
+architecture.
 
-The project models franchise evolution as a deterministic, time-indexed asset
-lineage network that can drive a polished editorial visualization.
+## Current Objective
 
-Initial release scope:
+The current build order is:
 
-- Memphis Grizzlies only
-- player-centric asset lineage
-- continuous pick lifecycle modeling
-- compound transaction events from the Memphis perspective
-- explicit evidence, curated override, canonical, presentation, and editorial
-  layers
-- scrollytelling or chaptered frontend experience after the presentation
-  contract is stable
+1. define the minimum graph output we actually need
+2. define the source systems required for that output
+3. define the durable Supabase storage model
+4. ingest and validate the source data
+5. export a graph-ready lineage dataset
+6. render that dataset in Astro
 
-## Repository Layout
+The important constraint is that schema and frontend work should follow the data
+truth, not get ahead of it.
 
-- `agent-context/`
-  - tracked planning, contract, and implementation-status docs
-- `configs/data/`
-  - curated YAML/JSON data inputs, currently Stage 2 event merge overrides
-- `sql/`
-  - redesign SQL bootstrap scripts
-- `src/evidence/`
-  - Stage 1 source capture, normalization, override loading, and validation
-- `src/canonical/`
-  - Stage 2-5 canonical event, tenure, pick lifecycle, and flow builders
-- `src/presentation/`
-  - Stage 6 presentation contract generation, validation, and JSON export
-- `src/editorial/`
-  - Stage 7 editorial overlay models, validation, loading, and export
-- `tests/`
-  - local regression tests for evidence, canonical, presentation, and editorial behavior
+## Active Repo Structure
 
-## Setup
+- [`src/foundation/`](src/foundation)
+  - reset-era data models and scaffolding for the smaller lineage system
+- [`src/redesign_cli.py`](src/redesign_cli.py)
+  - minimal reset-era CLI
+- [`src/db_config.py`](src/db_config.py)
+  - local `.env` database configuration loader
+- [`frontend/`](frontend)
+  - Astro shell for the next graph implementation
+- [`docs/foundation/`](docs/foundation)
+  - reset-era architecture notes
+- [`docs/frontend/`](docs/frontend)
+  - current frontend reset notes
+- [`configs/data/`](configs/data)
+  - reserved for active reset-era tracked config/data inputs
 
-Use local `.env` only. It is gitignored and should contain database connection
-values for commands that talk to Postgres.
+## Archived Material
 
-Install dependencies:
+Earlier implementation material is preserved in [`legacy/`](legacy/README.md):
+
+- staged redesign source code
+- staged SQL bootstrap files
+- old tests tied to the staged implementation
+- old frontend reset/readiness docs
+- the previous Astro prototype
+- earlier config bundles and overrides
+
+That material is available for reference and logic-mining only.
+
+## Temporary Command Surface
+
+The current `mise` tasks are deliberately minimal while the repo is being
+redefined:
 
 ```bash
 mise run setup
+mise run db_check
+mise run frontend_setup
+mise run frontend_dev
+mise run frontend_check
+mise run frontend_test
+mise run frontend_build
 ```
 
-or:
+These are temporary scaffolding commands, not the long-term workflow.
 
-```bash
-uv sync
-```
+## Environment
 
-Stage 8 uses Astro and requires Node `>=18.20.8`. On this machine the system
-`node` is too old, so use the Node version managed by `mise`, `nvm`, or another
-version manager before running frontend commands.
+Use local `.env` only.
 
-## Tests
+Database connectivity is currently still expected through the existing Postgres
+variables consumed by [`src/db_config.py`](src/db_config.py).
 
-Run the local test suite:
+## Working Rule
 
-```bash
-mise run test
-```
+Until the new source/data model is settled:
 
-or:
-
-```bash
-uv --cache-dir /tmp/uv-cache run pytest -q
-```
-
-## Redesign CLI
-
-Run the CLI directly:
-
-```bash
-uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help
-```
-
-or through the package script:
-
-```bash
-uv --cache-dir /tmp/uv-cache run nba-asset-redesign --help
-```
-
-## Stage Commands
-
-Stage 1 evidence:
-
-```bash
-mise run stage1_bootstrap
-mise run stage1_build
-mise run stage1_validate
-```
-
-Stage 2 canonical events:
-
-```bash
-mise run stage2_bootstrap
-mise run stage2_build
-mise run stage2_validate
-```
-
-Stage 3 player tenure:
-
-```bash
-mise run stage3_bootstrap
-mise run stage3_build
-mise run stage3_validate
-```
-
-Stage 4 pick lifecycle:
-
-```bash
-mise run stage4_bootstrap
-mise run stage4_build
-mise run stage4_validate
-```
-
-Stage 5 event-asset flow:
-
-```bash
-mise run stage5_bootstrap
-mise run stage5_build
-mise run stage5_validate
-```
-
-Stage 6 presentation contract:
-
-```bash
-mise run stage6_bootstrap
-mise run stage6_build
-mise run stage6_validate
-mise run stage6_export
-```
-
-Stage 7 editorial overlays:
-
-```bash
-mise run stage7_bootstrap
-mise run stage7_load
-mise run stage7_validate
-mise run stage7_export
-mise run stage7_export_presentation
-```
-
-Stage 8 frontend vertical slice:
-
-```bash
-mise run stage8_setup
-mise run stage8_check
-mise run stage8_test
-mise run stage8_build
-mise run stage8_dev
-```
-
-The built static artifact is generated at `frontend/dist/index.html`. For local
-inspection, run `mise run stage8_dev` or open the built HTML after
-`mise run stage8_build`.
-
-## Curated Overrides
-
-Stage 2 event merge overrides live in:
-
-```text
-configs/data/stage2_event_merge_overrides.yaml
-```
-
-The default redesign CLI override path is `configs/data`, so normal Stage 1
-commands load that bundle without extra flags.
-
-Stage 7 editorial overlays live in:
-
-```text
-configs/data/stage7_editorial_overlays.yaml
-```
-
-Stage 8 frontend source lives under:
-
-```text
-frontend/
-```
-
-## Current Status
-
-Stages 1 through 7 are implemented in the redesign path. Stage 7 adds the
-editorial overlay layer without changing canonical lineage truth. Stage 8 is
-the first Astro frontend vertical slice and should render directly from the
-presentation contract plus editorial overlays without frontend-side lineage
-repair.
-
-See `agent-context/current-status.md` and the navigation map in
-`agent-context/README.md` for implementation context.
+- prefer defining smaller contracts over implementing bigger systems
+- prefer preserving old work in `legacy/` over deleting potentially useful logic
+- do not reintroduce narrative/editorial/frontend complexity into the base graph
+- do not freeze new SQL or Supabase schema prematurely
