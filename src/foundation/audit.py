@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import psycopg
 
+from foundation.export import draft_resolution_event_date
+
 
 FOUNDATION_TABLES = (
     "source_record",
@@ -30,6 +32,7 @@ def audit_foundation_data(database_url: str) -> dict[str, object]:
             "status": "ok",
             "counts": counts,
             "event_span": fetch_event_span(connection),
+            "graph_export_span": fetch_graph_export_span(connection),
             "source_coverage": fetch_source_coverage(connection),
             "aliases": fetch_alias_metrics(connection),
             "snapshots": fetch_snapshot_metrics(connection),
@@ -80,6 +83,37 @@ def fetch_event_span(connection: psycopg.Connection) -> dict[str, object]:
         "start_date": str(row[0]) if row[0] is not None else None,
         "end_date": str(row[1]) if row[1] is not None else None,
         "event_count": int(row[2]),
+    }
+
+
+def fetch_graph_export_span(connection: psycopg.Connection) -> dict[str, object]:
+    event_span = fetch_event_span(connection)
+    dates = [
+        str(event_span["start_date"]),
+        str(event_span["end_date"]),
+    ] if event_span.get("start_date") and event_span.get("end_date") else []
+    event_count = int(event_span.get("event_count", 0))
+    draft_resolution_count = 0
+
+    if table_exists(connection, "draft_pick_resolution"):
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select draft_year, round_number
+                from foundation.draft_pick_resolution
+                """
+            )
+            for draft_year, round_number in cursor.fetchall():
+                dates.append(draft_resolution_event_date(int(draft_year), int(round_number)))
+                draft_resolution_count += 1
+
+    return {
+        "source": "foundation graph export inputs",
+        "start_date": min(dates) if dates else None,
+        "end_date": max(dates) if dates else None,
+        "event_count": event_count + draft_resolution_count,
+        "canonical_event_count": event_count,
+        "draft_resolution_event_count": draft_resolution_count,
     }
 
 
@@ -271,18 +305,18 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
 
 def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
     counts = dict(report.get("counts", {}))
-    event_span = dict(report.get("event_span", {}))
+    graph_export_span = dict(report.get("graph_export_span", report.get("event_span", {})))
     source_coverage = list(report.get("source_coverage", []))
     snapshots = dict(report.get("snapshots", {}))
     draft = dict(report.get("draft", {}))
 
     gaps: list[dict[str, str]] = []
-    if str(event_span.get("start_date") or "") > "2016-07-01":
+    if str(graph_export_span.get("start_date") or "") > "2016-07-01":
         gaps.append(
             build_gap(
                 "medium",
-                "The canonical event span starts after the requested summer 2016 anchor.",
-                f"Current start date is {event_span.get('start_date')}.",
+                "The graph export span starts after the requested summer 2016 anchor.",
+                f"Current graph export start date is {graph_export_span.get('start_date')}.",
                 "Confirm whether Memphis had no relevant post-July-1 events before this date or add a source that proves the quiet interval.",
             )
         )

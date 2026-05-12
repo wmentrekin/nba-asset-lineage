@@ -71,7 +71,6 @@ These tables do not yet include:
 - full real-source coverage
 - true date-exact roster snapshots
 - full two-way contract sourcing
-- pick-to-player resolution links
 
 ## First Canonical Pass
 
@@ -96,6 +95,7 @@ The first graph-ready export should read across:
 - `foundation.asset`
 - `foundation.canonical_event`
 - `foundation.event_asset_transition`
+- `foundation.draft_pick_resolution`
 
 It should emit:
 
@@ -108,6 +108,7 @@ It should emit:
 For this pass:
 
 - `roster_snapshots` is emitted when checkpoint rows exist
+- `draft_pick_resolution` emits graph-facing `pick_to_player` transitions
 - no roster-state validation is expected
 - no frontend layout semantics are part of the export
 
@@ -131,6 +132,5 @@ What still comes next:
 - broader real-source loading coverage
 - exact roster snapshot sourcing
 - two-way status enrichment
-- graph-facing `pick_to_player` transitions from completed
-  `draft_pick_resolution` rows
+- future pick inventory snapshots
 - draft lottery contextual loading
