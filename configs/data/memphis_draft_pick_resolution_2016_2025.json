@@ -1,0 +1,226 @@
+{
+  "source_bundle_id": "memphis-draft-pick-resolution-2016-2025",
+  "description": "Curated Memphis draft-selection slot mappings for the reset-era draft pick resolution preview. These rows assert the selected player and draft slot, not full prior pick-ownership lineage.",
+  "rows": [
+    {
+      "draft_selection_id": "draft:2016:17",
+      "draft_year": 2016,
+      "round_number": 1,
+      "pick_overall": 17,
+      "team_code": "MEM",
+      "player_name": "Wade Baldwin",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2016.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 17."
+    },
+    {
+      "draft_selection_id": "draft:2016:57",
+      "draft_year": 2016,
+      "round_number": 2,
+      "pick_overall": 57,
+      "team_code": "MEM",
+      "player_name": "Wang Zhelin",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2016.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 57."
+    },
+    {
+      "draft_selection_id": "draft:2018:4",
+      "draft_year": 2018,
+      "round_number": 1,
+      "pick_overall": 4,
+      "team_code": "MEM",
+      "player_name": "Jaren Jackson Jr.",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2018.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 4."
+    },
+    {
+      "draft_selection_id": "draft:2018:32",
+      "draft_year": 2018,
+      "round_number": 2,
+      "pick_overall": 32,
+      "team_code": "MEM",
+      "player_name": "Jevon Carter",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2018.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 32."
+    },
+    {
+      "draft_selection_id": "draft:2019:2",
+      "draft_year": 2019,
+      "round_number": 1,
+      "pick_overall": 2,
+      "team_code": "MEM",
+      "player_name": "Ja Morant",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2019.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 2."
+    },
+    {
+      "draft_selection_id": "draft:2020:40",
+      "draft_year": 2020,
+      "round_number": 2,
+      "pick_overall": 40,
+      "team_code": "MEM",
+      "player_name": "Robert Woodard II",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2020.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 40."
+    },
+    {
+      "draft_selection_id": "draft:2021:17",
+      "draft_year": 2021,
+      "round_number": 1,
+      "pick_overall": 17,
+      "team_code": "MEM",
+      "player_name": "Trey Murphy III",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2021.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 17; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2021:51",
+      "draft_year": 2021,
+      "round_number": 2,
+      "pick_overall": 51,
+      "team_code": "MEM",
+      "player_name": "Brandon Boston Jr.",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2021.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 51; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2022:22",
+      "draft_year": 2022,
+      "round_number": 1,
+      "pick_overall": 22,
+      "team_code": "MEM",
+      "player_name": "Walker Kessler",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2022.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 22; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2022:29",
+      "draft_year": 2022,
+      "round_number": 1,
+      "pick_overall": 29,
+      "team_code": "MEM",
+      "player_name": "TyTy Washington Jr.",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2022.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 29; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2022:47",
+      "draft_year": 2022,
+      "round_number": 2,
+      "pick_overall": 47,
+      "team_code": "MEM",
+      "player_name": "Vince Williams Jr.",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2022.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 47."
+    },
+    {
+      "draft_selection_id": "draft:2023:25",
+      "draft_year": 2023,
+      "round_number": 1,
+      "pick_overall": 25,
+      "team_code": "MEM",
+      "player_name": "Marcus Sasser",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2023.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 25; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2023:45",
+      "draft_year": 2023,
+      "round_number": 2,
+      "pick_overall": 45,
+      "team_code": "MEM",
+      "player_name": "GG Jackson II",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2023.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 45."
+    },
+    {
+      "draft_selection_id": "draft:2023:56",
+      "draft_year": 2023,
+      "round_number": 2,
+      "pick_overall": 56,
+      "team_code": "MEM",
+      "player_name": "Tarik Biberovic",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2023.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 56; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2024:9",
+      "draft_year": 2024,
+      "round_number": 1,
+      "pick_overall": 9,
+      "team_code": "MEM",
+      "player_name": "Zach Edey",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2024.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 9."
+    },
+    {
+      "draft_selection_id": "draft:2024:39",
+      "draft_year": 2024,
+      "round_number": 2,
+      "pick_overall": 39,
+      "team_code": "MEM",
+      "player_name": "Jaylen Wells",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2024.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 39."
+    },
+    {
+      "draft_selection_id": "draft:2024:57",
+      "draft_year": 2024,
+      "round_number": 2,
+      "pick_overall": 57,
+      "team_code": "MEM",
+      "player_name": "Ulrich Chomche",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2024.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 57; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2025:16",
+      "draft_year": 2025,
+      "round_number": 1,
+      "pick_overall": 16,
+      "team_code": "MEM",
+      "player_name": "Yang Hansen",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2025.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 16; draft-night movement should be modeled separately from slot resolution."
+    },
+    {
+      "draft_selection_id": "draft:2025:48",
+      "draft_year": 2025,
+      "round_number": 2,
+      "pick_overall": 48,
+      "team_code": "MEM",
+      "player_name": "Javon Small",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2025.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 48."
+    },
+    {
+      "draft_selection_id": "draft:2025:56",
+      "draft_year": 2025,
+      "round_number": 2,
+      "pick_overall": 56,
+      "team_code": "MEM",
+      "player_name": "Will Richard",
+      "source_locator": "https://www.basketball-reference.com/draft/NBA_2025.html",
+      "confidence": "high",
+      "notes": "Basketball-Reference draft row lists Memphis at pick 56."
+    }
+  ]
+}

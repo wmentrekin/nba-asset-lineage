@@ -79,6 +79,7 @@ The repo now has:
   - active `foundation` table row counts
   - read-only foundation coverage and gap audit
   - read-only draft-selection to pick-asset resolution preview
+  - read-only curated draft-slot resolution preview
 
 ## Current Caveats
 
@@ -98,6 +99,9 @@ The repo now has:
 - `preview-draft-pick-resolution` is the current read-only command for checking
   whether loaded draft selections can be linked to existing pick assets before
   adding any write-path resolver.
+- `preview-curated-draft-pick-resolution` compares the tracked curated
+  Memphis draft-slot fixture against live `draft_selection` rows and reports
+  which rows would be safe for a later create/link write path.
 
 ## Related Paths
 

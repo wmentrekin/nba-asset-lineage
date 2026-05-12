@@ -53,6 +53,18 @@ This is read-only. It reports whether `draft_selection` rows are already linked
 to `pick` rows, have conservative candidate matches, are ambiguous, or cannot be
 matched because owned/future pick inventory rows are missing.
 
+Curated draft-slot preview:
+
+```bash
+.venv/bin/python -m redesign_cli preview-curated-draft-pick-resolution --team-code MEM
+```
+
+This is read-only. It compares
+[`configs/data/memphis_draft_pick_resolution_2016_2025.json`](../../configs/data/memphis_draft_pick_resolution_2016_2025.json)
+against live `draft_selection` rows and reports whether a later write path would
+create slot-based `pick` rows, link existing rows, or block because source rows
+do not match.
+
 Resolved in this pass:
 
 - `Kenny Lofton Jr` source text now resolves to `Kenneth Lofton Jr.`
