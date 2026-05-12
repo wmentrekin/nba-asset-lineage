@@ -34,6 +34,7 @@ def test_build_known_gaps_surfaces_current_foundation_caveats() -> None:
             "draft": {
                 "selections": 20,
                 "unlinked_pick_rows": 20,
+                "resolved_pick_rows": 0,
                 "lottery_results": 0,
             },
         }
@@ -80,6 +81,7 @@ def test_build_known_gaps_accepts_covered_foundation_metrics() -> None:
             "draft": {
                 "selections": 20,
                 "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
                 "lottery_results": 5,
             },
         }

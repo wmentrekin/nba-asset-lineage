@@ -13,13 +13,14 @@ Current live `foundation` counts after the full-span rebuild:
 - `source_event`: 401
 - `player`: 227
 - `player_alias`: 1
-- `pick`: 62
-- `asset`: 289
+- `pick`: 82
+- `asset`: 309
 - `roster_baseline_player`: 222
 - `roster_snapshot`: 40
 - `roster_snapshot_player`: 888
 - `roster_snapshot_pick`: 0
 - `draft_selection`: 20
+- `draft_pick_resolution`: 20
 - `draft_lottery_result`: 0
 - `canonical_event`: 388
 - `canonical_event_member`: 401
@@ -29,7 +30,7 @@ Current graph export counts:
 
 - `events`: 388
 - `player_assets`: 227
-- `pick_assets`: 62
+- `pick_assets`: 82
 - `transitions`: 528
 - `roster_snapshots`: 40
 
@@ -65,12 +66,26 @@ against live `draft_selection` rows and reports whether a later write path would
 create slot-based `pick` rows, link existing rows, or block because source rows
 do not match.
 
+Guarded draft-resolution load:
+
+```bash
+.venv/bin/python -m redesign_cli load-curated-draft-pick-resolution --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-curated-draft-pick-resolution --team-code MEM
+```
+
+The non-dry-run command writes only after the curated preview has zero blocked
+rows. It creates slot-based `pick` and `asset` rows, links
+`draft_selection.pick_id`, and records provenance in
+`foundation.draft_pick_resolution`.
+
 Resolved in this pass:
 
 - `Kenny Lofton Jr` source text now resolves to `Kenneth Lofton Jr.`
 - full-span Basketball-Reference transaction pages now feed the source event layer
 - full-span Basketball-Reference roster pages now feed roster baselines
 - Memphis Basketball-Reference draft selections now feed `draft_selection`
+- curated Memphis draft-slot rows now link all `draft_selection` rows to
+  slot-based `pick` assets with provenance in `draft_pick_resolution`
 - roster checkpoint rows now export instead of leaving `roster_snapshots` empty
 
 Known gaps:
@@ -83,5 +98,5 @@ Known gaps:
   required for the base graph.
 - Two-way versus standard contract status is modeled but not reliably sourced
   yet.
-- Draft selections are loaded, but pick-to-player resolution is not fully linked
-  to `pick` assets yet.
+- Graph-facing `pick_to_player` transitions are not emitted yet from
+  `draft_pick_resolution`.

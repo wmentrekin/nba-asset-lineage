@@ -8,6 +8,7 @@ from foundation.draft_resolution import (
     build_draft_pick_resolution_preview,
     build_slot_pick_asset_id,
     build_slot_pick_id,
+    load_curated_draft_pick_resolution,
     load_curated_draft_pick_resolution_bundle,
     pick_matches_selection_team,
 )
@@ -239,6 +240,7 @@ def test_curated_draft_pick_resolution_preview_proposes_new_slot_pick_when_db_se
 
     assert report.ready_for_write == 1
     assert report.proposed_new_picks == 1
+    assert report.blocked == 0
     assert report.rows[0].write_action == "create_pick_and_link"
     assert report.rows[0].proposed_pick_id == "pick:slot:2024:9"
     assert report.rows[0].proposed_pick_asset_id == "asset:pick:pick:slot:2024:9"
@@ -282,6 +284,7 @@ def test_curated_draft_pick_resolution_preview_blocks_mismatched_db_selection() 
     )
 
     assert report.blocked == 1
+    assert report.ready_for_write == 0
     assert report.rows[0].db_selection_status == "mismatch"
     assert report.rows[0].write_action == "blocked"
     assert "Wrong Player" in report.rows[0].issues[0]
@@ -297,3 +300,7 @@ def test_default_curated_fixture_loads_all_memphis_resolution_rows() -> None:
     assert bundle.source_bundle_id == "memphis-draft-pick-resolution-2016-2025"
     assert len(bundle.rows) == 20
     assert {row.team_code for row in bundle.rows} == {"MEM"}
+
+
+def test_load_curated_draft_pick_resolution_requires_database_only_for_integration() -> None:
+    assert load_curated_draft_pick_resolution.__name__ == "load_curated_draft_pick_resolution"

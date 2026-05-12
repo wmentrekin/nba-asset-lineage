@@ -17,6 +17,8 @@ from foundation.canonical import (
 )
 from foundation.draft_resolution import (
     DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH,
+    bootstrap_foundation_draft_pick_resolution_schema,
+    load_curated_draft_pick_resolution,
     preview_curated_draft_pick_resolution,
     preview_draft_pick_resolution,
 )
@@ -68,6 +70,10 @@ def parse_args() -> argparse.Namespace:
     curated_draft_resolution_parser = subparsers.add_parser("preview-curated-draft-pick-resolution", help="Read-only preview of curated draft slot resolutions against live draft_selection rows.")
     curated_draft_resolution_parser.add_argument("--team-code", default="MEM")
     curated_draft_resolution_parser.add_argument("--fixture-path", default=str(DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH))
+    load_curated_draft_resolution_parser = subparsers.add_parser("load-curated-draft-pick-resolution", help="Load curated draft slot resolutions after every preview row is safe.")
+    load_curated_draft_resolution_parser.add_argument("--team-code", default="MEM")
+    load_curated_draft_resolution_parser.add_argument("--fixture-path", default=str(DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH))
+    load_curated_draft_resolution_parser.add_argument("--dry-run", action="store_true")
     subparsers.add_parser("reset-db-state", help="Drop current non-system schemas and clear public objects to restart from scratch.")
     bootstrap_foundation_parser = subparsers.add_parser("bootstrap-foundation-ingest", help="Apply the reset-era foundation ingest bootstrap SQL.")
     bootstrap_foundation_parser.add_argument("--sql-path", default="sql/0001_foundation_ingest_bootstrap.sql")
@@ -77,6 +83,8 @@ def parse_args() -> argparse.Namespace:
     bootstrap_canonical_parser.add_argument("--sql-path", default="sql/0002_foundation_canonical_bootstrap.sql")
     bootstrap_context_parser = subparsers.add_parser("bootstrap-foundation-context", help="Apply reset-era identity, roster snapshot, and draft context SQL.")
     bootstrap_context_parser.add_argument("--sql-path", default="sql/0004_foundation_context_bootstrap.sql")
+    bootstrap_draft_resolution_parser = subparsers.add_parser("bootstrap-foundation-draft-pick-resolution", help="Apply reset-era draft pick resolution SQL.")
+    bootstrap_draft_resolution_parser.add_argument("--sql-path", default="sql/0005_foundation_draft_pick_resolution_bootstrap.sql")
     subparsers.add_parser("preview-derived-foundation-entities", help="Build player, pick, and asset rows from the current foundation.source_event table without writing.")
     subparsers.add_parser("load-derived-foundation-entities", help="Build and load player, pick, and asset rows from the current foundation.source_event table.")
     subparsers.add_parser("load-roster-snapshots-from-baselines", help="Build approximate checkpoint roster snapshots from loaded roster baseline rows.")
@@ -286,6 +294,7 @@ def command_inspect_foundation_counts() -> dict[str, object]:
                 "roster_snapshot_player",
                 "roster_snapshot_pick",
                 "draft_selection",
+                "draft_pick_resolution",
                 "draft_lottery_result",
                 "canonical_event",
                 "canonical_event_member",
@@ -308,6 +317,7 @@ def command_clear_foundation_data() -> dict[str, object]:
     database_url = load_database_url()
     table_names = (
         "draft_lottery_result",
+        "draft_pick_resolution",
         "draft_selection",
         "roster_snapshot_pick",
         "roster_snapshot_player",
@@ -365,6 +375,13 @@ def main() -> None:
             team_code=args.team_code,
             fixture_path=Path(args.fixture_path),
         ).model_dump(mode="json")
+    elif args.command == "load-curated-draft-pick-resolution":
+        payload = load_curated_draft_pick_resolution(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
     elif args.command == "reset-db-state":
         payload = command_reset_db_state()
     elif args.command == "bootstrap-foundation-ingest":
@@ -378,6 +395,9 @@ def main() -> None:
         payload = {"status": "ok", "sql_path": args.sql_path}
     elif args.command == "bootstrap-foundation-context":
         bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
+        payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "bootstrap-foundation-draft-pick-resolution":
+        bootstrap_foundation_draft_pick_resolution_schema(load_database_url(), sql_path=Path(args.sql_path))
         payload = {"status": "ok", "sql_path": args.sql_path}
     elif args.command == "preview-derived-foundation-entities":
         derived = derive_foundation_entities_from_database(load_database_url())
@@ -477,6 +497,7 @@ def main() -> None:
         bootstrap_foundation_ingest_schema(database_url, sql_path=Path("sql/0003_foundation_roster_baseline_bootstrap.sql"))
         bootstrap_foundation_ingest_schema(database_url, sql_path=Path("sql/0004_foundation_context_bootstrap.sql"))
         bootstrap_foundation_canonical_schema(database_url, sql_path=Path("sql/0002_foundation_canonical_bootstrap.sql"))
+        bootstrap_foundation_draft_pick_resolution_schema(database_url, sql_path=Path("sql/0005_foundation_draft_pick_resolution_bootstrap.sql"))
         clear_result = command_clear_foundation_data() if args.replace_existing else None
         transaction_result = load_bref_source_events_span(
             database_url,
@@ -500,6 +521,12 @@ def main() -> None:
             request_delay=args.request_delay,
         )
         entity_counts = load_derived_foundation_entities(database_url)
+        draft_resolution_result = load_curated_draft_pick_resolution(
+            database_url,
+            team_code=args.team_code,
+            fixture_path=DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH,
+            dry_run=False,
+        )
         snapshot_counts = load_roster_snapshots_from_baselines(database_url)
         canonical_counts = load_foundation_canonical_bundle(database_url)
         export = build_base_export_from_database(database_url)
@@ -512,6 +539,7 @@ def main() -> None:
             "rosters": roster_result,
             "drafts": draft_result,
             "entities": entity_counts,
+            "draft_resolution": draft_resolution_result.model_dump(mode="json"),
             "snapshots": snapshot_counts,
             "canonical": canonical_counts,
             "export": {
@@ -525,7 +553,7 @@ def main() -> None:
             "known_gaps": [
                 "Basketball-Reference roster pages are season roster references, not date-exact checkpoint snapshots.",
                 "Two-way versus standard contract status still needs a richer source.",
-                "Draft selections are collected, but pick-to-player resolution is not fully linked to pick assets yet.",
+                "Draft selections are slot-linked through curated resolution, but graph-facing pick_to_player transitions still need to be emitted.",
                 "Draft lottery results remain contextual and are not loaded by this command yet.",
             ],
         }

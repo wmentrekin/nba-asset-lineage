@@ -13,6 +13,7 @@ ResolutionConfidence = Literal["high", "medium", "low", "none"]
 CuratedWriteAction = Literal["link_existing_pick", "create_pick_and_link", "blocked"]
 CuratedDbSelectionStatus = Literal["matched", "missing", "mismatch"]
 DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH = Path("configs/data/memphis_draft_pick_resolution_2016_2025.json")
+FOUNDATION_DRAFT_PICK_RESOLUTION_BOOTSTRAP_SQL_PATH = Path("sql/0005_foundation_draft_pick_resolution_bootstrap.sql")
 
 
 class DraftSelectionForResolution(BaseModel):
@@ -123,6 +124,30 @@ class CuratedDraftPickResolutionPreview(BaseModel):
     known_limitations: list[str]
 
 
+class DraftPickResolutionWriteResult(BaseModel):
+    status: Literal["ok"] = "ok"
+    source_bundle_id: str
+    dry_run: bool
+    ready_rows: int
+    blocked_rows: int
+    picks_upserted: int
+    assets_upserted: int
+    draft_selections_linked: int
+    draft_pick_resolutions_upserted: int
+    rows: list[CuratedDraftPickResolutionPreviewRow]
+
+
+def bootstrap_foundation_draft_pick_resolution_schema(
+    database_url: str,
+    sql_path: Path = FOUNDATION_DRAFT_PICK_RESOLUTION_BOOTSTRAP_SQL_PATH,
+) -> None:
+    sql_text = sql_path.read_text(encoding="utf-8")
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(sql_text)
+        connection.commit()
+
+
 def preview_draft_pick_resolution(database_url: str, *, team_code: str = "MEM") -> DraftSelectionResolutionPreview:
     selections = load_draft_selections_for_resolution(database_url, team_code=team_code)
     picks = load_pick_candidates_for_resolution(database_url)
@@ -146,6 +171,62 @@ def preview_curated_draft_pick_resolution(
         picks=picks,
         current_preview=current_preview,
         team_code=team_code,
+    )
+
+
+def load_curated_draft_pick_resolution(
+    database_url: str,
+    *,
+    team_code: str = "MEM",
+    fixture_path: Path = DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH,
+    dry_run: bool = False,
+) -> DraftPickResolutionWriteResult:
+    preview = preview_curated_draft_pick_resolution(
+        database_url,
+        team_code=team_code,
+        fixture_path=fixture_path,
+    )
+    ready_rows = [row for row in preview.rows if row.ready_for_write]
+    if preview.blocked:
+        return DraftPickResolutionWriteResult(
+            source_bundle_id=preview.source_bundle_id,
+            dry_run=dry_run,
+            ready_rows=len(ready_rows),
+            blocked_rows=preview.blocked,
+            picks_upserted=0,
+            assets_upserted=0,
+            draft_selections_linked=0,
+            draft_pick_resolutions_upserted=0,
+            rows=preview.rows,
+        )
+    if dry_run:
+        return DraftPickResolutionWriteResult(
+            source_bundle_id=preview.source_bundle_id,
+            dry_run=True,
+            ready_rows=len(ready_rows),
+            blocked_rows=0,
+            picks_upserted=len(ready_rows),
+            assets_upserted=len(ready_rows),
+            draft_selections_linked=len(ready_rows),
+            draft_pick_resolutions_upserted=len(ready_rows),
+            rows=preview.rows,
+        )
+
+    bootstrap_foundation_draft_pick_resolution_schema(database_url)
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        for row in ready_rows:
+            upsert_slot_pick_resolution_row(connection, row, source_bundle_id=preview.source_bundle_id)
+        connection.commit()
+    return DraftPickResolutionWriteResult(
+        source_bundle_id=preview.source_bundle_id,
+        dry_run=False,
+        ready_rows=len(ready_rows),
+        blocked_rows=0,
+        picks_upserted=len(ready_rows),
+        assets_upserted=len(ready_rows),
+        draft_selections_linked=len(ready_rows),
+        draft_pick_resolutions_upserted=len(ready_rows),
+        rows=preview.rows,
     )
 
 
@@ -338,6 +419,146 @@ def build_slot_pick_raw_text(row: CuratedDraftPickResolutionRow) -> str:
 
 def normalize_name_for_compare(value: str) -> str:
     return "".join(character for character in value.lower() if character.isalnum())
+
+
+def upsert_slot_pick_resolution_row(
+    connection: psycopg.Connection,
+    row: CuratedDraftPickResolutionPreviewRow,
+    *,
+    source_bundle_id: str,
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            insert into foundation.pick (
+                pick_id, draft_year, round_number, original_team, protection_text, swap_text, resolution_status, raw_text
+            ) values (%s, %s, %s, %s, null, null, %s, %s)
+            on conflict (pick_id) do update
+            set draft_year = excluded.draft_year,
+                round_number = excluded.round_number,
+                original_team = excluded.original_team,
+                resolution_status = excluded.resolution_status,
+                raw_text = excluded.raw_text
+            """,
+            (
+                row.proposed_pick_id,
+                row.draft_year,
+                row.round_number,
+                row.team_code,
+                "used",
+                row.proposed_raw_text,
+            ),
+        )
+        cursor.execute(
+            """
+            insert into foundation.asset (
+                asset_id, asset_kind, player_id, pick_id, start_source_event_id, end_source_event_id
+            ) values (%s, 'pick', null, %s, null, null)
+            on conflict (asset_id) do update
+            set asset_kind = excluded.asset_kind,
+                player_id = null,
+                pick_id = excluded.pick_id,
+                start_source_event_id = excluded.start_source_event_id,
+                end_source_event_id = excluded.end_source_event_id
+            """,
+            (
+                row.proposed_pick_asset_id,
+                row.proposed_pick_id,
+            ),
+        )
+        cursor.execute(
+            """
+            update foundation.draft_selection
+            set pick_id = %s,
+                notes = case
+                    when position(%s::text in coalesce(notes, '')) > 0 then notes
+                    else concat_ws(E'\n', nullif(notes, ''), %s::text)
+                end
+            where draft_selection_id = %s
+            """,
+            (
+                row.proposed_pick_id,
+                f"Linked to slot pick by {source_bundle_id}.",
+                f"Linked to slot pick by {source_bundle_id}.",
+                row.draft_selection_id,
+            ),
+        )
+        cursor.execute(
+            """
+            insert into foundation.draft_pick_resolution (
+                draft_pick_resolution_id,
+                draft_selection_id,
+                pick_id,
+                pick_asset_id,
+                player_id,
+                player_asset_id,
+                draft_year,
+                round_number,
+                pick_overall,
+                team_code,
+                resolution_status,
+                confidence,
+                source_bundle_id,
+                source_locator,
+                notes,
+                updated_at
+            )
+            select %s,
+                   ds.draft_selection_id,
+                   %s,
+                   %s,
+                   ds.player_id,
+                   pa.asset_id,
+                   %s,
+                   %s,
+                   %s,
+                   %s,
+                   'slot_verified',
+                   %s,
+                   %s,
+                   %s,
+                   %s,
+                   now()
+            from foundation.draft_selection ds
+            join foundation.asset pa on pa.player_id = ds.player_id and pa.asset_kind = 'player'
+            where ds.draft_selection_id = %s
+            on conflict (draft_pick_resolution_id) do update
+            set draft_selection_id = excluded.draft_selection_id,
+                pick_id = excluded.pick_id,
+                pick_asset_id = excluded.pick_asset_id,
+                player_id = excluded.player_id,
+                player_asset_id = excluded.player_asset_id,
+                draft_year = excluded.draft_year,
+                round_number = excluded.round_number,
+                pick_overall = excluded.pick_overall,
+                team_code = excluded.team_code,
+                resolution_status = excluded.resolution_status,
+                confidence = excluded.confidence,
+                source_bundle_id = excluded.source_bundle_id,
+                source_locator = excluded.source_locator,
+                notes = excluded.notes,
+                updated_at = now()
+            """,
+            (
+                f"draft-pick-resolution:{row.draft_selection_id}",
+                row.proposed_pick_id,
+                row.proposed_pick_asset_id,
+                row.draft_year,
+                row.round_number,
+                row.pick_overall,
+                row.team_code,
+                row.confidence,
+                source_bundle_id,
+                row.source_locator,
+                row.notes,
+                row.draft_selection_id,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise ValueError(
+                f"Unable to write draft pick resolution for {row.draft_selection_id}; "
+                "expected one matching draft_selection/player asset row."
+            )
 
 
 def resolve_draft_selection(

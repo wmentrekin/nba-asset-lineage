@@ -16,6 +16,7 @@ Current schema:
 - `foundation.roster_snapshot_player`
 - `foundation.roster_snapshot_pick`
 - `foundation.draft_selection`
+- `foundation.draft_pick_resolution`
 - `foundation.draft_lottery_result`
 
 These tables are fed by the normalization workbench shapes and are meant to be
@@ -54,6 +55,9 @@ the durable landing zone before canonical event grouping is introduced.
 
 `draft_selection`
 - draft results for Memphis selections
+
+`draft_pick_resolution`
+- provenance-backed links from Memphis draft selections to slot-based pick assets
 
 `draft_lottery_result`
 - contextual Memphis lottery result metadata
@@ -127,6 +131,6 @@ What still comes next:
 - broader real-source loading coverage
 - exact roster snapshot sourcing
 - two-way status enrichment
-- write-path draft-selection to pick-asset resolution after the curated slot
-  preview confirms the rows are safe to create/link
+- graph-facing `pick_to_player` transitions from completed
+  `draft_pick_resolution` rows
 - draft lottery contextual loading

@@ -80,6 +80,7 @@ The repo now has:
   - read-only foundation coverage and gap audit
   - read-only draft-selection to pick-asset resolution preview
   - read-only curated draft-slot resolution preview
+  - guarded curated draft-slot resolution load
 
 ## Current Caveats
 
@@ -102,6 +103,10 @@ The repo now has:
 - `preview-curated-draft-pick-resolution` compares the tracked curated
   Memphis draft-slot fixture against live `draft_selection` rows and reports
   which rows would be safe for a later create/link write path.
+- `load-curated-draft-pick-resolution --dry-run` reports the guarded write plan;
+  without `--dry-run`, it bootstraps `foundation.draft_pick_resolution`, creates
+  slot-based pick assets, links `draft_selection.pick_id`, and records
+  provenance only when every fixture row remains safe.
 
 ## Related Paths
 

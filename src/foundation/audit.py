@@ -15,6 +15,7 @@ FOUNDATION_TABLES = (
     "roster_snapshot_player",
     "roster_snapshot_pick",
     "draft_selection",
+    "draft_pick_resolution",
     "draft_lottery_result",
     "canonical_event",
     "canonical_event_member",
@@ -229,6 +230,7 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
         return {
             "selections": 0,
             "unlinked_pick_rows": 0,
+            "resolved_pick_rows": 0,
             "unlinked_source_event_rows": 0,
             "lottery_results": 0,
             "by_year": [],
@@ -238,6 +240,10 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
         selections = int(cursor.fetchone()[0])
         cursor.execute("select count(*) from foundation.draft_selection where pick_id is null")
         unlinked_pick_rows = int(cursor.fetchone()[0])
+        resolved_pick_rows = 0
+        if table_exists(connection, "draft_pick_resolution"):
+            cursor.execute("select count(*) from foundation.draft_pick_resolution")
+            resolved_pick_rows = int(cursor.fetchone()[0])
         cursor.execute("select count(*) from foundation.draft_selection where source_event_id is null")
         unlinked_source_event_rows = int(cursor.fetchone()[0])
         lottery_results = 0
@@ -256,6 +262,7 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
     return {
         "selections": selections,
         "unlinked_pick_rows": unlinked_pick_rows,
+        "resolved_pick_rows": resolved_pick_rows,
         "unlinked_source_event_rows": unlinked_source_event_rows,
         "lottery_results": lottery_results,
         "by_year": [{"draft_year": int(row[0]), "selections": int(row[1])} for row in year_rows],
@@ -334,6 +341,15 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Draft selections are not fully linked back to pick assets.",
                 f"{draft.get('unlinked_pick_rows')} draft_selection rows have no pick_id.",
                 "Add pick-resolution logic that connects a selected player to the incoming pick asset when the pick is represented in the asset table.",
+            )
+        )
+    elif int(draft.get("selections", 0)) > 0 and int(draft.get("resolved_pick_rows", 0)) < int(draft.get("selections", 0)):
+        gaps.append(
+            build_gap(
+                "low",
+                "Draft selections have pick links but not full resolution provenance.",
+                f"{draft.get('resolved_pick_rows')} of {draft.get('selections')} draft selections have draft_pick_resolution rows.",
+                "Backfill draft_pick_resolution provenance for every linked draft selection.",
             )
         )
     if int(draft.get("lottery_results", 0)) == 0:
