@@ -83,6 +83,8 @@ The repo now has:
   - guarded curated draft-slot resolution load
 - graph-facing `pick_to_player` export rows derived from
   `foundation.draft_pick_resolution`
+- a source strategy for future pick inventory snapshots and the next
+  obligation-ledger workbench
 
 ## Current Caveats
 
@@ -97,6 +99,8 @@ The repo now has:
   export as pick-to-player graph transitions.
 - Draft lottery results are contextual for now and are not required for the base
   graph export.
+- Future pick inventory snapshots should be built from a dated obligation ledger,
+  not from a current-state future-picks page alone.
 - `audit-foundation-data` is the current command for turning these caveats into
   live database evidence.
 - `preview-draft-pick-resolution` is the current read-only command for checking
@@ -116,3 +120,4 @@ The repo now has:
 - [`src/redesign_cli.py`](../../src/redesign_cli.py)
 - [`docs/frontend/`](../frontend)
 - [`full-span-load-notes.md`](full-span-load-notes.md)
+- [`future-pick-inventory-snapshots.md`](future-pick-inventory-snapshots.md)
