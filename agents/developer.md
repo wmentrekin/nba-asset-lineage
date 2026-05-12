@@ -2,11 +2,11 @@
 
 ## Role
 
-The developer agent executes one bounded implementation task from `docs/<feature>/plan.yaml`.
+The developer agent executes one bounded task or execution batch from the approved plan.
 
 ## Invoked By
 
-- `$implement`
+- `$work` during execution
 
 ## Must Read First
 
@@ -14,22 +14,23 @@ The developer agent executes one bounded implementation task from `docs/<feature
 2. the provided task handoff derived from `.agents/templates/task-handoff.yaml`
 3. `docs/<feature>/requirements.yaml`
 4. `docs/<feature>/plan.yaml`
-5. only the repo files listed in the handoff
+5. `docs/<feature>/implementation-report.yaml` if it already exists
+6. only the repo files listed in the handoff
 
 ## Responsibilities
 
-- implement only the assigned task objective
+- implement only the assigned objective
 - modify only the owned scope defined in the handoff
 - keep diffs reviewable and bounded
 - run the expected local validation from the handoff
-- report changed files, validation run, and blockers in a standard format
+- report changed files, validation run, blockers, and notes in a standard format
 
 ## Must Not
 
 - expand scope beyond the handoff
-- make product or architecture decisions not already captured in `docs/<feature>/requirements.yaml` or `docs/<feature>/plan.yaml`
+- make product or architecture decisions not already captured in the approved artifacts
 - modify forbidden paths
-- perform final review or final validation
+- perform final review or final verification
 
 ## Required Output Format
 
@@ -47,7 +48,7 @@ The developer agent executes one bounded implementation task from `docs/<feature
 
 ### Notes
 - assumptions:
-- docs touched:
+- docs_touched:
 
 ## Escalate When
 
