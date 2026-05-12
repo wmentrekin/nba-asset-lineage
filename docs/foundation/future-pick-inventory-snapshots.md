@@ -253,18 +253,38 @@ place where obligation truth is stored.
 
 ## Implementation Recommendation
 
+The repo now includes the first read-only preview workbench:
+
+```bash
+.venv/bin/python -m redesign_cli preview-pick-inventory-snapshots --team-code MEM --max-draft-year 2032
+```
+
+Current preview behavior:
+
+- reads existing `foundation.roster_snapshot` rows
+- reads the local obligation fixture
+- seeds default Memphis own first- and second-round future picks
+- applies dated sample obligations
+- reports projected `roster_snapshot_pick` rows without writing to Supabase
+
+Last observed preview output:
+
+- `snapshots`: 40
+- `existing_snapshot_pick_rows`: 0
+- `obligations`: 4
+- `projected_rows`: 938
+- `proposed_pick_ids`: 35
+- `proposed_asset_ids`: 35
+
 Next implementation pass should be:
 
-1. Add a local fixture with a small curated sample of Memphis obligations that
-   are already visible in current sources and existing source events.
-2. Add Python models for pick-obligation fixture rows.
-3. Add a read-only preview command that:
-   - loads current `roster_snapshot` rows
-   - builds default own-pick baselines
-   - applies fixture obligations
-   - outputs projected `roster_snapshot_pick` counts and sample rows
-   - validates the latest snapshot against current-source expectations
-4. Add tests around projection rules before adding a DB write command.
+1. Expand the fixture from sample obligations to a complete curated obligation
+   ledger for 2016 through present.
+2. Reconcile the latest projected snapshot against RealGM, Pro Sports
+   Transactions, Spotrac, and Fanspo current-state pages.
+3. Normalize uncertain swap/protection rows before writing anything.
+4. Add a durable `pick_inventory_obligation` table if the fixture shape proves
+   stable.
 5. Only after preview output is coherent, add guarded write loading into
    `roster_snapshot_pick`.
 

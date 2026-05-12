@@ -21,3 +21,7 @@ Current active bundles:
   - used by the read-only `preview-curated-draft-pick-resolution` command
   - asserts selected-player/draft-slot truth, not complete pick-ownership
     history
+- `memphis_future_pick_obligations_2016_2026.json`
+  - sample curated future-pick obligation rows for projection workbench
+  - used by the read-only `preview-pick-inventory-snapshots` command
+  - not yet a complete historical obligation ledger

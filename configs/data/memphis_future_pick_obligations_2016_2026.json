@@ -1,0 +1,84 @@
+[
+  {
+    "obligation_id": "mem-pick-obligation:2023-02-09:lac-2026-r2-to-mem",
+    "effective_date": "2023-02-09",
+    "team_code": "MEM",
+    "draft_year": 2026,
+    "round_number": 2,
+    "original_team": "LAC",
+    "direction": "incoming",
+    "holding_status": "owned",
+    "obligation_type": "traded_pick",
+    "protection_text": null,
+    "swap_text": null,
+    "source_event_id": "canonical:2023-02-09:trade:19c0651ed848",
+    "source_urls": [
+      "https://www.prosportstransactions.com/basketball/DraftTrades/Future/Grizzlies.htm",
+      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
+    ],
+    "confidence": "curated",
+    "notes": "Sample obligation from the Luke Kennard/Danny Green trade. Exact original-team semantics should be validated before write loading."
+  },
+  {
+    "obligation_id": "mem-pick-obligation:2024-02-07:bos-2027-r2-to-mem",
+    "effective_date": "2024-02-07",
+    "team_code": "MEM",
+    "draft_year": 2027,
+    "round_number": 2,
+    "original_team": "BOS",
+    "direction": "incoming",
+    "holding_status": "owned",
+    "obligation_type": "traded_pick",
+    "protection_text": null,
+    "swap_text": null,
+    "source_event_id": "canonical:2024-02-07:trade:98a2f5567592",
+    "source_urls": [
+      "https://www.prosportstransactions.com/basketball/DraftTrades/Future/Grizzlies.htm",
+      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
+    ],
+    "confidence": "curated",
+    "notes": "Sample obligation from the Xavier Tillman/Lamar Stevens trade. Original team should be validated against detailed pick status before write loading."
+  },
+  {
+    "obligation_id": "mem-pick-obligation:2025-06-15:mem-2026-r1-to-orl-swap-or-out",
+    "effective_date": "2025-06-15",
+    "team_code": "MEM",
+    "draft_year": 2026,
+    "round_number": 1,
+    "original_team": "MEM",
+    "direction": "outgoing",
+    "holding_status": "encumbered",
+    "obligation_type": "swap",
+    "protection_text": null,
+    "swap_text": "Memphis 2026 first-round pick affected by Orlando trade swap/obligation mechanics.",
+    "source_event_id": "canonical:2025-06-15:trade:496ae4058d07",
+    "source_urls": [
+      "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/",
+      "https://www.nba.com/news/magic-grizzlies-trade-bane-caldwell-pope",
+      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
+    ],
+    "confidence": "uncertain",
+    "notes": "Sample encumbrance row. Keep uncertain until protection/swap mechanics are normalized against multiple sources."
+  },
+  {
+    "obligation_id": "mem-pick-obligation:2025-06-15:orl-2028-r1-to-mem",
+    "effective_date": "2025-06-15",
+    "team_code": "MEM",
+    "draft_year": 2028,
+    "round_number": 1,
+    "original_team": "ORL",
+    "direction": "incoming",
+    "holding_status": "owned",
+    "obligation_type": "traded_pick",
+    "protection_text": null,
+    "swap_text": null,
+    "source_event_id": "canonical:2025-06-15:trade:496ae4058d07",
+    "source_urls": [
+      "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/",
+      "https://www.nba.com/news/magic-grizzlies-trade-bane-caldwell-pope",
+      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
+    ],
+    "confidence": "curated",
+    "notes": "Sample obligation from the Desmond Bane trade. Exact protected year routing should be validated before write loading."
+  }
+]

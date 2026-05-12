@@ -43,6 +43,10 @@ from foundation.live_sources import (
     preview_bref_source_events,
     preview_nba_reference,
 )
+from foundation.pick_inventory import (
+    DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
+    preview_pick_inventory_snapshots,
+)
 from foundation.sources import get_default_source_plan
 from foundation.workbench import serialize_sample_workbench
 
@@ -74,6 +78,10 @@ def parse_args() -> argparse.Namespace:
     load_curated_draft_resolution_parser.add_argument("--team-code", default="MEM")
     load_curated_draft_resolution_parser.add_argument("--fixture-path", default=str(DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH))
     load_curated_draft_resolution_parser.add_argument("--dry-run", action="store_true")
+    pick_inventory_parser = subparsers.add_parser("preview-pick-inventory-snapshots", help="Read-only projection of future pick inventory rows for roster snapshots.")
+    pick_inventory_parser.add_argument("--team-code", default="MEM")
+    pick_inventory_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
+    pick_inventory_parser.add_argument("--max-draft-year", type=int, default=2032)
     subparsers.add_parser("reset-db-state", help="Drop current non-system schemas and clear public objects to restart from scratch.")
     bootstrap_foundation_parser = subparsers.add_parser("bootstrap-foundation-ingest", help="Apply the reset-era foundation ingest bootstrap SQL.")
     bootstrap_foundation_parser.add_argument("--sql-path", default="sql/0001_foundation_ingest_bootstrap.sql")
@@ -381,6 +389,13 @@ def main() -> None:
             team_code=args.team_code,
             fixture_path=Path(args.fixture_path),
             dry_run=args.dry_run,
+        ).model_dump(mode="json")
+    elif args.command == "preview-pick-inventory-snapshots":
+        payload = preview_pick_inventory_snapshots(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            max_draft_year=args.max_draft_year,
         ).model_dump(mode="json")
     elif args.command == "reset-db-state":
         payload = command_reset_db_state()

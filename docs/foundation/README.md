@@ -85,6 +85,8 @@ The repo now has:
   `foundation.draft_pick_resolution`
 - a source strategy for future pick inventory snapshots and the next
   obligation-ledger workbench
+- a read-only `preview-pick-inventory-snapshots` command for projecting future
+  pick inventory rows before any DB write path
 
 ## Current Caveats
 
