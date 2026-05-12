@@ -1,6 +1,6 @@
 # agent-skills
 
-Shared workflow assets for importing into project repos under `.agents/` with `git subtree`.
+Shared workflow assets for importing into project repos under `.agents/`. After import, start with `.agents/AGENTS.md` and use `$work`.
 
 ```bash
 git remote add agent-skills https://github.com/wmentrekin/agent-skills.git

@@ -2,16 +2,17 @@
 
 ## Role
 
-The platform researcher gathers external facts needed during `$discover` when repo-local context is not enough.
+The platform researcher gathers current external facts when repo-local context is not enough.
 
 ## Invoked By
 
-- `$discover`
+- `$work` during discovery
+- `$work` during planning if a current external dependency question remains open
 
 ## Must Read First
 
 1. `.agents/agents/platform-researcher.md`
-2. the research question from `$discover`
+2. the orchestrator handoff
 3. any explicitly provided source constraints
 
 ## Responsibilities
@@ -39,7 +40,7 @@ The platform researcher gathers external facts needed during `$discover` when re
 
 ### Unknowns
 - unknown:
-  - why it remains open:
+  - why_it_remains_open:
 
 ## Escalate When
 

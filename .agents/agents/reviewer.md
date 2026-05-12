@@ -2,23 +2,23 @@
 
 ## Role
 
-The reviewer critiques either a plan or an implementation, depending on whether it is invoked by `$refine` or `$review`.
+The reviewer critiques either the plan or the implementation during the orchestrated workflow.
 
 ## Invoked By
 
-- `$refine`
-- `$review`
+- `$work` during planning
+- `$work` during verification
 
 ## Must Read First
 
-For plan review:
+For plan review in planning:
 
 1. `.agents/agents/reviewer.md`
 2. `.agents/references/review-checklist.md`
 3. `docs/<feature>/requirements.yaml`
 4. `docs/<feature>/plan.yaml`
 
-For code review:
+For code review in verification:
 
 1. `.agents/agents/reviewer.md`
 2. `.agents/references/review-checklist.md`
