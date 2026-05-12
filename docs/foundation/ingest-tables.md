@@ -9,8 +9,14 @@ Current schema:
 - `foundation.source_record`
 - `foundation.source_event`
 - `foundation.player`
+- `foundation.player_alias`
 - `foundation.pick`
 - `foundation.asset`
+- `foundation.roster_snapshot`
+- `foundation.roster_snapshot_player`
+- `foundation.roster_snapshot_pick`
+- `foundation.draft_selection`
+- `foundation.draft_lottery_result`
 
 These tables are fed by the normalization workbench shapes and are meant to be
 the durable landing zone before canonical event grouping is introduced.
@@ -26,11 +32,31 @@ the durable landing zone before canonical event grouping is introduced.
 `player`
 - stable player reference identities
 
+`player_alias`
+- source and manual aliases that resolve alternate names to one player identity
+
 `pick`
 - stable pick reference identities with normalized text semantics
 
 `asset`
 - graph continuity identities that point to either a player or a pick
+
+`roster_snapshot`
+- current-state roster checkpoints for post draft, season opening, post
+  deadline, and season closing views
+
+`roster_snapshot_player`
+- player membership in a checkpoint, including two-way versus standard status
+  fields
+
+`roster_snapshot_pick`
+- pick membership in a checkpoint
+
+`draft_selection`
+- draft results for Memphis selections
+
+`draft_lottery_result`
+- contextual Memphis lottery result metadata
 
 ## Current Limitation
 
@@ -38,8 +64,10 @@ These tables do not yet include:
 
 - canonical grouped events
 - event-to-asset transitions
-- roster snapshots
 - full real-source coverage
+- true date-exact roster snapshots
+- full two-way contract sourcing
+- pick-to-player resolution links
 
 ## First Canonical Pass
 
@@ -75,7 +103,7 @@ It should emit:
 
 For this pass:
 
-- `roster_snapshots` is intentionally empty
+- `roster_snapshots` is emitted when checkpoint rows exist
 - no roster-state validation is expected
 - no frontend layout semantics are part of the export
 
@@ -90,9 +118,13 @@ The repo now includes:
   from the current `source_event` baseline
 - first live loader commands for:
   - Basketball-Reference transactions
+  - Basketball-Reference roster baselines
+  - Basketball-Reference draft results
   - NBA stats player / roster references
 
 What still comes next:
 
 - broader real-source loading coverage
-- roster snapshot tables
+- exact roster snapshot sourcing
+- two-way status enrichment
+- draft lottery contextual loading

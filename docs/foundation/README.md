@@ -17,8 +17,8 @@ lineage page:
   and `roster_snapshots`
 - `player_assets` may carry roster-baseline metadata like `baseline_order` and
   `years_experience` to support slot ordering in the frontend
-- `roster_snapshots` present but empty for the first pass
-- no roster-state validation yet
+- `roster_snapshots` populated from checkpoint snapshot tables when available
+- roster-state validation remains separate from the base export
 - no frontend layout semantics yet
 
 ## Planned Work Areas
@@ -44,7 +44,17 @@ The repo now has:
   - `asset`
 - first live-source loader scaffolding for:
   - Basketball-Reference transactions
+  - Basketball-Reference season roster pages
+  - Basketball-Reference draft pages
   - NBA stats player and roster references
+- identity-alias scaffolding for source-name drift such as nickname/full-name
+  variants
+- roster checkpoint tables for:
+  - post draft
+  - season opening
+  - post trade deadline
+  - season closing
+- draft selection and contextual draft lottery tables
 - a checked-in derivation path from `foundation.source_event` into:
   - `foundation.player`
   - `foundation.pick`
@@ -61,15 +71,33 @@ The repo now has:
   - reads from `foundation.event_asset_transition`
   - enriches `player_assets` from `foundation.roster_baseline_player` when
     baseline data exists
-  - emits empty `roster_snapshots` until roster-state truth is added
+  - emits `roster_snapshots` when checkpoint data has been built
 - a roster-baseline layer for filling in current-team player presence even when
   the transaction baseline alone would miss long-tenured incumbents
 - checked-in inspection commands for:
   - overall schema state
   - active `foundation` table row counts
+  - read-only foundation coverage and gap audit
+
+## Current Caveats
+
+- Basketball-Reference transaction, roster, and draft sources are HTML pages, so
+  these loaders are scrapers.
+- NBA stats reference loading uses JSON endpoints.
+- Basketball-Reference season roster pages are useful roster references, but they
+  are not date-exact opening/deadline/closing roster snapshots.
+- Two-way versus standard contract status is represented in the schema, but it
+  still needs a stronger source than the current BRef roster loader.
+- Draft selections are collected as context, but pick-to-player resolution is not
+  fully linked to pick assets yet.
+- Draft lottery results are contextual for now and are not required for the base
+  graph export.
+- `audit-foundation-data` is the current command for turning these caveats into
+  live database evidence.
 
 ## Related Paths
 
 - [`src/foundation/`](../../src/foundation)
 - [`src/redesign_cli.py`](../../src/redesign_cli.py)
 - [`docs/frontend/`](../frontend)
+- [`full-span-load-notes.md`](full-span-load-notes.md)

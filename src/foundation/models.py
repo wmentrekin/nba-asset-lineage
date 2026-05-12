@@ -56,6 +56,8 @@ class AssetTransition(BaseModel):
 class RosterSnapshot(BaseModel):
     snapshot_id: str
     as_of_date: str
+    snapshot_kind: str | None = None
+    season: str | None = None
     roster_asset_ids: list[str] = Field(default_factory=list)
     two_way_asset_ids: list[str] = Field(default_factory=list)
     future_pick_asset_ids: list[str] = Field(default_factory=list)

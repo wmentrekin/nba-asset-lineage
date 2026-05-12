@@ -31,3 +31,7 @@ namespaces = true
 dev = [
   "pytest>=9.0.3",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/foundation"]
+addopts = "-q"

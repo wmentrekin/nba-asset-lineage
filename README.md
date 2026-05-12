@@ -79,12 +79,17 @@ The checked-in Python CLI now also supports reset-era foundation tasks such as:
 
 - DB inspection and reset
 - foundation table row-count inspection
+- read-only foundation data coverage audit
 - foundation ingest bootstrap
+- foundation context bootstrap for aliases, roster snapshots, draft selections,
+  and lottery context
 - normalization workbench preview
 - sample ingest bundle build
 - derived entity preview/load from the live `source_event` baseline
 - live Basketball-Reference transaction preview/load
+- live Basketball-Reference roster and draft preview/load
 - live NBA stats reference preview/load
+- full-span foundation load orchestration from summer 2016 to present
 
 The first graph-ready export contract is intentionally narrow:
 
@@ -95,8 +100,17 @@ The first graph-ready export contract is intentionally narrow:
   when baseline roster data exists
 - it emits `events`, `player_assets`, `pick_assets`, `transitions`, and
   `roster_snapshots`
-- `roster_snapshots` remains empty for now
+- `roster_snapshots` is populated when checkpoint rows have been built
 - it does not yet include roster-state validation or frontend layout semantics
+
+Current source mechanics:
+
+- Basketball-Reference transactions, rosters, and drafts are ingested by HTML
+  scraping.
+- NBA stats player/roster reference data is ingested through JSON endpoints.
+- Draft lottery is contextual for now and is not required for the base graph.
+- Two-way versus standard contract status is modeled, but still needs stronger
+  source coverage than the current BRef roster loader.
 
 ## Environment
 

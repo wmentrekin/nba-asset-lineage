@@ -4,6 +4,7 @@ import psycopg
 
 from foundation.models import BaseGraphExport
 from foundation.models import AssetTransition, PickAsset, PlayerAsset, TransactionEvent
+from foundation.models import RosterSnapshot
 
 
 def build_empty_base_export() -> BaseGraphExport:
@@ -76,6 +77,38 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
             )
             transition_rows = cursor.fetchall()
 
+            snapshot_rows: list[tuple[object, ...]] = []
+            snapshot_player_rows: list[tuple[object, ...]] = []
+            snapshot_pick_rows: list[tuple[object, ...]] = []
+            cursor.execute("select to_regclass('foundation.roster_snapshot')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    """
+                    select snapshot_id, snapshot_date::text, snapshot_kind, season
+                    from foundation.roster_snapshot
+                    order by snapshot_date, snapshot_kind, snapshot_id
+                    """
+                )
+                snapshot_rows = cursor.fetchall()
+                cursor.execute(
+                    """
+                    select snapshot_id, asset_id, is_two_way
+                    from foundation.roster_snapshot_player
+                    where asset_id is not null
+                    order by snapshot_id, depth_order nulls last, player_id
+                    """
+                )
+                snapshot_player_rows = cursor.fetchall()
+                cursor.execute(
+                    """
+                    select snapshot_id, asset_id
+                    from foundation.roster_snapshot_pick
+                    where asset_id is not null
+                    order by snapshot_id, display_order nulls last, pick_id
+                    """
+                )
+                snapshot_pick_rows = cursor.fetchall()
+
     export = build_empty_base_export()
     if event_rows:
         export.span_start = str(event_rows[0][2])
@@ -122,5 +155,24 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
         )
         for row in transition_rows
     ]
-    export.roster_snapshots = []
+    standard_assets_by_snapshot: dict[str, list[str]] = {}
+    two_way_assets_by_snapshot: dict[str, list[str]] = {}
+    for snapshot_id, asset_id, is_two_way in snapshot_player_rows:
+        target = two_way_assets_by_snapshot if bool(is_two_way) else standard_assets_by_snapshot
+        target.setdefault(str(snapshot_id), []).append(str(asset_id))
+    pick_assets_by_snapshot: dict[str, list[str]] = {}
+    for snapshot_id, asset_id in snapshot_pick_rows:
+        pick_assets_by_snapshot.setdefault(str(snapshot_id), []).append(str(asset_id))
+    export.roster_snapshots = [
+        RosterSnapshot(
+            snapshot_id=str(row[0]),
+            as_of_date=str(row[1]),
+            snapshot_kind=str(row[2]),
+            season=str(row[3]),
+            roster_asset_ids=standard_assets_by_snapshot.get(str(row[0]), []),
+            two_way_asset_ids=two_way_assets_by_snapshot.get(str(row[0]), []),
+            future_pick_asset_ids=pick_assets_by_snapshot.get(str(row[0]), []),
+        )
+        for row in snapshot_rows
+    ]
     return export

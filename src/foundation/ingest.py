@@ -26,6 +26,9 @@ ASSET_KINDS = ("player", "pick")
 
 FOUNDATION_BOOTSTRAP_SQL_PATH = Path("sql/0001_foundation_ingest_bootstrap.sql")
 SAMPLE_FETCHED_AT = "2026-05-08T00:00:00Z"
+DEFAULT_PLAYER_ALIAS_OVERRIDES = {
+    "kenny lofton jr": "Kenneth Lofton Jr.",
+}
 
 
 class SourceRecordRow(BaseModel):
@@ -54,6 +57,16 @@ class PlayerRow(BaseModel):
     nba_player_ref: str | None = None
     birth_date: str | None = None
     position_text: str | None = None
+
+
+class PlayerAliasRow(BaseModel):
+    alias_id: str
+    player_id: str
+    source_system: str
+    alias_name: str
+    normalized_alias_name: str
+    is_manual: bool = False
+    notes: str | None = None
 
 
 class RosterBaselinePlayerRow(BaseModel):
@@ -89,6 +102,57 @@ class AssetRow(BaseModel):
     end_source_event_id: str | None = None
 
 
+class RosterSnapshotRow(BaseModel):
+    snapshot_id: str
+    snapshot_date: str
+    snapshot_kind: Literal["season_opening", "season_closing", "post_draft", "post_deadline"]
+    season: str
+    team_code: str
+    source_record_id: str | None = None
+    notes: str | None = None
+
+
+class RosterSnapshotPlayerRow(BaseModel):
+    snapshot_id: str
+    player_id: str
+    asset_id: str | None = None
+    roster_status: Literal["standard", "two_way", "non_roster"] = "standard"
+    depth_order: int | None = None
+    is_two_way: bool = False
+    is_standard_contract: bool = True
+
+
+class RosterSnapshotPickRow(BaseModel):
+    snapshot_id: str
+    pick_id: str
+    asset_id: str | None = None
+    holding_status: str = "owned"
+    display_order: int | None = None
+
+
+class DraftSelectionRow(BaseModel):
+    draft_selection_id: str
+    draft_year: int
+    pick_overall: int
+    round_number: int
+    team_code: str
+    player_id: str
+    pick_id: str | None = None
+    source_event_id: str | None = None
+    notes: str | None = None
+
+
+class DraftLotteryResultRow(BaseModel):
+    lottery_result_id: str
+    draft_year: int
+    lottery_date: str | None = None
+    team_code: str
+    lottery_position: int | None = None
+    result_pick_slot: int
+    pre_lottery_odds: str | None = None
+    notes: str | None = None
+
+
 class FoundationIngestBundle(BaseModel):
     source_records: list[SourceRecordRow]
     source_events: list[SourceEventRow]
@@ -101,6 +165,7 @@ class FoundationDerivedEntities(BaseModel):
     players: list[PlayerRow]
     picks: list[PickRow]
     assets: list[AssetRow]
+    player_aliases: list[PlayerAliasRow] = []
 
 
 def bootstrap_foundation_ingest_schema(database_url: str, sql_path: Path = FOUNDATION_BOOTSTRAP_SQL_PATH) -> None:
@@ -138,11 +203,19 @@ def serialize_foundation_ingest_sample_bundle() -> dict[str, object]:
 def derive_foundation_entities_from_source_events(
     source_events: list[SourceEventRow],
     baseline_players: list[RosterBaselinePlayerRow] | None = None,
+    player_aliases: list[PlayerAliasRow] | None = None,
+    reference_players: list[PlayerRow] | None = None,
 ) -> FoundationDerivedEntities:
-    players = build_players_from_source_events(source_events, baseline_players=baseline_players or [])
+    players = build_players_from_source_events(
+        source_events,
+        baseline_players=baseline_players or [],
+        player_aliases=player_aliases or [],
+        reference_players=reference_players or [],
+    )
     picks = build_picks_from_source_events(source_events)
     assets = build_assets(source_events=source_events, players=players, picks=picks)
-    return FoundationDerivedEntities(players=players, picks=picks, assets=assets)
+    derived_aliases = build_default_player_aliases(players)
+    return FoundationDerivedEntities(players=players, picks=picks, assets=assets, player_aliases=derived_aliases)
 
 
 def load_source_events_from_database(database_url: str) -> list[SourceEventRow]:
@@ -181,21 +254,97 @@ def load_source_events_from_database(database_url: str) -> list[SourceEventRow]:
 def derive_foundation_entities_from_database(database_url: str) -> FoundationDerivedEntities:
     source_events = load_source_events_from_database(database_url)
     baseline_players = load_roster_baseline_players_from_database(database_url)
-    return derive_foundation_entities_from_source_events(source_events, baseline_players=baseline_players)
+    player_aliases = load_player_aliases_from_database(database_url)
+    reference_players = load_players_from_database(database_url)
+    return derive_foundation_entities_from_source_events(
+        source_events,
+        baseline_players=baseline_players,
+        player_aliases=player_aliases,
+        reference_players=reference_players,
+    )
 
 
 def load_derived_foundation_entities(database_url: str) -> dict[str, int]:
     derived = derive_foundation_entities_from_database(database_url)
     with psycopg.connect(database_url, connect_timeout=10) as connection:
         upsert_players(connection, derived.players)
+        upsert_player_aliases(connection, derived.player_aliases)
         upsert_picks(connection, derived.picks)
         upsert_assets(connection, derived.assets)
         connection.commit()
     return {
         "players": len(derived.players),
+        "player_aliases": len(derived.player_aliases),
         "picks": len(derived.picks),
         "assets": len(derived.assets),
     }
+
+
+def build_roster_snapshots_from_baselines(
+    baseline_players: list[RosterBaselinePlayerRow],
+) -> tuple[list[RosterSnapshotRow], list[RosterSnapshotPlayerRow]]:
+    grouped: dict[tuple[str, str, str], list[RosterBaselinePlayerRow]] = {}
+    for row in baseline_players:
+        grouped.setdefault((row.season, row.team_code, row.source_record_id), []).append(row)
+
+    snapshots: list[RosterSnapshotRow] = []
+    snapshot_players: list[RosterSnapshotPlayerRow] = []
+    for (season, team_code, source_record_id), rows in sorted(grouped.items()):
+        start_year, end_year = parse_season_years(season)
+        checkpoint_dates = {
+            "post_draft": f"{start_year}-07-01",
+            "season_opening": f"{start_year}-10-01",
+            "post_deadline": f"{end_year}-02-15",
+            "season_closing": f"{end_year}-06-30",
+        }
+        for snapshot_kind, snapshot_date in checkpoint_dates.items():
+            snapshot_id = f"snapshot:{team_code.lower()}:{season}:{snapshot_kind}"
+            snapshots.append(
+                RosterSnapshotRow(
+                    snapshot_id=snapshot_id,
+                    snapshot_date=snapshot_date,
+                    snapshot_kind=snapshot_kind,  # type: ignore[arg-type]
+                    season=season,
+                    team_code=team_code,
+                    source_record_id=source_record_id,
+                    notes="Derived from Basketball-Reference season roster page; not a date-exact transaction-state snapshot.",
+                )
+            )
+            for player in sorted(rows, key=lambda item: item.roster_order):
+                snapshot_players.append(
+                    RosterSnapshotPlayerRow(
+                        snapshot_id=snapshot_id,
+                        player_id=player.player_id,
+                        asset_id=f"asset:player:{slugify(player.display_name)}",
+                        roster_status="standard",
+                        depth_order=player.roster_order,
+                        is_two_way=False,
+                        is_standard_contract=True,
+                    )
+                )
+    return snapshots, snapshot_players
+
+
+def load_roster_snapshots_from_baselines(database_url: str) -> dict[str, int]:
+    baseline_players = load_roster_baseline_players_from_database(database_url)
+    snapshots, snapshot_players = build_roster_snapshots_from_baselines(baseline_players)
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        upsert_roster_snapshots(connection, snapshots)
+        upsert_roster_snapshot_players(connection, snapshot_players)
+        connection.commit()
+    return {
+        "roster_snapshots": len(snapshots),
+        "roster_snapshot_players": len(snapshot_players),
+    }
+
+
+def parse_season_years(season: str) -> tuple[int, int]:
+    start_text, end_suffix = season.split("-", 1)
+    start_year = int(start_text)
+    end_year = int(f"{str(start_year)[:2]}{end_suffix}")
+    if end_year < start_year:
+        end_year += 100
+    return start_year, end_year
 
 
 def build_sample_source_records(sample_fixture: dict[str, object]) -> list[SourceRecordRow]:
@@ -289,27 +438,92 @@ def build_players_from_source_events(
     source_events: list[SourceEventRow],
     *,
     baseline_players: list[RosterBaselinePlayerRow],
+    player_aliases: list[PlayerAliasRow] | None = None,
+    reference_players: list[PlayerRow] | None = None,
 ) -> list[PlayerRow]:
-    by_name: dict[str, PlayerRow] = {}
+    by_player_id: dict[str, PlayerRow] = {}
+    player_id_by_display_key: dict[str, str] = {}
+    for player in reference_players or []:
+        by_player_id[player.player_id] = player
+        player_id_by_display_key[normalize_player_alias_name(player.display_name)] = player.player_id
     for baseline in baseline_players:
-        by_name[baseline.display_name] = PlayerRow(
+        row = PlayerRow(
             player_id=baseline.player_id,
             display_name=baseline.display_name,
             nba_player_ref=baseline.nba_player_ref,
             birth_date=baseline.birth_date,
             position_text=baseline.position_text,
         )
+        by_player_id[row.player_id] = row
+        player_id_by_display_key[normalize_player_alias_name(row.display_name)] = row.player_id
+
+    alias_lookup = build_player_alias_lookup(player_aliases or [], player_id_by_display_key)
     for event in source_events:
         payload = event.normalized_payload
         for player_name in [*payload.get("player_names_in", []), *payload.get("player_names_out", [])]:
             if not isinstance(player_name, str) or not player_name.strip():
                 continue
-            if player_name not in by_name:
-                by_name[player_name] = PlayerRow(
-                    player_id=f"player:{slugify(player_name)}",
+            player_id = resolve_player_id(player_name, player_id_by_display_key, alias_lookup)
+            if player_id is None:
+                player_id = f"player:{slugify(player_name)}"
+                player_id_by_display_key[normalize_player_alias_name(player_name)] = player_id
+            if player_id not in by_player_id:
+                by_player_id[player_id] = PlayerRow(
+                    player_id=player_id,
                     display_name=player_name,
                 )
-    return sorted(by_name.values(), key=lambda item: item.player_id)
+    return sorted(by_player_id.values(), key=lambda item: item.player_id)
+
+
+def build_default_player_aliases(players: list[PlayerRow]) -> list[PlayerAliasRow]:
+    player_by_display_key = {normalize_player_alias_name(player.display_name): player for player in players}
+    aliases: list[PlayerAliasRow] = []
+    for alias_name, canonical_name in DEFAULT_PLAYER_ALIAS_OVERRIDES.items():
+        canonical = player_by_display_key.get(normalize_player_alias_name(canonical_name))
+        if canonical is None:
+            continue
+        aliases.append(
+            PlayerAliasRow(
+                alias_id=f"alias:manual:{slugify(alias_name)}",
+                player_id=canonical.player_id,
+                source_system="manual",
+                alias_name=alias_name,
+                normalized_alias_name=normalize_player_alias_name(alias_name),
+                is_manual=True,
+                notes=f"Manual alias for {canonical.display_name}",
+            )
+        )
+    return aliases
+
+
+def build_player_alias_lookup(
+    aliases: list[PlayerAliasRow],
+    player_id_by_display_key: dict[str, str],
+) -> dict[str, str]:
+    lookup = dict(player_id_by_display_key)
+    for alias in aliases:
+        lookup[alias.normalized_alias_name] = alias.player_id
+    for alias_name, canonical_name in DEFAULT_PLAYER_ALIAS_OVERRIDES.items():
+        canonical_id = player_id_by_display_key.get(normalize_player_alias_name(canonical_name))
+        if canonical_id is not None:
+            lookup[normalize_player_alias_name(alias_name)] = canonical_id
+    return lookup
+
+
+def resolve_player_id(
+    display_name: str,
+    player_id_by_display_key: dict[str, str],
+    alias_lookup: dict[str, str],
+) -> str | None:
+    key = normalize_player_alias_name(display_name)
+    return alias_lookup.get(key) or player_id_by_display_key.get(key)
+
+
+def normalize_player_alias_name(value: str) -> str:
+    normalized = value.lower().replace(".", "")
+    normalized = re_sub(r"\b(junior)\b", "jr", normalized)
+    normalized = re_sub(r"\s+", " ", normalized).strip()
+    return normalized
 
 
 def load_roster_baseline_players_from_database(database_url: str) -> list[RosterBaselinePlayerRow]:
@@ -347,6 +561,66 @@ def load_roster_baseline_players_from_database(database_url: str) -> list[Roster
             birth_date=str(row[7]) if row[7] is not None else None,
             position_text=str(row[8]) if row[8] is not None else None,
             years_experience=int(row[9]) if row[9] is not None else None,
+        )
+        for row in rows
+    ]
+
+
+def load_players_from_database(database_url: str) -> list[PlayerRow]:
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("select to_regclass('foundation.player')")
+            if cursor.fetchone()[0] is None:
+                return []
+            cursor.execute(
+                """
+                select player_id, display_name, nba_player_ref, birth_date, position_text
+                from foundation.player
+                order by player_id
+                """
+            )
+            rows = cursor.fetchall()
+    return [
+        PlayerRow(
+            player_id=str(row[0]),
+            display_name=str(row[1]),
+            nba_player_ref=str(row[2]) if row[2] is not None else None,
+            birth_date=str(row[3]) if row[3] is not None else None,
+            position_text=str(row[4]) if row[4] is not None else None,
+        )
+        for row in rows
+    ]
+
+
+def load_player_aliases_from_database(database_url: str) -> list[PlayerAliasRow]:
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("select to_regclass('foundation.player_alias')")
+            if cursor.fetchone()[0] is None:
+                return []
+            cursor.execute(
+                """
+                select alias_id,
+                       player_id,
+                       source_system,
+                       alias_name,
+                       normalized_alias_name,
+                       is_manual,
+                       notes
+                from foundation.player_alias
+                order by source_system, normalized_alias_name
+                """
+            )
+            rows = cursor.fetchall()
+    return [
+        PlayerAliasRow(
+            alias_id=str(row[0]),
+            player_id=str(row[1]),
+            source_system=str(row[2]),
+            alias_name=str(row[3]),
+            normalized_alias_name=str(row[4]),
+            is_manual=bool(row[5]),
+            notes=str(row[6]) if row[6] is not None else None,
         )
         for row in rows
     ]
@@ -497,6 +771,37 @@ def upsert_players(connection: psycopg.Connection, rows: list[PlayerRow]) -> Non
             )
 
 
+def upsert_player_aliases(connection: psycopg.Connection, rows: list[PlayerAliasRow]) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute("select to_regclass('foundation.player_alias')")
+        if cursor.fetchone()[0] is None:
+            return
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.player_alias (
+                    alias_id, player_id, source_system, alias_name, normalized_alias_name, is_manual, notes
+                ) values (%s, %s, %s, %s, %s, %s, %s)
+                on conflict (alias_id) do update
+                set player_id = excluded.player_id,
+                    source_system = excluded.source_system,
+                    alias_name = excluded.alias_name,
+                    normalized_alias_name = excluded.normalized_alias_name,
+                    is_manual = excluded.is_manual,
+                    notes = excluded.notes
+                """,
+                (
+                    row.alias_id,
+                    row.player_id,
+                    row.source_system,
+                    row.alias_name,
+                    row.normalized_alias_name,
+                    row.is_manual,
+                    row.notes,
+                ),
+            )
+
+
 def upsert_roster_baseline_players(connection: psycopg.Connection, rows: list[RosterBaselinePlayerRow]) -> None:
     with connection.cursor() as cursor:
         for row in rows:
@@ -582,5 +887,147 @@ def upsert_assets(connection: psycopg.Connection, rows: list[AssetRow]) -> None:
                     row.pick_id,
                     row.start_source_event_id,
                     row.end_source_event_id,
+                ),
+            )
+
+
+def upsert_roster_snapshots(connection: psycopg.Connection, rows: list[RosterSnapshotRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.roster_snapshot (
+                    snapshot_id, snapshot_date, snapshot_kind, season, team_code, source_record_id, notes
+                ) values (%s, %s, %s, %s, %s, %s, %s)
+                on conflict (snapshot_id) do update
+                set snapshot_date = excluded.snapshot_date,
+                    snapshot_kind = excluded.snapshot_kind,
+                    season = excluded.season,
+                    team_code = excluded.team_code,
+                    source_record_id = excluded.source_record_id,
+                    notes = excluded.notes
+                """,
+                (
+                    row.snapshot_id,
+                    row.snapshot_date,
+                    row.snapshot_kind,
+                    row.season,
+                    row.team_code,
+                    row.source_record_id,
+                    row.notes,
+                ),
+            )
+
+
+def upsert_roster_snapshot_players(connection: psycopg.Connection, rows: list[RosterSnapshotPlayerRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.roster_snapshot_player (
+                    snapshot_id, player_id, asset_id, roster_status, depth_order, is_two_way, is_standard_contract
+                ) values (%s, %s, %s, %s, %s, %s, %s)
+                on conflict (snapshot_id, player_id) do update
+                set asset_id = excluded.asset_id,
+                    roster_status = excluded.roster_status,
+                    depth_order = excluded.depth_order,
+                    is_two_way = excluded.is_two_way,
+                    is_standard_contract = excluded.is_standard_contract
+                """,
+                (
+                    row.snapshot_id,
+                    row.player_id,
+                    row.asset_id,
+                    row.roster_status,
+                    row.depth_order,
+                    row.is_two_way,
+                    row.is_standard_contract,
+                ),
+            )
+
+
+def upsert_roster_snapshot_picks(connection: psycopg.Connection, rows: list[RosterSnapshotPickRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.roster_snapshot_pick (
+                    snapshot_id, pick_id, asset_id, holding_status, display_order
+                ) values (%s, %s, %s, %s, %s)
+                on conflict (snapshot_id, pick_id) do update
+                set asset_id = excluded.asset_id,
+                    holding_status = excluded.holding_status,
+                    display_order = excluded.display_order
+                """,
+                (
+                    row.snapshot_id,
+                    row.pick_id,
+                    row.asset_id,
+                    row.holding_status,
+                    row.display_order,
+                ),
+            )
+
+
+def upsert_draft_selections(connection: psycopg.Connection, rows: list[DraftSelectionRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.draft_selection (
+                    draft_selection_id, draft_year, pick_overall, round_number, team_code,
+                    player_id, pick_id, source_event_id, notes
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (draft_selection_id) do update
+                set draft_year = excluded.draft_year,
+                    pick_overall = excluded.pick_overall,
+                    round_number = excluded.round_number,
+                    team_code = excluded.team_code,
+                    player_id = excluded.player_id,
+                    pick_id = excluded.pick_id,
+                    source_event_id = excluded.source_event_id,
+                    notes = excluded.notes
+                """,
+                (
+                    row.draft_selection_id,
+                    row.draft_year,
+                    row.pick_overall,
+                    row.round_number,
+                    row.team_code,
+                    row.player_id,
+                    row.pick_id,
+                    row.source_event_id,
+                    row.notes,
+                ),
+            )
+
+
+def upsert_draft_lottery_results(connection: psycopg.Connection, rows: list[DraftLotteryResultRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.draft_lottery_result (
+                    lottery_result_id, draft_year, lottery_date, team_code, lottery_position,
+                    result_pick_slot, pre_lottery_odds, notes
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (lottery_result_id) do update
+                set draft_year = excluded.draft_year,
+                    lottery_date = excluded.lottery_date,
+                    team_code = excluded.team_code,
+                    lottery_position = excluded.lottery_position,
+                    result_pick_slot = excluded.result_pick_slot,
+                    pre_lottery_odds = excluded.pre_lottery_odds,
+                    notes = excluded.notes
+                """,
+                (
+                    row.lottery_result_id,
+                    row.draft_year,
+                    row.lottery_date,
+                    row.team_code,
+                    row.lottery_position,
+                    row.result_pick_slot,
+                    row.pre_lottery_odds,
+                    row.notes,
                 ),
             )

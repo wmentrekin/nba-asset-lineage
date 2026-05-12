@@ -1,0 +1,65 @@
+# Full-Span Load Notes
+
+Last verified live load scope:
+
+- team: Memphis Grizzlies
+- transaction seasons: 2016-17 through 2025-26
+- draft years: 2016 through 2025
+- source span in export: 2016-07-07 through 2026-04-10
+
+Current live `foundation` counts after the full-span rebuild:
+
+- `source_record`: 588
+- `source_event`: 401
+- `player`: 227
+- `player_alias`: 1
+- `pick`: 62
+- `asset`: 289
+- `roster_baseline_player`: 222
+- `roster_snapshot`: 40
+- `roster_snapshot_player`: 888
+- `roster_snapshot_pick`: 0
+- `draft_selection`: 20
+- `draft_lottery_result`: 0
+- `canonical_event`: 388
+- `canonical_event_member`: 401
+- `event_asset_transition`: 528
+
+Current graph export counts:
+
+- `events`: 388
+- `player_assets`: 227
+- `pick_assets`: 62
+- `transitions`: 528
+- `roster_snapshots`: 40
+
+Audit command:
+
+```bash
+.venv/bin/python -m redesign_cli audit-foundation-data
+```
+
+This is read-only. Use it after source loads to check source coverage, roster
+snapshot shape, draft linkage, aliases, canonical transition counts, and known
+remaining data gaps.
+
+Resolved in this pass:
+
+- `Kenny Lofton Jr` source text now resolves to `Kenneth Lofton Jr.`
+- full-span Basketball-Reference transaction pages now feed the source event layer
+- full-span Basketball-Reference roster pages now feed roster baselines
+- Memphis Basketball-Reference draft selections now feed `draft_selection`
+- roster checkpoint rows now export instead of leaving `roster_snapshots` empty
+
+Known gaps:
+
+- Basketball-Reference roster pages are season roster references, not exact
+  checkpoint snapshots.
+- `roster_snapshot_pick` is still empty because current pick inventory snapshots
+  are not sourced yet.
+- `draft_lottery_result` is still empty; lottery data is contextual and not
+  required for the base graph.
+- Two-way versus standard contract status is modeled but not reliably sourced
+  yet.
+- Draft selections are loaded, but pick-to-player resolution is not fully linked
+  to `pick` assets yet.

@@ -1,0 +1,372 @@
+from __future__ import annotations
+
+import psycopg
+
+
+FOUNDATION_TABLES = (
+    "source_record",
+    "source_event",
+    "player",
+    "player_alias",
+    "pick",
+    "asset",
+    "roster_baseline_player",
+    "roster_snapshot",
+    "roster_snapshot_player",
+    "roster_snapshot_pick",
+    "draft_selection",
+    "draft_lottery_result",
+    "canonical_event",
+    "canonical_event_member",
+    "event_asset_transition",
+)
+
+
+def audit_foundation_data(database_url: str) -> dict[str, object]:
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        counts = count_foundation_tables(connection)
+        report: dict[str, object] = {
+            "status": "ok",
+            "counts": counts,
+            "event_span": fetch_event_span(connection),
+            "source_coverage": fetch_source_coverage(connection),
+            "aliases": fetch_alias_metrics(connection),
+            "snapshots": fetch_snapshot_metrics(connection),
+            "draft": fetch_draft_metrics(connection),
+            "canonical": {
+                "events": counts.get("canonical_event", 0),
+                "event_members": counts.get("canonical_event_member", 0),
+                "transitions": counts.get("event_asset_transition", 0),
+            },
+        }
+    report["known_gaps"] = build_known_gaps(report)
+    return report
+
+
+def count_foundation_tables(connection: psycopg.Connection) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    with connection.cursor() as cursor:
+        for table_name in FOUNDATION_TABLES:
+            cursor.execute("select to_regclass(%s)", (f"foundation.{table_name}",))
+            if cursor.fetchone()[0] is None:
+                counts[table_name] = 0
+                continue
+            cursor.execute(f"select count(*) from foundation.{table_name}")
+            counts[table_name] = int(cursor.fetchone()[0])
+    return counts
+
+
+def fetch_event_span(connection: psycopg.Connection) -> dict[str, object]:
+    if table_exists(connection, "canonical_event"):
+        table_name = "canonical_event"
+        date_column = "event_date"
+    elif table_exists(connection, "source_event"):
+        table_name = "source_event"
+        date_column = "event_date"
+    else:
+        return {"source": None, "start_date": None, "end_date": None, "event_count": 0}
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            select min({date_column})::text, max({date_column})::text, count(*)
+            from foundation.{table_name}
+            """
+        )
+        row = cursor.fetchone()
+    return {
+        "source": f"foundation.{table_name}",
+        "start_date": str(row[0]) if row[0] is not None else None,
+        "end_date": str(row[1]) if row[1] is not None else None,
+        "event_count": int(row[2]),
+    }
+
+
+def fetch_source_coverage(connection: psycopg.Connection) -> list[dict[str, object]]:
+    if not table_exists(connection, "source_record"):
+        return []
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select source_system, source_type, count(*) as records
+            from foundation.source_record
+            group by source_system, source_type
+            order by source_system, source_type
+            """
+        )
+        rows = cursor.fetchall()
+    return [
+        {
+            "source_system": str(row[0]),
+            "source_type": str(row[1]),
+            "records": int(row[2]),
+        }
+        for row in rows
+    ]
+
+
+def fetch_alias_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    if not table_exists(connection, "player_alias"):
+        return {"count": 0, "manual_count": 0, "sample": []}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select count(*),
+                   count(*) filter (where is_manual)
+            from foundation.player_alias
+            """
+        )
+        count_row = cursor.fetchone()
+        cursor.execute(
+            """
+            select alias_name, player_id, source_system, is_manual
+            from foundation.player_alias
+            order by is_manual desc, alias_name
+            limit 25
+            """
+        )
+        sample_rows = cursor.fetchall()
+    return {
+        "count": int(count_row[0]),
+        "manual_count": int(count_row[1]),
+        "sample": [
+            {
+                "alias_name": str(row[0]),
+                "player_id": str(row[1]),
+                "source_system": str(row[2]),
+                "is_manual": bool(row[3]),
+            }
+            for row in sample_rows
+        ],
+    }
+
+
+def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    if not table_exists(connection, "roster_snapshot"):
+        return {
+            "snapshots": 0,
+            "player_rows": 0,
+            "pick_rows": 0,
+            "assetless_player_rows": 0,
+            "by_kind": [],
+            "by_season": [],
+            "contract_status": [],
+            "derived_from_roster_baseline": 0,
+        }
+
+    with connection.cursor() as cursor:
+        cursor.execute("select count(*) from foundation.roster_snapshot")
+        snapshot_count = int(cursor.fetchone()[0])
+        cursor.execute("select count(*) from foundation.roster_snapshot_player")
+        player_rows = int(cursor.fetchone()[0])
+        cursor.execute("select count(*) from foundation.roster_snapshot_pick")
+        pick_rows = int(cursor.fetchone()[0])
+        cursor.execute("select count(*) from foundation.roster_snapshot_player where asset_id is null")
+        assetless_player_rows = int(cursor.fetchone()[0])
+        cursor.execute(
+            """
+            select snapshot_kind, count(*)
+            from foundation.roster_snapshot
+            group by snapshot_kind
+            order by snapshot_kind
+            """
+        )
+        kind_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            select season, count(*)
+            from foundation.roster_snapshot
+            group by season
+            order by season
+            """
+        )
+        season_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            select roster_status,
+                   count(*),
+                   count(*) filter (where is_two_way),
+                   count(*) filter (where is_standard_contract)
+            from foundation.roster_snapshot_player
+            group by roster_status
+            order by roster_status
+            """
+        )
+        contract_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            select count(*)
+            from foundation.roster_snapshot
+            where coalesce(notes, '') ilike '%roster baseline%'
+               or coalesce(notes, '') ilike '%season roster page%'
+               or coalesce(notes, '') ilike '%not a date-exact%'
+            """
+        )
+        derived_count = int(cursor.fetchone()[0])
+
+    return {
+        "snapshots": snapshot_count,
+        "player_rows": player_rows,
+        "pick_rows": pick_rows,
+        "assetless_player_rows": assetless_player_rows,
+        "by_kind": [{"snapshot_kind": str(row[0]), "count": int(row[1])} for row in kind_rows],
+        "by_season": [{"season": str(row[0]), "count": int(row[1])} for row in season_rows],
+        "contract_status": [
+            {
+                "roster_status": str(row[0]),
+                "rows": int(row[1]),
+                "two_way_rows": int(row[2]),
+                "standard_contract_rows": int(row[3]),
+            }
+            for row in contract_rows
+        ],
+        "derived_from_roster_baseline": derived_count,
+    }
+
+
+def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    if not table_exists(connection, "draft_selection"):
+        return {
+            "selections": 0,
+            "unlinked_pick_rows": 0,
+            "unlinked_source_event_rows": 0,
+            "lottery_results": 0,
+            "by_year": [],
+        }
+    with connection.cursor() as cursor:
+        cursor.execute("select count(*) from foundation.draft_selection")
+        selections = int(cursor.fetchone()[0])
+        cursor.execute("select count(*) from foundation.draft_selection where pick_id is null")
+        unlinked_pick_rows = int(cursor.fetchone()[0])
+        cursor.execute("select count(*) from foundation.draft_selection where source_event_id is null")
+        unlinked_source_event_rows = int(cursor.fetchone()[0])
+        lottery_results = 0
+        if table_exists(connection, "draft_lottery_result"):
+            cursor.execute("select count(*) from foundation.draft_lottery_result")
+            lottery_results = int(cursor.fetchone()[0])
+        cursor.execute(
+            """
+            select draft_year, count(*)
+            from foundation.draft_selection
+            group by draft_year
+            order by draft_year
+            """
+        )
+        year_rows = cursor.fetchall()
+    return {
+        "selections": selections,
+        "unlinked_pick_rows": unlinked_pick_rows,
+        "unlinked_source_event_rows": unlinked_source_event_rows,
+        "lottery_results": lottery_results,
+        "by_year": [{"draft_year": int(row[0]), "selections": int(row[1])} for row in year_rows],
+    }
+
+
+def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
+    counts = dict(report.get("counts", {}))
+    event_span = dict(report.get("event_span", {}))
+    source_coverage = list(report.get("source_coverage", []))
+    snapshots = dict(report.get("snapshots", {}))
+    draft = dict(report.get("draft", {}))
+
+    gaps: list[dict[str, str]] = []
+    if str(event_span.get("start_date") or "") > "2016-07-01":
+        gaps.append(
+            build_gap(
+                "medium",
+                "The canonical event span starts after the requested summer 2016 anchor.",
+                f"Current start date is {event_span.get('start_date')}.",
+                "Confirm whether Memphis had no relevant post-July-1 events before this date or add a source that proves the quiet interval.",
+            )
+        )
+    if not any(row.get("source_system") == "nba_stats" for row in source_coverage if isinstance(row, dict)):
+        gaps.append(
+            build_gap(
+                "low",
+                "NBA stats reference data is not present in the loaded source records.",
+                "The current full-span load can run from Basketball-Reference alone.",
+                "Load NBA stats reference data when stronger player IDs or roster endpoint comparisons are needed.",
+            )
+        )
+    if int(snapshots.get("snapshots", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "high",
+                "No roster checkpoint snapshots are loaded.",
+                "The graph cannot yet validate occupied roster slots over time.",
+                "Load or derive roster snapshots before treating the export as roster-truthful.",
+            )
+        )
+    elif int(snapshots.get("derived_from_roster_baseline", 0)) > 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Roster checkpoint snapshots are approximate.",
+                "Current checkpoint rows are derived from Basketball-Reference season roster pages, not date-exact snapshots.",
+                "Replace or validate these checkpoints with date-specific roster-state sources.",
+            )
+        )
+    if int(snapshots.get("pick_rows", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Future pick inventory snapshots are empty.",
+                "No rows exist in foundation.roster_snapshot_pick.",
+                "Add a pick-inventory source before relying on pick lanes as complete.",
+            )
+        )
+    if not any(
+        isinstance(row, dict) and int(row.get("two_way_rows", 0)) > 0
+        for row in list(snapshots.get("contract_status", []))
+    ):
+        gaps.append(
+            build_gap(
+                "medium",
+                "Two-way roster status is not populated.",
+                "Snapshot player rows currently do not prove two-way versus standard slots.",
+                "Add a source for two-way contract status or a checked manual override layer.",
+            )
+        )
+    if int(draft.get("selections", 0)) > 0 and int(draft.get("unlinked_pick_rows", 0)) > 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Draft selections are not fully linked back to pick assets.",
+                f"{draft.get('unlinked_pick_rows')} draft_selection rows have no pick_id.",
+                "Add pick-resolution logic that connects a selected player to the incoming pick asset when the pick is represented in the asset table.",
+            )
+        )
+    if int(draft.get("lottery_results", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "low",
+                "Draft lottery results are not loaded.",
+                "This is contextual and not required for the base graph, but the table is empty.",
+                "Add later only if the frontend needs lottery annotations.",
+            )
+        )
+    if int(counts.get("canonical_event", 0)) == 0 or int(counts.get("event_asset_transition", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "high",
+                "Canonical events or asset transitions are empty.",
+                "The graph export cannot show lineage continuity without these rows.",
+                "Run the canonical builder after source/entity loading.",
+            )
+        )
+    return gaps
+
+
+def build_gap(severity: str, gap: str, evidence: str, next_action: str) -> dict[str, str]:
+    return {
+        "severity": severity,
+        "gap": gap,
+        "evidence": evidence,
+        "next_action": next_action,
+    }
+
+
+def table_exists(connection: psycopg.Connection, table_name: str) -> bool:
+    with connection.cursor() as cursor:
+        cursor.execute("select to_regclass(%s)", (f"foundation.{table_name}",))
+        return cursor.fetchone()[0] is not None

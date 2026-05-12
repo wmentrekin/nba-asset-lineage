@@ -6,7 +6,14 @@ from pathlib import Path
 import psycopg
 from pydantic import BaseModel
 
-from foundation.ingest import SourceEventRow, build_pick_id, load_source_events_from_database, slugify
+from foundation.ingest import (
+    SourceEventRow,
+    build_pick_id,
+    load_player_aliases_from_database,
+    load_source_events_from_database,
+    normalize_player_alias_name,
+    slugify,
+)
 
 
 FOUNDATION_CANONICAL_BOOTSTRAP_SQL_PATH = Path("sql/0002_foundation_canonical_bootstrap.sql")
@@ -53,10 +60,16 @@ def bootstrap_foundation_canonical_schema(
 
 def derive_foundation_canonical_bundle_from_database(database_url: str) -> FoundationCanonicalBundle:
     source_events = load_source_events_from_database(database_url)
-    return derive_foundation_canonical_bundle(source_events)
+    player_aliases = load_player_aliases_from_database(database_url)
+    player_id_by_alias = {alias.normalized_alias_name: alias.player_id for alias in player_aliases}
+    return derive_foundation_canonical_bundle(source_events, player_id_by_alias=player_id_by_alias)
 
 
-def derive_foundation_canonical_bundle(source_events: list[SourceEventRow]) -> FoundationCanonicalBundle:
+def derive_foundation_canonical_bundle(
+    source_events: list[SourceEventRow],
+    *,
+    player_id_by_alias: dict[str, str] | None = None,
+) -> FoundationCanonicalBundle:
     groups = group_source_events(source_events)
     canonical_events: list[CanonicalEventRow] = []
     canonical_event_members: list[CanonicalEventMemberRow] = []
@@ -81,7 +94,13 @@ def derive_foundation_canonical_bundle(source_events: list[SourceEventRow]) -> F
                         source_event_id=source_event.source_event_id,
                     )
                 )
-            event_asset_transitions.extend(build_event_asset_transitions(canonical_event, group))
+            event_asset_transitions.extend(
+                build_event_asset_transitions(
+                    canonical_event,
+                    group,
+                    player_id_by_alias=player_id_by_alias or {},
+                )
+            )
 
     return FoundationCanonicalBundle(
         canonical_events=canonical_events,
@@ -183,25 +202,28 @@ def build_canonical_event(group: list[SourceEventRow], *, sequence_on_date: int)
 def build_event_asset_transitions(
     canonical_event: CanonicalEventRow,
     group: list[SourceEventRow],
+    *,
+    player_id_by_alias: dict[str, str] | None = None,
 ) -> list[EventAssetTransitionRow]:
     inbound_assets: set[str] = set()
     outbound_assets: set[str] = set()
+    alias_lookup = player_id_by_alias or {}
 
     for source_event in group:
         payload = source_event.normalized_payload
         for player_name in payload.get("player_names_in", []):
             if isinstance(player_name, str) and player_name.strip():
-                inbound_assets.add(build_player_asset_id(player_name))
+                inbound_assets.add(build_player_asset_id(player_name, player_id_by_alias=alias_lookup))
         for player_name in payload.get("player_names_out", []):
             if isinstance(player_name, str) and player_name.strip():
-                outbound_assets.add(build_player_asset_id(player_name))
+                outbound_assets.add(build_player_asset_id(player_name, player_id_by_alias=alias_lookup))
         for detail in payload.get("pick_details_in", []):
-            raw_text = detail.get("raw_text") if isinstance(detail, dict) else None
-            if isinstance(raw_text, str) and raw_text.strip():
+            raw_text = detail.get("raw_text") if is_normalized_pick_detail(detail) else None
+            if isinstance(raw_text, str):
                 inbound_assets.add(build_pick_asset_id(raw_text))
         for detail in payload.get("pick_details_out", []):
-            raw_text = detail.get("raw_text") if isinstance(detail, dict) else None
-            if isinstance(raw_text, str) and raw_text.strip():
+            raw_text = detail.get("raw_text") if is_normalized_pick_detail(detail) else None
+            if isinstance(raw_text, str):
                 outbound_assets.add(build_pick_asset_id(raw_text))
 
     transitions: list[EventAssetTransitionRow] = []
@@ -228,12 +250,26 @@ def build_event_asset_transitions(
     return transitions
 
 
-def build_player_asset_id(display_name: str) -> str:
+def build_player_asset_id(display_name: str, *, player_id_by_alias: dict[str, str] | None = None) -> str:
+    player_id = (player_id_by_alias or {}).get(normalize_player_alias_name(display_name))
+    if player_id and player_id.startswith("player:"):
+        return f"asset:player:{player_id.removeprefix('player:')}"
     return f"asset:player:{slugify(display_name)}"
 
 
 def build_pick_asset_id(raw_text: str) -> str:
     return f"asset:pick:{build_pick_id(raw_text)}"
+
+
+def is_normalized_pick_detail(value: object) -> bool:
+    if not isinstance(value, dict):
+        return False
+    return (
+        isinstance(value.get("raw_text"), str)
+        and bool(str(value.get("raw_text")).strip())
+        and isinstance(value.get("draft_year"), int)
+        and isinstance(value.get("round_number"), int)
+    )
 
 
 def upsert_canonical_events(connection: psycopg.Connection, rows: list[CanonicalEventRow]) -> None:

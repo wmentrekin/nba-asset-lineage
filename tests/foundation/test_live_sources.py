@@ -1,8 +1,10 @@
 from pathlib import Path
 
 from foundation.live_sources import (
+    build_bref_draft_rows,
     build_bref_roster_rows,
     build_bref_source_rows,
+    extract_bref_draft_rows,
     extract_bref_roster_rows,
     extract_bref_transaction_blocks,
     extract_nba_dataset_rows,
@@ -87,3 +89,54 @@ def test_build_bref_roster_rows_builds_players_and_baseline_rows() -> None:
     assert players[0].display_name == "Desmond Bane"
     assert baseline_rows[0].display_name == "Desmond Bane"
     assert baseline_rows[0].season == "2023-24"
+
+
+def test_extract_bref_draft_rows_from_minimal_html() -> None:
+    html = """
+    <table id="stats">
+      <tbody>
+        <tr>
+          <th data-stat="pick_overall">9</th>
+          <td data-stat="round_number">1</td>
+          <td data-stat="team_id">MEM</td>
+          <td data-stat="player" data-append-csv="edeyza01"><a href="/players/e/edeyza01.html">Zach Edey</a></td>
+        </tr>
+      </tbody>
+    </table>
+    """
+    rows = extract_bref_draft_rows(html)
+    assert rows == [
+        {
+            "pick_overall": "9",
+            "round_number": "1",
+            "team_id": "MEM",
+            "player": "Zach Edey",
+            "player_ref": "edeyza01",
+        }
+    ]
+
+
+def test_build_bref_draft_rows_builds_memphis_draft_selection() -> None:
+    html = """
+    <table id="stats">
+      <tbody>
+        <tr>
+          <th data-stat="pick_overall">8</th>
+          <td data-stat="round_number">1</td>
+          <td data-stat="team_id">NOP</td>
+          <td data-stat="player" data-append-csv="hayesja02">Jaxson Hayes</td>
+        </tr>
+        <tr>
+          <th data-stat="pick_overall">9</th>
+          <td data-stat="round_number">1</td>
+          <td data-stat="team_id">MEM</td>
+          <td data-stat="player" data-append-csv="moranja01">Ja Morant</td>
+        </tr>
+      </tbody>
+    </table>
+    """
+    source_records, players, selections = build_bref_draft_rows(draft_year=2019, team_code="MEM", html=html)
+    assert len(source_records) == 1
+    assert [player.display_name for player in players] == ["Ja Morant"]
+    assert selections[0].draft_selection_id == "draft:2019:9"
+    assert selections[0].team_code == "MEM"

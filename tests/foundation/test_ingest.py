@@ -1,6 +1,9 @@
 from foundation.ingest import (
+    PlayerRow,
     RosterBaselinePlayerRow,
+    SourceEventRow,
     build_foundation_ingest_sample_bundle,
+    build_roster_snapshots_from_baselines,
     derive_foundation_entities_from_source_events,
 )
 
@@ -75,3 +78,82 @@ def test_baseline_players_are_merged_into_derived_entities() -> None:
     )
     assert any(player.display_name == "Ja Morant" for player in derived.players)
     assert any(asset.player_id == "player:ja-morant" for asset in derived.assets)
+
+
+def test_default_player_aliases_dedupe_transaction_names_against_baseline_names() -> None:
+    source_events = [
+        SourceEventRow(
+            source_event_id="bref:mem:2024:2023-12-18:1:1",
+            source_record_id="bref:mem:2024:2023-12-18:1",
+            event_date="2023-12-18",
+            event_type="waiver",
+            label="Memphis waived Kenny Lofton Jr",
+            team_scope="memphis-grizzlies",
+            source_group_hint=None,
+            normalized_payload={
+                "player_names_in": [],
+                "player_names_out": ["Kenny Lofton Jr"],
+                "pick_details_in": [],
+                "pick_details_out": [],
+            },
+        )
+    ]
+    derived = derive_foundation_entities_from_source_events(
+        source_events,
+        baseline_players=[
+            RosterBaselinePlayerRow(
+                season="2023-24",
+                team_code="MEM",
+                player_id="player:kenneth-lofton-jr",
+                display_name="Kenneth Lofton Jr.",
+                source_record_id="bref:mem:2024:roster",
+                roster_order=16,
+            )
+        ],
+    )
+    assert [player.display_name for player in derived.players] == ["Kenneth Lofton Jr."]
+    assert [asset.asset_id for asset in derived.assets] == ["asset:player:kenneth-lofton-jr"]
+    assert derived.player_aliases[0].alias_name == "kenny lofton jr"
+
+
+def test_roster_snapshots_from_baselines_create_four_checkpoint_rows() -> None:
+    snapshots, snapshot_players = build_roster_snapshots_from_baselines(
+        [
+            RosterBaselinePlayerRow(
+                season="2023-24",
+                team_code="MEM",
+                player_id="player:ja-morant",
+                display_name="Ja Morant",
+                source_record_id="bref:mem:2024:roster",
+                roster_order=1,
+            )
+        ]
+    )
+    assert [snapshot.snapshot_kind for snapshot in snapshots] == [
+        "post_draft",
+        "season_opening",
+        "post_deadline",
+        "season_closing",
+    ]
+    assert [snapshot.snapshot_date for snapshot in snapshots] == [
+        "2023-07-01",
+        "2023-10-01",
+        "2024-02-15",
+        "2024-06-30",
+    ]
+    assert len(snapshot_players) == 4
+
+
+def test_reference_players_are_included_in_derived_assets() -> None:
+    derived = derive_foundation_entities_from_source_events(
+        [],
+        reference_players=[
+            PlayerRow(
+                player_id="player:zach-edey",
+                display_name="Zach Edey",
+                nba_player_ref="edeyza01",
+            )
+        ],
+    )
+    assert [player.player_id for player in derived.players] == ["player:zach-edey"]
+    assert [asset.asset_id for asset in derived.assets] == ["asset:player:zach-edey"]
