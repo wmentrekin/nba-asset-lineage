@@ -67,6 +67,12 @@ export interface TimelineEventPoint {
   anchorY: number;
 }
 
+export interface TimelineDateTick {
+  date: string;
+  x: number;
+  dayOffset: number;
+}
+
 export interface TimelineSegment {
   assetId: string;
   label: string;
@@ -74,6 +80,9 @@ export interface TimelineSegment {
   x1: number;
   x2: number;
   y: number;
+  laneType: "home" | "trade-local";
+  stageSide?: "outbound" | "inbound";
+  homeRowIndex?: number | null;
 }
 
 export interface TimelineConnector {
@@ -86,6 +95,10 @@ export interface TimelineConnector {
   y2: number;
   x1: number;
   x2: number;
+  laneType: "home" | "trade-local";
+  stageSide?: "outbound" | "inbound";
+  fromRowIndex?: number | null;
+  toRowIndex?: number | null;
 }
 
 export interface TimelineLayout {
@@ -95,6 +108,7 @@ export interface TimelineLayout {
   eventPoints: TimelineEventPoint[];
   segments: TimelineSegment[];
   connectors: TimelineConnector[];
+  dateTicks: TimelineDateTick[];
   playerRowCount: number;
   pickRowCount: number;
   playerBandEndY: number;
@@ -119,6 +133,30 @@ interface ConnectorSeed {
   eventId: string;
   fromRowIndex: number | null;
   toRowIndex: number | null;
+  fromY?: number | null;
+  toY?: number | null;
+  x?: number;
+  x1?: number;
+  x2?: number;
+  laneType: "home" | "trade-local";
+  stageSide?: "outbound" | "inbound";
+}
+
+interface SegmentSeed {
+  assetId: string;
+  label: string;
+  kind: "player" | "pick";
+  x1: number;
+  x2: number;
+  rowIndex?: number | null;
+  y?: number;
+  laneType: "home" | "trade-local";
+  stageSide?: "outbound" | "inbound";
+}
+
+interface EventLayoutSeed {
+  anchorY: number;
+  participantYs: number[];
 }
 
 const PLAYER_SLOT_COUNT = 18;
@@ -127,17 +165,22 @@ const TOP_GUTTER = 86;
 const PLAYER_ROW_HEIGHT = 34;
 const PICK_ROW_HEIGHT = 26;
 const BAND_GAP = 28;
-const EVENT_SPACING = 142;
+const DAY_SPACING = 6;
+const SAME_DAY_EVENT_OFFSET = 14;
 const RIGHT_GUTTER = 80;
 const BOTTOM_GUTTER = 56;
 const HEADER_SPINE_Y = 46;
 const EVENT_ARC_OFFSET = 28;
+const TRADE_STAGE_WIDTH = 18;
+const TRADE_STAGE_ROW_GAP = 18;
+const TRADE_STAGE_GROUP_GAP = 16;
 
 export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
   const assetMetaById = buildAssetMetaById(graph);
   const transitionsByEventId = buildTransitionsByEventId(graph.transitions);
-  const baseEventPoints = graph.events.map((event, index) => {
-    const x = LEFT_GUTTER + 36 + index * EVENT_SPACING;
+  const dateAxis = buildDateAxis(graph.events, graph.span_start, graph.span_end);
+  const baseEventPoints = graph.events.map((event) => {
+    const x = dateAxis.eventXById.get(event.event_id) ?? dateAxis.startX;
     const eventTransitions = transitionsByEventId.get(event.event_id) ?? [];
     const inboundAssetIds = eventTransitions
       .filter((transition) => transition.transition_type === "acquired")
@@ -165,24 +208,20 @@ export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
 
   const segments = laneResult.segmentSeeds.map((segment) => ({
     ...segment,
-    y: rowYByIndex.get(segment.rowIndex) ?? TOP_GUTTER,
+    y: segment.y ?? getRowY(segment.rowIndex ?? 0),
+    homeRowIndex: segment.rowIndex ?? null,
   }));
 
   const eventPoints = baseEventPoints.map((event) => {
-    const participantRows = laneResult.connectorSeeds.flatMap((connector) => {
-      if (connector.eventId !== event.eventId) return [];
-      return [connector.fromRowIndex, connector.toRowIndex].filter((value): value is number => value !== null);
-    });
-    const participantYs = participantRows
-      .map((rowIndex) => rowYByIndex.get(rowIndex))
-      .filter((value): value is number => typeof value === "number");
+    const eventLayout = laneResult.eventLayoutById.get(event.eventId);
+    const participantYs = eventLayout?.participantYs ?? [];
     const minY = participantYs.length ? Math.min(...participantYs) : HEADER_SPINE_Y;
     const maxY = participantYs.length ? Math.max(...participantYs) : HEADER_SPINE_Y;
     return {
       ...event,
       minY,
       maxY,
-      anchorY: participantYs.length ? (minY + maxY) / 2 : HEADER_SPINE_Y,
+      anchorY: eventLayout?.anchorY ?? (participantYs.length ? (minY + maxY) / 2 : HEADER_SPINE_Y),
     };
   });
 
@@ -190,13 +229,15 @@ export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
 
   const connectors = laneResult.connectorSeeds.map((connector) => {
     const event = eventById.get(connector.eventId);
-    const x = event?.x ?? LEFT_GUTTER;
+    const x = connector.x ?? event?.x ?? LEFT_GUTTER;
     const y1 =
-      connector.fromRowIndex !== null ? (rowYByIndex.get(connector.fromRowIndex) ?? HEADER_SPINE_Y) : event?.anchorY ?? HEADER_SPINE_Y;
+      connector.fromY ??
+      (connector.fromRowIndex !== null ? (rowYByIndex.get(connector.fromRowIndex) ?? HEADER_SPINE_Y) : event?.anchorY ?? HEADER_SPINE_Y);
     const y2 =
-      connector.toRowIndex !== null ? (rowYByIndex.get(connector.toRowIndex) ?? HEADER_SPINE_Y) : event?.anchorY ?? HEADER_SPINE_Y;
-    const x1 = connector.direction === "out" || connector.direction === "move" ? x - EVENT_ARC_OFFSET : x;
-    const x2 = connector.direction === "in" || connector.direction === "move" ? x + EVENT_ARC_OFFSET : x;
+      connector.toY ??
+      (connector.toRowIndex !== null ? (rowYByIndex.get(connector.toRowIndex) ?? HEADER_SPINE_Y) : event?.anchorY ?? HEADER_SPINE_Y);
+    const x1 = connector.x1 ?? (connector.direction === "out" || connector.direction === "move" ? x - EVENT_ARC_OFFSET : x);
+    const x2 = connector.x2 ?? (connector.direction === "in" || connector.direction === "move" ? x + EVENT_ARC_OFFSET : x);
     return {
       ...connector,
       x,
@@ -207,7 +248,7 @@ export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
     };
   });
 
-  const width = Math.max(1400, LEFT_GUTTER + 72 + graph.events.length * EVENT_SPACING + RIGHT_GUTTER);
+  const width = Math.max(1400, dateAxis.endX + RIGHT_GUTTER);
   const height = rows.at(-1)?.y ? rows.at(-1)!.y + BOTTOM_GUTTER : TOP_GUTTER + BOTTOM_GUTTER;
   const playerBandEndY = rowYByIndex.get(PLAYER_SLOT_COUNT - 1) ?? TOP_GUTTER;
 
@@ -218,10 +259,85 @@ export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
     eventPoints,
     segments,
     connectors,
+    dateTicks: dateAxis.ticks,
     playerRowCount: PLAYER_SLOT_COUNT,
     pickRowCount: laneResult.pickLaneCount,
     playerBandEndY,
   };
+}
+
+function buildDateAxis(
+  events: GraphEvent[],
+  spanStart: string,
+  spanEnd: string,
+): {
+  startX: number;
+  endX: number;
+  ticks: TimelineDateTick[];
+  eventXById: Map<string, number>;
+} {
+  const startDate = parseIsoDate(spanStart);
+  const endDate = parseIsoDate(spanEnd);
+  const fallbackStartDate = events[0] ? parseIsoDate(events[0].event_date) : startDate;
+  const fallbackEndDate = events.at(-1) ? parseIsoDate(events.at(-1)!.event_date) : endDate;
+  const axisStart = startDate.getTime() <= fallbackStartDate.getTime() ? startDate : fallbackStartDate;
+  const axisEnd = endDate.getTime() >= fallbackEndDate.getTime() ? endDate : fallbackEndDate;
+  const totalDays = Math.max(0, diffDays(axisStart, axisEnd));
+  const startX = LEFT_GUTTER + 36;
+
+  const ticks: TimelineDateTick[] = [];
+  for (let dayOffset = 0; dayOffset <= totalDays; dayOffset += 1) {
+    const date = addDays(axisStart, dayOffset);
+    ticks.push({
+      date: formatIsoDate(date),
+      x: startX + dayOffset * DAY_SPACING,
+      dayOffset,
+    });
+  }
+
+  const eventsByDate = new Map<string, GraphEvent[]>();
+  for (const event of events) {
+    const groupedEvents = eventsByDate.get(event.event_date) ?? [];
+    groupedEvents.push(event);
+    eventsByDate.set(event.event_date, groupedEvents);
+  }
+
+  const eventXById = new Map<string, number>();
+  for (const [date, groupedEvents] of eventsByDate.entries()) {
+    const dayOffset = diffDays(axisStart, parseIsoDate(date));
+    const baseX = startX + dayOffset * DAY_SPACING;
+    const clusterOffset = ((groupedEvents.length - 1) * SAME_DAY_EVENT_OFFSET) / 2;
+    groupedEvents.forEach((event, index) => {
+      eventXById.set(event.event_id, baseX + index * SAME_DAY_EVENT_OFFSET - clusterOffset);
+    });
+  }
+
+  const lastClusterX = events.length
+    ? Math.max(...events.map((event) => eventXById.get(event.event_id) ?? startX))
+    : startX + totalDays * DAY_SPACING;
+
+  return {
+    startX,
+    endX: Math.max(startX + totalDays * DAY_SPACING + 36, lastClusterX + 36),
+    ticks,
+    eventXById,
+  };
+}
+
+function parseIsoDate(value: string): Date {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function formatIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(date: Date, dayCount: number): Date {
+  return new Date(date.getTime() + dayCount * 24 * 60 * 60 * 1000);
+}
+
+function diffDays(startDate: Date, endDate: Date): number {
+  return Math.round((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 function buildTransitionsByEventId(transitions: GraphTransition[]): Map<string, GraphTransition[]> {
@@ -284,17 +400,16 @@ function buildRows(pickLaneCount: number): TimelineRow[] {
   for (let i = 0; i < PLAYER_SLOT_COUNT; i += 1) {
     rows.push({
       index: i,
-      y: TOP_GUTTER + i * PLAYER_ROW_HEIGHT,
+      y: getRowY(i),
       band: "player",
       label: `${i + 1}`,
     });
   }
 
-  const pickBandStartY = TOP_GUTTER + PLAYER_SLOT_COUNT * PLAYER_ROW_HEIGHT + BAND_GAP;
   for (let i = 0; i < pickLaneCount; i += 1) {
     rows.push({
       index: PLAYER_SLOT_COUNT + i,
-      y: pickBandStartY + i * PICK_ROW_HEIGHT,
+      y: getRowY(PLAYER_SLOT_COUNT + i),
       band: "pick",
       label: `P${i + 1}`,
     });
@@ -307,8 +422,9 @@ function assignLanes(
   assetMetaById: Map<string, AssetMeta>,
   eventPoints: TimelineEventPoint[],
 ): {
-  segmentSeeds: Array<{ assetId: string; label: string; kind: "player" | "pick"; x1: number; x2: number; rowIndex: number }>;
+  segmentSeeds: SegmentSeed[];
   connectorSeeds: ConnectorSeed[];
+  eventLayoutById: Map<string, EventLayoutSeed>;
   pickLaneCount: number;
 } {
   const transitionHistoryByAsset = new Map<string, Array<{ x: number; direction: "in" | "out" }>>();
@@ -336,18 +452,19 @@ function assignLanes(
       .map((asset) => asset.assetId),
   );
 
-  let activeRowByAsset = new Map<string, number>();
-  const openSegmentStartByAsset = new Map<string, number>();
-  const segmentSeeds: Array<{ assetId: string; label: string; kind: "player" | "pick"; x1: number; x2: number; rowIndex: number }> = [];
-  const connectorSeeds: ConnectorSeed[] = [];
-  const startX = LEFT_GUTTER + 18;
-  const endX = Math.max(startX, eventPoints.at(-1)?.x ?? startX) + 36;
-
-  activeRowByAsset = buildRowMap({
-    activePlayers,
+  let playerSlots = seedPlayerSlots(activePlayers, assetMetaById);
+  let activeRowByAsset = buildRowMap({
+    playerSlots,
     activePicks,
     assetMetaById,
   });
+  const openSegmentStartByAsset = new Map<string, number>();
+  const segmentSeeds: SegmentSeed[] = [];
+  const connectorSeeds: ConnectorSeed[] = [];
+  const eventLayoutById = new Map<string, EventLayoutSeed>();
+  const startX = LEFT_GUTTER + 18;
+  const endX = Math.max(startX, eventPoints.at(-1)?.x ?? startX) + 36;
+
   for (const assetId of activeRowByAsset.keys()) {
     openSegmentStartByAsset.set(assetId, startX);
   }
@@ -357,45 +474,53 @@ function assignLanes(
     [...activeRowByAsset.values()].filter((rowIndex) => rowIndex >= PLAYER_SLOT_COUNT).length,
   );
 
-  for (const event of eventPoints) {
+  for (const [eventIndex, event] of eventPoints.entries()) {
     const previousRowByAsset = new Map(activeRowByAsset);
+    const tradeStage = isTradeEvent(event)
+      ? buildTradeStageGeometry(eventPoints, eventIndex, event)
+      : null;
 
     const outboundAssetIds = [...event.outboundAssetIds].sort((a, b) => compareAssetIds(a, b, assetMetaById));
     for (const assetId of outboundAssetIds) {
       const meta = assetMetaById.get(assetId);
       const rowIndex = previousRowByAsset.get(assetId);
       if (!meta || rowIndex === undefined) continue;
+      const segmentExitX =
+        tradeStage !== null ? computeSegmentExitX(openSegmentStartByAsset.get(assetId) ?? startX, tradeStage.outboundStageStartX) : computeSegmentExitX(openSegmentStartByAsset.get(assetId) ?? startX, event.x);
       segmentSeeds.push({
         assetId,
         label: meta.label,
         kind: meta.kind,
         x1: openSegmentStartByAsset.get(assetId) ?? startX,
-        x2: computeSegmentExitX(openSegmentStartByAsset.get(assetId) ?? startX, event.x),
+        x2: segmentExitX,
         rowIndex,
-      });
-      connectorSeeds.push({
-        assetId,
-        label: meta.label,
-        direction: "out",
-        eventId: event.eventId,
-        fromRowIndex: rowIndex,
-        toRowIndex: null,
+        laneType: "home",
       });
       openSegmentStartByAsset.delete(assetId);
-      if (meta.kind === "player") activePlayers.delete(assetId);
-      else activePicks.delete(assetId);
+      if (meta.kind === "player") {
+        activePlayers.delete(assetId);
+        releasePlayerSlot(playerSlots, assetId);
+      } else {
+        activePicks.delete(assetId);
+      }
     }
+
+    playerSlots = compactPlayerSlots(playerSlots);
 
     const inboundAssetIds = [...event.inboundAssetIds].sort((a, b) => compareAssetIds(a, b, assetMetaById));
     for (const assetId of inboundAssetIds) {
       const meta = assetMetaById.get(assetId);
       if (!meta) continue;
-      if (meta.kind === "player") activePlayers.add(assetId);
-      else activePicks.add(assetId);
+      if (meta.kind === "player") {
+        activePlayers.add(assetId);
+        claimLowestOpenPlayerSlot(playerSlots, assetId);
+      } else {
+        activePicks.add(assetId);
+      }
     }
 
     const nextRowByAsset = buildRowMap({
-      activePlayers,
+      playerSlots,
       activePicks,
       assetMetaById,
     });
@@ -404,19 +529,143 @@ function assignLanes(
       [...nextRowByAsset.values()].filter((rowIndex) => rowIndex >= PLAYER_SLOT_COUNT).length,
     );
 
-    for (const assetId of inboundAssetIds) {
-      const meta = assetMetaById.get(assetId);
-      const rowIndex = nextRowByAsset.get(assetId);
-      if (!meta || rowIndex === undefined) continue;
-      connectorSeeds.push({
-        assetId,
-        label: meta.label,
-        direction: "in",
-        eventId: event.eventId,
-        fromRowIndex: null,
-        toRowIndex: rowIndex,
+    const eventParticipantYs: number[] = [];
+    if (tradeStage !== null) {
+      const tradeStageRows = buildTradeStageRows({
+        outboundAssetIds,
+        inboundAssetIds,
+        previousRowByAsset,
+        nextRowByAsset,
       });
-      openSegmentStartByAsset.set(assetId, event.x + EVENT_ARC_OFFSET);
+
+      for (const assetId of outboundAssetIds) {
+        const meta = assetMetaById.get(assetId);
+        const homeRowIndex = previousRowByAsset.get(assetId);
+        const stageY = tradeStageRows.outboundYByAsset.get(assetId);
+        if (!meta || homeRowIndex === undefined || stageY === undefined) continue;
+        segmentSeeds.push({
+          assetId,
+          label: meta.label,
+          kind: meta.kind,
+          x1: tradeStage.outboundStageStartX,
+          x2: tradeStage.outboundStageEndX,
+          y: stageY,
+          laneType: "trade-local",
+          stageSide: "outbound",
+        });
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "move",
+          eventId: event.eventId,
+          fromRowIndex: homeRowIndex,
+          toRowIndex: null,
+          toY: stageY,
+          x: (tradeStage.outboundStageStartX + tradeStage.outboundStageEndX) / 2,
+          x1: tradeStage.outboundStageStartX,
+          x2: tradeStage.outboundStageEndX,
+          laneType: "trade-local",
+          stageSide: "outbound",
+        });
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "out",
+          eventId: event.eventId,
+          fromRowIndex: null,
+          toRowIndex: null,
+          fromY: stageY,
+          x: event.x,
+          x1: tradeStage.outboundStageEndX,
+          x2: event.x,
+          laneType: "trade-local",
+          stageSide: "outbound",
+        });
+      }
+
+      for (const assetId of inboundAssetIds) {
+        const meta = assetMetaById.get(assetId);
+        const homeRowIndex = nextRowByAsset.get(assetId);
+        const stageY = tradeStageRows.inboundYByAsset.get(assetId);
+        if (!meta || homeRowIndex === undefined || stageY === undefined) continue;
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "in",
+          eventId: event.eventId,
+          fromRowIndex: null,
+          toRowIndex: null,
+          toY: stageY,
+          x: event.x,
+          x1: event.x,
+          x2: tradeStage.inboundStageStartX,
+          laneType: "trade-local",
+          stageSide: "inbound",
+        });
+        segmentSeeds.push({
+          assetId,
+          label: meta.label,
+          kind: meta.kind,
+          x1: tradeStage.inboundStageStartX,
+          x2: tradeStage.inboundStageEndX,
+          y: stageY,
+          laneType: "trade-local",
+          stageSide: "inbound",
+        });
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "move",
+          eventId: event.eventId,
+          fromRowIndex: null,
+          toRowIndex: homeRowIndex,
+          fromY: stageY,
+          x: (tradeStage.inboundStageStartX + tradeStage.inboundStageEndX) / 2,
+          x1: tradeStage.inboundStageStartX,
+          x2: tradeStage.inboundStageEndX,
+          laneType: "trade-local",
+          stageSide: "inbound",
+        });
+        openSegmentStartByAsset.set(assetId, tradeStage.inboundStageEndX);
+      }
+
+      eventLayoutById.set(event.eventId, {
+        anchorY: tradeStageRows.anchorY,
+        participantYs: tradeStageRows.participantYs,
+      });
+    } else {
+      for (const assetId of outboundAssetIds) {
+        const meta = assetMetaById.get(assetId);
+        const rowIndex = previousRowByAsset.get(assetId);
+        if (!meta || rowIndex === undefined) continue;
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "out",
+          eventId: event.eventId,
+          fromRowIndex: rowIndex,
+          toRowIndex: null,
+          laneType: "home",
+        });
+        eventParticipantYs.push(getRowY(rowIndex));
+      }
+
+      for (const assetId of inboundAssetIds) {
+        const meta = assetMetaById.get(assetId);
+        const rowIndex = nextRowByAsset.get(assetId);
+        if (!meta || rowIndex === undefined) continue;
+        connectorSeeds.push({
+          assetId,
+          label: meta.label,
+          direction: "in",
+          eventId: event.eventId,
+          fromRowIndex: null,
+          toRowIndex: rowIndex,
+          laneType: "home",
+        });
+        openSegmentStartByAsset.set(assetId, event.x + EVENT_ARC_OFFSET);
+        eventParticipantYs.push(getRowY(rowIndex));
+      }
     }
 
     for (const [assetId, oldRowIndex] of previousRowByAsset.entries()) {
@@ -431,6 +680,7 @@ function assignLanes(
         x1: openSegmentStartByAsset.get(assetId) ?? startX,
         x2: computeSegmentExitX(openSegmentStartByAsset.get(assetId) ?? startX, event.x),
         rowIndex: oldRowIndex,
+        laneType: "home",
       });
       connectorSeeds.push({
         assetId,
@@ -439,8 +689,22 @@ function assignLanes(
         eventId: event.eventId,
         fromRowIndex: oldRowIndex,
         toRowIndex: newRowIndex,
+        laneType: "home",
       });
       openSegmentStartByAsset.set(assetId, event.x + EVENT_ARC_OFFSET);
+      if (tradeStage === null) {
+        eventParticipantYs.push(getRowY(oldRowIndex), getRowY(newRowIndex));
+      }
+    }
+
+    if (!eventLayoutById.has(event.eventId)) {
+      const uniqueParticipantYs = [...new Set(eventParticipantYs)];
+      const minY = uniqueParticipantYs.length ? Math.min(...uniqueParticipantYs) : HEADER_SPINE_Y;
+      const maxY = uniqueParticipantYs.length ? Math.max(...uniqueParticipantYs) : HEADER_SPINE_Y;
+      eventLayoutById.set(event.eventId, {
+        anchorY: uniqueParticipantYs.length ? (minY + maxY) / 2 : HEADER_SPINE_Y,
+        participantYs: uniqueParticipantYs,
+      });
     }
 
     activeRowByAsset = nextRowByAsset;
@@ -456,13 +720,112 @@ function assignLanes(
       x1: openSegmentStartByAsset.get(assetId) ?? startX,
       x2: endX,
       rowIndex,
+      laneType: "home",
     });
   }
 
   return {
     segmentSeeds: segmentSeeds.filter((segment) => segment.x2 > segment.x1),
     connectorSeeds,
+    eventLayoutById,
     pickLaneCount,
+  };
+}
+
+function getRowY(rowIndex: number): number {
+  if (rowIndex < PLAYER_SLOT_COUNT) {
+    return TOP_GUTTER + rowIndex * PLAYER_ROW_HEIGHT;
+  }
+  const pickBandStartY = TOP_GUTTER + PLAYER_SLOT_COUNT * PLAYER_ROW_HEIGHT + BAND_GAP;
+  return pickBandStartY + (rowIndex - PLAYER_SLOT_COUNT) * PICK_ROW_HEIGHT;
+}
+
+function isTradeEvent(event: TimelineEventPoint): boolean {
+  return event.eventType === "trade" && (event.outboundAssetIds.length > 0 || event.inboundAssetIds.length > 0);
+}
+
+function buildTradeStageGeometry(
+  _eventPoints: TimelineEventPoint[],
+  _eventIndex: number,
+  event: TimelineEventPoint,
+): {
+  outboundStageStartX: number;
+  outboundStageEndX: number;
+  inboundStageStartX: number;
+  inboundStageEndX: number;
+} {
+  return {
+    outboundStageStartX: event.x - EVENT_ARC_OFFSET - TRADE_STAGE_WIDTH,
+    outboundStageEndX: event.x - EVENT_ARC_OFFSET,
+    inboundStageStartX: event.x + EVENT_ARC_OFFSET,
+    inboundStageEndX: event.x + EVENT_ARC_OFFSET + TRADE_STAGE_WIDTH,
+  };
+}
+
+function buildTradeStageRows({
+  outboundAssetIds,
+  inboundAssetIds,
+  previousRowByAsset,
+  nextRowByAsset,
+}: {
+  outboundAssetIds: string[];
+  inboundAssetIds: string[];
+  previousRowByAsset: Map<string, number>;
+  nextRowByAsset: Map<string, number>;
+}): {
+  anchorY: number;
+  participantYs: number[];
+  outboundYByAsset: Map<string, number>;
+  inboundYByAsset: Map<string, number>;
+} {
+  const homeYs = [
+    ...outboundAssetIds
+      .map((assetId) => previousRowByAsset.get(assetId))
+      .filter((rowIndex): rowIndex is number => rowIndex !== undefined)
+      .map((rowIndex) => getRowY(rowIndex)),
+    ...inboundAssetIds
+      .map((assetId) => nextRowByAsset.get(assetId))
+      .filter((rowIndex): rowIndex is number => rowIndex !== undefined)
+      .map((rowIndex) => getRowY(rowIndex)),
+  ];
+  const baseY = homeYs.length ? homeYs.reduce((sum, y) => sum + y, 0) / homeYs.length : HEADER_SPINE_Y;
+  const outboundYByAsset = new Map<string, number>();
+  const inboundYByAsset = new Map<string, number>();
+
+  if (outboundAssetIds.length > 0 && inboundAssetIds.length > 0) {
+    const outboundHeight = (outboundAssetIds.length - 1) * TRADE_STAGE_ROW_GAP;
+    const inboundHeight = (inboundAssetIds.length - 1) * TRADE_STAGE_ROW_GAP;
+    const totalHeight = outboundHeight + TRADE_STAGE_GROUP_GAP + inboundHeight;
+    const topY = baseY - totalHeight / 2;
+    outboundAssetIds.forEach((assetId, index) => {
+      outboundYByAsset.set(assetId, topY + index * TRADE_STAGE_ROW_GAP);
+    });
+    const inboundStartY = topY + outboundHeight + TRADE_STAGE_GROUP_GAP;
+    inboundAssetIds.forEach((assetId, index) => {
+      inboundYByAsset.set(assetId, inboundStartY + index * TRADE_STAGE_ROW_GAP);
+    });
+  } else {
+    const stagedAssetIds = outboundAssetIds.length > 0 ? outboundAssetIds : inboundAssetIds;
+    const startY = baseY - ((stagedAssetIds.length - 1) * TRADE_STAGE_ROW_GAP) / 2;
+    stagedAssetIds.forEach((assetId, index) => {
+      const y = startY + index * TRADE_STAGE_ROW_GAP;
+      if (outboundAssetIds.length > 0) {
+        outboundYByAsset.set(assetId, y);
+      } else {
+        inboundYByAsset.set(assetId, y);
+      }
+    });
+  }
+
+  const participantYs = [...outboundYByAsset.values(), ...inboundYByAsset.values()];
+  const minY = participantYs.length ? Math.min(...participantYs) : HEADER_SPINE_Y;
+  const maxY = participantYs.length ? Math.max(...participantYs) : HEADER_SPINE_Y;
+
+  return {
+    anchorY: participantYs.length ? (minY + maxY) / 2 : HEADER_SPINE_Y,
+    participantYs,
+    outboundYByAsset,
+    inboundYByAsset,
   };
 }
 
@@ -471,21 +834,52 @@ function computeSegmentExitX(segmentStartX: number, eventX: number): number {
 }
 
 function buildRowMap({
-  activePlayers,
+  playerSlots,
   activePicks,
   assetMetaById,
 }: {
-  activePlayers: Set<string>;
+  playerSlots: Array<string | null>;
   activePicks: Set<string>;
   assetMetaById: Map<string, AssetMeta>;
 }): Map<string, number> {
   const rowByAsset = new Map<string, number>();
-  const orderedPlayers = [...activePlayers].sort((a, b) => comparePlayerPriority(a, b, assetMetaById)).slice(0, PLAYER_SLOT_COUNT);
-  orderedPlayers.forEach((assetId, index) => rowByAsset.set(assetId, index));
+  playerSlots.forEach((assetId, index) => {
+    if (assetId) rowByAsset.set(assetId, index);
+  });
 
   const orderedPicks = [...activePicks].sort((a, b) => comparePickPriority(a, b, assetMetaById));
   orderedPicks.forEach((assetId, index) => rowByAsset.set(assetId, PLAYER_SLOT_COUNT + index));
   return rowByAsset;
+}
+
+function seedPlayerSlots(activePlayers: Set<string>, assetMetaById: Map<string, AssetMeta>): Array<string | null> {
+  const slots = Array<string | null>(PLAYER_SLOT_COUNT).fill(null);
+  [...activePlayers]
+    .sort((a, b) => comparePlayerPriority(a, b, assetMetaById))
+    .slice(0, PLAYER_SLOT_COUNT)
+    .forEach((assetId, index) => {
+      slots[index] = assetId;
+    });
+  return slots;
+}
+
+function releasePlayerSlot(playerSlots: Array<string | null>, assetId: string): void {
+  const slotIndex = playerSlots.indexOf(assetId);
+  if (slotIndex >= 0) {
+    playerSlots[slotIndex] = null;
+  }
+}
+
+function compactPlayerSlots(playerSlots: Array<string | null>): Array<string | null> {
+  const compacted = playerSlots.filter((assetId): assetId is string => assetId !== null);
+  return [...compacted, ...Array<string | null>(PLAYER_SLOT_COUNT - compacted.length).fill(null)];
+}
+
+function claimLowestOpenPlayerSlot(playerSlots: Array<string | null>, assetId: string): void {
+  const openSlotIndex = playerSlots.findIndex((slotAssetId) => slotAssetId === null);
+  if (openSlotIndex >= 0) {
+    playerSlots[openSlotIndex] = assetId;
+  }
 }
 
 function startsActive(

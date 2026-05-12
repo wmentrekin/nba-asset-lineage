@@ -4,6 +4,79 @@ import { buildTimelineLayout, type GraphExport } from "../lib/graph";
 
 const graph = foundationGraph as GraphExport;
 const layout = buildTimelineLayout(graph);
+const eventTypeById = new Map(layout.eventPoints.map((event) => [event.eventId, event.eventType]));
+const monthAnchorFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "2-digit",
+  timeZone: "UTC",
+});
+
+const MIN_SEGMENT_LABEL_WIDTH = 72;
+const MIN_CONNECTOR_LEAD = 22;
+const MAX_CONNECTOR_LEAD = 44;
+const TERMINATION_INSET = 14;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function shouldRenderSegmentLabel(segment: { x1: number; x2: number }) {
+  return segment.x2 - segment.x1 >= MIN_SEGMENT_LABEL_WIDTH;
+}
+
+function getConnectorEventType(connector: { eventId: string }) {
+  return eventTypeById.get(connector.eventId);
+}
+
+function isTerminationConnector(connector: {
+  direction: "in" | "out" | "move";
+  eventId: string;
+}) {
+  return connector.direction === "out" && getConnectorEventType(connector) === "waiver";
+}
+
+function getConnectorPath(connector: {
+  eventId: string;
+  direction: "in" | "out" | "move";
+  x: number;
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
+}) {
+  const midY = (connector.y1 + connector.y2) / 2;
+  const arcWidth = Math.abs(connector.x2 - connector.x1);
+  const lead = clamp(arcWidth * 1.15, MIN_CONNECTOR_LEAD, MAX_CONNECTOR_LEAD);
+  const terminationInset = isTerminationConnector(connector) ? Math.min(TERMINATION_INSET, arcWidth * 0.6) : 0;
+  const endX = connector.x2 - terminationInset;
+
+  if (connector.direction === "move") {
+    return `M ${connector.x1} ${connector.y1} C ${connector.x - lead} ${connector.y1}, ${connector.x + lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+  }
+
+  if (connector.direction === "out") {
+    return `M ${connector.x1} ${connector.y1} C ${connector.x1 + lead} ${connector.y1}, ${connector.x - lead * 0.35} ${midY}, ${endX} ${connector.y2}`;
+  }
+
+  return `M ${connector.x1} ${connector.y1} C ${connector.x + lead * 0.35} ${midY}, ${connector.x2 - lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+}
+
+function getConnectorMarker(connector: {
+  direction: "in" | "out" | "move";
+  eventId: string;
+}) {
+  if (connector.direction === "move") return undefined;
+  if (isTerminationConnector(connector)) return "url(#connector-cap-waiver)";
+  return connector.direction === "out" ? "url(#connector-arrow-out)" : "url(#connector-arrow-in)";
+}
+
+function isMonthStartTick(date: string) {
+  return date.endsWith("-01");
+}
+
+function formatMonthAnchor(date: string) {
+  return monthAnchorFormatter.format(new Date(`${date}T00:00:00Z`));
+}
 ---
 
 <html lang="en">
@@ -50,12 +123,72 @@ const layout = buildTimelineLayout(graph);
             role="img"
             aria-label="Memphis asset lineage graph"
           >
+            <defs>
+              <marker
+                id="connector-arrow-in"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(17, 109, 103, 0.75)" />
+              </marker>
+              <marker
+                id="connector-arrow-out"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(143, 34, 49, 0.78)" />
+              </marker>
+              <marker
+                id="connector-cap-waiver"
+                viewBox="0 0 10 10"
+                refX="5"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <circle cx="5" cy="5" r="3.2" fill="var(--panel)" stroke="rgba(124, 107, 77, 0.82)" stroke-width="1.6" />
+              </marker>
+            </defs>
+
             <g class="grid">
               {layout.rows.map((row) => (
                 <line x1="0" y1={row.y} x2={layout.width} y2={row.y} class:list={["grid-line", row.band === "pick" ? "grid-line--pick" : ""]} />
               ))}
               <line x1="0" y1={layout.playerBandEndY + 16} x2={layout.width} y2={layout.playerBandEndY + 16} class="band-divider" />
             </g>
+
+            {layout.dateTicks && layout.dateTicks.length > 0 && (
+              <g class="date-ticks" aria-hidden="true">
+                {layout.dateTicks.map((tick) => (
+                  <>
+                    <line
+                      x1={tick.x}
+                      y1="25"
+                      x2={tick.x}
+                      y2="31"
+                      class:list={["date-tick", isMonthStartTick(tick.date) ? "date-tick--anchor" : ""]}
+                    />
+                    {isMonthStartTick(tick.date) && (
+                      <text x={tick.x} y="18" text-anchor="middle" class="date-label">
+                        {formatMonthAnchor(tick.date)}
+                      </text>
+                    )}
+                  </>
+                ))}
+              </g>
+            )}
 
             <g class="asset-segments">
               {layout.segments.map((segment) => (
@@ -67,13 +200,15 @@ const layout = buildTimelineLayout(graph);
                     y2={segment.y}
                     class:list={["segment", segment.kind === "pick" ? "segment--pick" : "segment--player"]}
                   />
-                  <text
-                    x={segment.x1 + 6}
-                    y={segment.y - 7}
-                    class:list={["segment-label", segment.kind === "pick" ? "segment-label--pick" : "segment-label--player"]}
-                  >
-                    {segment.label}
-                  </text>
+                  {shouldRenderSegmentLabel(segment) && (
+                    <text
+                      x={segment.x1 + 6}
+                      y={segment.y - 7}
+                      class:list={["segment-label", segment.kind === "pick" ? "segment-label--pick" : "segment-label--player"]}
+                    >
+                      {segment.label}
+                    </text>
+                  )}
                 </>
               ))}
             </g>
@@ -101,36 +236,19 @@ const layout = buildTimelineLayout(graph);
               ))}
               {layout.connectors.map((connector) => (
                 <path
-                  d={connector.direction === "move"
-                    ? `M ${connector.x1} ${connector.y1} Q ${connector.x} ${connector.y1} ${connector.x} ${(connector.y1 + connector.y2) / 2} Q ${connector.x} ${connector.y2} ${connector.x2} ${connector.y2}`
-                    : connector.direction === "out"
-                      ? `M ${connector.x1} ${connector.y1} Q ${connector.x} ${(connector.y1 + connector.y2) / 2} ${connector.x2} ${connector.y2}`
-                      : `M ${connector.x1} ${connector.y1} Q ${connector.x} ${(connector.y1 + connector.y2) / 2} ${connector.x2} ${connector.y2}`}
+                  d={getConnectorPath(connector)}
+                  marker-end={getConnectorMarker(connector)}
                   class:list={[
                     "connector",
-                    connector.direction === "out"
-                      ? "connector--out"
-                      : connector.direction === "move"
-                        ? "connector--move"
-                        : "connector--in",
+                    isTerminationConnector(connector)
+                      ? "connector--termination"
+                      : connector.direction === "out"
+                        ? "connector--out"
+                        : connector.direction === "move"
+                          ? "connector--move"
+                          : "connector--in",
                   ]}
                 />
-              ))}
-            </g>
-
-            <g class="event-points">
-              {layout.eventPoints.map((event) => (
-                <>
-                  <line x1={event.x} y1="24" x2={event.x} y2={layout.height - 24} class="event-guide" />
-                  <circle
-                    cx={event.x}
-                    cy={event.anchorY}
-                    r="6.5"
-                    class:list={["event-point", `event-point--${event.eventType}`]}
-                  />
-                  <title>{event.label}</title>
-                  <text x={event.x + 12} y="20" class="event-date">{event.date}</text>
-                </>
               ))}
             </g>
           </svg>
@@ -282,6 +400,23 @@ const layout = buildTimelineLayout(graph);
     stroke-dasharray: 6 4;
   }
 
+  .date-tick {
+    stroke: rgba(16, 33, 43, 0.12);
+    stroke-width: 1;
+    stroke-linecap: round;
+  }
+
+  .date-tick--anchor {
+    stroke: rgba(16, 33, 43, 0.18);
+  }
+
+  .date-label {
+    fill: rgba(16, 33, 43, 0.72);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
   .segment {
     stroke: var(--player);
     stroke-width: 4.5;
@@ -296,7 +431,7 @@ const layout = buildTimelineLayout(graph);
 
   .segment-label {
     fill: var(--ink);
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .segment-label--player {
@@ -327,78 +462,52 @@ const layout = buildTimelineLayout(graph);
 
   .connector {
     fill: none;
-    stroke-width: 2.5;
+    stroke-width: 2.25;
     stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .connector--in {
-    stroke: rgba(17, 109, 103, 0.45);
+    stroke: rgba(17, 109, 103, 0.48);
   }
 
   .connector--out {
-    stroke: rgba(143, 34, 49, 0.45);
+    stroke: rgba(143, 34, 49, 0.5);
+  }
+
+  .connector--termination {
+    stroke: rgba(124, 107, 77, 0.62);
   }
 
   .connector--move {
-    stroke: rgba(16, 33, 43, 0.3);
-  }
-
-  .event-guide {
-    stroke: rgba(16, 33, 43, 0.1);
-    stroke-width: 1;
-    stroke-dasharray: 3 5;
+    stroke: rgba(16, 33, 43, 0.22);
+    stroke-dasharray: 5 5;
   }
 
   .event-spine {
-    stroke-width: 3;
+    stroke-width: 2;
     stroke-linecap: round;
   }
 
   .event-spine--trade {
-    stroke: rgba(143, 34, 49, 0.35);
+    stroke: rgba(143, 34, 49, 0.24);
   }
 
   .event-spine--signing {
-    stroke: rgba(32, 77, 141, 0.28);
+    stroke: rgba(32, 77, 141, 0.2);
   }
 
   .event-spine--waiver {
-    stroke: rgba(124, 107, 77, 0.28);
+    stroke: rgba(124, 107, 77, 0.2);
   }
 
   .event-spine--draft {
-    stroke: rgba(106, 59, 165, 0.28);
+    stroke: rgba(106, 59, 165, 0.2);
   }
 
-  .event-point {
-    stroke: rgba(255, 255, 255, 0.9);
-    stroke-width: 3;
-  }
-
-  .event-point--trade {
-    fill: var(--event-trade);
-  }
-
-  .event-point--signing {
-    fill: var(--event-signing);
-  }
-
-  .event-point--waiver {
-    fill: var(--event-waiver);
-  }
-
-  .event-point--draft {
-    fill: var(--event-draft);
-  }
-
-  .event-date,
   .event-label {
     fill: var(--ink);
-    font-size: 10px;
-  }
-
-  .event-date {
-    font-weight: 700;
+    font-size: 9px;
   }
 
   @media (max-width: 720px) {
