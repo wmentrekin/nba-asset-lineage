@@ -553,7 +553,7 @@ def main() -> None:
             "known_gaps": [
                 "Basketball-Reference roster pages are season roster references, not date-exact checkpoint snapshots.",
                 "Two-way versus standard contract status still needs a richer source.",
-                "Draft selections are slot-linked through curated resolution, but graph-facing pick_to_player transitions still need to be emitted.",
+                "Future pick inventory snapshots are not populated yet.",
                 "Draft lottery results remain contextual and are not loaded by this command yet.",
             ],
         }
