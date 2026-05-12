@@ -182,12 +182,8 @@ export function buildTimelineLayout(graph: GraphExport): TimelineLayout {
   const baseEventPoints = graph.events.map((event) => {
     const x = dateAxis.eventXById.get(event.event_id) ?? dateAxis.startX;
     const eventTransitions = transitionsByEventId.get(event.event_id) ?? [];
-    const inboundAssetIds = eventTransitions
-      .filter((transition) => transition.transition_type === "acquired")
-      .map((transition) => transition.asset_id);
-    const outboundAssetIds = eventTransitions
-      .filter((transition) => transition.transition_type === "departed")
-      .map((transition) => transition.asset_id);
+    const inboundAssetIds = [...new Set(eventTransitions.flatMap((transition) => getInboundAssetIds(transition)))];
+    const outboundAssetIds = [...new Set(eventTransitions.flatMap((transition) => getOutboundAssetIds(transition)))];
     return {
       eventId: event.event_id,
       label: event.label,
@@ -350,12 +346,40 @@ function buildTransitionsByEventId(transitions: GraphTransition[]): Map<string, 
   return map;
 }
 
+function getInboundAssetIds(transition: GraphTransition): string[] {
+  if (transition.transition_type === "acquired") {
+    return [transition.asset_id];
+  }
+  if (transition.transition_type === "pick_to_player" && transition.to_state) {
+    return [transition.to_state];
+  }
+  return [];
+}
+
+function getOutboundAssetIds(transition: GraphTransition): string[] {
+  if (transition.transition_type === "departed") {
+    return [transition.asset_id];
+  }
+  if (transition.transition_type === "pick_to_player") {
+    return [transition.from_state ?? transition.asset_id];
+  }
+  return [];
+}
+
+function getTouchedAssetIds(transition: GraphTransition): string[] {
+  return [
+    transition.asset_id,
+    ...(transition.from_state ? [transition.from_state] : []),
+    ...(transition.to_state ? [transition.to_state] : []),
+  ];
+}
+
 function buildAssetMetaById(graph: GraphExport): Map<string, AssetMeta> {
   const firstAppearanceIndexByAsset = new Map<string, number>();
   const eventTouchCountByAsset = new Map<string, number>();
   for (const [index, event] of graph.events.entries()) {
     const touchedAssets = new Set(
-      graph.transitions.filter((transition) => transition.event_id === event.event_id).map((transition) => transition.asset_id),
+      graph.transitions.filter((transition) => transition.event_id === event.event_id).flatMap(getTouchedAssetIds),
     );
     for (const assetId of touchedAssets) {
       if (!firstAppearanceIndexByAsset.has(assetId)) {

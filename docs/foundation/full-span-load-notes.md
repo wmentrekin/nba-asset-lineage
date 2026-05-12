@@ -5,7 +5,7 @@ Last verified live load scope:
 - team: Memphis Grizzlies
 - transaction seasons: 2016-17 through 2025-26
 - draft years: 2016 through 2025
-- source span in export: 2016-07-07 through 2026-04-10
+- source span in export: 2016-06-23 through 2026-04-10
 
 Current live `foundation` counts after the full-span rebuild:
 
@@ -28,10 +28,10 @@ Current live `foundation` counts after the full-span rebuild:
 
 Current graph export counts:
 
-- `events`: 388
+- `events`: 408
 - `player_assets`: 227
 - `pick_assets`: 82
-- `transitions`: 528
+- `transitions`: 548
 - `roster_snapshots`: 40
 
 Audit command:
@@ -87,6 +87,8 @@ Resolved in this pass:
 - curated Memphis draft-slot rows now link all `draft_selection` rows to
   slot-based `pick` assets with provenance in `draft_pick_resolution`
 - roster checkpoint rows now export instead of leaving `roster_snapshots` empty
+- `draft_pick_resolution` rows now emit graph-facing `pick_to_player`
+  transitions and synthetic draft events for the frontend export
 
 Known gaps:
 
@@ -98,5 +100,3 @@ Known gaps:
   required for the base graph.
 - Two-way versus standard contract status is modeled but not reliably sourced
   yet.
-- Graph-facing `pick_to_player` transitions are not emitted yet from
-  `draft_pick_resolution`.

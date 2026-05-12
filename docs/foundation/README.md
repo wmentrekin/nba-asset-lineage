@@ -81,6 +81,8 @@ The repo now has:
   - read-only draft-selection to pick-asset resolution preview
   - read-only curated draft-slot resolution preview
   - guarded curated draft-slot resolution load
+- graph-facing `pick_to_player` export rows derived from
+  `foundation.draft_pick_resolution`
 
 ## Current Caveats
 
@@ -91,8 +93,8 @@ The repo now has:
   are not date-exact opening/deadline/closing roster snapshots.
 - Two-way versus standard contract status is represented in the schema, but it
   still needs a stronger source than the current BRef roster loader.
-- Draft selections are collected as context, but pick-to-player resolution is not
-  fully linked to pick assets yet.
+- Draft selections are linked to curated Memphis draft-slot pick assets and now
+  export as pick-to-player graph transitions.
 - Draft lottery results are contextual for now and are not required for the base
   graph export.
 - `audit-foundation-data` is the current command for turning these caveats into

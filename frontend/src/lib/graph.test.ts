@@ -138,6 +138,77 @@ describe("buildTimelineLayout", () => {
     ).toBeUndefined();
   });
 
+  it("treats draft pick resolution as a pick exit and drafted player entry", () => {
+    const layout = buildTimelineLayout({
+      franchise: "memphis-grizzlies",
+      span_start: "2024-06-01",
+      span_end: "2024-07-01",
+      events: [
+        {
+          event_id: "draft-resolution:selection:2024:9",
+          event_type: "draft",
+          event_date: "2024-06-26",
+          label: "Memphis drafts Zach Edey at No. 9",
+          sequence: 1009,
+          source_group_id: "source-bundle:2024-draft",
+        },
+      ],
+      player_assets: [
+        {
+          asset_id: "asset:player:zach-edey",
+          player_id: "player:zach-edey",
+          display_name: "Zach Edey",
+          years_experience: 0,
+          baseline_order: 1,
+          kind: "player",
+        },
+      ],
+      pick_assets: [
+        {
+          asset_id: "asset:pick:slot:2024:9",
+          original_team: "MEM",
+          draft_year: 2024,
+          round_number: 1,
+          protections: null,
+          swap_detail: null,
+          kind: "pick",
+        },
+      ],
+      transitions: [
+        {
+          transition_id: "draft-resolution:selection:2024:9:pick-to-player",
+          event_id: "draft-resolution:selection:2024:9",
+          asset_id: "asset:pick:slot:2024:9",
+          transition_type: "pick_to_player",
+          from_state: "asset:pick:slot:2024:9",
+          to_state: "asset:player:zach-edey",
+          notes: "curated Memphis draft slot",
+        },
+      ],
+      roster_snapshots: [],
+    });
+
+    const draftEvent = layout.eventPoints[0];
+    expect(draftEvent?.outboundAssetIds).toEqual(["asset:pick:slot:2024:9"]);
+    expect(draftEvent?.inboundAssetIds).toEqual(["asset:player:zach-edey"]);
+    expect(
+      layout.connectors.find(
+        (connector) => connector.assetId === "asset:pick:slot:2024:9" && connector.direction === "out",
+      ),
+    ).toBeTruthy();
+    expect(
+      layout.connectors.find(
+        (connector) => connector.assetId === "asset:player:zach-edey" && connector.direction === "in",
+      ),
+    ).toBeTruthy();
+    expect(layout.segments.find((segment) => segment.assetId === "asset:pick:slot:2024:9")?.x2).toBeLessThan(
+      draftEvent?.x ?? 0,
+    );
+    expect(layout.segments.find((segment) => segment.assetId === "asset:player:zach-edey")?.x1).toBeGreaterThan(
+      draftEvent?.x ?? 0,
+    );
+  });
+
   it("compacts player slots upward after departures and fills the next open slot for arrivals", () => {
     const layout = buildTimelineLayout({
       franchise: "memphis-grizzlies",
