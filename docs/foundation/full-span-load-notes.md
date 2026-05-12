@@ -43,6 +43,16 @@ This is read-only. Use it after source loads to check source coverage, roster
 snapshot shape, draft linkage, aliases, canonical transition counts, and known
 remaining data gaps.
 
+Draft-resolution preview:
+
+```bash
+.venv/bin/python -m redesign_cli preview-draft-pick-resolution --team-code MEM
+```
+
+This is read-only. It reports whether `draft_selection` rows are already linked
+to `pick` rows, have conservative candidate matches, are ambiguous, or cannot be
+matched because owned/future pick inventory rows are missing.
+
 Resolved in this pass:
 
 - `Kenny Lofton Jr` source text now resolves to `Kenneth Lofton Jr.`

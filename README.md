@@ -80,6 +80,7 @@ The checked-in Python CLI now also supports reset-era foundation tasks such as:
 - DB inspection and reset
 - foundation table row-count inspection
 - read-only foundation data coverage audit
+- read-only draft-selection to pick-asset resolution preview
 - foundation ingest bootstrap
 - foundation context bootstrap for aliases, roster snapshots, draft selections,
   and lottery context

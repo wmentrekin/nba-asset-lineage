@@ -78,6 +78,7 @@ The repo now has:
   - overall schema state
   - active `foundation` table row counts
   - read-only foundation coverage and gap audit
+  - read-only draft-selection to pick-asset resolution preview
 
 ## Current Caveats
 
@@ -94,6 +95,9 @@ The repo now has:
   graph export.
 - `audit-foundation-data` is the current command for turning these caveats into
   live database evidence.
+- `preview-draft-pick-resolution` is the current read-only command for checking
+  whether loaded draft selections can be linked to existing pick assets before
+  adding any write-path resolver.
 
 ## Related Paths
 

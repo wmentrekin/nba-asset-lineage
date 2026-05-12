@@ -15,6 +15,7 @@ from foundation.canonical import (
     derive_foundation_canonical_bundle_from_database,
     load_foundation_canonical_bundle,
 )
+from foundation.draft_resolution import preview_draft_pick_resolution
 from foundation.export import build_base_export_from_database, build_empty_base_export
 from foundation.ingest import (
     bootstrap_foundation_ingest_schema,
@@ -58,6 +59,8 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("inspect-db-state", help="Inspect current non-system schemas and relation counts before reset.")
     subparsers.add_parser("inspect-foundation-counts", help="Inspect row counts for active foundation tables.")
     subparsers.add_parser("audit-foundation-data", help="Run a read-only audit of loaded foundation data coverage and known gaps.")
+    draft_resolution_parser = subparsers.add_parser("preview-draft-pick-resolution", help="Read-only preview of draft_selection to pick asset resolution candidates.")
+    draft_resolution_parser.add_argument("--team-code", default="MEM")
     subparsers.add_parser("reset-db-state", help="Drop current non-system schemas and clear public objects to restart from scratch.")
     bootstrap_foundation_parser = subparsers.add_parser("bootstrap-foundation-ingest", help="Apply the reset-era foundation ingest bootstrap SQL.")
     bootstrap_foundation_parser.add_argument("--sql-path", default="sql/0001_foundation_ingest_bootstrap.sql")
@@ -347,6 +350,8 @@ def main() -> None:
         payload = command_inspect_foundation_counts()
     elif args.command == "audit-foundation-data":
         payload = audit_foundation_data(load_database_url())
+    elif args.command == "preview-draft-pick-resolution":
+        payload = preview_draft_pick_resolution(load_database_url(), team_code=args.team_code).model_dump(mode="json")
     elif args.command == "reset-db-state":
         payload = command_reset_db_state()
     elif args.command == "bootstrap-foundation-ingest":

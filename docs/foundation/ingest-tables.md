@@ -127,4 +127,6 @@ What still comes next:
 - broader real-source loading coverage
 - exact roster snapshot sourcing
 - two-way status enrichment
+- write-path draft-selection to pick-asset resolution after preview confidence is
+  good enough
 - draft lottery contextual loading
