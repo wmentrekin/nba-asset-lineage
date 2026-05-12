@@ -4,137 +4,29 @@ node = "22"
 uv = "latest"
 
 [tasks.setup]
-description = "Install dependencies with UV"
+description = "Install Python dependencies with UV"
 run = "uv sync"
 
-[tasks.test]
-description = "Run the local test suite"
-run = "uv --cache-dir /tmp/uv-cache run pytest -q"
+[tasks.db_check]
+description = "Run a minimal database connectivity check using local .env"
+run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli check-db"
 
-[tasks.redesign]
-description = "Run a redesign CLI command, e.g. mise run redesign -- validate-evidence"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli"
-
-[tasks.stage1_bootstrap]
-description = "Apply Stage 1 evidence bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-evidence"
-
-[tasks.stage1_build]
-description = "Build Stage 1 evidence rows and curated overrides"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-evidence"
-
-[tasks.stage1_validate]
-description = "Validate Stage 1 evidence rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-evidence"
-
-[tasks.stage2_bootstrap]
-description = "Apply Stage 2 canonical event bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-events"
-
-[tasks.stage2_build]
-description = "Build Stage 2 canonical events"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-events"
-
-[tasks.stage2_validate]
-description = "Validate Stage 2 canonical events"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-events"
-
-[tasks.stage3_bootstrap]
-description = "Apply Stage 3 player tenure bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-player-tenure"
-
-[tasks.stage3_build]
-description = "Build Stage 3 player tenures"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-player-tenures"
-
-[tasks.stage3_validate]
-description = "Validate Stage 3 player tenures"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-player-tenures"
-
-[tasks.stage4_bootstrap]
-description = "Apply Stage 4 pick lifecycle bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-pick-lifecycle"
-
-[tasks.stage4_build]
-description = "Build Stage 4 pick lifecycle rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-pick-lifecycle"
-
-[tasks.stage4_validate]
-description = "Validate Stage 4 pick lifecycle rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-pick-lifecycle"
-
-[tasks.stage5_bootstrap]
-description = "Apply Stage 5 event-asset flow bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-canonical-event-asset-flow"
-
-[tasks.stage5_build]
-description = "Build Stage 5 event-asset flows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-canonical-event-asset-flows"
-
-[tasks.stage5_validate]
-description = "Validate Stage 5 event-asset flows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-canonical-event-asset-flows"
-
-[tasks.stage6_bootstrap]
-description = "Apply Stage 6 presentation contract bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-presentation-contract"
-
-[tasks.stage6_build]
-description = "Build Stage 6 presentation contract rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli build-presentation-contract"
-
-[tasks.stage6_validate]
-description = "Validate Stage 6 presentation contract rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-presentation-contract"
-
-[tasks.stage6_export]
-description = "Export Stage 6 presentation contract JSON"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract --output-path frontend/src/data/generated/presentation-contract.json"
-
-[tasks.stage8_layout_export]
-description = "Export Stage 8 layout contract JSON"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-layout-contract --output-path frontend/src/data/generated/layout-contract.json"
-
-[tasks.stage8_chapter_export]
-description = "Export Stage 7 story chapters as frontend-ready JSON"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-chapters --output-path frontend/src/data/generated/editorial-chapters.json"
-
-[tasks.stage7_bootstrap]
-description = "Apply Stage 7 editorial overlay bootstrap SQL"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli bootstrap-editorial-overlays"
-
-[tasks.stage7_load]
-description = "Load Stage 7 editorial overlay rows from tracked structured files"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli load-editorial-overlays"
-
-[tasks.stage7_validate]
-description = "Validate Stage 7 editorial overlay rows"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli validate-editorial-overlays"
-
-[tasks.stage7_export]
-description = "Export Stage 7 editorial overlays JSON"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-overlays"
-
-[tasks.stage7_export_presentation]
-description = "Export Stage 6 presentation contract JSON with Stage 7 editorial overlays"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract --include-editorial"
-
-[tasks.stage8_setup]
-description = "Install Stage 8 Astro frontend dependencies"
+[tasks.frontend_setup]
+description = "Install frontend dependencies"
 run = "cd frontend && npm install"
 
-[tasks.stage8_dev]
-description = "Run the Stage 8 Astro frontend in development mode"
+[tasks.frontend_dev]
+description = "Run the Astro frontend in development mode"
 run = "cd frontend && npm run dev"
 
-[tasks.stage8_build]
-description = "Build the Stage 8 Astro frontend"
+[tasks.frontend_build]
+description = "Build the Astro frontend"
 run = "cd frontend && npm run build"
 
-[tasks.stage8_check]
-description = "Type-check the Stage 8 Astro frontend"
+[tasks.frontend_check]
+description = "Type-check the Astro frontend"
 run = "cd frontend && npm run check"
 
-[tasks.stage8_test]
-description = "Run the Stage 8 frontend unit tests"
+[tasks.frontend_test]
+description = "Run the frontend unit tests"
 run = "cd frontend && npm run test"

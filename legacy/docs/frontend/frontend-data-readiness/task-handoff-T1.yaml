@@ -1,0 +1,46 @@
+# Contract: task handoff from $implement to developer agents
+
+artifact: task_handoff
+feature: "frontend-data-readiness"
+task_id: "T1"
+owner_skill: implement
+
+objective: "Codify the settled readiness rubric and report contract into durable docs and the authoritative machine-readable readiness matrix."
+why_this_matters: "T2 through T4 depend on an exact, machine-verifiable contract for selectors, row rules, blocked-mode semantics, and chapter selector sequencing."
+
+inputs:
+  requirements: "docs/frontend/frontend-data-readiness/requirements.yaml"
+  plan: "docs/frontend/frontend-data-readiness/plan.yaml"
+  relevant_paths:
+    - "docs/frontend/frontend-data-readiness/plan.yaml"
+    - "docs/frontend/frontend-data-readiness/requirements.yaml"
+    - ".agents/templates/task-handoff.yaml"
+    - ".agents/templates/implementation-report.yaml"
+
+scope:
+  owned:
+    - "docs/frontend/frontend-data-readiness/readiness-rubric.md"
+    - "docs/frontend/frontend-data-readiness/report-contract.md"
+    - "docs/frontend/frontend-data-readiness/readiness-matrix.yaml"
+  forbidden:
+    - "src/"
+    - "frontend/"
+    - "tests/"
+    - "mise.toml"
+
+implementation_notes:
+  - "Use the approved plan as the source of truth; do not invent new readiness rows or proof rules."
+  - "For chapter-related rows, predeclare the exact post-T3 selectors that later tasks must satisfy."
+  - "Keep the matrix machine-readable and aligned to the selector format frozen in the plan: `relative/path::exact_substring`."
+  - "Do not broaden this into code changes."
+
+validation_expected:
+  - "The rubric docs define `schema_supported`, `live_populated`, `frontend_consumed`, and the `ready|weak|blocked|unresolved` rollup rules."
+  - "The report-contract doc freezes the top-level report schema and blocked-mode semantics."
+  - "The machine-readable matrix covers the required readiness rows with exact selectors and row rules."
+
+escalate_if:
+  - missing_context
+  - conflicting_artifacts
+  - product_or_architecture_guess_required
+  - scope_expansion_required

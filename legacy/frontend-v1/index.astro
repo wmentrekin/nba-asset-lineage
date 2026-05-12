@@ -1,0 +1,448 @@
+---
+import presentationContract from "../data/generated/presentation-contract.json";
+import layoutContract from "../data/generated/layout-contract.json";
+import editorialChapters from "../data/generated/editorial-chapters.json";
+import {
+  buildTimelineContract,
+  buildTimelineLayout,
+  coerceGeneratedLayoutContract,
+  getContractBounds,
+  getDefaultUiState,
+  normalizeTimelineUiState,
+  renderTimelineScene,
+  type TimelineContract,
+} from "../lib/timeline";
+
+const timelineContract = buildTimelineContract(
+  presentationContract,
+  coerceGeneratedLayoutContract(layoutContract),
+  editorialChapters,
+) as TimelineContract;
+const bounds = getContractBounds(timelineContract);
+const initialState = normalizeTimelineUiState(timelineContract, getDefaultUiState(timelineContract, null));
+const initialLayout = buildTimelineLayout(timelineContract, initialState);
+const sceneMarkup = renderTimelineScene(initialLayout);
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Memphis Asset Lineage Atlas</title>
+    <meta
+      name="description"
+      content="A graph-first Memphis asset lineage page that begins at the earliest contract date and carries through the full chronology."
+    />
+  </head>
+  <body>
+    <main class="page">
+      <header class="heading">
+        <p class="eyebrow">Memphis Grizzlies asset lineage</p>
+        <h1>Memphis asset lineage atlas</h1>
+        <p class="heading__range">{bounds.start} to {bounds.end}</p>
+      </header>
+
+      <section class="atlas" aria-label="Memphis asset lineage timeline">
+        <div class="graph-frame">
+          <div class="timeline-shell">
+            <svg
+              id="timeline-svg"
+              viewBox={`0 0 ${initialLayout.width} ${initialLayout.height}`}
+              width={initialLayout.width}
+              height={initialLayout.height}
+              role="img"
+              aria-label="Memphis asset lineage graph"
+            >
+              <g id="timeline-scene" set:html={sceneMarkup}></g>
+            </svg>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  :global(:root) {
+    --page-ink: #11202a;
+    --page-muted: rgba(17, 32, 42, 0.7);
+    --page-line: rgba(17, 32, 42, 0.12);
+    --page-panel: rgba(255, 251, 245, 0.86);
+    --page-panel-strong: rgba(255, 253, 249, 0.94);
+    --roster: #00756d;
+    --two-way: #bf6b2d;
+    --future-picks: #9b7b17;
+    --accent: #8f2231;
+  }
+
+  :global(body) {
+    margin: 0;
+    color: var(--page-ink);
+    background:
+      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 26%),
+      radial-gradient(circle at right, rgba(191, 107, 45, 0.12), transparent 24%),
+      linear-gradient(180deg, #f7f1e5 0%, #efe6d6 48%, #f9f6ef 100%);
+    font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  }
+
+  .page {
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 24px 18px 36px;
+  }
+
+  .heading,
+  .graph-frame {
+    border: 1px solid var(--page-line);
+    background: var(--page-panel);
+    box-shadow: 0 22px 56px rgba(90, 62, 33, 0.08);
+  }
+
+  .heading {
+    margin-bottom: 16px;
+    padding: 20px 22px;
+    border-radius: 24px;
+  }
+
+  .eyebrow {
+    margin: 0 0 12px;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-weight: 600;
+  }
+
+  h1 {
+    max-width: 12ch;
+    font-size: clamp(2.2rem, 4vw, 3.8rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    max-width: 20ch;
+    font-size: clamp(1.55rem, 2.1vw, 2.15rem);
+    line-height: 1;
+  }
+
+  .heading__range {
+    margin: 12px 0 0;
+    color: var(--page-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .atlas {
+    margin: 0;
+  }
+
+  .graph-frame {
+    padding: 16px;
+    border-radius: 28px;
+    background:
+      linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(248, 242, 233, 0.98)),
+      var(--page-panel-strong);
+  }
+
+  .timeline-shell {
+    overflow-x: auto;
+    overflow-y: hidden;
+    min-height: min(82vh, 1080px);
+    border-radius: 24px;
+    border: 1px solid rgba(17, 32, 42, 0.14);
+    background:
+      linear-gradient(180deg, rgba(251, 246, 238, 0.98), rgba(245, 237, 225, 0.98)),
+      repeating-linear-gradient(
+        90deg,
+        rgba(17, 32, 42, 0.025) 0,
+        rgba(17, 32, 42, 0.025) 1px,
+        transparent 1px,
+        transparent 48px
+      );
+    scrollbar-gutter: stable both-edges;
+  }
+
+  .timeline-shell::-webkit-scrollbar {
+    height: 14px;
+  }
+
+  .timeline-shell::-webkit-scrollbar-thumb {
+    border: 3px solid rgba(0, 0, 0, 0);
+    border-radius: 999px;
+    background: rgba(17, 32, 42, 0.28);
+    background-clip: padding-box;
+  }
+
+  svg {
+    display: block;
+  }
+
+  .timeline-band__fill {
+    stroke: none;
+  }
+
+  .timeline-band__boundary {
+    stroke: rgba(17, 32, 42, 0.08);
+    stroke-width: 1;
+  }
+
+  .timeline-band__label {
+    fill: rgba(17, 32, 42, 0.68);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .timeline-band--main_roster .timeline-band__fill {
+    fill: rgba(0, 117, 109, 0.09);
+  }
+
+  .timeline-band--two_way .timeline-band__fill {
+    fill: rgba(191, 107, 45, 0.08);
+  }
+
+  .timeline-band--future_picks .timeline-band__fill {
+    fill: rgba(155, 123, 23, 0.08);
+  }
+
+  .timeline-grid__lane {
+    stroke: rgba(17, 32, 42, 0.06);
+    stroke-width: 1;
+  }
+
+  .timeline-axis__tick {
+    stroke: rgba(17, 32, 42, 0.08);
+    stroke-width: 1;
+  }
+
+  .timeline-axis__tick--major {
+    stroke: rgba(143, 34, 49, 0.26);
+  }
+
+  .timeline-axis__label {
+    fill: rgba(17, 32, 42, 0.56);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  .timeline-axis__label--major {
+    fill: var(--accent);
+    font-weight: 700;
+  }
+
+  .timeline-marker__line {
+    stroke: rgba(143, 34, 49, 0.38);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 5;
+  }
+
+  .timeline-marker__badge {
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(143, 34, 49, 0.2);
+  }
+
+  .timeline-marker__text {
+    fill: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .timeline-strand {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.96;
+    cursor: pointer;
+    transition: opacity 120ms ease, filter 120ms ease;
+  }
+
+  .timeline-strand--main_roster {
+    stroke: var(--roster);
+  }
+
+  .timeline-strand--two_way {
+    stroke: var(--two-way);
+    stroke-dasharray: 18 10;
+  }
+
+  .timeline-strand--future_picks,
+  .timeline-strand--pick_line {
+    stroke: var(--future-picks);
+  }
+
+  .timeline-inline-label,
+  .timeline-identity-marker {
+    pointer-events: none;
+  }
+
+  .timeline-inline-label__pill {
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(17, 32, 42, 0.18);
+    stroke-width: 1;
+  }
+
+  .timeline-inline-label__text {
+    fill: var(--page-ink);
+    font-size: 12px;
+    font-weight: 700;
+    text-anchor: middle;
+  }
+
+  .timeline-inline-label--main_roster .timeline-inline-label__pill {
+    stroke: rgba(0, 117, 109, 0.32);
+  }
+
+  .timeline-inline-label--two_way .timeline-inline-label__pill {
+    stroke: rgba(191, 107, 45, 0.32);
+  }
+
+  .timeline-inline-label--future_picks .timeline-inline-label__pill {
+    stroke: rgba(155, 123, 23, 0.32);
+  }
+
+  .timeline-identity-marker__pill {
+    fill: rgba(255, 253, 249, 0.98);
+    stroke: rgba(17, 32, 42, 0.18);
+    stroke-width: 1;
+  }
+
+  .timeline-identity-marker__text {
+    fill: var(--page-ink);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .timeline-identity-marker__avatar-frame {
+    fill: rgba(255, 253, 249, 0.98);
+    stroke: rgba(17, 32, 42, 0.2);
+    stroke-width: 1.5;
+  }
+
+  .timeline-identity-marker--main_roster .timeline-identity-marker__pill {
+    stroke: rgba(0, 117, 109, 0.32);
+  }
+
+  .timeline-identity-marker--two_way .timeline-identity-marker__pill {
+    stroke: rgba(191, 107, 45, 0.32);
+  }
+
+  .timeline-identity-marker--future_picks .timeline-identity-marker__pill {
+    stroke: rgba(155, 123, 23, 0.32);
+  }
+
+  .timeline-junction__spine,
+  .timeline-junction__stem {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .timeline-junction__spine {
+    stroke: rgba(17, 32, 42, 0.26);
+    stroke-width: 1.8;
+  }
+
+  .timeline-junction__stem {
+    stroke-width: 2.4;
+    opacity: 0.88;
+  }
+
+  .timeline-junction__stem--main_roster {
+    stroke: rgba(0, 117, 109, 0.56);
+  }
+
+  .timeline-junction__stem--two_way {
+    stroke: rgba(191, 107, 45, 0.54);
+  }
+
+  .timeline-junction__stem--future_picks {
+    stroke: rgba(155, 123, 23, 0.56);
+  }
+
+  .timeline-transition {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.94;
+  }
+
+  .timeline-transition--same_asset {
+    stroke: rgba(17, 32, 42, 0.82);
+    stroke-width: 2.5;
+  }
+
+  .timeline-transition--pick_to_player {
+    stroke: var(--future-picks);
+    stroke-width: 3;
+  }
+
+  .timeline-transition--event_transition {
+    stroke: rgba(17, 32, 42, 0.52);
+    stroke-width: 2.3;
+    stroke-dasharray: 10 7;
+  }
+
+  .timeline-node {
+    cursor: pointer;
+  }
+
+  .timeline-node__ring {
+    fill: rgba(255, 252, 247, 0.98);
+    stroke: rgba(17, 32, 42, 0.28);
+    stroke-width: 1.5;
+  }
+
+  .timeline-node__dot {
+    fill: var(--page-ink);
+    stroke: rgba(255, 252, 247, 0.98);
+    stroke-width: 2.5;
+  }
+
+  .timeline-strand.is-focused,
+  .timeline-node.is-focused,
+  .timeline-strand:hover,
+  .timeline-node:hover {
+    filter: drop-shadow(0 0 10px rgba(143, 34, 49, 0.16));
+    opacity: 1;
+  }
+
+  .is-hidden {
+    display: none;
+  }
+
+  .is-muted {
+    opacity: 0.6;
+  }
+
+  @media (max-width: 1180px) {
+    h1 {
+      max-width: 14ch;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .page {
+      padding: 16px 10px 28px;
+    }
+
+    .heading,
+    .graph-frame {
+      padding: 16px;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 11vw, 3.9rem);
+    }
+  }
+</style>

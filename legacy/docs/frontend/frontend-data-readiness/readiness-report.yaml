@@ -1,0 +1,371 @@
+artifact_summary:
+  presentation_contract:
+    path: frontend/src/data/generated/presentation-contract.json
+    mtime: '2026-05-06T02:38:04.223554+00:00'
+    size_bytes: 777342
+    fresh_after_workflow_start: true
+  layout_contract:
+    path: frontend/src/data/generated/layout-contract.json
+    mtime: '2026-05-06T02:38:12.216135+00:00'
+    size_bytes: 563244
+    fresh_after_workflow_start: true
+  editorial_chapters:
+    path: frontend/src/data/generated/editorial-chapters.json
+    mtime: '2026-05-06T02:38:20.427985+00:00'
+    size_bytes: 293
+    fresh_after_workflow_start: true
+workflow:
+  workflow_start_time: '2026-05-06T02:38:02.782947+00:00'
+  wrapper_command: mise run frontend_data_readiness_audit
+  audit_command: uv --cache-dir /tmp/uv-cache run python -m redesign_cli audit-frontend-data-readiness
+  prerequisites:
+  - name: stage6_export
+    command: uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-presentation-contract
+      --output-path frontend/src/data/generated/presentation-contract.json
+    status: success
+  - name: stage8_layout_export
+    command: uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-layout-contract
+      --output-path frontend/src/data/generated/layout-contract.json --builder-version
+      stage8-layout-contract-v1 --headshot-manifest-path configs/data/stage8_headshot_manifest.yaml
+      --frontend-public-root frontend/public
+    status: success
+  - name: stage8_chapter_export
+    command: uv --cache-dir /tmp/uv-cache run python -m redesign_cli export-editorial-chapters
+      --output-path frontend/src/data/generated/editorial-chapters.json --builder-version
+      stage8-layout-contract-v1 --headshot-manifest-path configs/data/stage8_headshot_manifest.yaml
+      --frontend-public-root frontend/public
+    status: success
+  freshness_gate_passed: true
+  used_checked_in_artifacts_as_substitute: false
+  blocked_mode_reason: null
+coverage:
+- row: main_roster
+  status: ready
+  schema_supported: true
+  live_populated: true
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when `main_roster` is declared in `src/presentation/contract.py::LANE_GROUPS`,
+    the presentation/layout models still carry lane-group fields, and at least one
+    checked-in contract or timeline test identifier still references main-roster band
+    behavior.
+  - src/presentation/contract.py::LANE_GROUPS = {"main_roster", "two_way", "future_picks"}
+    -> matched exact substring
+  - 'src/presentation/models.py::lane_layout: list[LaneLayoutRow] -> matched exact
+    substring'
+  live_evidence:
+  - live_populated=true when both exports contain at least one `main_roster` row.
+  - presentation lane_group count=270; layout lane_group count=270
+  frontend_evidence:
+  - true only when the readiness matrix names the relevant timeline code path and
+    the exact named test identifier remains present in the referenced test file.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = ["main_roster", "two_way",
+    "future_picks"]; -> matched exact substring
+  - frontend/src/lib/timeline.test.ts::builds the same chronology and band surface
+    regardless of compatibility window, zoom, and asset-kind state -> matched exact
+    substring
+  notes: []
+- row: two_way
+  status: weak
+  schema_supported: true
+  live_populated: false
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when `src/presentation/contract.py::LANE_GROUPS` and `TWO_WAY_VALUES`
+    still support `two_way`, and checked-in contract tests still include explicit
+    two-way fixture coverage.
+  - src/presentation/contract.py::TWO_WAY_VALUES = {"two_way", "two-way", "two way"}
+    -> matched exact substring
+  - 'tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():
+    -> matched exact substring'
+  live_evidence:
+  - live_populated=true only when both exports contain at least one `two_way` row;
+    otherwise `weak` if schema-supported but absent.
+  - presentation lane_group count=0; layout lane_group count=0
+  frontend_evidence:
+  - true only when the readiness matrix names the frontend lane-group code path and
+    the exact named two-way-capable test identifiers remain present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - tests/presentation/test_layout_contract.py -> file exists
+  - frontend/src/lib/timeline.ts::if (segment?.lane_group === "two_way") { -> matched
+    exact substring
+  - frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the
+    layout contract exposes main-roster, two-way, and future-pick rows -> matched
+    exact substring
+  - 'tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():
+    -> matched exact substring'
+  notes: []
+- row: future_picks
+  status: ready
+  schema_supported: true
+  live_populated: true
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when `future_picks` is declared in contract code, the layout/presentation
+    models still expose lane-group-bearing rows, and checked-in tests still exercise
+    future-pick band behavior.
+  - src/presentation/contract.py::LANE_GROUPS = {"main_roster", "two_way", "future_picks"}
+    -> matched exact substring
+  - 'src/presentation/models.py::lane_layout: list[LaneLayoutRow] -> matched exact
+    substring'
+  live_evidence:
+  - live_populated=true when both exports contain at least one `future_picks` row.
+  - presentation lane_group count=32; layout lane_group count=32
+  frontend_evidence:
+  - true only when the readiness matrix names the future-pick timeline code path and
+    the exact named test identifier remains present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = ["main_roster", "two_way",
+    "future_picks"]; -> matched exact substring
+  - frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the
+    layout contract exposes main-roster, two-way, and future-pick rows -> matched
+    exact substring
+  notes: []
+- row: pick_protections_swaps
+  status: weak
+  schema_supported: true
+  live_populated: false
+  frontend_consumed: false
+  schema_evidence:
+  - schema_supported=true when contract export code still emits `protection_summary`
+    and `protection_payload` fields on pick-bearing payloads and checked-in contract
+    tests still reference those exact field names.
+  - src/presentation/contract.py::protection_summary, -> matched exact substring
+  - src/presentation/contract.py::protection_payload -> matched exact substring
+  live_evidence:
+  - live_populated=true only when at least one frontend-consumed pick strand has a
+    non-null `protection_summary` or non-empty `protection_payload`; description-only
+    event text classifies as `weak`, not populated.
+  - frontend-consumed pick strands with populated protection fields=0
+  - non-null protection_summary count=0; non-empty protection_payload count=0
+  frontend_evidence:
+  - true only when the readiness matrix names at least one direct strand-level protection-field
+    consumer and the exact named assertion-target string remains present in the referenced
+    tests; otherwise this row must report `frontend_consumed=false`.
+  - tests/presentation/test_contract.py -> file exists
+  - tests/presentation/test_layout_contract.py -> file exists
+  - matrix declares no direct frontend code consumer for this row
+  notes: []
+- row: pick_to_player
+  status: ready
+  schema_supported: true
+  live_populated: true
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when contract code still emits `pick_to_player` transition
+    links and checked-in contract tests still assert both single-hop and multi-hop
+    draft transition coverage.
+  - src/presentation/contract.py::"pick_to_player" -> matched exact substring
+  - 'tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():
+    -> matched exact substring'
+  live_evidence:
+  - live_populated=true when at least one `pick_to_player` transition link exists
+    and at least one paired drafted-player payload is non-null.
+  - pick_to_player transition_links=16; drafted_player_name values=16
+  frontend_evidence:
+  - true only when the readiness matrix names the transition-rendering code path and
+    the exact named pick-to-player test identifiers remain present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - tests/presentation/test_layout_contract.py -> file exists
+  - 'frontend/src/lib/timeline.ts::link_type: "same_asset" | "pick_to_player" | "event_transition";
+    -> matched exact substring'
+  - frontend/src/lib/timeline.test.ts::renders Memphis draft continuity links and
+    pick-to-player conversion from layout transition links -> matched exact substring
+  - 'tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():
+    -> matched exact substring'
+  - 'tests/presentation/test_layout_contract.py::def test_transition_links_cover_multi_hop_draft_transition_clusters():
+    -> matched exact substring'
+  notes: []
+- row: leave_and_return
+  status: ready
+  schema_supported: true
+  live_populated: true
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when the exported presentation edge shape still carries
+    both `asset_id` and player-display-name payloads and the frontend contract layer
+    can render separate non-overlapping asset-scoped chapters for one repeated player
+    display name.
+  - src/presentation/contract.py::player_name -> matched exact substring
+  - src/presentation/contract.py::asset_id -> matched exact substring
+  live_evidence:
+  - live_populated=true when at least one player display name appears on more than
+    one distinct `asset_id` and the exported date ranges for those assets do not overlap
+    with at least one visible gap between the earlier end date and later start date.
+  - Wayne Selden (SG) spans distinct asset_ids with a visible date gap
+  frontend_evidence:
+  - true only when the readiness matrix names the asset-scoped continuity code paths
+    and the exact leave-and-return test selector remains present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - frontend/src/lib/timeline.ts::row.asset_id -> matched exact substring
+  - frontend/src/lib/timeline.ts::return segment.identity_marker.label_text -> matched
+    exact substring
+  - frontend/src/lib/timeline.test.ts::keeps leave-and-return chapters asset-scoped
+    instead of inventing false cross-gap continuity -> matched exact substring
+  notes: []
+- row: reacquired_players
+  status: ready
+  schema_supported: true
+  live_populated: true
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when the exported presentation edge shape still carries
+    both `asset_id` and player-display-name payloads and the frontend contract layer
+    can suppress overflowed reacquired-player labels and markers without inventing
+    person-level continuity.
+  - src/presentation/contract.py::player_name -> matched exact substring
+  - src/presentation/contract.py::asset_id -> matched exact substring
+  live_evidence:
+  - live_populated=true when at least one repeated player display name spans more
+    than one distinct `asset_id` and at least one later reacquired segment is short
+    enough that overflow suppression rules can be exercised independently of the first
+    tenure.
+  - Dusty Hannahs (G) has a later reacquired segment shorter than the earlier exported
+    tenure
+  frontend_evidence:
+  - true only when the readiness matrix names the asset-scoped continuity code paths
+    and the exact reacquired-player test selector remains present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - frontend/src/lib/timeline.ts::row.asset_id -> matched exact substring
+  - frontend/src/lib/timeline.ts::segment.identity_marker.label_text -> matched exact
+    substring
+  - frontend/src/lib/timeline.test.ts::hides reacquired-player labels and markers
+    when the visible treatment would extend beyond the reacquired segment -> matched
+    exact substring
+  notes: []
+- row: chapter_rows
+  status: weak
+  schema_supported: true
+  live_populated: false
+  frontend_consumed: false
+  schema_evidence:
+  - schema_supported=true when contract/export code still emits `story_chapter_id`
+    rows in both chapter exports and the frontend contract layer still validates cross-artifact
+    chapter identity.
+  - src/presentation/contract.py::chapter_layout.append( -> matched exact substring
+  - tests/presentation/test_layout_contract.py::chapter_layout_ids={row.story_chapter_id
+    for row in layout_result.chapter_layout} -> matched exact substring
+  live_evidence:
+  - live_populated=true when both exports contain at least 2 chapter rows; classify
+    as `weak` when both exports contain exactly 1 row; classify as `blocked` if either
+    export contains 0 rows.
+  - editorial chapter rows=1; chapter_layout rows=1
+  frontend_evidence:
+  - true only when the readiness matrix names the cross-artifact chapter validation
+    path and the exact named test identifier remains present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - chapter selector satisfaction is deferred until T3; validating selector format
+    and file existence only
+  - frontend/src/lib/timeline.ts::chapterLayoutById -> file exists
+  - frontend/src/lib/timeline.test.ts::loads the generated artifacts without missing
+    asset, event, or chapter references -> file exists
+  notes:
+  - Chapter frontend selector satisfaction is deferred until T3.
+- row: chapter_focus_fields
+  status: weak
+  schema_supported: true
+  live_populated: false
+  frontend_consumed: false
+  schema_evidence:
+  - schema_supported=true when chapter focus fields are emitted by `layout-contract.json
+    chapter_layout` rows in contract code and directly consumed by the frontend timeline
+    layer, with no dependency on editorial-export focus payloads.
+  - src/presentation/contract.py::default_zoom=_chapter_default_zoom( -> matched exact
+    substring
+  - tests/presentation/test_layout_contract.py::chapter = layout_result.chapter_layout[0]
+    -> matched exact substring
+  live_evidence:
+  - live_populated=true only when at least one chapter row has non-empty `window_start`/`window_end`
+    plus either a non-empty highlight list or non-null `default_zoom`; all-empty highlight
+    arrays with null zoom classify as `weak`.
+  - chapter_layout rows with populated focus fields=0
+  frontend_evidence:
+  - true only when the readiness matrix names the direct `chapter_layout` focus-consumption
+    path and the exact named chapter-focus test identifier remains present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - chapter selector satisfaction is deferred until T3; validating selector format
+    and file existence only
+  - frontend/src/lib/timeline.ts::chapterLayoutById.get(chapter.story_chapter_id)
+    -> file exists
+  - frontend/src/lib/timeline.test.ts::keeps editorial chapter title, body, and dates
+    additive instead of sourcing scene windows from chapter_layout -> file exists
+  notes:
+  - Chapter frontend selector satisfaction is deferred until T3.
+- row: identity_markers
+  status: weak
+  schema_supported: true
+  live_populated: false
+  frontend_consumed: true
+  schema_evidence:
+  - schema_supported=true when contract code still emits `identity_marker` fields
+    and checked-in contract tests still assert both image-backed and text-only cases.
+  - src/presentation/contract.py::identity_marker=_resolved_identity_marker( -> matched
+    exact substring
+  - 'tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path:
+    Path): -> matched exact substring'
+  live_evidence:
+  - live_populated=true when at least one non-null `image_path` exists; all-text-only/null-image
+    coverage classifies as `weak`, not blocked.
+  - identity markers with image_path=0; headshot_text=0; text_only=302
+  frontend_evidence:
+  - true only when the readiness matrix names the identity-marker rendering path and
+    the exact named headshot/text fallback test identifiers remain present.
+  - frontend/src/lib/timeline.test.ts -> file exists
+  - tests/presentation/test_layout_contract.py -> file exists
+  - frontend/src/lib/timeline.ts::segment.identity_marker.marker_variant === "headshot_text"
+    -> matched exact substring
+  - frontend/src/lib/timeline.test.ts::supports headshot-plus-text markers when a
+    local image path exists and falls back to text-only otherwise -> matched exact
+    substring
+  - 'tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path:
+    Path): -> matched exact substring'
+  notes: []
+population_gaps:
+- row: two_way
+  detail: presentation lane_group count=0; layout lane_group count=0
+- row: pick_protections_swaps
+  detail: non-null protection_summary count=0; non-empty protection_payload count=0
+- row: chapter_rows
+  detail: editorial chapter rows=1; chapter_layout rows=1
+- row: chapter_focus_fields
+  detail: chapter_layout rows with populated focus fields=0
+- row: identity_markers
+  detail: identity markers with image_path=0; headshot_text=0; text_only=302
+alignment_gaps:
+- row: chapter_rows
+  detail: frontend/src/lib/timeline.test.ts::loads the generated artifacts without
+    missing asset, event, or chapter references -> file exists
+- row: chapter_focus_fields
+  detail: frontend/src/lib/timeline.test.ts::keeps editorial chapter title, body,
+    and dates additive instead of sourcing scene windows from chapter_layout -> file
+    exists
+strengths:
+- row: main_roster
+  detail: presentation lane_group count=270; layout lane_group count=270
+- row: future_picks
+  detail: presentation lane_group count=32; layout lane_group count=32
+- row: pick_to_player
+  detail: pick_to_player transition_links=16; drafted_player_name values=16
+- row: leave_and_return
+  detail: Wayne Selden (SG) spans distinct asset_ids with a visible date gap
+- row: reacquired_players
+  detail: Dusty Hannahs (G) has a later reacquired segment shorter than the earlier
+    exported tenure
+blockers: []
+overall_status:
+  status: weak
+  ready_rows:
+  - main_roster
+  - future_picks
+  - pick_to_player
+  - leave_and_return
+  - reacquired_players
+  weak_rows:
+  - two_way
+  - pick_protections_swaps
+  - chapter_rows
+  - chapter_focus_fields
+  - identity_markers
+  blocked_rows: []
+  unresolved_rows: []

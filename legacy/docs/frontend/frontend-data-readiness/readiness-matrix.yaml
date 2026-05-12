@@ -1,0 +1,194 @@
+artifact: readiness_matrix
+feature: frontend-data-readiness
+status: draft
+selector_format: "relative/path::exact_substring"
+authoritative_for:
+  - schema_source_paths
+  - schema_supported_rule
+  - json_paths
+  - population_rule
+  - frontend_code_paths
+  - frontend_test_paths
+  - frontend_test_ids
+  - frontend_consumed_rule
+chapter_selector_policy:
+  deferred_selector_satisfaction_until_task: T3
+  applies_to_rows:
+    - chapter_rows
+    - chapter_focus_fields
+  note: "T2 validates matrix shape, selector format, and file-existence lookup only; exact chapter frontend selector satisfaction is first required after T3."
+rows:
+  - row: main_roster
+    schema_source_paths:
+      - 'src/presentation/contract.py::LANE_GROUPS = {"main_roster", "two_way", "future_picks"}'
+      - "src/presentation/models.py::lane_layout: list[LaneLayoutRow]"
+    schema_supported_rule: "schema_supported=true when `main_roster` is declared in `src/presentation/contract.py::LANE_GROUPS`, the presentation/layout models still carry lane-group fields, and at least one checked-in contract or timeline test identifier still references main-roster band behavior."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true when both exports contain at least one `main_roster` row."
+    frontend_code_paths:
+      - 'frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = ["main_roster", "two_way", "future_picks"];'
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::builds the same chronology and band surface regardless of compatibility window, zoom, and asset-kind state"
+    frontend_consumed_rule: "true only when the readiness matrix names the relevant timeline code path and the exact named test identifier remains present in the referenced test file."
+  - row: two_way
+    schema_source_paths:
+      - 'src/presentation/contract.py::TWO_WAY_VALUES = {"two_way", "two-way", "two way"}'
+      - "tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():"
+    schema_supported_rule: "schema_supported=true when `src/presentation/contract.py::LANE_GROUPS` and `TWO_WAY_VALUES` still support `two_way`, and checked-in contract tests still include explicit two-way fixture coverage."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true only when both exports contain at least one `two_way` row; otherwise `weak` if schema-supported but absent."
+    frontend_code_paths:
+      - 'frontend/src/lib/timeline.ts::if (segment?.lane_group === "two_way") {'
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the layout contract exposes main-roster, two-way, and future-pick rows"
+      - "tests/presentation/test_layout_contract.py::def test_required_lane_group_visibility_survives_layout_export():"
+    frontend_consumed_rule: "true only when the readiness matrix names the frontend lane-group code path and the exact named two-way-capable test identifiers remain present."
+  - row: future_picks
+    schema_source_paths:
+      - 'src/presentation/contract.py::LANE_GROUPS = {"main_roster", "two_way", "future_picks"}'
+      - "src/presentation/models.py::lane_layout: list[LaneLayoutRow]"
+    schema_supported_rule: "schema_supported=true when `future_picks` is declared in contract code, the layout/presentation models still expose lane-group-bearing rows, and checked-in tests still exercise future-pick band behavior."
+    json_paths:
+      - "presentation-contract.json edges[].lane_group"
+      - "layout-contract.json lane_layout[].lane_group"
+    population_rule: "live_populated=true when both exports contain at least one `future_picks` row."
+    frontend_code_paths:
+      - 'frontend/src/lib/timeline.ts::const LANE_GROUP_ORDER = ["main_roster", "two_way", "future_picks"];'
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders all three lane-band classes when the layout contract exposes main-roster, two-way, and future-pick rows"
+    frontend_consumed_rule: "true only when the readiness matrix names the future-pick timeline code path and the exact named test identifier remains present."
+  - row: pick_protections_swaps
+    schema_source_paths:
+      - "src/presentation/contract.py::protection_summary,"
+      - "src/presentation/contract.py::protection_payload"
+    schema_supported_rule: "schema_supported=true when contract export code still emits `protection_summary` and `protection_payload` fields on pick-bearing payloads and checked-in contract tests still reference those exact field names."
+    json_paths:
+      - "presentation-contract.json edges[].payload.protection_summary"
+      - "presentation-contract.json edges[].payload.protection_payload"
+    population_rule: "live_populated=true only when at least one frontend-consumed pick strand has a non-null `protection_summary` or non-empty `protection_payload`; description-only event text classifies as `weak`, not populated."
+    frontend_code_paths: []
+    frontend_test_paths:
+      - "tests/presentation/test_contract.py"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "tests/presentation/test_contract.py::def test_json_contract_shape_has_nodes_edges_lanes_and_meta():"
+      - "tests/presentation/test_contract.py::protection_summary=None"
+    frontend_consumed_rule: "true only when the readiness matrix names at least one direct strand-level protection-field consumer and the exact named assertion-target string remains present in the referenced tests; otherwise this row must report `frontend_consumed=false`."
+  - row: pick_to_player
+    schema_source_paths:
+      - 'src/presentation/contract.py::"pick_to_player"'
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():"
+    schema_supported_rule: "schema_supported=true when contract code still emits `pick_to_player` transition links and checked-in contract tests still assert both single-hop and multi-hop draft transition coverage."
+    json_paths:
+      - "layout-contract.json event_layout[].transition_links[].link_type"
+      - "presentation-contract.json edges[].payload.drafted_player_name"
+    population_rule: "live_populated=true when at least one `pick_to_player` transition link exists and at least one paired drafted-player payload is non-null."
+    frontend_code_paths:
+      - 'frontend/src/lib/timeline.ts::link_type: "same_asset" | "pick_to_player" | "event_transition";'
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::renders Memphis draft continuity links and pick-to-player conversion from layout transition links"
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_pick_to_player_clusters():"
+      - "tests/presentation/test_layout_contract.py::def test_transition_links_cover_multi_hop_draft_transition_clusters():"
+    frontend_consumed_rule: "true only when the readiness matrix names the transition-rendering code path and the exact named pick-to-player test identifiers remain present."
+  - row: leave_and_return
+    schema_source_paths:
+      - "src/presentation/contract.py::player_name"
+      - "src/presentation/contract.py::asset_id"
+    schema_supported_rule: "schema_supported=true when the exported presentation edge shape still carries both `asset_id` and player-display-name payloads and the frontend contract layer can render separate non-overlapping asset-scoped chapters for one repeated player display name."
+    json_paths:
+      - "presentation-contract.json edges[].asset_id"
+      - "presentation-contract.json edges[].payload.player_name"
+    population_rule: "live_populated=true when at least one player display name appears on more than one distinct `asset_id` and the exported date ranges for those assets do not overlap with at least one visible gap between the earlier end date and later start date."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::row.asset_id"
+      - "frontend/src/lib/timeline.ts::return segment.identity_marker.label_text"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::keeps leave-and-return chapters asset-scoped instead of inventing false cross-gap continuity"
+    frontend_consumed_rule: "true only when the readiness matrix names the asset-scoped continuity code paths and the exact leave-and-return test selector remains present."
+  - row: reacquired_players
+    schema_source_paths:
+      - "src/presentation/contract.py::player_name"
+      - "src/presentation/contract.py::asset_id"
+    schema_supported_rule: "schema_supported=true when the exported presentation edge shape still carries both `asset_id` and player-display-name payloads and the frontend contract layer can suppress overflowed reacquired-player labels and markers without inventing person-level continuity."
+    json_paths:
+      - "presentation-contract.json edges[].asset_id"
+      - "presentation-contract.json edges[].payload.player_name"
+    population_rule: "live_populated=true when at least one repeated player display name spans more than one distinct `asset_id` and at least one later reacquired segment is short enough that overflow suppression rules can be exercised independently of the first tenure."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::row.asset_id"
+      - "frontend/src/lib/timeline.ts::segment.identity_marker.label_text"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::hides reacquired-player labels and markers when the visible treatment would extend beyond the reacquired segment"
+    frontend_consumed_rule: "true only when the readiness matrix names the asset-scoped continuity code paths and the exact reacquired-player test selector remains present."
+  - row: chapter_rows
+    schema_source_paths:
+      - "src/presentation/contract.py::chapter_layout.append("
+      - "tests/presentation/test_layout_contract.py::chapter_layout_ids={row.story_chapter_id for row in layout_result.chapter_layout}"
+    schema_supported_rule: "schema_supported=true when contract/export code still emits `story_chapter_id` rows in both chapter exports and the frontend contract layer still validates cross-artifact chapter identity."
+    json_paths:
+      - "editorial-chapters.json[].story_chapter_id"
+      - "layout-contract.json chapter_layout[].story_chapter_id"
+    population_rule: "live_populated=true when both exports contain at least 2 chapter rows; classify as `weak` when both exports contain exactly 1 row; classify as `blocked` if either export contains 0 rows."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::chapterLayoutById"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::loads the generated artifacts without missing asset, event, or chapter references"
+    frontend_consumed_rule: "true only when the readiness matrix names the cross-artifact chapter validation path and the exact named test identifier remains present."
+  - row: chapter_focus_fields
+    schema_source_paths:
+      - "src/presentation/contract.py::default_zoom=_chapter_default_zoom("
+      - "tests/presentation/test_layout_contract.py::chapter = layout_result.chapter_layout[0]"
+    schema_supported_rule: "schema_supported=true when chapter focus fields are emitted by `layout-contract.json chapter_layout` rows in contract code and directly consumed by the frontend timeline layer, with no dependency on editorial-export focus payloads."
+    json_paths:
+      - "layout-contract.json chapter_layout[].window_start"
+      - "layout-contract.json chapter_layout[].window_end"
+      - "layout-contract.json chapter_layout[].highlight_asset_ids"
+      - "layout-contract.json chapter_layout[].highlight_event_ids"
+      - "layout-contract.json chapter_layout[].default_zoom"
+    population_rule: "live_populated=true only when at least one chapter row has non-empty `window_start`/`window_end` plus either a non-empty highlight list or non-null `default_zoom`; all-empty highlight arrays with null zoom classify as `weak`."
+    frontend_code_paths:
+      - "frontend/src/lib/timeline.ts::chapterLayoutById.get(chapter.story_chapter_id)"
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::keeps editorial chapter title, body, and dates additive instead of sourcing scene windows from chapter_layout"
+    frontend_consumed_rule: "true only when the readiness matrix names the direct `chapter_layout` focus-consumption path and the exact named chapter-focus test identifier remains present."
+  - row: identity_markers
+    schema_source_paths:
+      - "src/presentation/contract.py::identity_marker=_resolved_identity_marker("
+      - "tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path: Path):"
+    schema_supported_rule: "schema_supported=true when contract code still emits `identity_marker` fields and checked-in contract tests still assert both image-backed and text-only cases."
+    json_paths:
+      - "layout-contract.json lane_layout[].identity_marker.image_path"
+      - "layout-contract.json lane_layout[].identity_marker.marker_variant"
+      - "layout-contract.json lane_layout[].identity_marker.label_text"
+    population_rule: "live_populated=true when at least one non-null `image_path` exists; all-text-only/null-image coverage classifies as `weak`, not blocked."
+    frontend_code_paths:
+      - 'frontend/src/lib/timeline.ts::segment.identity_marker.marker_variant === "headshot_text"'
+    frontend_test_paths:
+      - "frontend/src/lib/timeline.test.ts"
+      - "tests/presentation/test_layout_contract.py"
+    frontend_test_ids:
+      - "frontend/src/lib/timeline.test.ts::supports headshot-plus-text markers when a local image path exists and falls back to text-only otherwise"
+      - "tests/presentation/test_layout_contract.py::def test_layout_contract_projects_required_groups_headshots_and_chapters(tmp_path: Path):"
+    frontend_consumed_rule: "true only when the readiness matrix names the identity-marker rendering path and the exact named headshot/text fallback test identifiers remain present."

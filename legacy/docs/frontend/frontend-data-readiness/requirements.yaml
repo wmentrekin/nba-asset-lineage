@@ -1,0 +1,102 @@
+artifact: requirements
+feature: "frontend-data-readiness"
+status: draft
+owner_skill: discover
+
+summary:
+  problem: "The current frontend is now visible enough to inspect, but it is still unclear whether the redesign exports contain the right live data coverage and field population to support the intended Memphis asset-lineage visualization. Several weak points already appear to be export/data-shape issues rather than purely frontend design issues."
+  motivation: "Before more frontend design or implementation work, the project needs a bounded data-readiness pass that verifies whether the presentation, layout, and editorial exports actually contain the asset classes, strand-level metadata, chapter focus data, and identity-marker coverage the visualization expects."
+  requested_outcome: "Define a data-readiness discovery contract that can drive a follow-on planning pass for auditing and hardening frontend-relevant export coverage, live field population, and contract/frontend alignment."
+
+goals:
+  - "Audit the current frontend-facing redesign exports for live data completeness, not just schema presence."
+  - "Verify what coverage currently exists for main roster, two-way, future picks, pick protections/swaps, pick-to-player transitions, leave-and-return cases, reacquired-player cases, chapter focus data, and identity markers."
+  - "Distinguish real export/data-shape gaps from frontend rendering or styling issues."
+  - "Identify contract/frontend mismatches that should be resolved before more frontend design iteration."
+  - "Produce requirements strong enough for a focused `$plan` pass on frontend data readiness."
+
+non_goals:
+  - "Do not redesign the frontend visual system in this discovery pass."
+  - "Do not change canonical identity semantics."
+  - "Do not implement export or frontend fixes in this discovery pass."
+  - "Do not reopen legacy pipeline architecture."
+  - "Do not assume that all missing visual behavior should be solved in the frontend."
+
+constraints:
+  technical:
+    - "Scope is limited to the redesign track and the repo-local generated frontend artifacts."
+    - "Frontend-facing truth is currently carried by `presentation-contract.json`, `layout-contract.json`, and `editorial-chapters.json`."
+    - "Continuity remains anchored to `canonical.asset.asset_id` unless a separate future plan explicitly changes that rule."
+    - "The audit must evaluate both export schema and live field population."
+    - "The audit should use repo-local docs, generated artifacts, contract code, and tests as the source of truth."
+  product:
+    - "Scope remains Memphis-only."
+    - "The purpose is to determine whether the dataset is sufficient to support the intended lineage visualization, not to judge aesthetic direction."
+    - "The pass should focus on data needed for the graph-first lineage experience: asset coverage, transitions, labels, chapter context, and identity treatment."
+  process:
+    - "This discovery pass should define a bounded readiness problem, not an open-ended frontend restart."
+    - "If the audit exposes unresolved product decisions about where certain truths belong, those should be surfaced as open questions for planning."
+
+assumptions:
+  - "The current frontend has progressed far enough that continuing visual iteration without a data audit would be inefficient."
+  - "At least some of the current weaknesses are caused by missing or weak export data rather than only frontend implementation."
+  - "The strongest current evidence already points to live gaps around two-way coverage, pick-protection strand metadata, sparse chapter data, and headshot-backed identity markers."
+  - "Pick-to-player transitions and basic `asset_id`-scoped continuity are comparatively strong in the current exports."
+
+repo_context:
+  relevant_paths:
+    - "docs/frontend/vision-reset/plan.yaml"
+    - "docs/frontend/vision-reset/implementation-report.yaml"
+    - "docs/frontend/vision-reset/full-dataset-readability-checklist.md"
+    - "docs/frontend/vision-reset-v2/requirements.yaml"
+    - "docs/frontend/vision-reset-v2/implementation-report.yaml"
+    - "docs/frontend/vision-reset-v2/readability-checklist.md"
+    - "docs/frontend/vision-reset-v2/product-smoke-notes.md"
+    - "frontend/src/data/generated/presentation-contract.json"
+    - "frontend/src/data/generated/layout-contract.json"
+    - "frontend/src/data/generated/editorial-chapters.json"
+    - "frontend/src/lib/timeline.ts"
+    - "src/presentation/models.py"
+    - "src/presentation/contract.py"
+    - "tests/presentation/test_layout_contract.py"
+  systems_in_scope:
+    - "Stage 6 frontend-facing presentation export"
+    - "Stage 8 layout-contract export"
+    - "Editorial chapter export used by the frontend"
+    - "Frontend contract consumption in `frontend/src/lib/timeline.ts`"
+    - "Contract/test coverage for frontend-facing fields"
+  prior_artifacts:
+    - "Original frontend reset plan and implementation report under `docs/frontend/vision-reset/`"
+    - "Simplification reset artifacts under `docs/frontend/vision-reset-v2/`"
+    - "Live generated frontend artifacts currently checked in under `frontend/src/data/generated/`"
+
+research:
+  repo_findings:
+    - "Live main-roster and future-pick coverage exists today, but live two-way coverage is absent from the generated exports."
+    - "Pick protections and swaps are not frontend-ready at the strand level: protection summaries are null and protection payloads are empty on live pick strands."
+    - "Pick-to-player transition coverage is comparatively strong in the current exports and tests."
+    - "Leave-and-return and reacquired-player cases exist in live data, but person-level continuity is only indirectly inferable through repeated names across multiple `asset_id` values."
+    - "Editorial chapter data is materially sparse: the current live export contains only one chapter row, and the corresponding `chapter_layout` focus row carries empty highlight arrays and null default zoom."
+    - "There is a concrete chapter-data contract/consumption mismatch: the plan assigns focus/navigation truth to `chapter_layout`, while the current frontend code still reads optional `focus_payload`-style fields from chapter rows that the chapter export does not provide."
+    - "Identity-marker data exists structurally, but live coverage is text-only: current generated markers have null `image_path` and `text_only` variants across the full dataset."
+    - "Tests and schema support some cases that are not actually covered by current live generated Memphis data, especially `two_way` and positive headshot-backed marker behavior."
+  platform_findings: []
+
+acceptance_criteria:
+  - "Requirements define this as a bounded frontend-data-readiness task rather than a new frontend redesign."
+  - "Requirements explicitly call out which frontend-relevant data classes are currently missing, sparse, null-heavy, or under-verified."
+  - "Requirements capture current known strengths as well as gaps, including pick-to-player coverage and `asset_id`-scoped leave/return continuity."
+  - "Requirements identify the chapter export / chapter-layout / frontend-consumption mismatch as a first-class readiness issue."
+  - "Requirements distinguish schema/test support from live generated-data coverage."
+  - "Requirements define what a follow-on planning pass should verify before more frontend implementation work."
+
+open_questions:
+  - "Does missing live `two_way` coverage reflect true Memphis-scope source-data absence, or an upstream export/derivation gap?"
+  - "Where should protection/swap truth live for frontend use: pick-strand payloads, layout/label hints, or only event descriptions?"
+  - "Should chapter focus/navigation truth remain exclusively in `chapter_layout`, or should the editorial chapter export also carry richer focus fields?"
+  - "Are live headshot-backed identity markers intentionally optional for the current Memphis dataset, or is manifest/export coverage incomplete?"
+
+freeze:
+  ready_for_plan: true
+  blockers:
+    - "No blocking discovery questions remain for planning, but the follow-on plan should keep scope bounded to data-readiness verification and export/frontend alignment rather than reopening broad frontend design."

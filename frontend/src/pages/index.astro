@@ -1,61 +1,257 @@
 ---
-import presentationContract from "../data/generated/presentation-contract.json";
-import layoutContract from "../data/generated/layout-contract.json";
-import editorialChapters from "../data/generated/editorial-chapters.json";
-import {
-  buildTimelineContract,
-  buildTimelineLayout,
-  coerceGeneratedLayoutContract,
-  getContractBounds,
-  getDefaultUiState,
-  normalizeTimelineUiState,
-  renderTimelineScene,
-  type TimelineContract,
-} from "../lib/timeline";
+import foundationGraph from "../data/generated/foundation-graph.json";
+import { buildTimelineLayout, type GraphExport } from "../lib/graph";
 
-const timelineContract = buildTimelineContract(
-  presentationContract,
-  coerceGeneratedLayoutContract(layoutContract),
-  editorialChapters,
-) as TimelineContract;
-const bounds = getContractBounds(timelineContract);
-const initialState = normalizeTimelineUiState(timelineContract, getDefaultUiState(timelineContract, null));
-const initialLayout = buildTimelineLayout(timelineContract, initialState);
-const sceneMarkup = renderTimelineScene(initialLayout);
+const graph = foundationGraph as GraphExport;
+const layout = buildTimelineLayout(graph);
+const eventTypeById = new Map(layout.eventPoints.map((event) => [event.eventId, event.eventType]));
+const monthAnchorFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "2-digit",
+  timeZone: "UTC",
+});
+
+const MIN_SEGMENT_LABEL_WIDTH = 72;
+const MIN_CONNECTOR_LEAD = 22;
+const MAX_CONNECTOR_LEAD = 44;
+const TERMINATION_INSET = 14;
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function shouldRenderSegmentLabel(segment: { x1: number; x2: number }) {
+  return segment.x2 - segment.x1 >= MIN_SEGMENT_LABEL_WIDTH;
+}
+
+function getConnectorEventType(connector: { eventId: string }) {
+  return eventTypeById.get(connector.eventId);
+}
+
+function isTerminationConnector(connector: {
+  direction: "in" | "out" | "move";
+  eventId: string;
+}) {
+  return connector.direction === "out" && getConnectorEventType(connector) === "waiver";
+}
+
+function getConnectorPath(connector: {
+  eventId: string;
+  direction: "in" | "out" | "move";
+  x: number;
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
+}) {
+  const midY = (connector.y1 + connector.y2) / 2;
+  const arcWidth = Math.abs(connector.x2 - connector.x1);
+  const lead = clamp(arcWidth * 1.15, MIN_CONNECTOR_LEAD, MAX_CONNECTOR_LEAD);
+  const terminationInset = isTerminationConnector(connector) ? Math.min(TERMINATION_INSET, arcWidth * 0.6) : 0;
+  const endX = connector.x2 - terminationInset;
+
+  if (connector.direction === "move") {
+    return `M ${connector.x1} ${connector.y1} C ${connector.x - lead} ${connector.y1}, ${connector.x + lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+  }
+
+  if (connector.direction === "out") {
+    return `M ${connector.x1} ${connector.y1} C ${connector.x1 + lead} ${connector.y1}, ${connector.x - lead * 0.35} ${midY}, ${endX} ${connector.y2}`;
+  }
+
+  return `M ${connector.x1} ${connector.y1} C ${connector.x + lead * 0.35} ${midY}, ${connector.x2 - lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+}
+
+function getConnectorMarker(connector: {
+  direction: "in" | "out" | "move";
+  eventId: string;
+}) {
+  if (connector.direction === "move") return undefined;
+  if (isTerminationConnector(connector)) return "url(#connector-cap-waiver)";
+  return connector.direction === "out" ? "url(#connector-arrow-out)" : "url(#connector-arrow-in)";
+}
+
+function isMonthStartTick(date: string) {
+  return date.endsWith("-01");
+}
+
+function formatMonthAnchor(date: string) {
+  return monthAnchorFormatter.format(new Date(`${date}T00:00:00Z`));
+}
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Memphis Asset Lineage Atlas</title>
+    <title>Memphis Asset Lineage</title>
     <meta
       name="description"
-      content="A graph-first Memphis asset lineage page that begins at the earliest contract date and carries through the full chronology."
+      content="Memphis Grizzlies asset lineage graph built from the reset-era foundation export."
     />
   </head>
   <body>
     <main class="page">
-      <header class="heading">
-        <p class="eyebrow">Memphis Grizzlies asset lineage</p>
-        <h1>Memphis asset lineage atlas</h1>
-        <p class="heading__range">{bounds.start} to {bounds.end}</p>
-      </header>
+      <section class="hero">
+        <p class="eyebrow">Memphis asset lineage</p>
+        <h1>Ten years of roster evolution from the current foundation export.</h1>
+        <p class="lede">
+          This page is now wired to real foundation data: canonical events, player and pick assets,
+          and event transitions. It is intentionally minimal and graph-first.
+        </p>
+        <dl class="stats">
+          <div><dt>Events</dt><dd>{graph.events.length}</dd></div>
+          <div><dt>Players</dt><dd>{graph.player_assets.length}</dd></div>
+          <div><dt>Picks</dt><dd>{graph.pick_assets.length}</dd></div>
+          <div><dt>Transitions</dt><dd>{graph.transitions.length}</dd></div>
+        </dl>
+      </section>
 
-      <section class="atlas" aria-label="Memphis asset lineage timeline">
-        <div class="graph-frame">
-          <div class="timeline-shell">
-            <svg
-              id="timeline-svg"
-              viewBox={`0 0 ${initialLayout.width} ${initialLayout.height}`}
-              width={initialLayout.width}
-              height={initialLayout.height}
-              role="img"
-              aria-label="Memphis asset lineage graph"
-            >
-              <g id="timeline-scene" set:html={sceneMarkup}></g>
-            </svg>
+      <section class="graph-panel">
+        <header class="graph-panel__header">
+          <div>
+            <h2>Asset graph</h2>
+            <p>{graph.span_start} to {graph.span_end}</p>
           </div>
+        </header>
+
+        <div class="graph-scroll">
+          <svg
+            class="graph"
+            viewBox={`0 0 ${layout.width} ${layout.height}`}
+            width={layout.width}
+            height={layout.height}
+            role="img"
+            aria-label="Memphis asset lineage graph"
+          >
+            <defs>
+              <marker
+                id="connector-arrow-in"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(17, 109, 103, 0.75)" />
+              </marker>
+              <marker
+                id="connector-arrow-out"
+                viewBox="0 0 8 8"
+                refX="7"
+                refY="4"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(143, 34, 49, 0.78)" />
+              </marker>
+              <marker
+                id="connector-cap-waiver"
+                viewBox="0 0 10 10"
+                refX="5"
+                refY="5"
+                markerWidth="7"
+                markerHeight="7"
+                markerUnits="strokeWidth"
+                orient="auto"
+              >
+                <circle cx="5" cy="5" r="3.2" fill="var(--panel)" stroke="rgba(124, 107, 77, 0.82)" stroke-width="1.6" />
+              </marker>
+            </defs>
+
+            <g class="grid">
+              {layout.rows.map((row) => (
+                <line x1="0" y1={row.y} x2={layout.width} y2={row.y} class:list={["grid-line", row.band === "pick" ? "grid-line--pick" : ""]} />
+              ))}
+              <line x1="0" y1={layout.playerBandEndY + 16} x2={layout.width} y2={layout.playerBandEndY + 16} class="band-divider" />
+            </g>
+
+            {layout.dateTicks && layout.dateTicks.length > 0 && (
+              <g class="date-ticks" aria-hidden="true">
+                {layout.dateTicks.map((tick) => (
+                  <>
+                    <line
+                      x1={tick.x}
+                      y1="25"
+                      x2={tick.x}
+                      y2="31"
+                      class:list={["date-tick", isMonthStartTick(tick.date) ? "date-tick--anchor" : ""]}
+                    />
+                    {isMonthStartTick(tick.date) && (
+                      <text x={tick.x} y="18" text-anchor="middle" class="date-label">
+                        {formatMonthAnchor(tick.date)}
+                      </text>
+                    )}
+                  </>
+                ))}
+              </g>
+            )}
+
+            <g class="asset-segments">
+              {layout.segments.map((segment) => (
+                <>
+                  <line
+                    x1={segment.x1}
+                    y1={segment.y}
+                    x2={segment.x2}
+                    y2={segment.y}
+                    class:list={["segment", segment.kind === "pick" ? "segment--pick" : "segment--player"]}
+                  />
+                  {shouldRenderSegmentLabel(segment) && (
+                    <text
+                      x={segment.x1 + 6}
+                      y={segment.y - 7}
+                      class:list={["segment-label", segment.kind === "pick" ? "segment-label--pick" : "segment-label--player"]}
+                    >
+                      {segment.label}
+                    </text>
+                  )}
+                </>
+              ))}
+            </g>
+
+            <g class="slot-labels">
+              {layout.rows.map((row) => (
+                <>
+                  <text x="14" y={row.y + 4} class:list={["slot-label", row.band === "pick" ? "slot-label--pick" : ""]}>
+                    {row.label}
+                  </text>
+                  <circle cx="58" cy={row.y} r="4.5" class:list={["slot-dot", row.band === "pick" ? "slot-dot--pick" : ""]} />
+                </>
+              ))}
+            </g>
+
+            <g class="event-connectors">
+              {layout.eventPoints.map((event) => (
+                <line
+                  x1={event.x}
+                  y1={event.minY}
+                  x2={event.x}
+                  y2={event.maxY}
+                  class:list={["event-spine", `event-spine--${event.eventType}`]}
+                />
+              ))}
+              {layout.connectors.map((connector) => (
+                <path
+                  d={getConnectorPath(connector)}
+                  marker-end={getConnectorMarker(connector)}
+                  class:list={[
+                    "connector",
+                    isTerminationConnector(connector)
+                      ? "connector--termination"
+                      : connector.direction === "out"
+                        ? "connector--out"
+                        : connector.direction === "move"
+                          ? "connector--move"
+                          : "connector--in",
+                  ]}
+                />
+              ))}
+            </g>
+          </svg>
         </div>
       </section>
     </main>
@@ -63,50 +259,49 @@ const sceneMarkup = renderTimelineScene(initialLayout);
 </html>
 
 <style is:global>
-  :global(:root) {
-    --page-ink: #11202a;
-    --page-muted: rgba(17, 32, 42, 0.7);
-    --page-line: rgba(17, 32, 42, 0.12);
-    --page-panel: rgba(255, 251, 245, 0.86);
-    --page-panel-strong: rgba(255, 253, 249, 0.94);
-    --roster: #00756d;
-    --two-way: #bf6b2d;
-    --future-picks: #9b7b17;
-    --accent: #8f2231;
+  :root {
+    color-scheme: light;
+    --ink: #10212b;
+    --muted: #5f6d76;
+    --line: rgba(16, 33, 43, 0.14);
+    --paper: #f4ecdf;
+    --panel: #fffdf8;
+    --player: #116d67;
+    --pick: #9a5b1f;
+    --event-trade: #8f2231;
+    --event-signing: #204d8d;
+    --event-waiver: #7c6b4d;
+    --event-draft: #6a3ba5;
   }
 
-  :global(body) {
+  body {
     margin: 0;
-    color: var(--page-ink);
-    background:
-      radial-gradient(circle at top left, rgba(0, 117, 109, 0.12), transparent 26%),
-      radial-gradient(circle at right, rgba(191, 107, 45, 0.12), transparent 24%),
-      linear-gradient(180deg, #f7f1e5 0%, #efe6d6 48%, #f9f6ef 100%);
+    color: var(--ink);
+    background: linear-gradient(180deg, #faf6ee 0%, #efe3d1 100%);
     font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
   }
 
   .page {
-    max-width: 1680px;
+    max-width: none;
     margin: 0 auto;
-    padding: 24px 18px 36px;
+    padding: 20px 16px 40px;
   }
 
-  .heading,
-  .graph-frame {
-    border: 1px solid var(--page-line);
-    background: var(--page-panel);
-    box-shadow: 0 22px 56px rgba(90, 62, 33, 0.08);
+  .hero,
+  .graph-panel {
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: rgba(255, 253, 248, 0.96);
+    box-shadow: 0 16px 34px rgba(50, 34, 14, 0.06);
   }
 
-  .heading {
-    margin-bottom: 16px;
-    padding: 20px 22px;
-    border-radius: 24px;
+  .hero {
+    padding: 22px;
   }
 
   .eyebrow {
-    margin: 0 0 12px;
-    color: var(--accent);
+    margin: 0 0 10px;
+    color: var(--event-trade);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -116,333 +311,208 @@ const sceneMarkup = renderTimelineScene(initialLayout);
   h1,
   h2 {
     margin: 0;
-    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-    font-weight: 600;
+    font-family: "Iowan Old Style", Georgia, serif;
   }
 
   h1 {
-    max-width: 12ch;
-    font-size: clamp(2.2rem, 4vw, 3.8rem);
+    max-width: 16ch;
+    font-size: clamp(1.9rem, 3.2vw, 3.2rem);
     line-height: 0.95;
-    letter-spacing: -0.03em;
   }
 
-  h2 {
-    max-width: 20ch;
-    font-size: clamp(1.55rem, 2.1vw, 2.15rem);
-    line-height: 1;
+  .lede {
+    max-width: 70ch;
+    margin: 16px 0 0;
+    color: var(--muted);
+    line-height: 1.6;
   }
 
-  .heading__range {
-    margin: 12px 0 0;
-    color: var(--page-muted);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(100px, 1fr));
+    gap: 12px;
+    margin: 20px 0 0;
+  }
+
+  .stats div {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .stats dt {
+    color: var(--muted);
+    font-size: 0.76rem;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
-  .atlas {
-    margin: 0;
+  .stats dd {
+    margin: 8px 0 0;
+    font-size: 1.4rem;
+    font-weight: 700;
   }
 
-  .graph-frame {
-    padding: 16px;
-    border-radius: 28px;
-    background:
-      linear-gradient(180deg, rgba(255, 252, 247, 0.98), rgba(248, 242, 233, 0.98)),
-      var(--page-panel-strong);
+  .graph-panel {
+    margin-top: 18px;
+    padding: 14px;
   }
 
-  .timeline-shell {
+  .graph-panel__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .graph-panel__header p {
+    margin: 8px 0 0;
+    color: var(--muted);
+  }
+
+  .graph-scroll {
+    margin-top: 12px;
     overflow-x: auto;
-    overflow-y: hidden;
-    min-height: min(82vh, 1080px);
-    border-radius: 24px;
-    border: 1px solid rgba(17, 32, 42, 0.14);
-    background:
-      linear-gradient(180deg, rgba(251, 246, 238, 0.98), rgba(245, 237, 225, 0.98)),
-      repeating-linear-gradient(
-        90deg,
-        rgba(17, 32, 42, 0.025) 0,
-        rgba(17, 32, 42, 0.025) 1px,
-        transparent 1px,
-        transparent 48px
-      );
-    scrollbar-gutter: stable both-edges;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 242, 233, 0.98));
   }
 
-  .timeline-shell::-webkit-scrollbar {
-    height: 14px;
-  }
-
-  .timeline-shell::-webkit-scrollbar-thumb {
-    border: 3px solid rgba(0, 0, 0, 0);
-    border-radius: 999px;
-    background: rgba(17, 32, 42, 0.28);
-    background-clip: padding-box;
-  }
-
-  svg {
+  .graph {
     display: block;
   }
 
-  .timeline-band__fill {
-    stroke: none;
-  }
-
-  .timeline-band__boundary {
-    stroke: rgba(17, 32, 42, 0.08);
+  .grid-line {
+    stroke: rgba(16, 33, 43, 0.06);
     stroke-width: 1;
   }
 
-  .timeline-band__label {
-    fill: rgba(17, 32, 42, 0.68);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+  .grid-line--pick {
+    stroke: rgba(154, 91, 31, 0.06);
   }
 
-  .timeline-band--main_roster .timeline-band__fill {
-    fill: rgba(0, 117, 109, 0.09);
-  }
-
-  .timeline-band--two_way .timeline-band__fill {
-    fill: rgba(191, 107, 45, 0.08);
-  }
-
-  .timeline-band--future_picks .timeline-band__fill {
-    fill: rgba(155, 123, 23, 0.08);
-  }
-
-  .timeline-grid__lane {
-    stroke: rgba(17, 32, 42, 0.06);
-    stroke-width: 1;
-  }
-
-  .timeline-axis__tick {
-    stroke: rgba(17, 32, 42, 0.08);
-    stroke-width: 1;
-  }
-
-  .timeline-axis__tick--major {
-    stroke: rgba(143, 34, 49, 0.26);
-  }
-
-  .timeline-axis__label {
-    fill: rgba(17, 32, 42, 0.56);
-    font-size: 11px;
-    text-anchor: middle;
-  }
-
-  .timeline-axis__label--major {
-    fill: var(--accent);
-    font-weight: 700;
-  }
-
-  .timeline-marker__line {
-    stroke: rgba(143, 34, 49, 0.38);
+  .band-divider {
+    stroke: rgba(16, 33, 43, 0.22);
     stroke-width: 1.5;
-    stroke-dasharray: 4 5;
+    stroke-dasharray: 6 4;
   }
 
-  .timeline-marker__badge {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(143, 34, 49, 0.2);
-  }
-
-  .timeline-marker__text {
-    fill: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-  }
-
-  .timeline-strand {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    opacity: 0.96;
-    cursor: pointer;
-    transition: opacity 120ms ease, filter 120ms ease;
-  }
-
-  .timeline-strand--main_roster {
-    stroke: var(--roster);
-  }
-
-  .timeline-strand--two_way {
-    stroke: var(--two-way);
-    stroke-dasharray: 18 10;
-  }
-
-  .timeline-strand--future_picks,
-  .timeline-strand--pick_line {
-    stroke: var(--future-picks);
-  }
-
-  .timeline-inline-label,
-  .timeline-identity-marker {
-    pointer-events: none;
-  }
-
-  .timeline-inline-label__pill {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(17, 32, 42, 0.18);
+  .date-tick {
+    stroke: rgba(16, 33, 43, 0.12);
     stroke-width: 1;
-  }
-
-  .timeline-inline-label__text {
-    fill: var(--page-ink);
-    font-size: 12px;
-    font-weight: 700;
-    text-anchor: middle;
-  }
-
-  .timeline-inline-label--main_roster .timeline-inline-label__pill {
-    stroke: rgba(0, 117, 109, 0.32);
-  }
-
-  .timeline-inline-label--two_way .timeline-inline-label__pill {
-    stroke: rgba(191, 107, 45, 0.32);
-  }
-
-  .timeline-inline-label--future_picks .timeline-inline-label__pill {
-    stroke: rgba(155, 123, 23, 0.32);
-  }
-
-  .timeline-identity-marker__pill {
-    fill: rgba(255, 253, 249, 0.98);
-    stroke: rgba(17, 32, 42, 0.18);
-    stroke-width: 1;
-  }
-
-  .timeline-identity-marker__text {
-    fill: var(--page-ink);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .timeline-identity-marker__avatar-frame {
-    fill: rgba(255, 253, 249, 0.98);
-    stroke: rgba(17, 32, 42, 0.2);
-    stroke-width: 1.5;
-  }
-
-  .timeline-identity-marker--main_roster .timeline-identity-marker__pill {
-    stroke: rgba(0, 117, 109, 0.32);
-  }
-
-  .timeline-identity-marker--two_way .timeline-identity-marker__pill {
-    stroke: rgba(191, 107, 45, 0.32);
-  }
-
-  .timeline-identity-marker--future_picks .timeline-identity-marker__pill {
-    stroke: rgba(155, 123, 23, 0.32);
-  }
-
-  .timeline-junction__spine,
-  .timeline-junction__stem {
-    fill: none;
     stroke-linecap: round;
-    stroke-linejoin: round;
   }
 
-  .timeline-junction__spine {
-    stroke: rgba(17, 32, 42, 0.26);
-    stroke-width: 1.8;
+  .date-tick--anchor {
+    stroke: rgba(16, 33, 43, 0.18);
   }
 
-  .timeline-junction__stem {
-    stroke-width: 2.4;
-    opacity: 0.88;
+  .date-label {
+    fill: rgba(16, 33, 43, 0.72);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
   }
 
-  .timeline-junction__stem--main_roster {
-    stroke: rgba(0, 117, 109, 0.56);
-  }
-
-  .timeline-junction__stem--two_way {
-    stroke: rgba(191, 107, 45, 0.54);
-  }
-
-  .timeline-junction__stem--future_picks {
-    stroke: rgba(155, 123, 23, 0.56);
-  }
-
-  .timeline-transition {
-    fill: none;
+  .segment {
+    stroke: var(--player);
+    stroke-width: 4.5;
     stroke-linecap: round;
-    stroke-linejoin: round;
-    opacity: 0.94;
   }
 
-  .timeline-transition--same_asset {
-    stroke: rgba(17, 32, 42, 0.82);
+  .segment--pick {
+    stroke: var(--pick);
     stroke-width: 2.5;
+    stroke-dasharray: 7 5;
   }
 
-  .timeline-transition--pick_to_player {
-    stroke: var(--future-picks);
-    stroke-width: 3;
+  .segment-label {
+    fill: var(--ink);
+    font-size: 9px;
   }
 
-  .timeline-transition--event_transition {
-    stroke: rgba(17, 32, 42, 0.52);
-    stroke-width: 2.3;
-    stroke-dasharray: 10 7;
+  .segment-label--player {
+    fill: rgba(16, 33, 43, 0.76);
   }
 
-  .timeline-node {
-    cursor: pointer;
+  .segment-label--pick {
+    fill: var(--pick);
   }
 
-  .timeline-node__ring {
-    fill: rgba(255, 252, 247, 0.98);
-    stroke: rgba(17, 32, 42, 0.28);
-    stroke-width: 1.5;
+  .slot-label {
+    fill: rgba(16, 33, 43, 0.55);
+    font-size: 11px;
+    font-weight: 600;
   }
 
-  .timeline-node__dot {
-    fill: var(--page-ink);
-    stroke: rgba(255, 252, 247, 0.98);
-    stroke-width: 2.5;
+  .slot-label--pick {
+    fill: rgba(154, 91, 31, 0.8);
   }
 
-  .timeline-strand.is-focused,
-  .timeline-node.is-focused,
-  .timeline-strand:hover,
-  .timeline-node:hover {
-    filter: drop-shadow(0 0 10px rgba(143, 34, 49, 0.16));
-    opacity: 1;
+  .slot-dot {
+    fill: var(--player);
   }
 
-  .is-hidden {
-    display: none;
+  .slot-dot--pick {
+    fill: var(--pick);
   }
 
-  .is-muted {
-    opacity: 0.6;
+  .connector {
+    fill: none;
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
-  @media (max-width: 1180px) {
-    h1 {
-      max-width: 14ch;
-    }
+  .connector--in {
+    stroke: rgba(17, 109, 103, 0.48);
   }
 
-  @media (max-width: 760px) {
-    .page {
-      padding: 16px 10px 28px;
-    }
+  .connector--out {
+    stroke: rgba(143, 34, 49, 0.5);
+  }
 
-    .heading,
-    .graph-frame {
-      padding: 16px;
-    }
+  .connector--termination {
+    stroke: rgba(124, 107, 77, 0.62);
+  }
 
-    h1 {
-      font-size: clamp(2.2rem, 11vw, 3.9rem);
+  .connector--move {
+    stroke: rgba(16, 33, 43, 0.22);
+    stroke-dasharray: 5 5;
+  }
+
+  .event-spine {
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  .event-spine--trade {
+    stroke: rgba(143, 34, 49, 0.24);
+  }
+
+  .event-spine--signing {
+    stroke: rgba(32, 77, 141, 0.2);
+  }
+
+  .event-spine--waiver {
+    stroke: rgba(124, 107, 77, 0.2);
+  }
+
+  .event-spine--draft {
+    stroke: rgba(106, 59, 165, 0.2);
+  }
+
+  .event-label {
+    fill: var(--ink);
+    font-size: 9px;
+  }
+
+  @media (max-width: 720px) {
+    .stats {
+      grid-template-columns: repeat(2, minmax(100px, 1fr));
     }
   }
 </style>

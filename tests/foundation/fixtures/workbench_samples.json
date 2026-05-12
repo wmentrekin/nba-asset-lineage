@@ -1,0 +1,31 @@
+{
+  "basketball_reference_examples": [
+    {
+      "source_record_id": "bref:mem:2024:2023-07-11",
+      "event_date": "2023-07-11",
+      "note_text": "Traded a 2025 2nd round draft pick (Ryan Kalkbrenner was later selected), a 2028 2nd round draft pick and a 2029 2nd round draft pick to the Phoenix Suns for Isaiah Todd, a 2024 1st round draft pick and a 2030 1st round draft pick. 2024 1st-rd pick was a right to swap, did not convey. 2030 1st-rd pick is a right to swap. 2028 2nd-rd pick is MEM own. 2029 2nd-rd pick is MEM own. 2025 2nd-rd pick is NOP own."
+    },
+    {
+      "source_record_id": "bref:mem:2024:2024-02-08",
+      "event_date": "2024-02-08",
+      "note_text": "As part of a 3-team trade, the Memphis Grizzlies traded David Roddy to the Phoenix Suns; the Memphis Grizzlies traded Vanja Marinkovic to the Brooklyn Nets; the Brooklyn Nets traded Royce O'Neale to the Phoenix Suns; the Phoenix Suns traded Keita Bates-Diop, Jordan Goodwin, a 2026 2nd round draft pick, a 2028 2nd round draft pick and a 2029 2nd round draft pick to the Brooklyn Nets; and the Phoenix Suns traded Chimezie Metu, Yuta Watanabe and a 2026 1st round draft pick to the Memphis Grizzlies. Memphis also received a trade exception. 2026 1st-rd pick is a right to swap. 2026 2nd-rd pick is least favorable. 2028 2nd-rd pick is MEM own. 2029 2nd-rd pick is MEM own."
+    },
+    {
+      "source_record_id": "bref:mem:2024:2024-01-10",
+      "event_date": "2024-01-10",
+      "note_text": "Converted Vince Williams Jr. from a two-way contract to a regular contract. Waived Bismack Biyombo."
+    }
+  ],
+  "common_all_players_example": {
+    "PERSON_ID": 1629630,
+    "DISPLAY_FIRST_LAST": "Ja Morant"
+  },
+  "common_team_roster_example": {
+    "TeamID": 1610612763,
+    "SEASON": "2023-24",
+    "PLAYER": "Ja Morant",
+    "POSITION": "G",
+    "BIRTH_DATE": "AUG 10, 1999",
+    "PLAYER_ID": 1629630
+  }
+}
