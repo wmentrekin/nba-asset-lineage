@@ -29,6 +29,7 @@ SAMPLE_FETCHED_AT = "2026-05-08T00:00:00Z"
 DEFAULT_PLAYER_ALIAS_OVERRIDES = {
     "kenny lofton jr": "Kenneth Lofton Jr.",
 }
+MAX_ROSTER_SNAPSHOT_PLAYERS = 18
 
 
 class SourceRecordRow(BaseModel):
@@ -128,6 +129,14 @@ class RosterSnapshotPickRow(BaseModel):
     asset_id: str | None = None
     holding_status: str = "owned"
     display_order: int | None = None
+
+
+class RosterMembershipEvent(BaseModel):
+    event_date: str
+    source_event_id: str
+    player_id: str
+    display_name: str
+    effect: Literal["in", "out"]
 
 
 class DraftSelectionRow(BaseModel):
@@ -282,6 +291,8 @@ def load_derived_foundation_entities(database_url: str) -> dict[str, int]:
 
 def build_roster_snapshots_from_baselines(
     baseline_players: list[RosterBaselinePlayerRow],
+    source_events: list[SourceEventRow] | None = None,
+    player_aliases: list[PlayerAliasRow] | None = None,
 ) -> tuple[list[RosterSnapshotRow], list[RosterSnapshotPlayerRow]]:
     grouped: dict[tuple[str, str, str], list[RosterBaselinePlayerRow]] = {}
     for row in baseline_players:
@@ -289,6 +300,7 @@ def build_roster_snapshots_from_baselines(
 
     snapshots: list[RosterSnapshotRow] = []
     snapshot_players: list[RosterSnapshotPlayerRow] = []
+    source_events = source_events or []
     for (season, team_code, source_record_id), rows in sorted(grouped.items()):
         start_year, end_year = parse_season_years(season)
         checkpoint_dates = {
@@ -297,6 +309,16 @@ def build_roster_snapshots_from_baselines(
             "post_deadline": f"{end_year}-02-15",
             "season_closing": f"{end_year}-06-30",
         }
+        season_events = [
+            event
+            for event in source_events
+            if f"{start_year}-07-01" <= event.event_date <= f"{end_year}-06-30"
+        ]
+        membership_events = build_roster_membership_events(
+            season_events,
+            baseline_players=rows,
+            player_aliases=player_aliases or [],
+        )
         for snapshot_kind, snapshot_date in checkpoint_dates.items():
             snapshot_id = f"snapshot:{team_code.lower()}:{season}:{snapshot_kind}"
             snapshots.append(
@@ -307,17 +329,22 @@ def build_roster_snapshots_from_baselines(
                     season=season,
                     team_code=team_code,
                     source_record_id=source_record_id,
-                    notes="Derived from Basketball-Reference season roster page; not a date-exact transaction-state snapshot.",
+                    notes="Date-aware reconstruction from Basketball-Reference season roster page plus loaded transaction events.",
                 )
             )
-            for player in sorted(rows, key=lambda item: item.roster_order):
+            active_players = project_active_roster_players(
+                snapshot_date=snapshot_date,
+                baseline_players=rows,
+                membership_events=membership_events,
+            )
+            for depth_order, player in enumerate(active_players, start=1):
                 snapshot_players.append(
                     RosterSnapshotPlayerRow(
                         snapshot_id=snapshot_id,
                         player_id=player.player_id,
-                        asset_id=f"asset:player:{slugify(player.display_name)}",
+                        asset_id=build_player_asset_id_from_player_id(player.player_id),
                         roster_status="standard",
-                        depth_order=player.roster_order,
+                        depth_order=depth_order,
                         is_two_way=False,
                         is_standard_contract=True,
                     )
@@ -327,15 +354,143 @@ def build_roster_snapshots_from_baselines(
 
 def load_roster_snapshots_from_baselines(database_url: str) -> dict[str, int]:
     baseline_players = load_roster_baseline_players_from_database(database_url)
-    snapshots, snapshot_players = build_roster_snapshots_from_baselines(baseline_players)
+    source_events = load_source_events_from_database(database_url)
+    player_aliases = load_player_aliases_from_database(database_url)
+    snapshots, snapshot_players = build_roster_snapshots_from_baselines(
+        baseline_players,
+        source_events=source_events,
+        player_aliases=player_aliases,
+    )
     with psycopg.connect(database_url, connect_timeout=10) as connection:
         upsert_roster_snapshots(connection, snapshots)
-        upsert_roster_snapshot_players(connection, snapshot_players)
+        replace_roster_snapshot_players(connection, snapshot_players)
         connection.commit()
     return {
         "roster_snapshots": len(snapshots),
         "roster_snapshot_players": len(snapshot_players),
     }
+
+
+def build_roster_membership_events(
+    source_events: list[SourceEventRow],
+    *,
+    baseline_players: list[RosterBaselinePlayerRow],
+    player_aliases: list[PlayerAliasRow],
+) -> list[RosterMembershipEvent]:
+    player_id_by_display_key = {
+        normalize_player_alias_name(player.display_name): player.player_id
+        for player in baseline_players
+    }
+    alias_lookup = build_player_alias_lookup(player_aliases, player_id_by_display_key)
+    events: list[RosterMembershipEvent] = []
+
+    for source_event in sorted(source_events, key=lambda item: (item.event_date, item.source_event_id)):
+        inbound_names, outbound_names = roster_membership_change_names(source_event)
+        for player_name in inbound_names:
+            player_id = resolve_player_id(player_name, player_id_by_display_key, alias_lookup) or f"player:{slugify(player_name)}"
+            events.append(
+                RosterMembershipEvent(
+                    event_date=source_event.event_date,
+                    source_event_id=source_event.source_event_id,
+                    player_id=player_id,
+                    display_name=player_name,
+                    effect="in",
+                )
+            )
+        for player_name in outbound_names:
+            player_id = resolve_player_id(player_name, player_id_by_display_key, alias_lookup) or f"player:{slugify(player_name)}"
+            events.append(
+                RosterMembershipEvent(
+                    event_date=source_event.event_date,
+                    source_event_id=source_event.source_event_id,
+                    player_id=player_id,
+                    display_name=player_name,
+                    effect="out",
+                )
+            )
+    return events
+
+
+def roster_membership_change_names(source_event: SourceEventRow) -> tuple[list[str], list[str]]:
+    payload = source_event.normalized_payload
+    if source_event.event_type in {"re_signing", "extension", "conversion"}:
+        return [], []
+    inbound_names = [
+        name
+        for name in payload.get("player_names_in", [])
+        if isinstance(name, str) and name.strip()
+    ]
+    outbound_names = [
+        name
+        for name in payload.get("player_names_out", [])
+        if isinstance(name, str) and name.strip()
+    ]
+    if source_event.event_type in {"waiver", "release"}:
+        return [], outbound_names
+    if source_event.event_type in {"trade", "draft", "signing"}:
+        return inbound_names, outbound_names
+    return [], []
+
+
+def project_active_roster_players(
+    *,
+    snapshot_date: str,
+    baseline_players: list[RosterBaselinePlayerRow],
+    membership_events: list[RosterMembershipEvent],
+) -> list[RosterBaselinePlayerRow]:
+    baseline_by_player_id = {player.player_id: player for player in baseline_players}
+    display_name_by_player_id = {player.player_id: player.display_name for player in baseline_players}
+    order_by_player_id = {player.player_id: player.roster_order for player in baseline_players}
+    events_by_player_id: dict[str, list[RosterMembershipEvent]] = {}
+    for event in membership_events:
+        events_by_player_id.setdefault(event.player_id, []).append(event)
+        display_name_by_player_id.setdefault(event.player_id, event.display_name)
+
+    player_ids = set(baseline_by_player_id) | set(events_by_player_id)
+    active_players: list[RosterBaselinePlayerRow] = []
+    for player_id in player_ids:
+        history = sorted(events_by_player_id.get(player_id, []), key=lambda event: (event.event_date, event.source_event_id))
+        prior_events = [event for event in history if event.event_date <= snapshot_date]
+        future_events = [event for event in history if event.event_date > snapshot_date]
+        if prior_events:
+            is_active = prior_events[-1].effect == "in"
+        elif player_id in baseline_by_player_id:
+            is_active = not (future_events and future_events[0].effect == "in")
+        else:
+            is_active = False
+        if not is_active:
+            continue
+
+        baseline = baseline_by_player_id.get(player_id)
+        if baseline is not None:
+            active_players.append(baseline)
+            continue
+        display_name = display_name_by_player_id[player_id]
+        active_players.append(
+            RosterBaselinePlayerRow(
+                season=baseline_players[0].season if baseline_players else "",
+                team_code=baseline_players[0].team_code if baseline_players else "MEM",
+                player_id=player_id,
+                display_name=display_name,
+                source_record_id=baseline_players[0].source_record_id if baseline_players else "source:transaction-derived",
+                roster_order=max(order_by_player_id.values(), default=0) + 1000,
+            )
+        )
+
+    return sorted(
+        active_players,
+        key=lambda player: (
+            order_by_player_id.get(player.player_id, 1000),
+            player.display_name,
+            player.player_id,
+        ),
+    )[:MAX_ROSTER_SNAPSHOT_PLAYERS]
+
+
+def build_player_asset_id_from_player_id(player_id: str) -> str:
+    if player_id.startswith("player:"):
+        return f"asset:player:{player_id.removeprefix('player:')}"
+    return f"asset:player:{slugify(player_id)}"
 
 
 def parse_season_years(season: str) -> tuple[int, int]:
@@ -944,6 +1099,18 @@ def upsert_roster_snapshot_players(connection: psycopg.Connection, rows: list[Ro
                     row.is_standard_contract,
                 ),
             )
+
+
+def replace_roster_snapshot_players(connection: psycopg.Connection, rows: list[RosterSnapshotPlayerRow]) -> None:
+    snapshot_ids = sorted({row.snapshot_id for row in rows})
+    if not snapshot_ids:
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "delete from foundation.roster_snapshot_player where snapshot_id = any(%s)",
+            (snapshot_ids,),
+        )
+    upsert_roster_snapshot_players(connection, rows)
 
 
 def upsert_roster_snapshot_picks(connection: psycopg.Connection, rows: list[RosterSnapshotPickRow]) -> None:

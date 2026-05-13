@@ -17,7 +17,7 @@ Current live `foundation` counts after the full-span rebuild:
 - `asset`: 309
 - `roster_baseline_player`: 222
 - `roster_snapshot`: 40
-- `roster_snapshot_player`: 888
+- `roster_snapshot_player`: 644
 - `roster_snapshot_pick`: 0
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
@@ -87,13 +87,13 @@ Resolved in this pass:
 - curated Memphis draft-slot rows now link all `draft_selection` rows to
   slot-based `pick` assets with provenance in `draft_pick_resolution`
 - roster checkpoint rows now export instead of leaving `roster_snapshots` empty
+- roster checkpoint player rows are now capped, date-aware reconstructions from
+  Basketball-Reference season roster pages plus loaded transaction events
 - `draft_pick_resolution` rows now emit graph-facing `pick_to_player`
   transitions and synthetic draft events for the frontend export
 
 Known gaps:
 
-- Basketball-Reference roster pages are season roster references, not exact
-  checkpoint snapshots.
 - `roster_snapshot_pick` is still empty because current pick inventory snapshots
   are not sourced yet.
 - `draft_lottery_result` is still empty; lottery data is contextual and not

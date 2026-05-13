@@ -566,7 +566,6 @@ def main() -> None:
                 "roster_snapshots": len(export.roster_snapshots),
             },
             "known_gaps": [
-                "Basketball-Reference roster pages are season roster references, not date-exact checkpoint snapshots.",
                 "Two-way versus standard contract status still needs a richer source.",
                 "Future pick inventory snapshots are not populated yet.",
                 "Draft lottery results remain contextual and are not loaded by this command yet.",

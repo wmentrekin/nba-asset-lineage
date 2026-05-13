@@ -93,8 +93,8 @@ The repo now has:
 - Basketball-Reference transaction, roster, and draft sources are HTML pages, so
   these loaders are scrapers.
 - NBA stats reference loading uses JSON endpoints.
-- Basketball-Reference season roster pages are useful roster references, but they
-  are not date-exact opening/deadline/closing roster snapshots.
+- Roster checkpoint rows are capped, date-aware reconstructions from
+  Basketball-Reference season roster pages plus loaded transaction events.
 - Two-way versus standard contract status is represented in the schema, but it
   still needs a stronger source than the current BRef roster loader.
 - Draft selections are linked to curated Memphis draft-slot pick assets and now

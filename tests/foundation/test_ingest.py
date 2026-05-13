@@ -3,8 +3,10 @@ from foundation.ingest import (
     RosterBaselinePlayerRow,
     SourceEventRow,
     build_foundation_ingest_sample_bundle,
+    build_roster_membership_events,
     build_roster_snapshots_from_baselines,
     derive_foundation_entities_from_source_events,
+    project_active_roster_players,
 )
 
 
@@ -142,6 +144,167 @@ def test_roster_snapshots_from_baselines_create_four_checkpoint_rows() -> None:
         "2024-06-30",
     ]
     assert len(snapshot_players) == 4
+
+
+def test_roster_snapshots_apply_date_aware_transaction_membership() -> None:
+    baselines = [
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id="player:incumbent",
+            display_name="Incumbent Player",
+            source_record_id="bref:mem:2024:roster",
+            roster_order=1,
+        ),
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id="player:later-arrival",
+            display_name="Later Arrival",
+            source_record_id="bref:mem:2024:roster",
+            roster_order=2,
+        ),
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id="player:early-departure",
+            display_name="Early Departure",
+            source_record_id="bref:mem:2024:roster",
+            roster_order=3,
+        ),
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id="player:re-signed-incumbent",
+            display_name="Re-signed Incumbent",
+            source_record_id="bref:mem:2024:roster",
+            roster_order=4,
+        ),
+    ]
+    source_events = [
+        SourceEventRow(
+            source_event_id="event:signing:later-arrival",
+            source_record_id="source:1",
+            event_date="2024-01-10",
+            event_type="signing",
+            label="Memphis signed Later Arrival",
+            team_scope="memphis-grizzlies",
+            source_group_hint=None,
+            normalized_payload={
+                "player_names_in": ["Later Arrival"],
+                "player_names_out": [],
+                "pick_details_in": [],
+                "pick_details_out": [],
+            },
+        ),
+        SourceEventRow(
+            source_event_id="event:waiver:early-departure",
+            source_record_id="source:2",
+            event_date="2023-12-01",
+            event_type="waiver",
+            label="Memphis waived Early Departure",
+            team_scope="memphis-grizzlies",
+            source_group_hint=None,
+            normalized_payload={
+                "player_names_in": [],
+                "player_names_out": ["Early Departure"],
+                "pick_details_in": [],
+                "pick_details_out": [],
+            },
+        ),
+        SourceEventRow(
+            source_event_id="event:resign:incumbent",
+            source_record_id="source:3",
+            event_date="2024-01-05",
+            event_type="re_signing",
+            label="Memphis re-signed Re-signed Incumbent",
+            team_scope="memphis-grizzlies",
+            source_group_hint=None,
+            normalized_payload={
+                "player_names_in": ["Re-signed Incumbent"],
+                "player_names_out": [],
+                "pick_details_in": [],
+                "pick_details_out": [],
+            },
+        ),
+    ]
+
+    snapshots, snapshot_players = build_roster_snapshots_from_baselines(
+        baselines,
+        source_events=source_events,
+    )
+
+    by_snapshot = {}
+    for row in snapshot_players:
+        by_snapshot.setdefault(row.snapshot_id, set()).add(row.player_id)
+
+    post_draft_ids = by_snapshot["snapshot:mem:2023-24:post_draft"]
+    post_deadline_ids = by_snapshot["snapshot:mem:2023-24:post_deadline"]
+
+    assert "player:incumbent" in post_draft_ids
+    assert "player:re-signed-incumbent" in post_draft_ids
+    assert "player:early-departure" in post_draft_ids
+    assert "player:later-arrival" not in post_draft_ids
+    assert "player:incumbent" in post_deadline_ids
+    assert "player:re-signed-incumbent" in post_deadline_ids
+    assert "player:early-departure" not in post_deadline_ids
+    assert "player:later-arrival" in post_deadline_ids
+    assert all("Date-aware reconstruction" in snapshot.notes for snapshot in snapshots)
+
+
+def test_project_active_roster_players_can_include_transaction_only_arrivals() -> None:
+    membership_events = build_roster_membership_events(
+        [
+            SourceEventRow(
+                source_event_id="event:trade:arrival",
+                source_record_id="source:1",
+                event_date="2024-02-01",
+                event_type="trade",
+                label="Memphis trade",
+                team_scope="memphis-grizzlies",
+                source_group_hint=None,
+                normalized_payload={
+                    "player_names_in": ["Transaction Only"],
+                    "player_names_out": [],
+                    "pick_details_in": [],
+                    "pick_details_out": [],
+                },
+            )
+        ],
+        baseline_players=[],
+        player_aliases=[],
+    )
+
+    players = project_active_roster_players(
+        snapshot_date="2024-02-15",
+        baseline_players=[],
+        membership_events=membership_events,
+    )
+
+    assert [player.player_id for player in players] == ["player:transaction-only"]
+
+
+def test_project_active_roster_players_caps_checkpoint_membership_to_visible_slots() -> None:
+    baseline_players = [
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id=f"player:{index}",
+            display_name=f"Player {index}",
+            source_record_id="bref:mem:2024:roster",
+            roster_order=index,
+        )
+        for index in range(1, 25)
+    ]
+
+    players = project_active_roster_players(
+        snapshot_date="2024-02-15",
+        baseline_players=baseline_players,
+        membership_events=[],
+    )
+
+    assert len(players) == 18
+    assert [player.player_id for player in players[-2:]] == ["player:17", "player:18"]
 
 
 def test_reference_players_are_included_in_derived_assets() -> None:

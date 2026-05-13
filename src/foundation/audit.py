@@ -186,6 +186,7 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
             "by_kind": [],
             "by_season": [],
             "contract_status": [],
+            "date_aware_reconstruction": 0,
             "derived_from_roster_baseline": 0,
         }
 
@@ -232,9 +233,19 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
             """
             select count(*)
             from foundation.roster_snapshot
-            where coalesce(notes, '') ilike '%roster baseline%'
-               or coalesce(notes, '') ilike '%season roster page%'
-               or coalesce(notes, '') ilike '%not a date-exact%'
+            where coalesce(notes, '') ilike '%Date-aware reconstruction%'
+            """
+        )
+        date_aware_count = int(cursor.fetchone()[0])
+        cursor.execute(
+            """
+            select count(*)
+            from foundation.roster_snapshot
+            where (
+                coalesce(notes, '') ilike '%roster baseline%'
+                or coalesce(notes, '') ilike '%not a date-exact%'
+            )
+              and coalesce(notes, '') not ilike '%Date-aware reconstruction%'
             """
         )
         derived_count = int(cursor.fetchone()[0])
@@ -255,6 +266,7 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
             }
             for row in contract_rows
         ],
+        "date_aware_reconstruction": date_aware_count,
         "derived_from_roster_baseline": derived_count,
     }
 
@@ -343,8 +355,8 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
             build_gap(
                 "medium",
                 "Roster checkpoint snapshots are approximate.",
-                "Current checkpoint rows are derived from Basketball-Reference season roster pages, not date-exact snapshots.",
-                "Replace or validate these checkpoints with date-specific roster-state sources.",
+                "Some checkpoint rows still use baseline-only roster references instead of date-aware transaction reconstruction.",
+                "Rebuild roster checkpoints with the date-aware transaction projection.",
             )
         )
     if int(snapshots.get("pick_rows", 0)) == 0:

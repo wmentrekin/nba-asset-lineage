@@ -26,6 +26,7 @@ def test_build_known_gaps_surfaces_current_foundation_caveats() -> None:
             "snapshots": {
                 "snapshots": 40,
                 "pick_rows": 0,
+                "date_aware_reconstruction": 0,
                 "derived_from_roster_baseline": 40,
                 "contract_status": [
                     {
@@ -77,6 +78,7 @@ def test_build_known_gaps_accepts_covered_foundation_metrics() -> None:
             "snapshots": {
                 "snapshots": 40,
                 "pick_rows": 40,
+                "date_aware_reconstruction": 40,
                 "derived_from_roster_baseline": 0,
                 "contract_status": [
                     {
@@ -123,6 +125,7 @@ def test_build_known_gaps_accepts_graph_span_even_when_canonical_starts_later() 
             "snapshots": {
                 "snapshots": 40,
                 "pick_rows": 40,
+                "date_aware_reconstruction": 40,
                 "derived_from_roster_baseline": 0,
                 "contract_status": [
                     {

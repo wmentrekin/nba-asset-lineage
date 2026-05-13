@@ -69,7 +69,7 @@ These tables do not yet include:
 - canonical grouped events
 - event-to-asset transitions
 - full real-source coverage
-- true date-exact roster snapshots
+- official roster-source validation for reconstructed checkpoint snapshots
 - full two-way contract sourcing
 
 ## First Canonical Pass
@@ -130,7 +130,7 @@ The repo now includes:
 What still comes next:
 
 - broader real-source loading coverage
-- exact roster snapshot sourcing
+- official roster snapshot validation
 - two-way status enrichment
 - future pick inventory snapshots
 - draft lottery contextual loading
