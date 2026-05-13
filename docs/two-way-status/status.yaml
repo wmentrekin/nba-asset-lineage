@@ -1,0 +1,111 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "two-way-status"
+mode: "bounded-feature"
+stage: "completed"
+owner_skill: work
+
+objective: "Add truthful two-way roster status to foundation roster snapshot players without expanding the base graph scope."
+
+summary:
+  current_focus: "Completed."
+  last_completed: "Fixed final review findings and reran Python/frontend/YAML/diff validation successfully."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/two-way-status/requirements.yaml"
+  plan: "docs/two-way-status/plan.yaml"
+  implementation_report: "docs/two-way-status/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "completed"
+    task: "Coordinate implementation, review, and validation."
+    last_update: "Completed implementation after final review fixes and validation."
+    blocker: ""
+  - id: "repo-researcher-1"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect repo-local schema, loaders, docs, and tests related to roster_snapshot_player two-way fields."
+    last_update: "Completed. Found no schema/export change needed; recommends curated fixture plus guarded preview/load updater."
+    blocker: ""
+  - id: "platform-researcher-1"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Find reliable external/source options for two-way roster status across 2016-present."
+    last_update: "Completed. Found official releases, RealGM transaction pages, NBA player-movement feed candidate, and caveats."
+    blocker: ""
+  - id: "plan-reviewer-1"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Review requirements and plan before execution checkpoint."
+    last_update: "Found blockers: fixture scope too broad, idempotency underspecified, audit acceptance unsafe, interval and identity rules underdefined."
+    blocker: ""
+  - id: "plan-reviewer-2"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Run final review after plan revisions."
+    last_update: "Found no remaining blockers and marked plan execution-ready for the checkpoint."
+    blocker: ""
+  - id: "implementation-worker-1"
+    role: "developer"
+    model_guidance: "medium"
+    status: "shutdown"
+    stage: "execution"
+    task: "Implement two-way status fixture, commands, tests, and docs."
+    last_update: "Edited the main implementation files but did not return after multiple waits; orchestrator closed the agent and completed the work locally."
+    blocker: "Did not return final status."
+  - id: "implementation-reviewer-1"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Review implemented two-way status feature."
+    last_update: "Found two medium guardrail findings; both were fixed and validated."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 2
+    max: 2
+  execution_verification:
+    count: 2
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: approved
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Use bounded-feature mode because adding two-way status needs requirements, plan, implementation, and verification."
+  - "Repo discovery indicates the safest implementation is a curated fixture and guarded updater after roster checkpoint rebuilds."
+  - "Platform discovery indicates RealGM and official releases are the practical initial source set; G League assignment/recall must not imply two-way status."
+  - "Live load will block invalid/unresolved rows, apply safe matching rows, and report intervals with no matching snapshot-player rows as warnings."
+  - "Treat the first fixture as bounded `seed_v1`, not a claim of complete two-way historical coverage."
+  - "Live load must be transactional and idempotent by resetting targeted fixture-owned rows to standard before applying current intervals."
+  - "CLI commands will default to `configs/data/memphis_two_way_status_2017_2026.json`, with `--fixture-path` available as an override."
+  - "Live load ran from checked-in CLI code after clean preview and dry-run."
+  - "Generated frontend graph JSON remains gitignored; it was regenerated locally for validation but is not tracked."
+  - "No second live load was needed after guardrail fixes because the existing seed fixture still previews cleanly with the same 20 projected rows."
+
+next_action: "Close out to user."
+next_recommended_command: "$work"
+user_input_needed: false

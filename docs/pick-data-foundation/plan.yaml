@@ -1,0 +1,218 @@
+# Contract: durable execution plan created by $work
+
+artifact: plan
+feature: "pick-data-foundation"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/pick-data-foundation/requirements.yaml"
+
+objective: "Complete reset-era Memphis pick foundation work without jumping ahead into frontend/storytelling complexity."
+
+approach:
+  summary: "Treat this as a multi-batch data-foundation initiative. First add durable semantics and provenance, then expand the source-backed obligation ledger, then load/project snapshot picks, then update export/audit/docs. Do not write live data until preview/dry-run validation is clean."
+  key_decisions:
+    - "Keep `foundation.pick` as the stable pick asset table, but do not use `original_team` as current owner."
+    - "Add `foundation.pick_inventory_obligation` as the source-of-truth ledger for dated Memphis-perspective pick rights and obligations."
+    - "Use `roster_snapshot_pick` only as a derived projection target."
+    - "Preserve existing 20/20 draft-slot resolution while adding source provenance."
+    - "Represent swaps/conditional branches explicitly rather than flattening them into false concrete ownership."
+    - "Block uncertain rows by default in live loaders; allow uncertainty only as documented non-loadable fixture rows unless the user later approves otherwise."
+    - "Keep graph export backward compatible by preserving `future_pick_asset_ids`, but add richer snapshot-pick state metadata for frontend use."
+
+execution_batches:
+  - id: "B1"
+    goal: "Schema and contract foundation."
+    tasks:
+      - id: "T1"
+        title: "Add pick obligation schema"
+        objective: "Create an additive SQL bootstrap/migration for `foundation.pick_inventory_obligation`, snapshot-pick provenance fields, owner/original-team lottery fields, and optional pick-overall semantics."
+        owned_scope:
+          - "sql/0006_foundation_pick_inventory_bootstrap.sql"
+          - "sql/0004_foundation_context_bootstrap.sql"
+          - "tests/foundation/test_sql_contracts.py"
+          - "docs/foundation/ingest-tables.md"
+        forbidden_scope:
+          - "destructive DB operations"
+          - "frontend layout code"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_sql_contracts.py"
+      - id: "T2"
+        title: "Add Python row models/upsert helpers"
+        objective: "Add Pydantic models and upsert/replace helpers for obligation rows and projected snapshot-pick rows."
+        owned_scope:
+          - "src/foundation/ingest.py"
+          - "src/foundation/pick_inventory.py"
+          - "tests/foundation/test_pick_inventory.py"
+        forbidden_scope:
+          - "live DB writes"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_pick_inventory.py"
+
+  - id: "B2"
+    goal: "Draft selection provenance and draft-node policy."
+    tasks:
+      - id: "T3"
+        title: "Populate draft selection provenance"
+        objective: "Create per-selection draft source provenance or an agreed source-record alternative, then populate `draft_selection.source_event_id` through the checked-in BRef draft loader."
+        owned_scope:
+          - "src/foundation/live_sources.py"
+          - "src/foundation/ingest.py"
+          - "tests/foundation/test_live_sources.py"
+          - "tests/foundation/test_audit.py"
+        forbidden_scope:
+          - "manual DB snippets"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+      - id: "T4"
+        title: "Prevent duplicate draft graph events"
+        objective: "Adjust export/audit so draft-resolution transitions attach to canonical draft events when present, otherwise fall back to synthetic draft-resolution events."
+        owned_scope:
+          - "src/foundation/export.py"
+          - "src/foundation/models.py"
+          - "src/foundation/audit.py"
+          - "tests/foundation/test_export.py"
+          - "tests/foundation/test_models.py"
+        forbidden_scope:
+          - "frontend visual redesign"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_export.py tests/foundation/test_models.py"
+
+  - id: "B3"
+    goal: "Complete future pick obligation source depth."
+    tasks:
+      - id: "T5"
+        title: "Expand curated obligation fixture"
+        objective: "Replace the 4-row sample fixture with a source-backed Memphis ledger from summer 2016 through present/current future years."
+        owned_scope:
+          - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+          - "configs/data/README.md"
+          - "docs/foundation/future-pick-inventory-snapshots.md"
+        source_hierarchy:
+          - "Official NBA/team releases for event confirmation"
+          - "RealGM future picks and transaction history for normalized current owner/original/protection/swap semantics"
+          - "Pro Sports Transactions for manual cross-check where accessible"
+          - "Basketball-Reference loaded transaction spine for dated event backfill"
+          - "Spotrac/Fanspo only as discrepancy checks"
+        forbidden_scope:
+          - "bulk scraping restricted commercial pages"
+          - "inventing protection/swap semantics"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_pick_inventory.py"
+          - ".venv/bin/python -m redesign_cli preview-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+
+  - id: "B4"
+    goal: "Guarded obligation and snapshot-pick load path."
+    tasks:
+      - id: "T6"
+        title: "Add preview/dry-run/live loaders"
+        objective: "Add checked-in CLI commands for obligation validation/loading and projected `roster_snapshot_pick` replacement."
+        owned_scope:
+          - "src/foundation/pick_inventory.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/test_pick_inventory.py"
+          - "tests/foundation/test_audit.py"
+        commands_to_add:
+          - "preview-pick-inventory-obligations --team-code MEM"
+          - "load-pick-inventory-obligations --team-code MEM --dry-run"
+          - "load-pick-inventory-obligations --team-code MEM"
+          - "load-pick-inventory-snapshots --team-code MEM --dry-run --max-draft-year 2032"
+          - "load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+        forbidden_scope:
+          - "ad hoc DB write scripts"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_pick_inventory.py tests/foundation/test_audit.py"
+
+  - id: "B5"
+    goal: "Owner/original-team context completion."
+    tasks:
+      - id: "T7"
+        title: "Update lottery and pick context loaders"
+        objective: "Use new owner/original-team fields in lottery and pick context, including a decision on 2020 Boston-from-Memphis."
+        owned_scope:
+          - "configs/data/memphis_draft_lottery_results_2016_2026.json"
+          - "src/foundation/draft_lottery_results.py"
+          - "tests/foundation/test_draft_lottery_results.py"
+          - "docs/draft-lottery-results/"
+        forbidden_scope:
+          - "changing graph export to consume lottery context"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_draft_lottery_results.py"
+
+  - id: "B6"
+    goal: "Export, audit, and docs integration."
+    tasks:
+      - id: "T8"
+        title: "Expose snapshot-pick metadata in export"
+        objective: "Add richer future pick state metadata to the graph export while keeping `future_pick_asset_ids` for compatibility."
+        owned_scope:
+          - "src/foundation/models.py"
+          - "src/foundation/export.py"
+          - "frontend/src/lib/foundation.ts"
+          - "frontend/src/lib/graph.ts"
+          - "tests/foundation/test_export.py"
+          - "frontend/src/lib/foundation.test.ts"
+          - "frontend/src/lib/graph.test.ts"
+        forbidden_scope:
+          - "visual redesign"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_export.py tests/foundation/test_models.py"
+          - "mise run frontend_test"
+      - id: "T9"
+        title: "Update audit and reset docs"
+        objective: "Make audit report pick inventory coverage, obligation confidence, draft provenance, and owner/original caveats accurately."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "tests/foundation/test_audit.py"
+          - "docs/foundation/README.md"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/ingest-tables.md"
+          - "docs/foundation/future-pick-inventory-snapshots.md"
+          - "README.md"
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_audit.py"
+
+  - id: "B7"
+    goal: "Live load and verification."
+    tasks:
+      - id: "T10"
+        title: "Apply schema and load live data"
+        objective: "Run checked-in SQL/CLI commands against Supabase only after all previews/dry-runs are clean."
+        ordered_commands:
+          - ".venv/bin/python -m redesign_cli bootstrap-foundation-pick-inventory"
+          - ".venv/bin/python -m redesign_cli load-bref-draft-results-span --team-code MEM --start-draft-year 2016 --end-draft-year 2025"
+          - ".venv/bin/python -m redesign_cli load-foundation-canonical"
+          - ".venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM"
+          - ".venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM --dry-run"
+          - ".venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM"
+          - ".venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --dry-run --max-draft-year 2032"
+          - ".venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+          - ".venv/bin/python -m redesign_cli audit-foundation-data"
+          - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path frontend/src/data/generated/foundation-graph.json"
+        expected_validation:
+          - ".venv/bin/pytest"
+          - "mise run frontend_test"
+          - "mise run frontend_build"
+        live_write_safety:
+          - "Run preview before every dry-run."
+          - "Run dry-run before every live write."
+          - "Use one checked-in CLI path per DB mutation."
+          - "Stop if any blocked rows, source discrepancies, or duplicate draft events appear."
+
+risks:
+  - "No single source provides complete historical Memphis pick-inventory snapshots; reconstruction must replay dated events and reconcile current state."
+  - "RealGM and Pro Sports Transactions are valuable but not official; source confidence must remain visible."
+  - "Pro Sports Transactions returned HTTP 403 here, so automated ingestion may not be feasible."
+  - "Sports Reference has explicit data-use restrictions; keep requests low-volume and do not build a substitute commercial data store."
+  - "Complex swaps can represent optionality, not a single concrete pick."
+  - "Adding draft source_events can duplicate graph draft nodes unless export/canonical policy is handled in the same initiative."
+  - "A complete fixture may expose source conflicts requiring user decisions before live load."
+
+review:
+  status: pending
+  loop_count: 0
+  notes: []
+
+checkpoint:
+  required_before_execution: true
+  status: pending

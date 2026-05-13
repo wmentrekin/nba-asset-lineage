@@ -272,13 +272,19 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
 
 
 def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    lottery_results = 0
+    if table_exists(connection, "draft_lottery_result"):
+        with connection.cursor() as cursor:
+            cursor.execute("select count(*) from foundation.draft_lottery_result")
+            lottery_results = int(cursor.fetchone()[0])
+
     if not table_exists(connection, "draft_selection"):
         return {
             "selections": 0,
             "unlinked_pick_rows": 0,
             "resolved_pick_rows": 0,
             "unlinked_source_event_rows": 0,
-            "lottery_results": 0,
+            "lottery_results": lottery_results,
             "by_year": [],
         }
     with connection.cursor() as cursor:
@@ -292,10 +298,6 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
             resolved_pick_rows = int(cursor.fetchone()[0])
         cursor.execute("select count(*) from foundation.draft_selection where source_event_id is null")
         unlinked_source_event_rows = int(cursor.fetchone()[0])
-        lottery_results = 0
-        if table_exists(connection, "draft_lottery_result"):
-            cursor.execute("select count(*) from foundation.draft_lottery_result")
-            lottery_results = int(cursor.fetchone()[0])
         cursor.execute(
             """
             select draft_year, count(*)
@@ -368,16 +370,26 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Add a pick-inventory source before relying on pick lanes as complete.",
             )
         )
-    if not any(
+    has_two_way_rows = any(
         isinstance(row, dict) and int(row.get("two_way_rows", 0)) > 0
         for row in list(snapshots.get("contract_status", []))
-    ):
+    )
+    if not has_two_way_rows:
         gaps.append(
             build_gap(
                 "medium",
                 "Two-way roster status is not populated.",
                 "Snapshot player rows currently do not prove two-way versus standard slots.",
-                "Add a source for two-way contract status or a checked manual override layer.",
+                "Run the seed_v1 two-way status enrichment after roster snapshots are rebuilt.",
+            )
+        )
+    else:
+        gaps.append(
+            build_gap(
+                "low",
+                "Two-way roster status is seed-loaded, not complete historical coverage.",
+                "Nonzero two-way snapshot rows prove only the curated high-confidence intervals currently loaded.",
+                "Keep using preview-two-way-status/load-two-way-status after roster rebuilds and expand the fixture only with source-backed intervals.",
             )
         )
     if int(draft.get("selections", 0)) > 0 and int(draft.get("unlinked_pick_rows", 0)) > 0:
@@ -404,7 +416,16 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "low",
                 "Draft lottery results are not loaded.",
                 "This is contextual and not required for the base graph, but the table is empty.",
-                "Add later only if the frontend needs lottery annotations.",
+                "Run the seed_v1 draft lottery result preview/load only when contextual lottery annotations are needed.",
+            )
+        )
+    else:
+        gaps.append(
+            build_gap(
+                "low",
+                "Draft lottery results are seed-loaded contextual metadata.",
+                "Nonzero draft_lottery_result rows prove only the curated Memphis-owned lottery outcomes currently loaded.",
+                "Keep 2020 Boston-from-Memphis excluded until the schema can model owner team and original team separately.",
             )
         )
     if int(counts.get("canonical_event", 0)) == 0 or int(counts.get("event_asset_transition", 0)) == 0:

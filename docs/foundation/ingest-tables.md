@@ -48,7 +48,9 @@ the durable landing zone before canonical event grouping is introduced.
 
 `roster_snapshot_player`
 - player membership in a checkpoint, including two-way versus standard status
-  fields
+  fields. The roster snapshot builder writes standard defaults; the bounded
+  two-way status loader resets covered rows to standard and applies curated
+  high-confidence intervals after snapshot rebuilds.
 
 `roster_snapshot_pick`
 - pick membership in a checkpoint
@@ -60,7 +62,10 @@ the durable landing zone before canonical event grouping is introduced.
 - provenance-backed links from Memphis draft selections to slot-based pick assets
 
 `draft_lottery_result`
-- contextual Memphis lottery result metadata
+- contextual Memphis-owned lottery result metadata. The current table stores a
+  single `team_code`, so rows that require separate owner-team and original-team
+  semantics, such as 2020 Boston-from-Memphis, are fixture-documented but not
+  loaded.
 
 ## Current Limitation
 
@@ -70,7 +75,7 @@ These tables do not yet include:
 - event-to-asset transitions
 - full real-source coverage
 - official roster-source validation for reconstructed checkpoint snapshots
-- full two-way contract sourcing
+- complete historical two-way contract sourcing
 
 ## First Canonical Pass
 
@@ -109,6 +114,7 @@ For this pass:
 
 - `roster_snapshots` is emitted when checkpoint rows exist
 - `draft_pick_resolution` emits graph-facing `pick_to_player` transitions
+- `draft_lottery_result` is not consumed by the base graph export
 - no roster-state validation is expected
 - no frontend layout semantics are part of the export
 
@@ -126,11 +132,14 @@ The repo now includes:
   - Basketball-Reference roster baselines
   - Basketball-Reference draft results
   - NBA stats player / roster references
+  - curated draft lottery result preview/load for contextual seed metadata
+  - two-way status preview and guarded load from
+    `configs/data/memphis_two_way_status_2017_2026.json`
 
 What still comes next:
 
 - broader real-source loading coverage
 - official roster snapshot validation
-- two-way status enrichment
+- broader two-way status fixture coverage beyond `seed_v1`
 - future pick inventory snapshots
-- draft lottery contextual loading
+- broader draft lottery context only if owner/original-team semantics are added

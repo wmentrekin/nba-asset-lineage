@@ -81,12 +81,21 @@ The repo now has:
   - read-only draft-selection to pick-asset resolution preview
   - read-only curated draft-slot resolution preview
   - guarded curated draft-slot resolution load
+  - read-only two-way status preview
+  - guarded two-way status reset/apply load
+  - read-only draft lottery result preview
+  - guarded draft lottery result load
 - graph-facing `pick_to_player` export rows derived from
   `foundation.draft_pick_resolution`
 - a source strategy for future pick inventory snapshots and the next
   obligation-ledger workbench
 - a read-only `preview-pick-inventory-snapshots` command for projecting future
   pick inventory rows before any DB write path
+- a `seed_v1` two-way status fixture for high-confidence Memphis intervals and
+  a guarded loader that resets covered snapshot-player rows to standard before
+  applying current loadable intervals
+- a `seed_v1` draft lottery result fixture for high-confidence Memphis-owned
+  lottery outcomes in 2018, 2019, 2024, and 2026
 
 ## Current Caveats
 
@@ -95,12 +104,15 @@ The repo now has:
 - NBA stats reference loading uses JSON endpoints.
 - Roster checkpoint rows are capped, date-aware reconstructions from
   Basketball-Reference season roster pages plus loaded transaction events.
-- Two-way versus standard contract status is represented in the schema, but it
-  still needs a stronger source than the current BRef roster loader.
+- Two-way versus standard contract status is represented in the schema and can
+  be seed-loaded from curated high-confidence intervals, but nonzero two-way
+  rows do not prove complete historical two-way coverage.
 - Draft selections are linked to curated Memphis draft-slot pick assets and now
   export as pick-to-player graph transitions.
-- Draft lottery results are contextual for now and are not required for the base
-  graph export.
+- Draft lottery results are contextual for now and are not required for or
+  consumed by the base graph export. The `seed_v1` fixture deliberately excludes
+  2020 Boston-from-Memphis because the current table has no separate owner-team
+  and original-team fields.
 - Future pick inventory snapshots should be built from a dated obligation ledger,
   not from a current-state future-picks page alone.
 - `audit-foundation-data` is the current command for turning these caveats into
@@ -115,6 +127,20 @@ The repo now has:
   without `--dry-run`, it bootstraps `foundation.draft_pick_resolution`, creates
   slot-based pick assets, links `draft_selection.pick_id`, and records
   provenance only when every fixture row remains safe.
+- `preview-two-way-status` reports identity blocks, projected snapshot-player
+  updates, and non-matching interval warnings without writing to the database.
+- `load-two-way-status --dry-run` reports the same guarded plan; without
+  `--dry-run`, it refuses blocking fixture rows, resets covered Memphis
+  snapshot-player rows to standard, and applies only current high-confidence
+  loadable intervals. Run it after `load-roster-snapshots-from-baselines`.
+- `preview-draft-lottery-results` reports loadable rows, blocked rows, source
+  metadata validation, and existing `(draft_year, team_code)` DB matches without
+  writing.
+- `load-draft-lottery-results --dry-run` reports the same guarded plan; without
+  `--dry-run`, it refuses blocking fixture rows and conflicting existing
+  `(draft_year, team_code)` IDs, then upserts only high-confidence loadable
+  Memphis-owned rows in one transaction. Rows with `loadable=false` are never
+  written.
 
 ## Related Paths
 

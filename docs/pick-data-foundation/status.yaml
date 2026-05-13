@@ -1,0 +1,88 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "pick-data-foundation"
+mode: "large-initiative"
+stage: "planning"
+owner_skill: work
+
+objective: "Complete remaining pick-related foundation work: future pick inventory snapshots, owner/original-team semantics, draft selection provenance, and future pick obligation source depth."
+
+summary:
+  current_focus: "Plan review for the pick-data foundation requirements and execution plan."
+  last_completed: "Drafted requirements and plan from repo discovery, live read-only previews, and source research."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/pick-data-foundation/requirements.yaml"
+  plan: "docs/pick-data-foundation/plan.yaml"
+  implementation_report: "docs/pick-data-foundation/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "planning"
+    task: "Coordinate discovery, requirements, planning, checkpoint, execution, and verification."
+    last_update: "Drafted requirements and execution plan; moving to plan review."
+    blocker: ""
+  - id: "repo-researcher-1"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect current pick-related implementation, commands, fixtures, docs, and gaps."
+    last_update: "Found future-pick inventory is preview-only/sample-backed, draft selection slots are 20/20 resolved, and draft source_event provenance is missing."
+    blocker: ""
+  - id: "repo-researcher-2"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Analyze schema/export implications for owner/original-team semantics, future pick snapshots, and draft provenance."
+    last_update: "Recommended durable obligation table, snapshot-pick provenance fields, owner/original semantics, and explicit draft-node policy."
+    blocker: ""
+  - id: "platform-researcher-1"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Research reliable source options for Memphis future pick obligations and ownership history."
+    last_update: "Recommended official/NBA releases, RealGM, Pro Sports Transactions, BRef, and current-state cross-check hierarchy."
+    blocker: ""
+  - id: "plan-reviewer-1"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "running"
+    stage: "planning"
+    task: "Critique pick-data foundation requirements and plan before checkpoint."
+    last_update: "Spawned."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: pending
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Use large-initiative mode because completing all remaining pick work spans multiple batches and likely requires source/schema/export coordination."
+  - "Do not execute schema or DB writes until requirements, plan, and pre-execution checkpoint are complete."
+  - "Keep base graph truth as the priority; avoid frontend storytelling or editorial scope."
+
+next_action: "Run plan review, revise once if needed, then present checkpoint."
+next_recommended_command: "$work"
+user_input_needed: false

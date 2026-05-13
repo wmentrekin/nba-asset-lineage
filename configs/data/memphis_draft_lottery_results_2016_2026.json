@@ -1,0 +1,146 @@
+{
+  "fixture_id": "seed_v1",
+  "team_code": "MEM",
+  "coverage_start_year": 2016,
+  "coverage_end_year": 2026,
+  "coverage_statement": "Curated seed fixture for Memphis-owned lottery outcomes in the 2016-2026 reset span. Non-lottery years are omitted rather than represented as null rows.",
+  "source_set": [
+    {
+      "label": "RealGM NBA Draft Lottery Results",
+      "locator": "https://basketball.realgm.com/nba/draft/lottery_results"
+    },
+    {
+      "label": "RealGM Memphis Grizzlies Lottery History",
+      "locator": "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Lottery-History"
+    },
+    {
+      "label": "NBA.com draft order and lottery result pages",
+      "locator": "https://www.nba.com/news"
+    },
+    {
+      "label": "Memphis Grizzlies official lottery coverage",
+      "locator": "https://www.nba.com/grizzlies/news"
+    }
+  ],
+  "confidence_rubric": {
+    "high": [
+      "Official NBA/team source confirms result pick slot and a high-confidence secondary source confirms pre-lottery position or odds.",
+      "RealGM lottery-history table provides result slot, odds, pre-lottery position, and draft team."
+    ],
+    "medium": [
+      "Reputable report confirms result slot but not the full lottery context."
+    ],
+    "low": [
+      "Unverified, conflicting, or incomplete lottery context."
+    ]
+  },
+  "rows": [
+    {
+      "lottery_result_id": "draft-lottery-result:mem:2018",
+      "draft_year": 2018,
+      "lottery_date": "2018-05-15",
+      "team_code": "MEM",
+      "lottery_position": 2,
+      "result_pick_slot": 4,
+      "pre_lottery_odds": "19.9%",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/draft/lottery_results/2018",
+        "https://www.foxsports.com/stories/other/grizzlies-own-no-4-pick-after-slipping-in-nba-draft-lottery"
+      ],
+      "source_labels": [
+        "RealGM 2018 NBA Draft Lottery Results",
+        "FOX Sports Grizzlies lottery result report"
+      ],
+      "retrieved_at": "2026-05-13",
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Memphis entered the 2018 lottery in pre-lottery position 2 with 19.9% No. 1 odds and received pick slot 4."
+    },
+    {
+      "lottery_result_id": "draft-lottery-result:mem:2019",
+      "draft_year": 2019,
+      "lottery_date": "2019-05-14",
+      "team_code": "MEM",
+      "lottery_position": 8,
+      "result_pick_slot": 2,
+      "pre_lottery_odds": "6.0%",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/draft/lottery_results/2019",
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Lottery-History"
+      ],
+      "source_labels": [
+        "RealGM 2019 NBA Draft Lottery Results",
+        "RealGM Memphis Grizzlies Lottery History"
+      ],
+      "retrieved_at": "2026-05-13",
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Memphis entered the 2019 lottery in pre-lottery position 8 with 6.0% No. 1 odds and received pick slot 2."
+    },
+    {
+      "lottery_result_id": "draft-lottery-result:mem:2020-bos-from-mem-excluded",
+      "draft_year": 2020,
+      "lottery_date": "2020-08-20",
+      "team_code": "MEM",
+      "lottery_position": 14,
+      "result_pick_slot": 14,
+      "pre_lottery_odds": "0.5%",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Lottery-History"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies Lottery History"
+      ],
+      "retrieved_at": "2026-05-13",
+      "confidence": "high",
+      "loadable": false,
+      "notes": "Excluded: the Memphis-origin 2020 lottery result conveyed to Boston. Current foundation.draft_lottery_result has team_code but no separate owner_team/original_team fields, so writing this as MEM would conflate ownership semantics."
+    },
+    {
+      "lottery_result_id": "draft-lottery-result:mem:2024",
+      "draft_year": 2024,
+      "lottery_date": "2024-05-12",
+      "team_code": "MEM",
+      "lottery_position": 7,
+      "result_pick_slot": 9,
+      "pre_lottery_odds": "7.5%",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/draft/lottery_results/2024",
+        "https://www.nba.com/news/2024-nba-draft-picks-grizzlies"
+      ],
+      "source_labels": [
+        "RealGM 2024 NBA Draft Lottery Results",
+        "NBA.com Grizzlies 2024 draft picks"
+      ],
+      "retrieved_at": "2026-05-13",
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Memphis entered the 2024 lottery in pre-lottery position 7 with 7.5% No. 1 odds and received pick slot 9."
+    },
+    {
+      "lottery_result_id": "draft-lottery-result:mem:2026",
+      "draft_year": 2026,
+      "lottery_date": "2026-05-10",
+      "team_code": "MEM",
+      "lottery_position": 6,
+      "result_pick_slot": 3,
+      "pre_lottery_odds": "9.0%",
+      "source_urls": [
+        "https://www.nba.com/news/2026-nba-draft-lottery-result",
+        "https://www.nba.com/news/2026-nba-draft-order",
+        "https://www.nba.com/grizzlies/news/mikecheck-with-no-3-nba-lottery-pick-in-tow-grizzlies-sizing-up-head-of-class-draft-prospects",
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Lottery-History"
+      ],
+      "source_labels": [
+        "NBA.com 2026 Draft Lottery result",
+        "NBA.com 2026 Draft Order",
+        "Memphis Grizzlies official 2026 lottery coverage",
+        "RealGM Memphis Grizzlies Lottery History"
+      ],
+      "retrieved_at": "2026-05-13",
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Memphis entered the 2026 lottery in pre-lottery position 6 with 9.0% No. 1 odds and received pick slot 3."
+    }
+  ]
+}

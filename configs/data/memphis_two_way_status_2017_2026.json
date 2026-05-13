@@ -1,0 +1,170 @@
+{
+  "fixture_id": "seed_v1",
+  "team_code": "MEM",
+  "coverage_start": "2017-07-01",
+  "coverage_end": null,
+  "coverage_statement": "Curated high-confidence Memphis two-way contract intervals found during the reset-era seed pass. This fixture is intentionally not complete historical coverage.",
+  "source_set": [
+    {
+      "label": "Official Memphis Grizzlies, NBA, and NBA G League releases",
+      "locator": "https://www.nba.com/grizzlies/news"
+    },
+    {
+      "label": "NBA G League official release archive",
+      "locator": "https://gleague.nba.com/news"
+    },
+    {
+      "label": "RealGM Memphis Grizzlies transaction history for cross-checking only",
+      "locator": "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Transaction_History"
+    }
+  ],
+  "confidence_rubric": {
+    "high": [
+      "Official team/NBA/G League release states the player signed, converted, or was released from a two-way contract.",
+      "Or two independent secondary sources agree on the two-way status interval."
+    ],
+    "medium": [
+      "One practical secondary source states two-way status but no official source is found."
+    ],
+    "low": [
+      "Assignment/recall, roster presence, or ambiguous contract language without two-way-specific wording."
+    ]
+  },
+  "rows": [
+    {
+      "status_id": "mem-two-way-2020-killian-tillie",
+      "player_name": "Killian Tillie",
+      "player_id": "player:killian-tillie",
+      "team_code": "MEM",
+      "start_date": "2020-11-24",
+      "end_date": "2022-01-01",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-sign-killian-tillie-to-two-way-contract-210812",
+        "https://www.espn.com/nba/story/_/id/32975168/memphis-grizzlies-sign-forward-killian-tillie-new-2-year-4-million-deal"
+      ],
+      "confidence": "medium",
+      "loadable": false,
+      "notes": "Official 2021 re-signing release states Tillie signed his first Grizzlies two-way contract on 2020-11-24. ESPN reports conversion to a regular deal on 2022-01-01; keep non-loadable until a second corroborating or official end source is curated."
+    },
+    {
+      "status_id": "mem-two-way-2022-kenneth-lofton-jr",
+      "player_name": "Kenneth Lofton Jr.",
+      "player_id": "player:kenneth-lofton-jr",
+      "team_code": "MEM",
+      "start_date": "2022-07-02",
+      "end_date": "2023-04-08",
+      "source_urls": [
+        "https://gleague.nba.com/news/kenneth-lofton-jr-named-2022-23-kia-nba-g-league-rookie-of-the-year",
+        "https://gleague.nba.com/news/memphis-grizzlies-sign-kenneth-lofton-jr-to-multi-year-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "G League official release says Lofton signed a two-way contract on 2022-07-02; multi-year-contract release marks the end boundary on 2023-04-08."
+    },
+    {
+      "status_id": "mem-two-way-2022-vince-williams-jr",
+      "player_name": "Vince Williams Jr.",
+      "player_id": "player:vince-williams-jr",
+      "team_code": "MEM",
+      "start_date": "2022-07-02",
+      "end_date": "2024-01-10",
+      "source_urls": [
+        "https://gleague.nba.com/news/memphis-grizzlies-sign-vince-williams-jr-to-multi-year-contract",
+        "https://www.nba.com/news/grizzlies-vince-williams-jr-to-replace-pelicans-dyson-daniels-in-2024-panini-rising-stars"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official releases state Williams signed a two-way contract on 2022-07-02 and signed a multi-year contract on 2024-01-10."
+    },
+    {
+      "status_id": "mem-two-way-2023-jacob-gilyard",
+      "player_name": "Jacob Gilyard",
+      "player_id": "player:jacob-gilyard",
+      "team_code": "MEM",
+      "start_date": "2023-04-08",
+      "end_date": "2024-02-24",
+      "source_urls": [
+        "https://gleague.nba.com/news/memphis-grizzlies-sign-kenneth-lofton-jr-to-multi-year-contract",
+        "https://gleague.nba.com/news/grizzlies-sign-jordan-goodwin-to-two-way-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official release states Memphis signed Gilyard to a two-way contract on 2023-04-08; Goodwin two-way signing release states Memphis waived Gilyard on 2024-02-24."
+    },
+    {
+      "status_id": "mem-two-way-2023-gg-jackson-ii",
+      "player_name": "GG Jackson II",
+      "player_id": "player:gg-jackson-ii",
+      "team_code": "MEM",
+      "start_date": "2023-08-31",
+      "end_date": "2024-02-09",
+      "source_urls": [
+        "https://gleague.nba.com/news/memphis-grizzlies-sign-gg-jackson-ii-to-two-way-contract",
+        "https://gleague.nba.com/news/memphis-grizzlies-sign-gg-jackson-ii-to-multi-year-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official releases state Memphis signed GG Jackson II to a two-way contract on 2023-08-31 and to a multi-year contract on 2024-02-09."
+    },
+    {
+      "status_id": "mem-two-way-2024-scotty-pippen-jr",
+      "player_name": "Scotty Pippen Jr.",
+      "player_id": "player:scotty-pippen-jr",
+      "team_code": "MEM",
+      "start_date": "2024-01-17",
+      "end_date": "2024-10-16",
+      "source_urls": [
+        "https://gleague.nba.com/news/grizzlies-sign-scotty-pippen-jr-to-two-way-contract",
+        "https://gleague.nba.com/news/grizzlies-sign-scotty-pippen-jr-to-multi-year-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official releases state Memphis signed Pippen to a two-way contract announced on 2024-01-17 and to a multi-year contract on 2024-10-16."
+    },
+    {
+      "status_id": "mem-two-way-2024-trey-jemison",
+      "player_name": "Trey Jemison",
+      "player_id": "player:trey-jemison",
+      "team_code": "MEM",
+      "start_date": "2024-02-09",
+      "end_date": "2024-07-24",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-trey-jemison-to-two-way-contract",
+        "https://gleague.nba.com/news/grizzlies-sign-jay-huff-to-two-way-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies release states Memphis signed Jemison to a two-way contract on 2024-02-09; official G League release states Memphis waived Jemison in a related move on 2024-07-24."
+    },
+    {
+      "status_id": "mem-two-way-2024-cam-spencer",
+      "player_name": "Cam Spencer",
+      "player_id": "player:cam-spencer",
+      "team_code": "MEM",
+      "start_date": "2024-07-08",
+      "end_date": "2025-07-14",
+      "source_urls": [
+        "https://gleague.nba.com/news/grizzlies-sign-cam-spencer-to-two-way-contract",
+        "https://www.nba.com/grizzlies/news/grizzlies-re-sign-cam-spencer-to-multi-year-contract/"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official release states Memphis signed Spencer to a two-way contract on 2024-07-08; 2025 Grizzlies release states he re-signed to a multi-year contract and references the 2024 two-way signing."
+    },
+    {
+      "status_id": "mem-two-way-2024-jay-huff",
+      "player_name": "Jay Huff",
+      "player_id": "player:jay-huff",
+      "team_code": "MEM",
+      "start_date": "2024-07-24",
+      "end_date": "2024-10-28",
+      "source_urls": [
+        "https://gleague.nba.com/news/grizzlies-sign-jay-huff-to-two-way-contract",
+        "https://gleague.nba.com/news/grizzlies-sign-jay-huff-to-multi-year-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official releases state Memphis signed Huff to a two-way contract on 2024-07-24 and to a multi-year contract on 2024-10-28."
+    }
+  ]
+}

@@ -22,6 +22,11 @@ from foundation.draft_resolution import (
     preview_curated_draft_pick_resolution,
     preview_draft_pick_resolution,
 )
+from foundation.draft_lottery_results import (
+    DEFAULT_DRAFT_LOTTERY_RESULTS_FIXTURE_PATH,
+    load_draft_lottery_results,
+    preview_draft_lottery_results,
+)
 from foundation.export import build_base_export_from_database, build_empty_base_export
 from foundation.ingest import (
     bootstrap_foundation_ingest_schema,
@@ -48,6 +53,11 @@ from foundation.pick_inventory import (
     preview_pick_inventory_snapshots,
 )
 from foundation.sources import get_default_source_plan
+from foundation.two_way_status import (
+    DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
+    load_two_way_status,
+    preview_two_way_status,
+)
 from foundation.workbench import serialize_sample_workbench
 
 RESETTABLE_PROJECT_SCHEMAS = (
@@ -82,6 +92,20 @@ def parse_args() -> argparse.Namespace:
     pick_inventory_parser.add_argument("--team-code", default="MEM")
     pick_inventory_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
     pick_inventory_parser.add_argument("--max-draft-year", type=int, default=2032)
+    two_way_preview_parser = subparsers.add_parser("preview-two-way-status", help="Read-only preview of curated two-way status intervals against roster snapshot players.")
+    two_way_preview_parser.add_argument("--team-code", default="MEM")
+    two_way_preview_parser.add_argument("--fixture-path", default=str(DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH))
+    two_way_load_parser = subparsers.add_parser("load-two-way-status", help="Guarded reset/apply load of curated two-way status intervals.")
+    two_way_load_parser.add_argument("--team-code", default="MEM")
+    two_way_load_parser.add_argument("--fixture-path", default=str(DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH))
+    two_way_load_parser.add_argument("--dry-run", action="store_true")
+    draft_lottery_preview_parser = subparsers.add_parser("preview-draft-lottery-results", help="Read-only preview of curated Memphis draft lottery result rows.")
+    draft_lottery_preview_parser.add_argument("--team-code", default="MEM")
+    draft_lottery_preview_parser.add_argument("--fixture-path", default=str(DEFAULT_DRAFT_LOTTERY_RESULTS_FIXTURE_PATH))
+    draft_lottery_load_parser = subparsers.add_parser("load-draft-lottery-results", help="Guarded load of curated Memphis draft lottery result rows.")
+    draft_lottery_load_parser.add_argument("--team-code", default="MEM")
+    draft_lottery_load_parser.add_argument("--fixture-path", default=str(DEFAULT_DRAFT_LOTTERY_RESULTS_FIXTURE_PATH))
+    draft_lottery_load_parser.add_argument("--dry-run", action="store_true")
     subparsers.add_parser("reset-db-state", help="Drop current non-system schemas and clear public objects to restart from scratch.")
     bootstrap_foundation_parser = subparsers.add_parser("bootstrap-foundation-ingest", help="Apply the reset-era foundation ingest bootstrap SQL.")
     bootstrap_foundation_parser.add_argument("--sql-path", default="sql/0001_foundation_ingest_bootstrap.sql")
@@ -397,6 +421,32 @@ def main() -> None:
             fixture_path=Path(args.fixture_path),
             max_draft_year=args.max_draft_year,
         ).model_dump(mode="json")
+    elif args.command == "preview-two-way-status":
+        payload = preview_two_way_status(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
+    elif args.command == "load-two-way-status":
+        payload = load_two_way_status(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
+    elif args.command == "preview-draft-lottery-results":
+        payload = preview_draft_lottery_results(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
+    elif args.command == "load-draft-lottery-results":
+        payload = load_draft_lottery_results(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
     elif args.command == "reset-db-state":
         payload = command_reset_db_state()
     elif args.command == "bootstrap-foundation-ingest":
@@ -543,6 +593,12 @@ def main() -> None:
             dry_run=False,
         )
         snapshot_counts = load_roster_snapshots_from_baselines(database_url)
+        two_way_result = load_two_way_status(
+            database_url,
+            team_code=args.team_code,
+            fixture_path=DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
+            dry_run=False,
+        )
         canonical_counts = load_foundation_canonical_bundle(database_url)
         export = build_base_export_from_database(database_url)
         if args.output_path:
@@ -556,6 +612,7 @@ def main() -> None:
             "entities": entity_counts,
             "draft_resolution": draft_resolution_result.model_dump(mode="json"),
             "snapshots": snapshot_counts,
+            "two_way_status": two_way_result.model_dump(mode="json"),
             "canonical": canonical_counts,
             "export": {
                 "output_path": args.output_path,
@@ -566,7 +623,7 @@ def main() -> None:
                 "roster_snapshots": len(export.roster_snapshots),
             },
             "known_gaps": [
-                "Two-way versus standard contract status still needs a richer source.",
+                "Two-way status uses seed_v1 curated intervals and does not prove complete historical coverage.",
                 "Future pick inventory snapshots are not populated yet.",
                 "Draft lottery results remain contextual and are not loaded by this command yet.",
             ],

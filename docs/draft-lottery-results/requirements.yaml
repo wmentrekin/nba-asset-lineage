@@ -1,0 +1,108 @@
+# Contract: durable task-definition handoff created by $work when the selected mode needs explicit requirements
+
+artifact: requirements
+feature: "draft-lottery-results"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+
+summary:
+  problem: "The `foundation.draft_lottery_result` table exists but remains empty and has no source-backed fixture, preview, or guarded load path."
+  motivation: "Draft lottery context is not required for the base graph, but it resolves the current audit gap and gives future frontend annotations reliable source-backed metadata."
+  requested_outcome: "Populate Memphis-owned draft lottery result rows from official/high-confidence sources through a preview-first, checked-in loader."
+
+goals:
+  - "Add a tracked Memphis draft lottery result fixture with source URLs, confidence, owner/team semantics, and caveats."
+  - "Add read-only preview and guarded load commands for `foundation.draft_lottery_result`."
+  - "Use the existing SQL table shape without schema changes in this pass."
+  - "Load only rows that are valid, high-confidence, source-backed, and safe for the current `team_code` semantics."
+  - "Update audit/docs so the empty-lottery-result gap clears after successful load."
+  - "Preserve a seed/contextual coverage caveat so loaded lottery rows are not mistaken for a richer frontend annotation system."
+
+non_goals:
+  - "Do not add frontend display or graph export behavior for lottery results in this pass."
+  - "Do not model non-lottery years as null rows."
+  - "Do not load the 2020 Boston-owned pick from Memphis as a MEM row while the table lacks separate owner/original-team fields."
+  - "Do not add SQL provenance columns unless implementation uncovers an unavoidable blocker."
+
+constraints:
+  technical:
+    - "Existing `foundation.draft_lottery_result` columns are `lottery_result_id`, `draft_year`, `lottery_date`, `team_code`, `lottery_position`, `result_pick_slot`, `pre_lottery_odds`, and `notes`."
+    - "The table has a unique `(draft_year, team_code)` index, so fixture IDs must be stable and writes must avoid duplicate year/team rows."
+    - "Live DB writes must use checked-in Python command paths, not terminal snippets."
+    - "Live load must run in a transaction and abort before any write if validation finds blocked rows or existing `(draft_year, team_code)` rows with conflicting `lottery_result_id` values."
+    - "Preview, dry-run, and live load must share the same validation gate."
+    - "Graph export currently does not consume lottery rows and should remain unchanged."
+  product:
+    - "Lottery data is contextual metadata, not part of the minimum lineage graph truth."
+    - "Rows should represent Memphis-owned lottery outcomes under current table semantics."
+    - "Source/provenance detail should remain in the fixture and be summarized in `notes`."
+  process:
+    - "Use `$work` checkpoint before execution."
+    - "Use subagents for implementation/review/testing after checkpoint."
+    - "Keep correction loops capped at 2."
+
+assumptions:
+  - "`lottery_position` means pre-lottery position/odds rank, not final drawn slot."
+  - "`result_pick_slot` means the final lottery/draft pick slot assigned to the row's `team_code`."
+  - "`pre_lottery_odds` stores the No. 1 pick odds string such as `19.9%`."
+  - "Only years where Memphis owned/kept a lottery result should be loaded into the current table."
+  - "2026 can be included because the official lottery result is known as of 2026-05-10 even though the draft has not occurred yet."
+  - "Per-row source URLs and retrieval dates must be recorded in the fixture before a row can be marked loadable."
+
+repo_context:
+  relevant_paths:
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "src/foundation/ingest.py"
+    - "src/redesign_cli.py"
+    - "src/foundation/audit.py"
+    - "configs/data/"
+    - "tests/foundation/test_audit.py"
+    - "tests/foundation/test_sql_contracts.py"
+  systems_in_scope:
+    - "foundation draft lottery fixture"
+    - "foundation draft lottery preview/load command"
+    - "foundation audit gap reporting"
+    - "reset-era docs"
+  prior_artifacts:
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/ingest-tables.md"
+
+research:
+  repo_findings:
+    - "The table and Pydantic row/upsert helper already exist, but no command calls them."
+    - "Audit already counts lottery rows and emits a low-severity gap when the table is empty."
+    - "Full-span load explicitly says draft lottery results are not loaded yet."
+    - "Graph export does not consume lottery results and should stay out of scope."
+  platform_findings:
+    - "Official/high-confidence Memphis-owned lottery result rows exist for 2018, 2019, 2024, and 2026."
+    - "Memphis-origin 2020 resulted in Boston picking No. 14 from Memphis; current table cannot represent owner and original-team separately."
+    - "2016, 2017, 2021, 2022, 2023, and 2025 should be omitted rather than represented as empty rows."
+
+fixture_scope:
+  id: "seed_v1"
+  default_path: "configs/data/memphis_draft_lottery_results_2016_2026.json"
+  loadable_rows:
+    - "2018 MEM: pre-lottery position 2, result pick 4, odds 19.9%"
+    - "2019 MEM: pre-lottery position 8, result pick 2, odds 6.0%"
+    - "2024 MEM: pre-lottery position 7, result pick 9, odds 7.5%"
+    - "2026 MEM: pre-lottery position 6, result pick 3, odds 9.0%"
+  excluded_rows:
+    - "2020: Boston owned the final No. 14 pick from Memphis; document as excluded until schema supports owner/original-team distinction."
+
+acceptance_criteria:
+  - "A tracked fixture exists with high-confidence Memphis-owned lottery result rows, per-row official/high-confidence source URLs, source labels, retrieval dates, and an explicit 2020 exclusion caveat."
+  - "A preview command reports loadable rows, blocked rows, warnings, and existing DB row matches without writing."
+  - "A guarded load command supports `--dry-run`, blocks invalid/duplicate/unsafe rows, blocks conflicting existing `(draft_year, team_code)` IDs, and upserts safe rows through checked-in code."
+  - "Live load is explicitly part of post-checkpoint execution after clean preview and dry-run."
+  - "Running live load twice is idempotent: row counts and payload are stable unless the fixture changes."
+  - "After live load, audit no longer reports `draft_lottery_result` as empty, but docs/audit preserve the contextual seed-coverage caveat and 2020 exclusion."
+  - "Graph export behavior remains unchanged."
+  - "Tests cover fixture validation, duplicate year/team blocking, conflicting existing DB row blocking, dry-run no-write behavior, blocked preview no-write behavior, idempotent load behavior, default fixture loading, SQL table contract, audit gap behavior, and graph-export non-consumption."
+  - "Docs identify command order, source caveats, 2020 exclusion semantics, and that lottery data remains contextual."
+
+open_questions: []
+
+ready_for_planning: true
+planning_blockers: []

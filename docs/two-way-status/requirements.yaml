@@ -1,0 +1,136 @@
+# Contract: durable task-definition handoff created by $work when the selected mode needs explicit requirements
+
+artifact: requirements
+feature: "two-way-status"
+mode: "bounded-feature"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "Roster snapshot player rows have two-way fields, but every row is currently loaded as standard contract status."
+  motivation: "The base graph should distinguish core roster slots from two-way slots once roster checkpoints are used for lane truth."
+  requested_outcome: "Populate two-way status for Memphis roster snapshot players through a source-backed, preview-first enrichment layer."
+
+goals:
+  - "Add a source-backed path to mark `foundation.roster_snapshot_player` rows as `roster_status=two_way`, `is_two_way=true`, `is_standard_contract=false`."
+  - "Keep standard roster rows as `roster_status=standard`, `is_two_way=false`, `is_standard_contract=true`."
+  - "Use a curated interval fixture first, because current repo data can detect some conversions but cannot prove complete historical two-way intervals."
+  - "Bound this pass to a seed fixture, not an open-ended historical research project."
+  - "Add read-only preview and guarded load commands before changing live Supabase rows."
+  - "Ensure graph export automatically emits two-way players through existing `two_way_asset_ids` once rows are updated."
+  - "Update audit and docs so two-way status is no longer reported as absent after successful loading."
+
+non_goals:
+  - "Do not infer two-way status from G League assignment or recall events."
+  - "Do not add frontend layout changes in this pass."
+  - "Do not introduce paid Sportradar dependency or vendor API requirements."
+  - "Do not treat conversion text alone as full historical proof unless the interval is backed by a curated source."
+  - "Do not change the existing roster snapshot table schema unless implementation proves the fixture cannot be represented safely."
+
+constraints:
+  technical:
+    - "Existing schema already has `roster_status`, `is_two_way`, and `is_standard_contract` in `foundation.roster_snapshot_player`."
+    - "Existing export already splits `is_two_way` rows into `two_way_asset_ids`."
+    - "The enrichment command must run after `load-roster-snapshots-from-baselines`, because that command rebuilds snapshot-player rows."
+    - "Live DB writes must be performed through checked-in Python command paths, not terminal snippets."
+    - "The load command must be idempotent: rerunning after fixture edits must not leave stale two-way flags from removed intervals."
+  product:
+    - "Base graph target remains Memphis-only asset lineage; two-way status supports roster slot truth but should not expand narrative scope."
+    - "2016-17 should not be expected to have two-way status because two-way contracts were introduced after that season."
+    - "Two-way assignment must be source-backed or explicitly marked curated/uncertain."
+  process:
+    - "Use `$work` checkpoint before execution."
+    - "Use subagents for implementation/review/testing after checkpoint."
+    - "Keep correction loops capped at 2."
+
+assumptions:
+  - "Initial fixture rows can be date intervals with inclusive `start_date` and exclusive/open `end_date` semantics."
+  - "`is_standard_contract` should be false for two-way snapshot rows and true for standard snapshot rows."
+  - "Only players already present in `roster_snapshot_player` should be updated in the first guarded load; missing player rows should be preview warnings, not silent inserts."
+  - "RealGM transaction history plus official Grizzlies/NBA/G League releases is sufficient for an initial curated pass."
+  - "The first live fixture is `seed_v1`: high-confidence Memphis two-way intervals found in the fixed source set documented in the fixture, starting when NBA two-way contracts became available in 2017."
+  - "`seed_v1` should not claim complete historical coverage; uncovered or contested intervals remain explicit data gaps for later enrichment."
+  - "Live load should block invalid, unresolved, ambiguous, or internally contradictory fixture rows; it should apply safe matching rows and report fixture intervals with no matching snapshot-player rows as warnings."
+
+fixture_scope:
+  id: "seed_v1"
+  coverage_start: "2017-07-01"
+  coverage_end: null
+  source_set:
+    - "Official Memphis Grizzlies, NBA, and NBA G League releases found during the pass."
+    - "RealGM Memphis transaction-history pages for cross-checking transaction dates and contract language."
+    - "Basketball-Reference or Hoops Rumors may be used only as secondary corroboration when accessible."
+  confidence_rubric:
+    high:
+      - "Official team/NBA/G League release states the player signed, converted, or was released from a two-way contract."
+      - "Or two independent secondary sources agree on the two-way status interval."
+    medium:
+      - "One practical secondary source states two-way status but no official source is found."
+    low:
+      - "Assignment/recall, roster presence, or ambiguous contract language without two-way-specific wording."
+  load_policy:
+    - "Only high-confidence fixture rows are eligible for live load."
+    - "Medium/low-confidence rows may remain in the fixture only if clearly marked non-loadable, or they should be documented as gaps outside the loadable interval set."
+
+projection_rules:
+  - "A fixture interval applies to a snapshot-player row when `roster_snapshot.team_code` matches, `roster_snapshot_player.player_id` matches the resolved player, `snapshot_date >= start_date`, and `end_date is null or snapshot_date < end_date`."
+  - "A snapshot on the two-way signing date is two-way."
+  - "A snapshot on the conversion-to-standard or release date is not two-way when that date is represented as the interval `end_date`."
+  - "Open-ended intervals apply through the latest matching loaded snapshot."
+  - "The load transaction should reset all targeted team snapshot-player rows within fixture coverage to standard, then apply two-way intervals, so fixture changes are deterministic."
+
+identity_rules:
+  - "If `player_id` is present, it is authoritative but the loader must block on mismatched or missing player identity."
+  - "If only `player_name` is present, normalized name/alias resolution must map to exactly one existing player before live load."
+  - "Ambiguous, unresolved, or contradictory identity matches block live load."
+  - "The two-way loader must not create players, aliases, roster snapshots, or snapshot-player rows."
+
+repo_context:
+  relevant_paths:
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "src/foundation/ingest.py"
+    - "src/foundation/export.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "configs/data/"
+    - "tests/foundation/test_ingest.py"
+    - "tests/foundation/test_audit.py"
+  systems_in_scope:
+    - "foundation roster snapshot enrichment"
+    - "foundation audit"
+    - "foundation graph export side effects"
+    - "CLI preview/load commands"
+  prior_artifacts:
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/ingest-tables.md"
+
+research:
+  repo_findings:
+    - "No schema or export contract change is required; the target fields and export split already exist."
+    - "`build_roster_snapshots_from_baselines()` currently writes all snapshot players as standard."
+    - "BRef transaction normalization already recognizes `conversion` events such as Vince Williams Jr. converting from two-way to regular."
+    - "Conversion events should not affect roster membership but can support contract-status interval curation."
+    - "A curated fixture plus preview/load command matches existing draft-resolution and pick-inventory workbench patterns."
+  platform_findings:
+    - "Official Grizzlies/NBA/G League releases are strongest evidence for individual two-way signings and promotions."
+    - "RealGM Memphis transaction history is a practical static source for two-way signings, endings, and conversions, but it is unofficial."
+    - "NBA.com player transactions and a reported player-movement JSON feed may be useful later, but it is undocumented and needs separate live schema testing."
+    - "Sportradar can expose current specific-contract types such as `2WAY`, but it is a vendor dependency and not a free historical backfill."
+    - "G League assignment/recall events must not be used as two-way evidence because standard players can also be assigned."
+
+acceptance_criteria:
+  - "A tracked fixture exists for Memphis two-way status intervals and includes source URLs/confidence per row."
+  - "A preview command reports intended snapshot-player updates, unresolved players, and missing snapshot-player rows without writing to the DB."
+  - "A guarded load command updates existing snapshot-player rows from the loadable fixture rows, refuses invalid/unresolved/ambiguous fixture rows, reports non-matching intervals, and never silently inserts rows."
+  - "The load command is transactional and idempotent: it resets targeted Memphis snapshot-player rows in fixture coverage back to standard before applying current loadable intervals."
+  - "After loading, `audit-foundation-data` reports nonzero `two_way_rows` without implying complete historical coverage from that count alone."
+  - "Audit/docs preserve a seed-coverage caveat unless a future pass explicitly verifies complete historical two-way coverage."
+  - "After graph export, affected two-way assets appear in `roster_snapshots[].two_way_asset_ids` instead of `roster_asset_ids`."
+  - "Tests cover inclusive start/exclusive end interval projection, open-ended intervals, conversion-day boundaries, identity ambiguity blocking, idempotent reset/apply behavior, audit behavior, and export behavior if needed."
+  - "Docs identify source caveats and command order."
+
+open_questions: []
+
+ready_for_planning: true
+planning_blockers: []

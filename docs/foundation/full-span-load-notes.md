@@ -7,7 +7,8 @@ Last verified live load scope:
 - draft years: 2016 through 2025
 - source span in export: 2016-06-23 through 2026-04-10
 
-Current live `foundation` counts after the full-span rebuild:
+Current live `foundation` counts after the full-span rebuild plus contextual
+seed enrichments:
 
 - `source_record`: 588
 - `source_event`: 401
@@ -21,7 +22,7 @@ Current live `foundation` counts after the full-span rebuild:
 - `roster_snapshot_pick`: 0
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
-- `draft_lottery_result`: 0
+- `draft_lottery_result`: 4
 - `canonical_event`: 388
 - `canonical_event_member`: 401
 - `event_asset_transition`: 528
@@ -78,6 +79,36 @@ rows. It creates slot-based `pick` and `asset` rows, links
 `draft_selection.pick_id`, and records provenance in
 `foundation.draft_pick_resolution`.
 
+Two-way status preview and guarded load:
+
+```bash
+.venv/bin/python -m redesign_cli preview-two-way-status --team-code MEM
+.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM
+```
+
+Run two-way enrichment after `load-roster-snapshots-from-baselines`, because the
+snapshot builder rebuilds all snapshot-player rows as standard. The live load is
+deterministic within the `seed_v1` fixture coverage: it resets covered Memphis
+snapshot-player rows to standard, then applies current high-confidence loadable
+intervals. Non-matching intervals are warnings, not inserts.
+
+Draft lottery result preview and guarded load:
+
+```bash
+.venv/bin/python -m redesign_cli preview-draft-lottery-results --team-code MEM
+.venv/bin/python -m redesign_cli load-draft-lottery-results --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-draft-lottery-results --team-code MEM
+```
+
+The fixture writes only Memphis-owned lottery result rows for 2018, 2019, 2024,
+and 2026. Loadable rows require high confidence, source URLs, source labels,
+retrieval dates, and safe lottery slot values. The command blocks duplicate
+fixture year/team rows and existing DB `(draft_year, team_code)` rows with a
+different `lottery_result_id` before any write. The 2020 Boston-from-Memphis
+result is documented as `loadable=false` and is not written because the current
+table cannot distinguish owner team from original team.
+
 Resolved in this pass:
 
 - `Kenny Lofton Jr` source text now resolves to `Kenneth Lofton Jr.`
@@ -91,12 +122,19 @@ Resolved in this pass:
   Basketball-Reference season roster pages plus loaded transaction events
 - `draft_pick_resolution` rows now emit graph-facing `pick_to_player`
   transitions and synthetic draft events for the frontend export
+- `seed_v1` two-way status intervals can now populate
+  `roster_snapshot_player.is_two_way` for matching Memphis checkpoint rows
+- `seed_v1` draft lottery result rows can populate contextual Memphis-owned
+  lottery outcomes for 2018, 2019, 2024, and 2026 after clean preview/dry-run.
+  The current live database has 4 loaded lottery rows.
 
 Known gaps:
 
 - `roster_snapshot_pick` is still empty because current pick inventory snapshots
   are not sourced yet.
-- `draft_lottery_result` is still empty; lottery data is contextual and not
-  required for the base graph.
-- Two-way versus standard contract status is modeled but not reliably sourced
-  yet.
+- Draft lottery rows are contextual seed coverage only and are not consumed by
+  the base graph. The audit clears only the empty-table gap and preserves a
+  caveat that 2020 Boston-from-Memphis remains excluded until owner and
+  original-team semantics are modeled separately.
+- Two-way status now has a curated seed loader, but nonzero two-way rows only
+  prove loaded seed coverage. The fixture is not complete historical coverage.

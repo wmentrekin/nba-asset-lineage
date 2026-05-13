@@ -1,0 +1,155 @@
+# Contract: durable execution plan created by $work when the selected mode needs explicit planning
+
+artifact: plan
+feature: "two-way-status"
+mode: "bounded-feature"
+status: draft
+owner_skill: work
+based_on: "docs/two-way-status/requirements.yaml"
+
+objective: "Add source-backed two-way roster status enrichment for Memphis roster snapshot players."
+
+approach:
+  summary: "Implement a curated interval fixture and preview-first loader that updates existing `foundation.roster_snapshot_player` rows after checkpoint rebuilds. Rely on existing export/audit fields rather than changing schema."
+  key_decisions:
+    - "Use curated interval fixture `seed_v1` as the first source of truth."
+    - "Use RealGM transaction history and official releases as initial source evidence."
+    - "Bound source collection to high-confidence intervals found in the documented `seed_v1` source set, starting 2017-07-01."
+    - "Do not claim complete historical coverage from `seed_v1`; keep explicit source-coverage caveats."
+    - "Do not infer two-way status from G League assignment/recall events."
+    - "Run two-way enrichment after roster snapshots are rebuilt."
+    - "Block invalid, unresolved, ambiguous, or contradictory fixture rows; apply safe matching rows and report non-matching intervals as warnings."
+    - "Make live load transactional and idempotent by resetting targeted Memphis snapshot-player rows in fixture coverage to standard before applying the current fixture intervals."
+    - "Do not add frontend behavior in this pass."
+
+contracts:
+  interfaces:
+    - "`preview-two-way-status --team-code MEM [--fixture-path <path>]` returns planned updates, blocked rows, and sample affected snapshots without writing."
+    - "`load-two-way-status --team-code MEM [--fixture-path <path>] --dry-run` returns the same guarded plan without writing."
+    - "`load-two-way-status --team-code MEM [--fixture-path <path>]` updates only existing `roster_snapshot_player` rows that pass validation."
+  schemas:
+    - "No SQL schema change expected."
+    - "Fixture has top-level metadata: `fixture_id=seed_v1`, `team_code`, `coverage_start`, `coverage_end`, `coverage_statement`, `source_set`, and `confidence_rubric`."
+    - "Fixture rows contain: `status_id`, `player_name`, optional `player_id`, `team_code`, `start_date`, `end_date`, `source_urls`, `confidence`, `loadable`, and `notes`."
+    - "Updated DB rows set `roster_status=two_way`, `is_two_way=true`, `is_standard_contract=false` for matching intervals; non-matching rows remain standard."
+    - "Live load is eligible only for rows with `confidence=high` and `loadable=true`."
+  projection_rules:
+    - "Match rows where `roster_snapshot.team_code` equals the CLI team code, `roster_snapshot_player.player_id` equals the resolved fixture player, `snapshot_date >= start_date`, and `end_date is null or snapshot_date < end_date`."
+    - "A signing date is included in the two-way interval."
+    - "A conversion/release date represented as `end_date` is excluded from the two-way interval."
+    - "Open-ended intervals apply through the latest matching loaded snapshot."
+  identity_rules:
+    - "When `player_id` is provided, validate that it exists and does not contradict the normalized fixture name."
+    - "When only `player_name` is provided, resolve to exactly one existing player/alias before live load."
+    - "Ambiguous, unresolved, or contradictory player resolution blocks live load."
+  idempotency_rules:
+    - "Live load runs in one transaction."
+    - "Before applying fixture rows, reset targeted Memphis snapshot-player rows with snapshot dates inside fixture coverage to `roster_status=standard`, `is_two_way=false`, and `is_standard_contract=true`."
+    - "Then apply current loadable fixture intervals."
+    - "Preview and dry-run report the same reset/apply plan without writing."
+  config_changes:
+    - "Add `configs/data/memphis_two_way_status_2017_2026.json`."
+    - "Use `configs/data/memphis_two_way_status_2017_2026.json` as the CLI default fixture path."
+    - "Update `configs/data/README.md`."
+
+execution_batches:
+  - id: "B1"
+    goal: "Create two-way status fixture contract and projection/preview logic."
+    tasks:
+      - id: "T1"
+        title: "Add fixture and model/parser"
+        objective: "Create curated `seed_v1` interval fixture and Python models that validate metadata, confidence, interval semantics, and player identifiers."
+        owned_scope:
+          - "configs/data/memphis_two_way_status_2017_2026.json"
+          - "configs/data/README.md"
+          - "src/foundation/two_way_status.py"
+          - "tests/foundation/test_two_way_status.py"
+        forbidden_scope:
+          - "frontend/"
+          - "SQL schema changes"
+          - "live DB writes"
+        dependencies: []
+        parallelizable: true
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_two_way_status.py"
+      - id: "T2"
+        title: "Add read-only preview command"
+        objective: "Expose preview output through `src/redesign_cli.py` and validate blocked/unresolved/ambiguous cases plus reset/apply counts."
+        owned_scope:
+          - "src/redesign_cli.py"
+          - "src/foundation/two_way_status.py"
+          - "tests/foundation/test_two_way_status.py"
+        forbidden_scope:
+          - "frontend/"
+          - "live DB writes"
+        dependencies:
+          - "T1"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_two_way_status.py"
+          - ".venv/bin/python -m redesign_cli preview-two-way-status --team-code MEM"
+  - id: "B2"
+    goal: "Add guarded DB update path and integrate with audit/docs/export validation."
+    tasks:
+      - id: "T3"
+        title: "Add guarded load command"
+        objective: "Implement dry-run and live transactional reset/apply command that updates existing snapshot-player rows only when preview has no blocking errors."
+        owned_scope:
+          - "src/foundation/two_way_status.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/test_two_way_status.py"
+        forbidden_scope:
+          - "ad hoc DB write scripts"
+          - "SQL schema changes unless a blocker is documented"
+        dependencies:
+          - "T2"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_two_way_status.py"
+          - ".venv/bin/python -m redesign_cli load-two-way-status --team-code MEM --dry-run"
+      - id: "T4"
+        title: "Update audit/docs and regenerate export after load"
+        objective: "Make audit/docs reflect seed-loaded two-way rows without implying full historical coverage, and verify graph export places them under `two_way_asset_ids`."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "tests/foundation/test_audit.py"
+          - "docs/foundation/README.md"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/ingest-tables.md"
+          - "frontend/src/data/generated/foundation-graph.json"
+        forbidden_scope:
+          - "frontend layout changes"
+        dependencies:
+          - "T3"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest"
+          - ".venv/bin/python -m redesign_cli audit-foundation-data"
+          - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path frontend/src/data/generated/foundation-graph.json"
+          - "mise run frontend_test"
+          - "mise run frontend_build"
+
+ordering_notes:
+  - "B1 must complete before any DB write path exists."
+  - "B2 live load must use checked-in command code only."
+  - "After any future roster checkpoint rebuild, two-way enrichment must be rerun."
+
+risks:
+  - "Fixture may be incomplete if source coverage is not expanded enough."
+  - "RealGM is practical but unofficial; contested rows should use official releases."
+  - "A two-way interval may match a player who is absent from capped snapshot-player rows; preview must report that explicitly."
+  - "Audit could falsely imply completeness if it treats any nonzero two-way row as sufficient; implementation must preserve a seed-coverage caveat."
+  - "Idempotent reset/apply can wipe manually edited two-way rows within fixture coverage; this is intentional for deterministic fixture ownership and must be documented."
+
+open_questions: []
+
+review:
+  status: approved_for_checkpoint
+  loop_count: 2
+  notes:
+    - "First review required tighter fixture scope, idempotency, audit, interval, and identity rules."
+    - "Second review found no remaining blockers before pre-execution checkpoint."
+
+checkpoint:
+  required_before_execution: true
+  status: pending

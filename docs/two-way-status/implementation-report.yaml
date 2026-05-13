@@ -1,0 +1,95 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "two-way-status"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+based_on: "docs/two-way-status/plan.yaml"
+
+summary:
+  scope_executed: "Implemented seed_v1 two-way status fixture, preview/load CLI commands, idempotent DB reset/apply path, audit caveat, docs, tests, and local graph export verification."
+  outcome: "Supabase now has 20 two-way roster_snapshot_player rows loaded from 8 high-confidence loadable fixture intervals; the frontend graph export locally emits those rows through two_way_asset_ids."
+
+task_batches_attempted:
+  - "B1 fixture/model/parser/preview"
+  - "B2 guarded load/audit/docs/export validation"
+task_batches_completed:
+  - "B1"
+  - "B2"
+
+changes:
+  files:
+    - "configs/data/memphis_two_way_status_2017_2026.json"
+    - "configs/data/README.md"
+    - "src/foundation/two_way_status.py"
+    - "src/redesign_cli.py"
+    - "src/foundation/audit.py"
+    - "tests/foundation/test_two_way_status.py"
+    - "tests/foundation/test_audit.py"
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/ingest-tables.md"
+    - "docs/two-way-status/status.yaml"
+    - "docs/two-way-status/requirements.yaml"
+    - "docs/two-way-status/plan.yaml"
+  modules:
+    - "foundation.two_way_status"
+    - "redesign_cli preview-two-way-status/load-two-way-status"
+    - "foundation.audit known-gap reporting"
+  docs_updated:
+    - "Two-way command order and caveats"
+    - "Seed fixture scope and non-completeness caveat"
+
+database_effects:
+  live_load_ran: true
+  command: ".venv/bin/python -m redesign_cli load-two-way-status --team-code MEM"
+  reset_rows: 584
+  applied_rows: 20
+  blocked_rows: 0
+  warning_rows: 0
+
+local_validation:
+  checks_run:
+    - ".venv/bin/pytest tests/foundation/test_two_way_status.py tests/foundation/test_audit.py"
+    - ".venv/bin/python -m redesign_cli preview-two-way-status --team-code MEM"
+    - ".venv/bin/python -m redesign_cli load-two-way-status --team-code MEM --dry-run"
+    - ".venv/bin/python -m redesign_cli load-two-way-status --team-code MEM"
+    - ".venv/bin/python -m redesign_cli audit-foundation-data"
+    - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path frontend/src/data/generated/foundation-graph.json"
+    - ".venv/bin/pytest"
+    - "mise run frontend_test"
+    - "mise run frontend_build"
+    - "git diff --check"
+  failures: []
+  skipped: []
+
+review_summary:
+  status: completed
+  key_findings:
+    - "Final review found two guardrail gaps: filtered-out invalid fixture rows could be ignored, and overlapping loadable intervals were not blocked."
+    - "Both findings were fixed with regression tests."
+
+test_summary:
+  status: passed
+  checks_run:
+    - "16 focused Python tests passed"
+    - "81 full Python tests passed"
+    - "8 frontend Vitest tests passed"
+    - "Astro production build passed"
+    - "YAML artifacts parsed successfully"
+    - "git diff --check passed"
+  failures: []
+  gaps:
+    - "Fixture seed_v1 is not complete historical two-way coverage."
+    - "frontend/src/data/generated/foundation-graph.json is gitignored; export was regenerated locally but not tracked."
+    - "mise emitted sandbox cache write warnings, but frontend test/build completed."
+
+open_issues:
+  - "Future work should expand two-way fixture coverage for older seasons and current-season rows only when source-backed."
+  - "Future work should resolve dirty source identities such as names carrying `(TW)` at ingest time, not only in this loader."
+
+handoff:
+  current_state: completed
+  next_owner: "user"
+  next_action: "Review/commit when ready; expand two-way seed fixture only with source-backed intervals in a future pass."

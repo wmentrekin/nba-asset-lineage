@@ -13,6 +13,7 @@ frontend/.vite/
 frontend/.tsbuildinfo
 frontend/src/data/generated/*
 !frontend/src/data/generated/.gitkeep
+!frontend/src/data/generated/foundation-graph.json
 
 # C extensions
 *.so

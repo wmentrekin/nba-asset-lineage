@@ -1,0 +1,123 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "draft-lottery-results"
+mode: "bounded-feature"
+stage: "completed"
+owner_skill: work
+
+objective: "Populate Memphis draft lottery result data in the reset-era foundation layer without expanding the base graph scope."
+
+summary:
+  current_focus: "Completed live load and verification."
+  last_completed: "Loaded four high-confidence Memphis-owned draft lottery rows, confirmed idempotency/audit counts, and proved graph export output is unchanged."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/draft-lottery-results/requirements.yaml"
+  plan: "docs/draft-lottery-results/plan.yaml"
+  implementation_report: "docs/draft-lottery-results/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "completed"
+    task: "Coordinate implementation, review, test, live load, and final report."
+    last_update: "Live Supabase load wrote 4 rows; second load found matching existing rows; audit, graph export comparison, full pytest, frontend test, and frontend build passed."
+    blocker: ""
+  - id: "repo-researcher-1"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect local draft lottery schema, loaders, export, audit, docs, and test patterns."
+    last_update: "Found table/helper exist but no fixture, preview/load command, or source-backed loader; export should remain out of scope."
+    blocker: ""
+  - id: "platform-researcher-1"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Find reliable Memphis draft lottery source data and candidate rows."
+    last_update: "Found high-confidence Memphis-owned rows for 2018, 2019, 2024, and 2026; 2020 is Boston-owned from Memphis and remains excluded."
+    blocker: ""
+  - id: "plan-reviewer-1"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Critique draft requirements and plan."
+    last_update: "Found blockers around DB write safety, source pinning, audit caveat wording, live-load validation, and export-neutral proof."
+    blocker: ""
+  - id: "plan-reviewer-2"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Final review of revised requirements and plan."
+    last_update: "Found one remaining plan cleanup around graph-export comparison; orchestrator applied the doc fix."
+    blocker: ""
+  - id: "implementation-worker-1"
+    role: "developer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement fixture, preview/load commands, tests, and docs without live DB writes."
+    last_update: "Completed fixture/module/CLI/audit/docs/tests; focused tests and preview/dry-run passed."
+    blocker: ""
+  - id: "verification-reviewer-1"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Review implementation for scope, no-write behavior, and reset-era boundaries."
+    last_update: "Found audit early-return, excluded-row existing-state, and 2026 source-link issues; all were fixed."
+    blocker: ""
+  - id: "verification-tester-1"
+    role: "tester"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Run focused local tests plus read-only preview attempt."
+    last_update: "21 focused tests passed after fixes; sandbox DNS blocked read-only preview and orchestrator reran DB checks with approved network."
+    blocker: ""
+  - id: "correction-worker-1"
+    role: "developer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Patch verifier findings."
+    last_update: "Patched audit metrics, existing-row preview scope, 2026 row source links, and regression tests."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 2
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: approved
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Use bounded-feature mode because the task needed sourced data, a fixture/load command, tests, docs, and verification."
+  - "Use the current table as owner/team-scoped contextual data; do not load the 2020 Boston-from-Memphis row as MEM without a schema extension."
+  - "Graph export does not consume draft lottery results in this pass."
+  - "Live load blocks existing `(draft_year, team_code)` conflicts before writing and is idempotent."
+  - "Fixture loadable rows require source URLs, labels, and retrieval dates."
+  - "Live validation exported graph JSON before and after the load and compared both files."
+
+next_action: "Return to user; likely next data work is future pick inventory snapshots or owner/original-team pick semantics."
+next_recommended_command: "$work"
+user_input_needed: false
