@@ -50,6 +50,8 @@ def make_row(
         draft_year=draft_year,
         lottery_date=date(2024, 5, 12),
         team_code=team_code,
+        owner_team_code=team_code,
+        original_team_code="MEM",
         lottery_position=lottery_position,
         result_pick_slot=result_pick_slot,
         pre_lottery_odds="7.5%",
@@ -88,11 +90,17 @@ def test_fixture_validation_accepts_source_backed_loadable_rows_and_excludes_non
     assert preview.loadable_rows == 1
     assert preview.ready_rows == 1
     assert preview.rows[1].existing_status == "not_loadable"
-    assert build_draft_lottery_result_rows(fixture, preview)[0].lottery_result_id == "draft-lottery-result:mem:2024"
+    row = build_draft_lottery_result_rows(fixture, preview)[0]
+    assert row.lottery_result_id == "draft-lottery-result:mem:2024"
+    assert row.owner_team_code == "MEM"
+    assert row.original_team_code == "MEM"
 
 
 def test_missing_source_metadata_blocks_loadable_rows() -> None:
-    fixture = make_fixture([make_row(source_urls=[], source_labels=[], retrieved_at=None)])
+    row = make_row(source_urls=[], source_labels=[], retrieved_at=None)
+    row.owner_team_code = None
+    row.original_team_code = None
+    fixture = make_fixture([row])
 
     preview = build_draft_lottery_results_preview(
         fixture=fixture,
@@ -105,6 +113,8 @@ def test_missing_source_metadata_blocks_loadable_rows() -> None:
     assert "loadable rows require at least one source URL" in preview.rows[0].issues
     assert "loadable rows require at least one source label" in preview.rows[0].issues
     assert "loadable rows require retrieved_at" in preview.rows[0].issues
+    assert "loadable rows require owner_team_code" in preview.rows[0].issues
+    assert "loadable rows require original_team_code" in preview.rows[0].issues
 
 
 def test_duplicate_year_team_blocks_preview() -> None:
@@ -437,10 +447,12 @@ def test_default_seed_fixture_contract_loads() -> None:
 
     assert fixture.fixture_id == "seed_v1"
     assert fixture.team_code == "MEM"
-    assert [row.draft_year for row in fixture.rows if row.loadable] == [2018, 2019, 2024, 2026]
+    assert [row.draft_year for row in fixture.rows if row.loadable] == [2018, 2019, 2020, 2024, 2026]
     assert preview.blocked_rows == 0
-    assert preview.ready_rows == 4
-    assert any(row.draft_year == 2020 and not row.loadable for row in fixture.rows)
+    assert preview.ready_rows == 5
+    result_2020 = next(row for row in fixture.rows if row.draft_year == 2020)
+    assert result_2020.owner_team_code == "BOS"
+    assert result_2020.original_team_code == "MEM"
     assert all(row.confidence == "high" for row in fixture.rows if row.loadable)
     assert all(row.source_urls and row.source_labels and row.retrieved_at for row in fixture.rows if row.loadable)
     result_2026 = next(row for row in fixture.rows if row.draft_year == 2026)

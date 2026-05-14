@@ -1,7 +1,11 @@
 from foundation.export import build_empty_base_export
 from foundation.canonical import derive_foundation_canonical_bundle
 from foundation.ingest import build_foundation_ingest_sample_bundle
-from foundation.models import BaseGraphExport, PickAsset, PlayerAsset, TransactionEvent
+from foundation.models import BaseGraphExport
+from foundation.models import PickAsset
+from foundation.models import PlayerAsset
+from foundation.models import TransactionEvent
+from foundation.models import draft_event_date
 from foundation.sources import get_default_source_plan
 
 
@@ -13,6 +17,11 @@ def test_empty_base_export_defaults() -> None:
     assert export.pick_assets == []
     assert export.transitions == []
     assert export.roster_snapshots == []
+
+
+def test_draft_event_date_covers_reset_span_draft_years() -> None:
+    assert draft_event_date(2017, 1) == "2017-06-22"
+    assert draft_event_date(2017, 2) == "2017-06-22"
 
 
 def test_base_graph_export_contract_accepts_first_graph_ready_shape() -> None:

@@ -44,7 +44,16 @@ create table if not exists foundation.roster_snapshot_pick (
     asset_id text null references foundation.asset(asset_id) on delete set null,
     holding_status text not null default 'owned',
     display_order integer null,
-    primary key (snapshot_id, pick_id)
+    source_obligation_id text null,
+    confidence text not null default 'derived',
+    notes text null,
+    primary key (snapshot_id, pick_id),
+    constraint roster_snapshot_pick_holding_status_check check (
+        holding_status in ('owned', 'owed_out', 'swap_right', 'encumbered', 'conditional')
+    ),
+    constraint roster_snapshot_pick_confidence_check check (
+        confidence in ('derived', 'curated', 'validated', 'uncertain')
+    )
 );
 
 create table if not exists foundation.draft_selection (
@@ -67,6 +76,8 @@ create table if not exists foundation.draft_lottery_result (
     draft_year integer not null,
     lottery_date date null,
     team_code text not null,
+    owner_team_code text null,
+    original_team_code text null,
     lottery_position integer null,
     result_pick_slot integer not null,
     pre_lottery_odds text null,
@@ -75,3 +86,9 @@ create table if not exists foundation.draft_lottery_result (
 
 create unique index if not exists draft_lottery_result_year_team_idx
 on foundation.draft_lottery_result (draft_year, team_code);
+
+create index if not exists draft_lottery_result_year_owner_idx
+on foundation.draft_lottery_result (draft_year, owner_team_code);
+
+create index if not exists draft_lottery_result_year_original_idx
+on foundation.draft_lottery_result (draft_year, original_team_code);

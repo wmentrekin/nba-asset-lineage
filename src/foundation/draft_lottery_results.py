@@ -26,6 +26,8 @@ class DraftLotteryFixtureRow(BaseModel):
     draft_year: int
     lottery_date: date | None = None
     team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
     lottery_position: int | None = None
     result_pick_slot: int
     pre_lottery_odds: str | None = None
@@ -52,6 +54,8 @@ class ExistingDraftLotteryResult(BaseModel):
     lottery_result_id: str
     draft_year: int
     team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
 
 
 class DraftLotteryPreviewRow(BaseModel):
@@ -59,6 +63,8 @@ class DraftLotteryPreviewRow(BaseModel):
     draft_year: int
     lottery_date: date | None
     team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
     lottery_position: int | None
     result_pick_slot: int
     pre_lottery_odds: str | None
@@ -135,8 +141,8 @@ def validate_draft_lottery_results_fixture(fixture: DraftLotteryFixture, *, team
             issues.append(f"{row.lottery_result_id}: draft_year is outside fixture coverage")
         if row_team_code != fixture.team_code.upper():
             issues.append(f"{row.lottery_result_id}: row team_code {row.team_code} does not match fixture team {fixture.team_code}")
-        if row.loadable:
-            issues.extend(validate_loadable_fixture_row(row))
+    if row.loadable:
+        issues.extend(validate_loadable_fixture_row(row))
     return issues
 
 
@@ -156,6 +162,10 @@ def validate_loadable_fixture_row(row: DraftLotteryFixtureRow) -> list[str]:
         issues.append(f"{row.lottery_result_id}: lottery_position must be between 1 and 14 when present")
     if row.lottery_date is None:
         issues.append(f"{row.lottery_result_id}: loadable rows require lottery_date")
+    if row.owner_team_code is None:
+        issues.append(f"{row.lottery_result_id}: loadable rows require owner_team_code")
+    if row.original_team_code is None:
+        issues.append(f"{row.lottery_result_id}: loadable rows require original_team_code")
     return issues
 
 
@@ -218,8 +228,7 @@ def build_draft_lottery_results_preview(
         warnings=warnings,
         known_limitations=[
             "seed_v1 is contextual lottery metadata, not part of the minimum graph export contract.",
-            "Only Memphis-owned loadable lottery outcomes are written under the current team_code-only table semantics.",
-            "The 2020 Boston-from-Memphis lottery result remains fixture-documented but loadable=false until owner/original-team fields exist.",
+            "team_code is the Memphis perspective scope; owner_team_code and original_team_code carry explicit pick semantics.",
             "Rows with loadable=false are never written.",
         ],
     )
@@ -260,6 +269,8 @@ def build_draft_lottery_preview_row(
         draft_year=row.draft_year,
         lottery_date=row.lottery_date,
         team_code=row.team_code.upper(),
+        owner_team_code=row.owner_team_code.upper() if row.owner_team_code else None,
+        original_team_code=row.original_team_code.upper() if row.original_team_code else None,
         lottery_position=row.lottery_position,
         result_pick_slot=row.result_pick_slot,
         pre_lottery_odds=row.pre_lottery_odds,
@@ -389,6 +400,8 @@ def build_draft_lottery_result_rows(
             draft_year=row.draft_year,
             lottery_date=row.lottery_date.isoformat() if row.lottery_date is not None else None,
             team_code=row.team_code.upper(),
+            owner_team_code=row.owner_team_code.upper() if row.owner_team_code else None,
+            original_team_code=row.original_team_code.upper() if row.original_team_code else None,
             lottery_position=row.lottery_position,
             result_pick_slot=row.result_pick_slot,
             pre_lottery_odds=row.pre_lottery_odds,
@@ -423,7 +436,7 @@ def load_existing_draft_lottery_results(
             return []
         cursor.execute(
             """
-            select lottery_result_id, draft_year, team_code
+            select lottery_result_id, draft_year, team_code, owner_team_code, original_team_code
             from foundation.draft_lottery_result
             where team_code = %s
               and draft_year = any(%s)
@@ -436,6 +449,8 @@ def load_existing_draft_lottery_results(
                 lottery_result_id=str(row[0]),
                 draft_year=int(row[1]),
                 team_code=str(row[2]),
+                owner_team_code=str(row[3]) if row[3] is not None else None,
+                original_team_code=str(row[4]) if row[4] is not None else None,
             )
             for row in cursor.fetchall()
         ]

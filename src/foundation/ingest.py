@@ -129,6 +129,33 @@ class RosterSnapshotPickRow(BaseModel):
     asset_id: str | None = None
     holding_status: str = "owned"
     display_order: int | None = None
+    source_obligation_id: str | None = None
+    confidence: str | None = "derived"
+    notes: str | None = None
+
+
+class PickInventoryObligationRow(BaseModel):
+    obligation_id: str
+    effective_date: str
+    perspective_team_code: str
+    owner_team_code: str
+    original_team_code: str
+    draft_year: int
+    round_number: int
+    direction: str
+    holding_status: str
+    obligation_type: str
+    confidence: str
+    source_urls: list[str]
+    source_labels: list[str]
+    retrieved_at: str
+    source_event_id: str | None = None
+    canonical_event_id: str | None = None
+    protection_text: str | None = None
+    swap_text: str | None = None
+    condition_text: str | None = None
+    notes: str | None = None
+    loadable: bool = True
 
 
 class RosterMembershipEvent(BaseModel):
@@ -156,6 +183,8 @@ class DraftLotteryResultRow(BaseModel):
     draft_year: int
     lottery_date: str | None = None
     team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
     lottery_position: int | None = None
     result_pick_slot: int
     pre_lottery_odds: str | None = None
@@ -1119,12 +1148,16 @@ def upsert_roster_snapshot_picks(connection: psycopg.Connection, rows: list[Rost
             cursor.execute(
                 """
                 insert into foundation.roster_snapshot_pick (
-                    snapshot_id, pick_id, asset_id, holding_status, display_order
-                ) values (%s, %s, %s, %s, %s)
+                    snapshot_id, pick_id, asset_id, holding_status, display_order,
+                    source_obligation_id, confidence, notes
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict (snapshot_id, pick_id) do update
                 set asset_id = excluded.asset_id,
                     holding_status = excluded.holding_status,
-                    display_order = excluded.display_order
+                    display_order = excluded.display_order,
+                    source_obligation_id = excluded.source_obligation_id,
+                    confidence = excluded.confidence,
+                    notes = excluded.notes
                 """,
                 (
                     row.snapshot_id,
@@ -1132,6 +1165,88 @@ def upsert_roster_snapshot_picks(connection: psycopg.Connection, rows: list[Rost
                     row.asset_id,
                     row.holding_status,
                     row.display_order,
+                    row.source_obligation_id,
+                    row.confidence,
+                    row.notes,
+                ),
+            )
+
+
+def replace_roster_snapshot_picks(
+    connection: psycopg.Connection,
+    rows: list[RosterSnapshotPickRow],
+    snapshot_ids: list[str] | None = None,
+) -> None:
+    snapshot_ids = sorted(set(snapshot_ids or [row.snapshot_id for row in rows]))
+    if not snapshot_ids:
+        return
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "delete from foundation.roster_snapshot_pick where snapshot_id = any(%s)",
+            (snapshot_ids,),
+        )
+    upsert_roster_snapshot_picks(connection, rows)
+
+
+def upsert_pick_inventory_obligations(connection: psycopg.Connection, rows: list[PickInventoryObligationRow]) -> None:
+    with connection.cursor() as cursor:
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.pick_inventory_obligation (
+                    obligation_id, effective_date, perspective_team_code, owner_team_code,
+                    original_team_code, draft_year, round_number, direction, holding_status,
+                    obligation_type, confidence, source_urls, source_labels, retrieved_at,
+                    source_event_id, canonical_event_id, protection_text, swap_text,
+                    condition_text, notes, loadable
+                ) values (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+                on conflict (obligation_id) do update
+                set effective_date = excluded.effective_date,
+                    perspective_team_code = excluded.perspective_team_code,
+                    owner_team_code = excluded.owner_team_code,
+                    original_team_code = excluded.original_team_code,
+                    draft_year = excluded.draft_year,
+                    round_number = excluded.round_number,
+                    direction = excluded.direction,
+                    holding_status = excluded.holding_status,
+                    obligation_type = excluded.obligation_type,
+                    confidence = excluded.confidence,
+                    source_urls = excluded.source_urls,
+                    source_labels = excluded.source_labels,
+                    retrieved_at = excluded.retrieved_at,
+                    source_event_id = excluded.source_event_id,
+                    canonical_event_id = excluded.canonical_event_id,
+                    protection_text = excluded.protection_text,
+                    swap_text = excluded.swap_text,
+                    condition_text = excluded.condition_text,
+                    notes = excluded.notes,
+                    loadable = excluded.loadable,
+                    updated_at = now()
+                """,
+                (
+                    row.obligation_id,
+                    row.effective_date,
+                    row.perspective_team_code,
+                    row.owner_team_code,
+                    row.original_team_code,
+                    row.draft_year,
+                    row.round_number,
+                    row.direction,
+                    row.holding_status,
+                    row.obligation_type,
+                    row.confidence,
+                    row.source_urls,
+                    row.source_labels,
+                    row.retrieved_at,
+                    row.source_event_id,
+                    row.canonical_event_id,
+                    row.protection_text,
+                    row.swap_text,
+                    row.condition_text,
+                    row.notes,
+                    row.loadable,
                 ),
             )
 
@@ -1151,8 +1266,8 @@ def upsert_draft_selections(connection: psycopg.Connection, rows: list[DraftSele
                     round_number = excluded.round_number,
                     team_code = excluded.team_code,
                     player_id = excluded.player_id,
-                    pick_id = excluded.pick_id,
-                    source_event_id = excluded.source_event_id,
+                    pick_id = coalesce(excluded.pick_id, foundation.draft_selection.pick_id),
+                    source_event_id = coalesce(excluded.source_event_id, foundation.draft_selection.source_event_id),
                     notes = excluded.notes
                 """,
                 (
@@ -1175,13 +1290,16 @@ def upsert_draft_lottery_results(connection: psycopg.Connection, rows: list[Draf
             cursor.execute(
                 """
                 insert into foundation.draft_lottery_result (
-                    lottery_result_id, draft_year, lottery_date, team_code, lottery_position,
+                    lottery_result_id, draft_year, lottery_date, team_code,
+                    owner_team_code, original_team_code, lottery_position,
                     result_pick_slot, pre_lottery_odds, notes
-                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 on conflict (lottery_result_id) do update
                 set draft_year = excluded.draft_year,
                     lottery_date = excluded.lottery_date,
                     team_code = excluded.team_code,
+                    owner_team_code = excluded.owner_team_code,
+                    original_team_code = excluded.original_team_code,
                     lottery_position = excluded.lottery_position,
                     result_pick_slot = excluded.result_pick_slot,
                     pre_lottery_odds = excluded.pre_lottery_odds,
@@ -1192,6 +1310,8 @@ def upsert_draft_lottery_results(connection: psycopg.Connection, rows: list[Draf
                     row.draft_year,
                     row.lottery_date,
                     row.team_code,
+                    row.owner_team_code,
+                    row.original_team_code,
                     row.lottery_position,
                     row.result_pick_slot,
                     row.pre_lottery_odds,

@@ -21,6 +21,7 @@ from foundation.ingest import (
     upsert_draft_selections,
     upsert_roster_baseline_players,
 )
+from foundation.models import draft_event_date
 from foundation.prototypes import normalize_common_all_players_row, normalize_common_team_roster_row
 from foundation.workbench import normalize_bref_transaction_block
 
@@ -49,6 +50,10 @@ def build_bref_team_season_url(team_code: str, season_end_year: int) -> str:
 
 def build_bref_draft_url(draft_year: int) -> str:
     return f"https://www.basketball-reference.com/draft/NBA_{draft_year}.html"
+
+
+def build_bref_draft_source_event_id(draft_year: int, pick_overall: int) -> str:
+    return f"bref:draft:{draft_year}:pick:{pick_overall:03d}"
 
 
 def fetch_bref_transactions_html(team_code: str, season_end_year: int) -> str:
@@ -294,8 +299,9 @@ def build_bref_draft_rows(
     draft_year: int,
     team_code: str,
     html: str,
-) -> tuple[list[SourceRecordRow], list[PlayerRow], list[DraftSelectionRow]]:
+) -> tuple[list[SourceRecordRow], list[SourceEventRow], list[PlayerRow], list[DraftSelectionRow]]:
     draft_rows = extract_bref_draft_rows(html)
+    team_code = team_code.upper()
     source_record_id = f"bref:draft:{draft_year}"
     source_record = SourceRecordRow(
         source_record_id=source_record_id,
@@ -309,10 +315,11 @@ def build_bref_draft_rows(
         },
     )
 
+    source_events: list[SourceEventRow] = []
     players: list[PlayerRow] = []
     selections: list[DraftSelectionRow] = []
     for row in draft_rows:
-        if str(row.get("team_id", "")).upper() != team_code.upper():
+        if str(row.get("team_id", "")).upper() != team_code:
             continue
         player_name = str(row.get("player", "")).strip()
         if not player_name or player_name == "Player":
@@ -323,6 +330,8 @@ def build_bref_draft_rows(
         if overall is None:
             continue
         round_number = parse_int(row.get("round_number")) or infer_draft_round(overall)
+        source_event_id = build_bref_draft_source_event_id(draft_year, overall)
+        selection_id = f"draft:{draft_year}:{overall}"
         players.append(
             PlayerRow(
                 player_id=player_id,
@@ -330,18 +339,46 @@ def build_bref_draft_rows(
                 nba_player_ref=player_ref,
             )
         )
+        source_events.append(
+            SourceEventRow(
+                source_event_id=source_event_id,
+                source_record_id=source_record_id,
+                event_date=draft_event_date(draft_year, round_number),
+                event_type="draft",
+                label=f"Memphis drafts {player_name} at No. {overall}",
+                team_scope=team_code,
+                source_group_hint=f"draft:{draft_year}",
+                normalized_payload={
+                    "player_names_in": [player_name],
+                    "player_names_out": [],
+                    "pick_text_in": [],
+                    "pick_text_out": [],
+                    "pick_details_in": [],
+                    "pick_details_out": [],
+                    "draft_selection_id": selection_id,
+                    "draft_year": draft_year,
+                    "pick_overall": overall,
+                    "round_number": round_number,
+                    "team_code": team_code,
+                    "player_id": player_id,
+                    "player_ref": player_ref,
+                    "raw_row": row,
+                },
+            )
+        )
         selections.append(
             DraftSelectionRow(
-                draft_selection_id=f"draft:{draft_year}:{overall}",
+                draft_selection_id=selection_id,
                 draft_year=draft_year,
                 pick_overall=overall,
                 round_number=round_number,
-                team_code=team_code.upper(),
+                team_code=team_code,
                 player_id=player_id,
+                source_event_id=source_event_id,
                 notes=f"Basketball-Reference draft row for pick {overall}",
             )
         )
-    return [source_record], players, selections
+    return [source_record], source_events, players, selections
 
 
 def build_bref_roster_rows(
@@ -478,7 +515,7 @@ def load_bref_roster_baseline_span(
 
 def preview_bref_draft_results(*, draft_year: int, team_code: str) -> dict[str, object]:
     html = fetch_bref_draft_html(draft_year)
-    source_records, players, selections = build_bref_draft_rows(
+    source_records, source_events, players, selections = build_bref_draft_rows(
         draft_year=draft_year,
         team_code=team_code,
         html=html,
@@ -486,9 +523,11 @@ def preview_bref_draft_results(*, draft_year: int, team_code: str) -> dict[str, 
     return {
         "status": "ok",
         "source_records": len(source_records),
+        "source_events": len(source_events),
         "players": len(players),
         "draft_selections": len(selections),
         "first_selection": selections[0].model_dump(mode="json") if selections else None,
+        "first_source_event": source_events[0].model_dump(mode="json") if source_events else None,
         "draft_year": draft_year,
         "team_code": team_code.upper(),
     }
@@ -496,7 +535,7 @@ def preview_bref_draft_results(*, draft_year: int, team_code: str) -> dict[str, 
 
 def load_bref_draft_results(database_url: str, *, draft_year: int, team_code: str) -> dict[str, object]:
     html = fetch_bref_draft_html(draft_year)
-    source_records, players, selections = build_bref_draft_rows(
+    source_records, source_events, players, selections = build_bref_draft_rows(
         draft_year=draft_year,
         team_code=team_code,
         html=html,
@@ -504,11 +543,13 @@ def load_bref_draft_results(database_url: str, *, draft_year: int, team_code: st
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
         upsert_players(connection, players)
+        insert_source_events(connection, source_events)
         upsert_draft_selections(connection, selections)
         connection.commit()
     return {
         "status": "ok",
         "source_records": len(source_records),
+        "source_events": len(source_events),
         "players": len(players),
         "draft_selections": len(selections),
         "draft_year": draft_year,
@@ -526,12 +567,14 @@ def load_bref_draft_results_span(
 ) -> dict[str, object]:
     years: list[dict[str, object]] = []
     total_source_records = 0
+    total_source_events = 0
     total_players = 0
     total_selections = 0
     for draft_year in range(start_draft_year, end_draft_year + 1):
         result = load_bref_draft_results(database_url, draft_year=draft_year, team_code=team_code)
         years.append(result)
         total_source_records += int(result["source_records"])
+        total_source_events += int(result["source_events"])
         total_players += int(result["players"])
         total_selections += int(result["draft_selections"])
         time.sleep(request_delay)
@@ -541,6 +584,7 @@ def load_bref_draft_results_span(
         "start_draft_year": start_draft_year,
         "end_draft_year": end_draft_year,
         "source_records": total_source_records,
+        "source_events": total_source_events,
         "players": total_players,
         "draft_selections": total_selections,
         "years": years,

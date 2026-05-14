@@ -3,7 +3,7 @@
   "team_code": "MEM",
   "coverage_start_year": 2016,
   "coverage_end_year": 2026,
-  "coverage_statement": "Curated seed fixture for Memphis-owned lottery outcomes in the 2016-2026 reset span. Non-lottery years are omitted rather than represented as null rows.",
+  "coverage_statement": "Curated seed fixture for Memphis-perspective lottery outcomes in the 2016-2026 reset span, including Memphis-origin outcomes when the pick was owned by another team. Non-lottery years are omitted rather than represented as null rows.",
   "source_set": [
     {
       "label": "RealGM NBA Draft Lottery Results",
@@ -40,6 +40,8 @@
       "draft_year": 2018,
       "lottery_date": "2018-05-15",
       "team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "MEM",
       "lottery_position": 2,
       "result_pick_slot": 4,
       "pre_lottery_odds": "19.9%",
@@ -61,6 +63,8 @@
       "draft_year": 2019,
       "lottery_date": "2019-05-14",
       "team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "MEM",
       "lottery_position": 8,
       "result_pick_slot": 2,
       "pre_lottery_odds": "6.0%",
@@ -78,10 +82,12 @@
       "notes": "Memphis entered the 2019 lottery in pre-lottery position 8 with 6.0% No. 1 odds and received pick slot 2."
     },
     {
-      "lottery_result_id": "draft-lottery-result:mem:2020-bos-from-mem-excluded",
+      "lottery_result_id": "draft-lottery-result:mem-origin:2020-bos",
       "draft_year": 2020,
       "lottery_date": "2020-08-20",
       "team_code": "MEM",
+      "owner_team_code": "BOS",
+      "original_team_code": "MEM",
       "lottery_position": 14,
       "result_pick_slot": 14,
       "pre_lottery_odds": "0.5%",
@@ -93,14 +99,16 @@
       ],
       "retrieved_at": "2026-05-13",
       "confidence": "high",
-      "loadable": false,
-      "notes": "Excluded: the Memphis-origin 2020 lottery result conveyed to Boston. Current foundation.draft_lottery_result has team_code but no separate owner_team/original_team fields, so writing this as MEM would conflate ownership semantics."
+      "loadable": true,
+      "notes": "Memphis-origin 2020 lottery result that conveyed to Boston; team_code remains the Memphis perspective scope while owner_team_code records Boston ownership."
     },
     {
       "lottery_result_id": "draft-lottery-result:mem:2024",
       "draft_year": 2024,
       "lottery_date": "2024-05-12",
       "team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "MEM",
       "lottery_position": 7,
       "result_pick_slot": 9,
       "pre_lottery_odds": "7.5%",
@@ -122,6 +130,8 @@
       "draft_year": 2026,
       "lottery_date": "2026-05-10",
       "team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "MEM",
       "lottery_position": 6,
       "result_pick_slot": 3,
       "pre_lottery_odds": "9.0%",

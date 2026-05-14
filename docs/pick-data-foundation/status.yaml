@@ -3,14 +3,14 @@
 artifact: status
 feature: "pick-data-foundation"
 mode: "large-initiative"
-stage: "planning"
+stage: "completed"
 owner_skill: work
 
 objective: "Complete remaining pick-related foundation work: future pick inventory snapshots, owner/original-team semantics, draft selection provenance, and future pick obligation source depth."
 
 summary:
-  current_focus: "Plan review for the pick-data foundation requirements and execution plan."
-  last_completed: "Drafted requirements and plan from repo discovery, live read-only previews, and source research."
+  current_focus: "Verification and handoff complete."
+  last_completed: "Loaded source-backed pick obligation rows, projected snapshot-pick inventory, restored draft pick links/provenance, loaded owner/original lottery semantics, regenerated graph export, and passed tests/build."
   current_blocker: ""
 
 artifacts:
@@ -22,10 +22,10 @@ agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
-    stage: "planning"
-    task: "Coordinate discovery, requirements, planning, checkpoint, execution, and verification."
-    last_update: "Drafted requirements and execution plan; moving to plan review."
+    status: "completed"
+    stage: "verification"
+    task: "Coordinate pick-data foundation execution and verification."
+    last_update: "Audit reports pick_inventory_obligation=19, roster_snapshot_pick=980, draft selection pick/provenance links 20/20, lottery owner/original semantics 5/5."
     blocker: ""
   - id: "repo-researcher-1"
     role: "repo-researcher"
@@ -33,7 +33,7 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Inspect current pick-related implementation, commands, fixtures, docs, and gaps."
-    last_update: "Found future-pick inventory is preview-only/sample-backed, draft selection slots are 20/20 resolved, and draft source_event provenance is missing."
+    last_update: "Found future-pick inventory was sample-backed and draft source_event provenance was missing."
     blocker: ""
   - id: "repo-researcher-2"
     role: "repo-researcher"
@@ -49,28 +49,28 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Research reliable source options for Memphis future pick obligations and ownership history."
-    last_update: "Recommended official/NBA releases, RealGM, Pro Sports Transactions, BRef, and current-state cross-check hierarchy."
+    last_update: "Recommended official/NBA releases, RealGM, Pro Sports Transactions, Basketball-Reference, and secondary cross-check hierarchy."
     blocker: ""
-  - id: "plan-reviewer-1"
-    role: "reviewer"
+  - id: "implementation-workers"
+    role: "developer"
     model_guidance: "medium"
-    status: "running"
-    stage: "planning"
-    task: "Critique pick-data foundation requirements and plan before checkpoint."
-    last_update: "Spawned."
+    status: "completed"
+    stage: "execution"
+    task: "Implement schema, provenance, fixture, loader/export, identity, and source-depth batches."
+    last_update: "All assigned implementation batches completed and were integrated."
     blocker: ""
 
 loops:
   planning_review:
-    count: 0
+    count: 1
     max: 2
   execution_verification:
-    count: 0
+    count: 1
     max: 2
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: pending
+  pre_execution_status: approved
   options:
     - proceed
     - revise_plan
@@ -79,10 +79,12 @@ checkpoint:
 
 blockers: []
 decisions:
-  - "Use large-initiative mode because completing all remaining pick work spans multiple batches and likely requires source/schema/export coordination."
-  - "Do not execute schema or DB writes until requirements, plan, and pre-execution checkpoint are complete."
-  - "Keep base graph truth as the priority; avoid frontend storytelling or editorial scope."
+  - "Use `foundation.pick_inventory_obligation` as durable source truth and `foundation.roster_snapshot_pick` as derived projection."
+  - "Use stable pick-slot IDs for obligation picks so incoming/outgoing states for the same future pick remain one identity."
+  - "Block uncertain/documented-only obligation rows from live projection."
+  - "Use `team_code` as lottery perspective scope while storing explicit owner/original-team semantics."
+  - "Preserve curated `draft_selection.pick_id` links when BRef draft reloads do not provide pick ids."
 
-next_action: "Run plan review, revise once if needed, then present checkpoint."
+next_action: "Use the loaded pick foundation as the base for future graph/data work; remaining caveats are non-blocking source coverage expansion items."
 next_recommended_command: "$work"
 user_input_needed: false

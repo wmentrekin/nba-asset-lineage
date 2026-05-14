@@ -85,17 +85,18 @@ The repo now has:
   - guarded two-way status reset/apply load
   - read-only draft lottery result preview
   - guarded draft lottery result load
+  - read-only future pick obligation validation
+  - guarded future pick obligation load
+  - guarded snapshot-pick inventory replacement
 - graph-facing `pick_to_player` export rows derived from
   `foundation.draft_pick_resolution`
-- a source strategy for future pick inventory snapshots and the next
-  obligation-ledger workbench
-- a read-only `preview-pick-inventory-snapshots` command for projecting future
-  pick inventory rows before any DB write path
+- a source-backed future pick obligation ledger and guarded projection path for
+  `foundation.roster_snapshot_pick`
 - a `seed_v1` two-way status fixture for high-confidence Memphis intervals and
   a guarded loader that resets covered snapshot-player rows to standard before
   applying current loadable intervals
-- a `seed_v1` draft lottery result fixture for high-confidence Memphis-owned
-  lottery outcomes in 2018, 2019, 2024, and 2026
+- a `seed_v1` draft lottery result fixture for high-confidence
+  Memphis-perspective lottery outcomes in 2018, 2019, 2020, 2024, and 2026
 
 ## Current Caveats
 
@@ -110,11 +111,11 @@ The repo now has:
 - Draft selections are linked to curated Memphis draft-slot pick assets and now
   export as pick-to-player graph transitions.
 - Draft lottery results are contextual for now and are not required for or
-  consumed by the base graph export. The `seed_v1` fixture deliberately excludes
-  2020 Boston-from-Memphis because the current table has no separate owner-team
-  and original-team fields.
-- Future pick inventory snapshots should be built from a dated obligation ledger,
-  not from a current-state future-picks page alone.
+  consumed by the base graph export. `team_code` is the Memphis perspective
+  scope, while `owner_team_code` and `original_team_code` carry pick semantics.
+- Future pick inventory snapshots are built from a dated obligation ledger, not
+  from a current-state future-picks page alone. The current seed ledger is
+  source-backed but not a complete historical replay of every obligation branch.
 - `audit-foundation-data` is the current command for turning these caveats into
   live database evidence.
 - `preview-draft-pick-resolution` is the current read-only command for checking
@@ -139,8 +140,16 @@ The repo now has:
 - `load-draft-lottery-results --dry-run` reports the same guarded plan; without
   `--dry-run`, it refuses blocking fixture rows and conflicting existing
   `(draft_year, team_code)` IDs, then upserts only high-confidence loadable
-  Memphis-owned rows in one transaction. Rows with `loadable=false` are never
-  written.
+  Memphis-perspective rows in one transaction. Rows with `loadable=false` are
+  never written.
+- `preview-pick-inventory-obligations` validates the future-pick obligation
+  fixture without writing.
+- `load-pick-inventory-obligations --dry-run` reports the guarded ledger write
+  plan; without `--dry-run`, it upserts only loadable source-backed obligation
+  rows plus their pick assets.
+- `load-pick-inventory-snapshots --dry-run` reports projected
+  `roster_snapshot_pick` rows from the loaded ledger; without `--dry-run`, it
+  replaces covered snapshot-pick rows so projection state does not go stale.
 
 ## Related Paths
 

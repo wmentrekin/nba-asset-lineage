@@ -3,7 +3,7 @@
 artifact: requirements
 feature: "pick-data-foundation"
 mode: "large-initiative"
-status: draft
+status: completed
 owner_skill: work
 
 summary:
@@ -16,7 +16,7 @@ definition_of_complete:
   - "Every snapshot pick row is derived from a repeatable obligation ledger rather than ad hoc projection-only output."
   - "Pick obligations separate `perspective_team_code`, `owner_team_code`, and `original_team_code` instead of overloading one `team_code` value."
   - "Draft selections remain 20/20 linked to slot pick assets and also gain direct source provenance."
-  - "Context tables can represent Memphis-origin but non-Memphis-owned pick outcomes, including 2020 Boston-from-Memphis lottery context."
+  - "Context tables can represent Memphis-origin but non-Memphis-owned pick outcomes, including 2020 Boston-from-Memphis lottery context, without changing the meaning of existing loaded rows silently."
   - "The graph export exposes enough snapshot-pick metadata for the frontend to distinguish owned, owed-out, encumbered, conditional, and swap-right picks."
 
 goals:
@@ -39,22 +39,23 @@ non_goals:
 current_state:
   live_counts:
     roster_snapshots: 40
-    roster_snapshot_pick: 0
-    pick: 82
+    roster_snapshot_pick: 980
+    pick: 127
     draft_selection: 20
     draft_pick_resolution: 20
-    draft_lottery_result: 4
+    draft_lottery_result: 5
+    pick_inventory_obligation: 19
   read_only_preview_evidence:
     draft_pick_resolution: "20 linked, 0 candidate, 0 ambiguous, 0 unmatched."
-    draft_selection_source_provenance: "20 draft_selection rows still have source_event_id null."
-    pick_inventory_projection: "Current sample fixture has 4 obligations and projects 938 rows from 35 proposed pick ids, but this is explicitly sample-only."
-    latest_snapshot_projection: "The 2026-06-30 sample projection shows 14 owned rows and misses several current RealGM obligations because the fixture is incomplete."
+    draft_selection_source_provenance: "20 draft_selection rows have source_event_id links after BRef draft reload."
+    pick_inventory_projection: "19 loaded source-backed obligations project 980 roster_snapshot_pick rows through max draft year 2032."
+    latest_snapshot_projection: "The current projection is source-backed, but still seed-ledger coverage rather than a complete historical replay of every obligation branch."
   known_schema_limits:
     - "`foundation.pick.original_team` is fixed-origin only and must not be treated as current owner."
     - "`foundation.draft_selection.team_code` means selecting/drafting team."
-    - "`foundation.draft_lottery_result.team_code` currently cannot distinguish owner from original team."
-    - "`foundation.roster_snapshot_pick` currently lacks source obligation, confidence, and notes columns."
-    - "`foundation.pick` lacks nullable `pick_overall`, which keeps non-slot draft matching ambiguous without curated resolution rows."
+    - "`foundation.draft_lottery_result.team_code` is perspective scope; owner/original semantics are explicit nullable columns."
+    - "`foundation.roster_snapshot_pick` is derived from the obligation ledger and includes source obligation, confidence, and notes."
+    - "`foundation.pick.pick_overall` exists for slot-backed draft picks when exact overall pick identity is known."
 
 source_hierarchy:
   primary:
@@ -126,7 +127,10 @@ data_contract:
       - "conditional"
   draft_selection_provenance:
     required_outcome: "Every loaded Memphis draft_selection row has either a source_event_id linked to a checked-in source_event row or an agreed equivalent source_record-level provenance field."
-    graph_policy: "Do not duplicate draft events in export; choose one authoritative draft-node path."
+    graph_policy: "Do not duplicate draft events in export; choose one authoritative draft-node path before any live reload that adds draft source_events."
+  legacy_column_semantics:
+    draft_lottery_result_team_code: "`team_code` remains the perspective/team-scope code for backward compatibility; new fields must carry explicit `owner_team_code` and `original_team_code` semantics."
+    pick_original_team: "`pick.original_team` remains a legacy origin hint; new owner/current-holder semantics live in the obligation ledger, not in `pick.original_team`."
 
 constraints:
   technical:
@@ -136,6 +140,7 @@ constraints:
     - "Derived snapshot-pick writes must use replace semantics for covered snapshots to avoid stale rows after fixture changes."
     - "Rows with `confidence=uncertain` must block live load by default unless a command flag and explicit plan allow them."
     - "The fixture and DB table must preserve source URLs/labels/retrieval dates because source confidence varies by obligation."
+    - "If fixture expansion exposes conflicting source interpretations, stop before live DB writes and return the conflict table to the user."
   product:
     - "Base graph pick lanes need enough metadata to be visually truthful but not every legal conditional branch needs to become a separate narrative object."
     - "Swap rights and conditional fallbacks must remain visible as their own states rather than being flattened into false concrete ownership."
@@ -156,13 +161,14 @@ acceptance_criteria:
   - "The latest snapshot projection reconciles against RealGM current Memphis future picks, with any discrepancy documented as a blocking issue or explicit caveat."
   - "`draft_selection.source_event_id` gap is cleared or replaced with an agreed source-record provenance design."
   - "Draft export does not double-count draft events after provenance is added."
+  - "A before/after graph export comparison is run around draft-provenance changes so any draft-node count change is deliberate and documented."
   - "Audit no longer reports future pick inventory snapshots as empty and preserves caveats for source confidence/conditional pick complexity."
   - "Full Python tests, focused frontend tests, frontend build, DB preview/dry-run/live commands, audit, and graph export checks pass."
 
 open_questions:
-  - "Should uncertain but important conditional rows be loaded as visible `conditional` rows, or should any uncertainty block snapshot-pick live load?"
-  - "Should 2020 Boston-from-Memphis lottery context be loaded once owner/original-team fields exist, or remain fixture-documented but excluded from live DB rows?"
-  - "How far into future years should the first complete projection go: through 2032 because current pages expose that, or use a rolling seven-draft-year window?"
+  - "Should uncertain but important conditional fallback rows ever be loaded as visible `conditional` rows, or should uncertainty continue to block live projection?"
+  - "How aggressively should the current seed ledger be expanded into a full historical replay of every pick-obligation branch?"
+  - "If current-state sources disagree on a future pick obligation, should we prefer RealGM, Pro Sports Transactions, or block until an official/team source confirms details?"
 
-ready_for_planning: true
+ready_for_planning: false
 planning_blockers: []

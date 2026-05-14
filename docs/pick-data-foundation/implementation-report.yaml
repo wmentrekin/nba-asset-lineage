@@ -1,0 +1,126 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "pick-data-foundation"
+mode: "large-initiative"
+status: completed
+owner_skill: work
+based_on: "docs/pick-data-foundation/plan.yaml"
+
+summary:
+  scope_executed: "Completed schema, fixture, source-depth, guarded loader, draft provenance, owner/original lottery, graph export, audit, and docs integration for reset-era Memphis pick foundation."
+  outcome: "The live foundation DB now has source-backed future pick obligations, projected roster snapshot pick inventory, draft selection pick/source provenance, and explicit lottery owner/original semantics."
+
+task_batches_attempted:
+  - "B1 schema and contract foundation"
+  - "B2 draft selection provenance and draft-node policy"
+  - "B3 future pick obligation source depth"
+  - "B4 guarded obligation and snapshot-pick load path"
+  - "B5 owner/original-team context completion"
+  - "B6 export, audit, and docs integration"
+  - "B7 live load and verification"
+task_batches_completed:
+  - "B1"
+  - "B2"
+  - "B3"
+  - "B4"
+  - "B5"
+  - "B6"
+  - "B7"
+
+changes:
+  files:
+    - "sql/0006_foundation_pick_inventory_bootstrap.sql"
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+    - "configs/data/memphis_draft_lottery_results_2016_2026.json"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/live_sources.py"
+    - "src/foundation/draft_lottery_results.py"
+    - "src/foundation/export.py"
+    - "src/foundation/audit.py"
+    - "src/foundation/models.py"
+    - "src/redesign_cli.py"
+    - "frontend/src/lib/graph.ts"
+    - "frontend/src/lib/graph.test.ts"
+    - "frontend/src/data/generated/foundation-graph.json"
+  modules:
+    - "foundation.pick_inventory"
+    - "foundation.ingest"
+    - "foundation.live_sources"
+    - "foundation.draft_lottery_results"
+    - "foundation.export"
+    - "foundation.audit"
+    - "redesign_cli pick/draft load commands"
+  docs_updated:
+    - "README.md"
+    - "configs/data/README.md"
+    - "docs/foundation/ingest-tables.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/draft-lottery-results/"
+    - "docs/pick-data-foundation/"
+
+live_db_changes:
+  schema:
+    - "Applied sql/0006_foundation_pick_inventory_bootstrap.sql."
+    - "Added/confirmed pick inventory obligation storage and pick/lottery/snapshot-pick semantic columns."
+  loads:
+    - "Loaded 19 source-backed pick_inventory_obligation rows."
+    - "Projected and wrote 980 roster_snapshot_pick rows across 40 roster checkpoints."
+    - "Reloaded BRef draft results with per-selection source_event provenance."
+    - "Restored curated draft pick resolution links: 20/20 draft_selection.pick_id rows linked."
+    - "Loaded 5 draft_lottery_result rows with 5/5 owner/original-team semantics."
+    - "Reloaded canonical foundation rows after draft provenance updates."
+
+local_validation:
+  checks_run:
+    - ".venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM --dry-run"
+    - ".venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM"
+    - ".venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --dry-run --max-draft-year 2032"
+    - ".venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+    - ".venv/bin/python -m redesign_cli load-bref-draft-results-span --team-code MEM --start-draft-year 2016 --end-draft-year 2025"
+    - ".venv/bin/python -m redesign_cli load-curated-draft-pick-resolution --team-code MEM --dry-run"
+    - ".venv/bin/python -m redesign_cli load-curated-draft-pick-resolution --team-code MEM"
+    - ".venv/bin/python -m redesign_cli load-draft-lottery-results --team-code MEM --dry-run"
+    - ".venv/bin/python -m redesign_cli load-draft-lottery-results --team-code MEM"
+    - ".venv/bin/python -m redesign_cli audit-foundation-data"
+    - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path frontend/src/data/generated/foundation-graph.json"
+    - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path /private/tmp/foundation-graph-after-pick-data.json"
+    - ".venv/bin/pytest"
+    - "mise run frontend_test"
+    - "mise run frontend_build"
+  failures:
+    - "mise emitted a sandbox cache warning because it could not write under /Users/wentrekin/Library/Caches/mise; frontend tests/build still passed."
+  skipped: []
+
+review_summary:
+  status: completed
+  key_findings:
+    - "BRef draft reloads were wiping curated draft_selection.pick_id links because the loader upserted null pick_id values; fixed by preserving existing pick/source links when reload rows omit them."
+    - "The old draft lottery caveat was stale after owner/original columns were added; 2020 Boston-from-Memphis is now loadable with explicit semantics."
+    - "Snapshot pick rows must remain derived from the obligation ledger; live loader uses replace semantics to avoid stale projection rows."
+
+test_summary:
+  status: passed
+  checks_run:
+    - "Full Python test suite passed: 116 tests."
+    - "Frontend Vitest passed: 9 tests."
+    - "Astro static build passed."
+    - "Live audit status ok: pick_inventory_obligation=19, roster_snapshot_pick=980, draft_selection unlinked_pick_rows=0, unlinked_source_event_rows=0, draft_lottery_result=5."
+    - "Before/after graph export comparison: events 408 -> 408, player_assets 227 -> 227, pick_assets 82 -> 127, snapshot future picks 0 -> 980."
+  failures: []
+  gaps:
+    - "Future-pick fixture is source-backed seed coverage, not a complete historical replay of every obligation branch."
+    - "Two-way status remains seed-loaded rather than complete historical coverage."
+    - "NBA stats reference data is still absent from loaded source records; this is a low-priority identity enrichment gap."
+
+open_issues:
+  - "Decide later whether uncertain conditional fallback pick rows should ever be loaded visibly or remain documentation-only."
+  - "Expand the obligation fixture only with source-backed rows if the graph needs a fuller historical replay beyond the current seed ledger."
+
+handoff:
+  current_state: completed
+  next_owner: "user"
+  next_action: "Review the updated graph export/pick data foundation; the next useful work is either visual graph consumption of future_picks metadata or broader source enrichment."

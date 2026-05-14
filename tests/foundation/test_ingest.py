@@ -1,4 +1,5 @@
 from foundation.ingest import (
+    DraftSelectionRow,
     PlayerRow,
     RosterBaselinePlayerRow,
     SourceEventRow,
@@ -7,6 +8,7 @@ from foundation.ingest import (
     build_roster_snapshots_from_baselines,
     derive_foundation_entities_from_source_events,
     project_active_roster_players,
+    upsert_draft_selections,
 )
 
 
@@ -17,6 +19,53 @@ def test_build_foundation_ingest_sample_bundle_has_core_row_sets() -> None:
     assert len(bundle.players) >= 6
     assert len(bundle.picks) >= 5
     assert len(bundle.assets) == len(bundle.players) + len(bundle.picks)
+
+
+def test_draft_selection_upsert_preserves_existing_pick_links_when_reload_has_none() -> None:
+    class FakeCursor:
+        def __init__(self) -> None:
+            self.sql = ""
+            self.params: tuple[object, ...] | None = None
+
+        def __enter__(self) -> "FakeCursor":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def execute(self, sql: str, params: tuple[object, ...]) -> None:
+            self.sql = sql
+            self.params = params
+
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.cursor_instance = FakeCursor()
+
+        def cursor(self) -> FakeCursor:
+            return self.cursor_instance
+
+    connection = FakeConnection()
+    upsert_draft_selections(
+        connection,  # type: ignore[arg-type]
+        [
+            DraftSelectionRow(
+                draft_selection_id="draft:2024:9",
+                draft_year=2024,
+                pick_overall=9,
+                round_number=1,
+                team_code="MEM",
+                player_id="player:zach-edey",
+                pick_id=None,
+                source_event_id="bref:draft:2024:pick:009",
+            )
+        ],
+    )
+
+    assert "pick_id = coalesce(excluded.pick_id, foundation.draft_selection.pick_id)" in connection.cursor_instance.sql
+    assert (
+        "source_event_id = coalesce(excluded.source_event_id, foundation.draft_selection.source_event_id)"
+        in connection.cursor_instance.sql
+    )
 
 
 def test_source_events_are_wired_to_workbench_payloads() -> None:

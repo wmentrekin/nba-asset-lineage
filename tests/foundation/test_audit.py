@@ -122,6 +122,11 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
                     }
                 ],
             },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+            },
             "draft": {
                 "selections": 20,
                 "unlinked_pick_rows": 0,
@@ -173,6 +178,11 @@ def test_build_known_gaps_accepts_graph_span_even_when_canonical_starts_later() 
                     }
                 ],
             },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+            },
             "draft": {
                 "selections": 20,
                 "unlinked_pick_rows": 0,
@@ -216,6 +226,11 @@ def test_build_known_gaps_clears_empty_lottery_gap_but_preserves_seed_caveat() -
                         "two_way_rows": 20,
                     }
                 ],
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
             },
             "draft": {
                 "selections": 20,

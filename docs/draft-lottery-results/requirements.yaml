@@ -9,7 +9,7 @@ owner_skill: work
 summary:
   problem: "The `foundation.draft_lottery_result` table exists but remains empty and has no source-backed fixture, preview, or guarded load path."
   motivation: "Draft lottery context is not required for the base graph, but it resolves the current audit gap and gives future frontend annotations reliable source-backed metadata."
-  requested_outcome: "Populate Memphis-owned draft lottery result rows from official/high-confidence sources through a preview-first, checked-in loader."
+  requested_outcome: "Populate Memphis-perspective draft lottery result rows from official/high-confidence sources through a preview-first, checked-in loader."
 
 goals:
   - "Add a tracked Memphis draft lottery result fixture with source URLs, confidence, owner/team semantics, and caveats."
@@ -22,12 +22,12 @@ goals:
 non_goals:
   - "Do not add frontend display or graph export behavior for lottery results in this pass."
   - "Do not model non-lottery years as null rows."
-  - "Do not load the 2020 Boston-owned pick from Memphis as a MEM row while the table lacks separate owner/original-team fields."
+  - "Represent the 2020 Boston-owned pick from Memphis with `team_code=MEM`, `owner_team_code=BOS`, and `original_team_code=MEM`."
   - "Do not add SQL provenance columns unless implementation uncovers an unavoidable blocker."
 
 constraints:
   technical:
-    - "Existing `foundation.draft_lottery_result` columns are `lottery_result_id`, `draft_year`, `lottery_date`, `team_code`, `lottery_position`, `result_pick_slot`, `pre_lottery_odds`, and `notes`."
+    - "Existing `foundation.draft_lottery_result` columns include `lottery_result_id`, `draft_year`, `lottery_date`, `team_code`, `owner_team_code`, `original_team_code`, `lottery_position`, `result_pick_slot`, `pre_lottery_odds`, and `notes`."
     - "The table has a unique `(draft_year, team_code)` index, so fixture IDs must be stable and writes must avoid duplicate year/team rows."
     - "Live DB writes must use checked-in Python command paths, not terminal snippets."
     - "Live load must run in a transaction and abort before any write if validation finds blocked rows or existing `(draft_year, team_code)` rows with conflicting `lottery_result_id` values."
@@ -35,7 +35,7 @@ constraints:
     - "Graph export currently does not consume lottery rows and should remain unchanged."
   product:
     - "Lottery data is contextual metadata, not part of the minimum lineage graph truth."
-    - "Rows should represent Memphis-owned lottery outcomes under current table semantics."
+    - "Rows should use `team_code` as the Memphis perspective scope and explicit owner/original-team fields for pick semantics."
     - "Source/provenance detail should remain in the fixture and be summarized in `notes`."
   process:
     - "Use `$work` checkpoint before execution."
@@ -76,8 +76,8 @@ research:
     - "Full-span load explicitly says draft lottery results are not loaded yet."
     - "Graph export does not consume lottery results and should stay out of scope."
   platform_findings:
-    - "Official/high-confidence Memphis-owned lottery result rows exist for 2018, 2019, 2024, and 2026."
-    - "Memphis-origin 2020 resulted in Boston picking No. 14 from Memphis; current table cannot represent owner and original-team separately."
+    - "Official/high-confidence Memphis-perspective lottery result rows exist for 2018, 2019, 2020, 2024, and 2026."
+    - "Memphis-origin 2020 resulted in Boston picking No. 14 from Memphis and is represented with explicit owner/original-team fields."
     - "2016, 2017, 2021, 2022, 2023, and 2025 should be omitted rather than represented as empty rows."
 
 fixture_scope:
@@ -88,16 +88,16 @@ fixture_scope:
     - "2019 MEM: pre-lottery position 8, result pick 2, odds 6.0%"
     - "2024 MEM: pre-lottery position 7, result pick 9, odds 7.5%"
     - "2026 MEM: pre-lottery position 6, result pick 3, odds 9.0%"
-  excluded_rows:
-    - "2020: Boston owned the final No. 14 pick from Memphis; document as excluded until schema supports owner/original-team distinction."
+  special_semantics:
+    - "2020: Boston owned the final No. 14 pick from Memphis; store Boston as owner and Memphis as original team."
 
 acceptance_criteria:
-  - "A tracked fixture exists with high-confidence Memphis-owned lottery result rows, per-row official/high-confidence source URLs, source labels, retrieval dates, and an explicit 2020 exclusion caveat."
+  - "A tracked fixture exists with high-confidence Memphis-perspective lottery result rows, per-row official/high-confidence source URLs, source labels, retrieval dates, and explicit owner/original-team semantics."
   - "A preview command reports loadable rows, blocked rows, warnings, and existing DB row matches without writing."
   - "A guarded load command supports `--dry-run`, blocks invalid/duplicate/unsafe rows, blocks conflicting existing `(draft_year, team_code)` IDs, and upserts safe rows through checked-in code."
   - "Live load is explicitly part of post-checkpoint execution after clean preview and dry-run."
   - "Running live load twice is idempotent: row counts and payload are stable unless the fixture changes."
-  - "After live load, audit no longer reports `draft_lottery_result` as empty, but docs/audit preserve the contextual seed-coverage caveat and 2020 exclusion."
+  - "After live load, audit no longer reports `draft_lottery_result` as empty, but docs/audit preserve the contextual seed-coverage caveat."
   - "Graph export behavior remains unchanged."
   - "Tests cover fixture validation, duplicate year/team blocking, conflicting existing DB row blocking, dry-run no-write behavior, blocked preview no-write behavior, idempotent load behavior, default fixture loading, SQL table contract, audit gap behavior, and graph-export non-consumption."
   - "Docs identify command order, source caveats, 2020 exclusion semantics, and that lottery data remains contextual."

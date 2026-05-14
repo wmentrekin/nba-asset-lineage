@@ -83,6 +83,7 @@ The checked-in Python CLI now also supports reset-era foundation tasks such as:
 - read-only draft-selection to pick-asset resolution preview
 - read-only curated draft-slot resolution preview
 - guarded curated draft-slot resolution write path
+- guarded future pick obligation and snapshot-pick inventory load paths
 - foundation ingest bootstrap
 - foundation context bootstrap for aliases, roster snapshots, draft selections,
   and lottery context
@@ -104,6 +105,8 @@ The first graph-ready export contract is intentionally narrow:
 - it emits `events`, `player_assets`, `pick_assets`, `transitions`, and
   `roster_snapshots`
 - `roster_snapshots` is populated when checkpoint rows have been built
+- roster snapshots include `future_pick_asset_ids` plus richer `future_picks`
+  metadata when `foundation.roster_snapshot_pick` has been projected
 - it does not yet include roster-state validation or frontend layout semantics
 
 Current source mechanics:
@@ -111,7 +114,11 @@ Current source mechanics:
 - Basketball-Reference transactions, rosters, and drafts are ingested by HTML
   scraping.
 - NBA stats player/roster reference data is ingested through JSON endpoints.
-- Draft lottery is contextual for now and is not required for the base graph.
+- Future pick inventory is loaded from a curated, source-backed fixture into a
+  durable obligation ledger, then projected into roster checkpoints.
+- Draft lottery is contextual for now and is not required for the base graph; it
+  now stores explicit owner/original-team semantics for Memphis-perspective
+  rows.
 - Two-way versus standard contract status is modeled, but still needs stronger
   source coverage than the current BRef roster loader.
 

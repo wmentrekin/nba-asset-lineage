@@ -10,17 +10,17 @@ The goal is to answer, at each checkpoint date:
 - which swaps or protections affected those rights
 - which source or curated assertion supports that state
 
-## Current Gap
+## Current Status
 
-`foundation.roster_snapshot_pick` is empty.
+`foundation.roster_snapshot_pick` is populated from the loaded obligation
+ledger. Live verification on 2026-05-14 reported 980 projected snapshot-pick
+rows across 40 roster checkpoints.
 
-That means roster snapshots can currently show players, but they cannot show the
-future pick inventory that should live below the player slots in the base graph.
-
-The current `foundation.pick` rows are transaction-derived pick mentions and
-draft-slot resolution rows. They are useful, but they are not yet a complete
-inventory ledger because they mostly represent picks explicitly mentioned in
-loaded transactions rather than all future picks Memphis owned by default.
+The current `foundation.pick` rows now include transaction-derived pick
+mentions, draft-slot resolution rows, and inventory pick rows projected from the
+obligation ledger. The seed ledger is source-backed, but it should still be
+treated as current foundation coverage rather than a complete historical replay
+of every conditional branch.
 
 ## Source Research
 
@@ -167,38 +167,69 @@ The ledger should combine:
   Transactions
 - official NBA.com releases for major trade corroboration when available
 
-## Proposed Ledger Shape
+## Current Ledger Fixture
 
-This should start as a checked fixture or workbench output before any live DB
-write path.
+The checked fixture is now an object-shaped source-backed seed before any live
+DB write path.
 
-Suggested fixture path:
+Fixture path:
 
 `configs/data/memphis_future_pick_obligations_2016_2026.json`
 
-Suggested row shape:
+Top-level shape:
+
+```json
+{
+  "fixture_id": "memphis_future_pick_obligations_2016_2026_seed_v1",
+  "team_code": "MEM",
+  "description": "Source-backed Memphis future pick obligation fixture...",
+  "source_summary": {
+    "retrieved_at": "2026-05-14T00:00:00Z"
+  },
+  "rows": []
+}
+```
+
+Loadable row shape:
 
 ```json
 {
   "obligation_id": "mem-pick-obligation:2027:1:lal-to-mem",
   "effective_date": "2026-02-03",
-  "team_code": "MEM",
+  "perspective_team_code": "MEM",
+  "owner_team_code": "MEM",
+  "original_team_code": "LAL",
   "draft_year": 2027,
   "round_number": 1,
-  "original_team": "LAL",
   "direction": "incoming",
   "holding_status": "owned",
-  "obligation_type": "conditional_pick",
+  "obligation_type": "traded_pick",
   "protection_text": "protected top 4; conveys as 2027 second if protected",
   "swap_text": null,
-  "source_event_id": "canonical-or-source-event-id-if-known",
+  "condition_text": "Memphis holds the Lakers 2027 first-round pick if it lands 5-30.",
+  "source_event_id": "bref:mem:2026:2026-02-03:1:1",
   "source_urls": [
     "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
   ],
-  "confidence": "curated",
-  "notes": "Validated against current future-picks pages; exact historical source row still needs source_event link."
+  "source_labels": [
+    "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14"
+  ],
+  "retrieved_at": "2026-05-14T00:00:00Z",
+  "confidence": "validated",
+  "loadable": true,
+  "notes": "Source-backed row ready for obligation preview."
 }
 ```
+
+Fixture requirements:
+
+- loadable rows must carry explicit `perspective_team_code`,
+  `owner_team_code`, and `original_team_code`
+- loadable rows must carry same-length `source_urls` and `source_labels`
+- loadable rows must carry `retrieved_at`
+- `source_event_id` must reference loaded source events, not canonical event IDs
+- ambiguous fallback rows should use `confidence=uncertain` and
+  `loadable=false`
 
 Recommended enums:
 
@@ -226,67 +257,74 @@ For each `roster_snapshot` date:
 
 ## Database Fit
 
-The existing table can support a first pass:
+The durable source table is now `foundation.pick_inventory_obligation`.
+It stores the dated Memphis-perspective obligation ledger with explicit
+`perspective_team_code`, `owner_team_code`, `original_team_code`, direction,
+holding status, source URLs/labels, retrieval timestamp, confidence, optional
+source/canonical event links, condition/protection/swap text, and loadability.
 
-- `roster_snapshot_pick.snapshot_id`
-- `roster_snapshot_pick.pick_id`
-- `roster_snapshot_pick.asset_id`
-- `roster_snapshot_pick.holding_status`
-- `roster_snapshot_pick.display_order`
+`foundation.roster_snapshot_pick` is a derived projection target. It preserves:
 
-However, a durable version likely needs a source/provenance table before we
-trust it long term.
+- `snapshot_id`
+- `pick_id`
+- `asset_id`
+- `holding_status`
+- `display_order`
+- `source_obligation_id`
+- `confidence`
+- `notes`
 
-Recommended next table before live writes:
+The table should be rebuilt from the obligation ledger, not hand-authored as
+the source of pick truth.
 
-`foundation.pick_inventory_obligation`
+## Implemented Commands
 
-Suggested purpose:
-
-- stores the dated obligation ledger
-- supports `source_record_id` or source URL provenance
-- preserves confidence and notes
-- keeps projection logic repeatable
-
-`roster_snapshot_pick` should be a derived table from this ledger, not the only
-place where obligation truth is stored.
-
-## Implementation Recommendation
-
-The repo now includes the first read-only preview workbench:
+Read-only projection from the fixture:
 
 ```bash
 .venv/bin/python -m redesign_cli preview-pick-inventory-snapshots --team-code MEM --max-draft-year 2032
 ```
 
-Current preview behavior:
+Obligation fixture validation:
+
+```bash
+.venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM
+```
+
+Guarded ledger load:
+
+```bash
+.venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM
+```
+
+Guarded snapshot projection:
+
+```bash
+.venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --dry-run --max-draft-year 2032
+.venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032
+```
+
+Current behavior:
 
 - reads existing `foundation.roster_snapshot` rows
-- reads the local obligation fixture
+- reads either the local obligation fixture or the loaded obligation ledger,
+  depending on the command
 - seeds default Memphis own first- and second-round future picks
-- applies dated sample obligations
-- reports projected `roster_snapshot_pick` rows without writing to Supabase
+- applies dated source-backed obligation rows
+- writes only after preview/dry-run validation has zero blocked rows
+- replaces covered `roster_snapshot_pick` rows to avoid stale projection state
 
-Last observed preview output:
+Live verification on 2026-05-14 loaded 19 obligation rows and projected 980
+`roster_snapshot_pick` rows across 40 roster checkpoints. The graph export now
+emits both backward-compatible `future_pick_asset_ids` and richer `future_picks`
+metadata for every projected snapshot pick.
 
-- `snapshots`: 40
-- `existing_snapshot_pick_rows`: 0
-- `obligations`: 4
-- `projected_rows`: 938
-- `proposed_pick_ids`: 35
-- `proposed_asset_ids`: 35
-
-Next implementation pass should be:
-
-1. Expand the fixture from sample obligations to a complete curated obligation
-   ledger for 2016 through present.
-2. Reconcile the latest projected snapshot against RealGM, Pro Sports
-   Transactions, Spotrac, and Fanspo current-state pages.
-3. Normalize uncertain swap/protection rows before writing anything.
-4. Add a durable `pick_inventory_obligation` table if the fixture shape proves
-   stable.
-5. Only after preview output is coherent, add guarded write loading into
-   `roster_snapshot_pick`.
+The active fixture is still not a complete historical replay ledger. It
+prioritizes high-confidence current-state rows validated against RealGM,
+Basketball-Reference source events, and available NBA.com official reports.
+Non-loadable fallback rows document conditional outcomes without allowing the
+loader to project both a primary obligation and its fallback at the same time.
 
 ## Risks
 

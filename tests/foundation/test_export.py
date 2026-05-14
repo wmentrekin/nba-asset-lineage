@@ -5,7 +5,9 @@ from foundation.export import build_draft_resolution_export_items
 from foundation.export import build_empty_base_export
 from foundation.export import draft_resolution_event_date
 from foundation.models import BaseGraphExport
+from foundation.models import FuturePickSnapshot
 from foundation.models import PlayerAsset
+from foundation.models import RosterSnapshot
 
 
 def test_build_empty_base_export_has_reset_defaults() -> None:
@@ -31,6 +33,33 @@ def test_player_asset_contract_supports_roster_baseline_metadata() -> None:
     )
     assert asset.baseline_order == 1
     assert asset.years_experience == 6
+
+
+def test_roster_snapshot_contract_preserves_future_pick_metadata_and_asset_ids() -> None:
+    snapshot = RosterSnapshot(
+        snapshot_id="snapshot:mem:2026-27:post_draft",
+        as_of_date="2026-07-01",
+        snapshot_kind="post_draft",
+        season="2026-27",
+        future_pick_asset_ids=["asset:pick:inventory:mem:2028:r1:orl"],
+        future_picks=[
+            FuturePickSnapshot(
+                asset_id="asset:pick:inventory:mem:2028:r1:orl",
+                pick_id="pick:inventory:mem:2028:r1:orl",
+                holding_status="owned",
+                display_order=1,
+                source_obligation_id="obligation:ready",
+                confidence="validated",
+                notes="Curated test obligation.",
+            )
+        ],
+    )
+
+    payload = snapshot.model_dump(mode="json")
+
+    assert payload["future_pick_asset_ids"] == ["asset:pick:inventory:mem:2028:r1:orl"]
+    assert payload["future_picks"][0]["holding_status"] == "owned"
+    assert payload["future_picks"][0]["source_obligation_id"] == "obligation:ready"
 
 
 def test_draft_resolution_event_date_handles_two_night_drafts() -> None:
@@ -74,3 +103,31 @@ def test_build_draft_resolution_export_items_emits_pick_to_player_transition() -
     assert transitions[0].from_state == "asset:pick:slot:2024:9"
     assert transitions[0].to_state == "asset:player:zach-edey"
     assert transitions[0].notes == "curated Memphis draft slot"
+
+
+def test_build_draft_resolution_export_items_reuses_canonical_draft_event() -> None:
+    rows = [
+        DraftResolutionExportRow(
+            draft_pick_resolution_id="resolution:2024:9",
+            draft_selection_id="draft:2024:9",
+            pick_asset_id="asset:pick:slot:2024:9",
+            player_asset_id="asset:player:zach-edey",
+            player_name="Zach Edey",
+            draft_year=2024,
+            round_number=1,
+            pick_overall=9,
+            source_bundle_id="source-bundle:2024-draft",
+            source_event_id="bref:draft:2024:pick:009",
+            canonical_event_id="canonical:2024-06-26:draft:abc123",
+        )
+    ]
+
+    events, transitions = build_draft_resolution_export_items(rows)
+
+    assert events == []
+    assert len(transitions) == 1
+    assert transitions[0].event_id == "canonical:2024-06-26:draft:abc123"
+    assert transitions[0].transition_id == (
+        "canonical:2024-06-26:draft:abc123:"
+        "pick-to-player:asset:pick:slot:2024:9:to:asset:player:zach-edey"
+    )

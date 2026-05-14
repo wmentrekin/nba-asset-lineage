@@ -10,7 +10,7 @@ objective: "Populate Memphis draft lottery result data in the reset-era foundati
 
 summary:
   current_focus: "Completed live load and verification."
-  last_completed: "Loaded four high-confidence Memphis-owned draft lottery rows, confirmed idempotency/audit counts, and proved graph export output is unchanged."
+  last_completed: "Loaded five high-confidence Memphis-perspective draft lottery rows with owner/original-team semantics, including 2020 Boston-from-Memphis."
   current_blocker: ""
 
 artifacts:
@@ -25,7 +25,7 @@ agents:
     status: "completed"
     stage: "completed"
     task: "Coordinate implementation, review, test, live load, and final report."
-    last_update: "Live Supabase load wrote 4 rows; second load found matching existing rows; audit, graph export comparison, full pytest, frontend test, and frontend build passed."
+    last_update: "Live Supabase load now has 5 rows; audit reports 5/5 owner/original-team semantics."
     blocker: ""
   - id: "repo-researcher-1"
     role: "repo-researcher"
@@ -41,7 +41,7 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Find reliable Memphis draft lottery source data and candidate rows."
-    last_update: "Found high-confidence Memphis-owned rows for 2018, 2019, 2024, and 2026; 2020 is Boston-owned from Memphis and remains excluded."
+    last_update: "Found high-confidence Memphis-perspective rows for 2018, 2019, 2020, 2024, and 2026; 2020 is Boston-owned from Memphis."
     blocker: ""
   - id: "plan-reviewer-1"
     role: "reviewer"
@@ -112,12 +112,12 @@ checkpoint:
 blockers: []
 decisions:
   - "Use bounded-feature mode because the task needed sourced data, a fixture/load command, tests, docs, and verification."
-  - "Use the current table as owner/team-scoped contextual data; do not load the 2020 Boston-from-Memphis row as MEM without a schema extension."
+  - "Use `team_code` as the Memphis perspective scope; store pick ownership and origin in `owner_team_code` and `original_team_code`."
   - "Graph export does not consume draft lottery results in this pass."
   - "Live load blocks existing `(draft_year, team_code)` conflicts before writing and is idempotent."
   - "Fixture loadable rows require source URLs, labels, and retrieval dates."
   - "Live validation exported graph JSON before and after the load and compared both files."
 
-next_action: "Return to user; likely next data work is future pick inventory snapshots or owner/original-team pick semantics."
+next_action: "Return to user; lottery context is complete for current seed coverage and remains outside the base graph export."
 next_recommended_command: "$work"
 user_input_needed: false

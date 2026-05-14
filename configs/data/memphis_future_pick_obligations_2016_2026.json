@@ -1,84 +1,619 @@
-[
-  {
-    "obligation_id": "mem-pick-obligation:2023-02-09:lac-2026-r2-to-mem",
-    "effective_date": "2023-02-09",
-    "team_code": "MEM",
-    "draft_year": 2026,
-    "round_number": 2,
-    "original_team": "LAC",
-    "direction": "incoming",
-    "holding_status": "owned",
-    "obligation_type": "traded_pick",
-    "protection_text": null,
-    "swap_text": null,
-    "source_event_id": "canonical:2023-02-09:trade:19c0651ed848",
-    "source_urls": [
-      "https://www.prosportstransactions.com/basketball/DraftTrades/Future/Grizzlies.htm",
-      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
+{
+  "fixture_id": "memphis_future_pick_obligations_2016_2026_seed_v1",
+  "team_code": "MEM",
+  "description": "Source-backed Memphis future pick obligation fixture for previewing high-confidence current and near-future obligation rows.",
+  "source_summary": {
+    "retrieved_at": "2026-05-14T00:00:00Z",
+    "primary_current_state_source": "RealGM Memphis Grizzlies future draft picks",
+    "event_spine_source": "Basketball-Reference Memphis transactions",
+    "official_release_sources": [
+      "Memphis Grizzlies official Desmond Bane trade release",
+      "NBA.com Jaren Jackson Jr. trade report"
     ],
-    "confidence": "curated",
-    "notes": "Sample obligation from the Luke Kennard/Danny Green trade. Exact original-team semantics should be validated before write loading."
+    "notes": "Rows use BRef source_event_id values where provided. Non-loadable rows document conditional fallbacks or ambiguous historical states that should not be written by the obligation loader."
   },
-  {
-    "obligation_id": "mem-pick-obligation:2024-02-07:bos-2027-r2-to-mem",
-    "effective_date": "2024-02-07",
-    "team_code": "MEM",
-    "draft_year": 2027,
-    "round_number": 2,
-    "original_team": "BOS",
-    "direction": "incoming",
-    "holding_status": "owned",
-    "obligation_type": "traded_pick",
-    "protection_text": null,
-    "swap_text": null,
-    "source_event_id": "canonical:2024-02-07:trade:98a2f5567592",
-    "source_urls": [
-      "https://www.prosportstransactions.com/basketball/DraftTrades/Future/Grizzlies.htm",
-      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
-    ],
-    "confidence": "curated",
-    "notes": "Sample obligation from the Xavier Tillman/Lamar Stevens trade. Original team should be validated against detailed pick status before write loading."
-  },
-  {
-    "obligation_id": "mem-pick-obligation:2025-06-15:mem-2026-r1-to-orl-swap-or-out",
-    "effective_date": "2025-06-15",
-    "team_code": "MEM",
-    "draft_year": 2026,
-    "round_number": 1,
-    "original_team": "MEM",
-    "direction": "outgoing",
-    "holding_status": "encumbered",
-    "obligation_type": "swap",
-    "protection_text": null,
-    "swap_text": "Memphis 2026 first-round pick affected by Orlando trade swap/obligation mechanics.",
-    "source_event_id": "canonical:2025-06-15:trade:496ae4058d07",
-    "source_urls": [
-      "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/",
-      "https://www.nba.com/news/magic-grizzlies-trade-bane-caldwell-pope",
-      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
-    ],
-    "confidence": "uncertain",
-    "notes": "Sample encumbrance row. Keep uncertain until protection/swap mechanics are normalized against multiple sources."
-  },
-  {
-    "obligation_id": "mem-pick-obligation:2025-06-15:orl-2028-r1-to-mem",
-    "effective_date": "2025-06-15",
-    "team_code": "MEM",
-    "draft_year": 2028,
-    "round_number": 1,
-    "original_team": "ORL",
-    "direction": "incoming",
-    "holding_status": "owned",
-    "obligation_type": "traded_pick",
-    "protection_text": null,
-    "swap_text": null,
-    "source_event_id": "canonical:2025-06-15:trade:496ae4058d07",
-    "source_urls": [
-      "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/",
-      "https://www.nba.com/news/magic-grizzlies-trade-bane-caldwell-pope",
-      "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks"
-    ],
-    "confidence": "curated",
-    "notes": "Sample obligation from the Desmond Bane trade. Exact protected year routing should be validated before write loading."
-  }
-]
+  "rows": [
+    {
+      "obligation_id": "mem-pick-obligation:2024-02-08:phx-2026-r1-swap-right",
+      "effective_date": "2024-02-08",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "PHX",
+      "draft_year": 2026,
+      "round_number": 1,
+      "direction": "swap_right",
+      "holding_status": "swap_right",
+      "obligation_type": "swap",
+      "protection_text": null,
+      "swap_text": "Memphis owns a 2026 first-round swap right that produced Phoenix #16 via Memphis swapping Orlando for Phoenix while retaining Memphis own #3 as the derived baseline.",
+      "condition_text": "Current RealGM state lists Memphis own #3 and Phoenix #16 via Memphis swap of Orlando for Phoenix.",
+      "source_event_id": "bref:mem:2024:2024-02-08:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2024_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2024 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Memphis own 2026 first is represented by the derived baseline; this row captures only the PHX swap right."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2021-08-07:mem-2026-r2-to-lac",
+      "effective_date": "2021-08-07",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "LAC",
+      "original_team_code": "MEM",
+      "draft_year": 2026,
+      "round_number": 2,
+      "direction": "outgoing",
+      "holding_status": "owed_out",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis 2026 second-round pick is owed to the LA Clippers via Utah to Atlanta.",
+      "source_event_id": "bref:mem:2022:2021-08-07:3:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2022_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2022 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current-state row records the end owner as LAC; source_event_id anchors the Memphis transaction row provided for this obligation."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2021-08-07:ind-2026-r2-to-mem",
+      "effective_date": "2021-08-07",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "IND",
+      "draft_year": 2026,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Indiana 2026 second-round pick is held by Memphis via Milwaukee.",
+      "source_event_id": "bref:mem:2022:2021-08-07:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2022_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2022 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and the provided BRef source event agree that Memphis controls the IND 2026 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2026-02-03:lal-2027-r1-to-mem",
+      "effective_date": "2026-02-03",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "LAL",
+      "draft_year": 2027,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": "Los Angeles Lakers protected selections 1-4; conveys to Memphis if 5-30.",
+      "swap_text": null,
+      "condition_text": "Memphis holds the Lakers 2027 first-round pick if it lands 5-30.",
+      "source_event_id": "bref:mem:2026:2026-02-03:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html",
+        "https://www.nba.com/news/jaren-jackson-jr-trade-jazz-2026"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event",
+        "NBA.com Jaren Jackson Jr. trade report"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "JJJ trade row supported by current RealGM state, BRef source event, and NBA.com report."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2026-02-03:uth-cle-min-2027-r1-most-favorable-to-mem",
+      "effective_date": "2026-02-03",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "UTH",
+      "draft_year": 2027,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "conditional",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis receives the most favorable of Utah, Cleveland, and Minnesota 2027 first-round picks via Utah.",
+      "source_event_id": "bref:mem:2026:2026-02-03:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html",
+        "https://www.nba.com/news/jaren-jackson-jr-trade-jazz-2026"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event",
+        "NBA.com Jaren Jackson Jr. trade report"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Original team uses UTH as the routing team from the provided facts; condition_text preserves the CLE/MIN alternatives."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2023-02-09:mem-2027-r2-to-hou",
+      "effective_date": "2023-02-09",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "HOU",
+      "original_team_code": "MEM",
+      "draft_year": 2027,
+      "round_number": 2,
+      "direction": "outgoing",
+      "holding_status": "owed_out",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis 2027 second-round pick is owed to Houston via the LA Clippers.",
+      "source_event_id": "bref:mem:2023:2023-02-09:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2023_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2023 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and provided BRef source event agree on the outgoing MEM 2027 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2026-02-03:lal-2027-r2-fallback-to-mem-doc",
+      "effective_date": "2026-02-03",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "LAL",
+      "draft_year": 2027,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "conditional",
+      "obligation_type": "conditional_fallback",
+      "protection_text": "Fallback applies only if the Lakers 2027 first-round pick does not convey to Memphis.",
+      "swap_text": null,
+      "condition_text": "Lakers 2027 second-round fallback is documented but not loaded until the protected first-round mechanics are modeled safely.",
+      "source_event_id": "bref:mem:2026:2026-02-03:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html",
+        "https://www.nba.com/news/jaren-jackson-jr-trade-jazz-2026"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event",
+        "NBA.com Jaren Jackson Jr. trade report"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "uncertain",
+      "loadable": false,
+      "notes": "Non-loadable documentation row; the fixture should not project both the protected first and fallback second as active held assets."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-15:orl-2028-r1-to-mem",
+      "effective_date": "2025-06-15",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "ORL",
+      "draft_year": 2028,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Orlando 2028 first-round pick was acquired by Memphis in the Desmond Bane trade.",
+      "source_event_id": "bref:mem:2025:2025-06-15:1:1",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html"
+      ],
+      "source_labels": [
+        "Memphis Grizzlies official Bane trade release",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Historical incoming row retained because it is needed to explain the later outgoing ORL 2028 first."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward",
+      "effective_date": "2025-06-25",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "UNKNOWN",
+      "original_team_code": "ORL",
+      "draft_year": 2028,
+      "round_number": 1,
+      "direction": "outgoing",
+      "holding_status": "owed_out",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "The Orlando 2028 first-round pick acquired in the Bane trade was sent out in the 2025 Cedric Coward draft trade.",
+      "source_event_id": "bref:mem:2025:2025-06-25:4:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2023-07-11:mem-2028-r2-to-brk",
+      "effective_date": "2023-07-11",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "BRK",
+      "original_team_code": "MEM",
+      "draft_year": 2028,
+      "round_number": 2,
+      "direction": "outgoing",
+      "holding_status": "owed_out",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis 2028 second-round pick is owed to Brooklyn via Phoenix.",
+      "source_event_id": "bref:mem:2024:2023-07-11:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2024_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2024 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and provided BRef source event agree on the outgoing MEM 2028 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-15:orl-2029-r1-swap-right",
+      "effective_date": "2025-06-15",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "ORL",
+      "draft_year": 2029,
+      "round_number": 1,
+      "direction": "swap_right",
+      "holding_status": "swap_right",
+      "obligation_type": "swap",
+      "protection_text": "Orlando protected selections 1-2",
+      "swap_text": "Memphis owns the right to swap its 2029 first-round pick for Orlando's 2029 first-round pick if Orlando's pick falls 3-30.",
+      "condition_text": "If Orlando's 2029 first is selections 1-2, Orlando keeps the first and the documented fallback is an Orlando 2029 second-round pick.",
+      "source_event_id": "bref:mem:2025:2025-06-15:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html",
+        "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event",
+        "Memphis Grizzlies official Bane trade release"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Bane trade swap right; protection_text records the Orlando 1-2 protection."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-15:orl-2029-r2-fallback-doc",
+      "effective_date": "2025-06-15",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "ORL",
+      "draft_year": 2029,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "conditional",
+      "obligation_type": "conditional_fallback",
+      "protection_text": "Fallback applies only if Orlando's 2029 first-round pick is selections 1-2.",
+      "swap_text": null,
+      "condition_text": "Orlando 2029 second-round fallback is documented but not loaded until protected-swap fallback modeling is stable.",
+      "source_event_id": "bref:mem:2025:2025-06-15:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html",
+        "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event",
+        "Memphis Grizzlies official Bane trade release"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "uncertain",
+      "loadable": false,
+      "notes": "Non-loadable documentation row to avoid projecting a fallback second while the first-round swap right is active."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2023-07-11:mem-2029-r2-to-brk",
+      "effective_date": "2023-07-11",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "BRK",
+      "original_team_code": "MEM",
+      "draft_year": 2029,
+      "round_number": 2,
+      "direction": "outgoing",
+      "holding_status": "owed_out",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis 2029 second-round pick is owed to Brooklyn via Phoenix.",
+      "source_event_id": "bref:mem:2024:2023-07-11:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2024_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2024 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and provided BRef source event agree on the outgoing MEM 2029 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-07-06:por-2029-r2-to-mem",
+      "effective_date": "2025-07-06",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "POR",
+      "draft_year": 2029,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Portland 2029 second-round pick is held by Memphis.",
+      "source_event_id": "bref:mem:2026:2025-07-06:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and provided BRef source event agree on the incoming POR 2029 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-15:orl-2030-r1-to-mem",
+      "effective_date": "2025-06-15",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "ORL",
+      "draft_year": 2030,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Orlando 2030 first-round pick is owed to Memphis from the Desmond Bane trade.",
+      "source_event_id": "bref:mem:2025:2025-06-15:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html",
+        "https://www.nba.com/grizzlies/news/grizzlies-acquire-kentavious-caldwell-pope-cole-anthony-four-future-first-round-picks-and-one-first-round-pick-swap-from-magic/"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event",
+        "Memphis Grizzlies official Bane trade release"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Bane trade incoming first supported by current RealGM state, BRef source event, and official Grizzlies release."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2023-07-11:phx-was-mem-2030-r1-swap-right",
+      "effective_date": "2023-07-11",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "PHX",
+      "draft_year": 2030,
+      "round_number": 1,
+      "direction": "swap_right",
+      "holding_status": "swap_right",
+      "obligation_type": "swap",
+      "protection_text": null,
+      "swap_text": "Memphis receives the more favorable of Memphis and the less favorable of Phoenix/Washington; Phoenix receives the least favorable.",
+      "condition_text": "Complex 2030 first-round swap involving Memphis, Phoenix, and Washington where Memphis controls the more favorable of MEM and the less favorable of PHX/WAS, while Phoenix receives the least favorable of the three outcomes.",
+      "source_event_id": "bref:mem:2024:2023-07-11:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2024_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2024 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Original team is PHX to keep one concrete source pick identity while condition_text preserves the PHX/WAS/MEM mechanics."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2024-07-06:mem-2030-r2-to-min-51-60",
+      "effective_date": "2024-07-06",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MIN",
+      "original_team_code": "MEM",
+      "draft_year": 2030,
+      "round_number": 2,
+      "direction": "outgoing",
+      "holding_status": "encumbered",
+      "obligation_type": "traded_pick",
+      "protection_text": "Memphis retains selections 31-50; 51-60 to Minnesota",
+      "swap_text": null,
+      "condition_text": "Memphis 2030 second-round pick is encumbered: Memphis keeps selections 31-50 and Minnesota receives selections 51-60.",
+      "source_event_id": "bref:mem:2025:2024-07-06:3:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2025 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Holding status is encumbered rather than owed_out because Memphis retains selections 31-50."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2026-02-03:phx-2031-r1-to-mem",
+      "effective_date": "2026-02-03",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "PHX",
+      "draft_year": 2031,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Phoenix 2031 first-round pick is owed to Memphis via Utah in the Jaren Jackson Jr. trade.",
+      "source_event_id": "bref:mem:2026:2026-02-03:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html",
+        "https://www.nba.com/news/jaren-jackson-jr-trade-jazz-2026"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event",
+        "NBA.com Jaren Jackson Jr. trade report"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "JJJ trade row supported by current RealGM state, BRef source event, and NBA.com report."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-07-06:ind-mia-mem-2031-r2-swap-right",
+      "effective_date": "2025-07-06",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "IND",
+      "draft_year": 2031,
+      "round_number": 2,
+      "direction": "swap_right",
+      "holding_status": "swap_right",
+      "obligation_type": "swap",
+      "protection_text": null,
+      "swap_text": "Memphis has a complex 2031 second-round swap right involving Memphis, Indiana, and Miami.",
+      "condition_text": "Complex MEM/IND/MIA 2031 second-round swap documented by RealGM and anchored to the provided BRef source event.",
+      "source_event_id": "bref:mem:2026:2025-07-06:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Original team is IND per provided facts; condition_text intentionally does not invent ordering beyond the stated complex MEM/IND/MIA swap."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-07-06:gsw-2032-r2-51-60-to-mem",
+      "effective_date": "2025-07-06",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "GSW",
+      "draft_year": 2032,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "conditional",
+      "obligation_type": "traded_pick",
+      "protection_text": "protected 31-50; extinguishes if protected",
+      "swap_text": null,
+      "condition_text": "Golden State 2032 second-round pick conveys to Memphis only if it falls 51-60; it extinguishes if protected 31-50.",
+      "source_event_id": "bref:mem:2026:2025-07-06:2:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Uses GSW for Golden State per fixture instruction."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2026-02-05:phl-2032-r2-swap-right",
+      "effective_date": "2026-02-05",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "PHL",
+      "draft_year": 2032,
+      "round_number": 2,
+      "direction": "swap_right",
+      "holding_status": "swap_right",
+      "obligation_type": "swap",
+      "protection_text": null,
+      "swap_text": "Memphis owns a 2032 second-round right to swap for Philadelphia.",
+      "condition_text": "Memphis right to swap its 2032 second-round pick for Philadelphia's 2032 second-round pick.",
+      "source_event_id": "bref:mem:2026:2026-02-05:1:1",
+      "source_urls": [
+        "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
+        "https://www.basketball-reference.com/teams/MEM/2026_transactions.html"
+      ],
+      "source_labels": [
+        "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
+        "Basketball-Reference MEM 2026 transactions, loaded source_event"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "validated",
+      "loadable": true,
+      "notes": "Current RealGM state and provided BRef source event agree on the PHL 2032 second-round swap right."
+    }
+  ]
+}

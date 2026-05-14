@@ -9,7 +9,7 @@ based_on: "docs/draft-lottery-results/plan.yaml"
 
 summary:
   scope_executed: "Implemented the source-backed seed_v1 fixture, shared preview/load validation, CLI commands, audit/docs updates, focused tests, live Supabase load, and graph-export neutrality check."
-  outcome: "Four high-confidence Memphis-owned lottery rows are loaded in foundation.draft_lottery_result; 2020 Boston-from-Memphis remains fixture-documented and excluded."
+  outcome: "Five high-confidence Memphis-perspective lottery rows are loaded in foundation.draft_lottery_result; all five carry explicit owner/original-team semantics, including 2020 Boston-from-Memphis."
 
 task_batches_attempted:
   - "B1 fixture contract and preview/load implementation"
@@ -67,7 +67,7 @@ review_summary:
   status: completed
   key_findings:
     - "Audit originally counted lottery rows only after draft_selection existed; fixed to count foundation.draft_lottery_result independently."
-    - "Preview originally queried existing rows only for loadable fixture years; fixed to query all fixture years so excluded rows can warn on stale DB state."
+    - "Preview/load now preserves `team_code` as Memphis perspective scope while writing explicit owner/original-team semantics."
     - "The 2026 row needed its odds/pre-lottery source attached directly; added RealGM Memphis lottery history to the row."
     - "Dry-run reporting was corrected to rows_written=0 while preserving rows_ready as the projected write count."
 
@@ -75,19 +75,18 @@ test_summary:
   status: passed
   checks_run:
     - "21 focused pytest cases passed."
-    - "CLI preview returned blocked_rows=0, ready_rows=4, warning_rows=0, existing_conflicting_rows=0."
-    - "CLI dry-run returned blocked_rows=0, rows_ready=4, rows_written=0."
-    - "Live load returned rows_written=4."
-    - "Second live load found 4 existing matching rows and completed with 0 blockers/warnings."
-    - "Audit returned counts.draft_lottery_result=4 and draft.lottery_results=4."
+    - "CLI preview returned blocked_rows=0, ready_rows=5, warning_rows=0, existing_conflicting_rows=0."
+    - "CLI dry-run returned blocked_rows=0, rows_ready=5, rows_written=0."
+    - "Live load returned rows_written=5."
+    - "Audit returned counts.draft_lottery_result=5, draft.lottery_results=5, and draft.lottery_results_with_owner_original=5."
     - "Before/after graph export counts matched and the JSON files were byte-identical."
-    - "Frontend Vitest passed: 8 tests."
+    - "Frontend Vitest passed: 9 tests."
     - "Astro static build passed."
-    - "Full Python test suite passed: 98 tests."
+    - "Full Python test suite passed: 116 tests."
   failures: []
   gaps:
     - "Lottery rows are contextual seed metadata and still intentionally outside the base graph export."
-    - "2020 Boston-from-Memphis remains excluded until the schema can represent owner team and original team separately."
+    - "Lottery rows remain contextual seed metadata and are intentionally outside the base graph export."
 
 open_issues:
   - "Future pick inventory snapshots remain empty and are the next material lineage-data gap."
@@ -97,4 +96,4 @@ open_issues:
 handoff:
   current_state: completed
   next_owner: "user"
-  next_action: "Review the loaded contextual lottery metadata; likely next work is future pick inventory snapshots or broader pick owner/original-team semantics."
+  next_action: "Review the loaded contextual lottery metadata; broader lottery annotations can wait until the graph/story layer needs them."

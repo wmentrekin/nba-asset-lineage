@@ -5,29 +5,9 @@ from pydantic import BaseModel
 
 from foundation.models import BaseGraphExport
 from foundation.models import AssetTransition, PickAsset, PlayerAsset, TransactionEvent
+from foundation.models import FuturePickSnapshot
 from foundation.models import RosterSnapshot
-
-
-DRAFT_DATE_BY_YEAR_ROUND = {
-    (2016, 1): "2016-06-23",
-    (2016, 2): "2016-06-23",
-    (2018, 1): "2018-06-21",
-    (2018, 2): "2018-06-21",
-    (2019, 1): "2019-06-20",
-    (2019, 2): "2019-06-20",
-    (2020, 1): "2020-11-18",
-    (2020, 2): "2020-11-18",
-    (2021, 1): "2021-07-29",
-    (2021, 2): "2021-07-29",
-    (2022, 1): "2022-06-23",
-    (2022, 2): "2022-06-23",
-    (2023, 1): "2023-06-22",
-    (2023, 2): "2023-06-22",
-    (2024, 1): "2024-06-26",
-    (2024, 2): "2024-06-27",
-    (2025, 1): "2025-06-25",
-    (2025, 2): "2025-06-26",
-}
+from foundation.models import draft_event_date
 
 
 class DraftResolutionExportRow(BaseModel):
@@ -41,6 +21,8 @@ class DraftResolutionExportRow(BaseModel):
     pick_overall: int
     source_bundle_id: str
     notes: str | None = None
+    source_event_id: str | None = None
+    canonical_event_id: str | None = None
 
 
 def build_empty_base_export() -> BaseGraphExport:
@@ -127,9 +109,22 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
                            dpr.round_number,
                            dpr.pick_overall,
                            dpr.source_bundle_id,
-                           dpr.notes
+                           dpr.notes,
+                           ds.source_event_id,
+                           canonical_draft.canonical_event_id
                     from foundation.draft_pick_resolution dpr
+                    join foundation.draft_selection ds on ds.draft_selection_id = dpr.draft_selection_id
                     join foundation.player p on p.player_id = dpr.player_id
+                    left join lateral (
+                        select cem.canonical_event_id
+                        from foundation.canonical_event_member cem
+                        join foundation.canonical_event ce
+                          on ce.canonical_event_id = cem.canonical_event_id
+                        where cem.source_event_id = ds.source_event_id
+                          and ce.event_type = 'draft'
+                        order by ce.event_date, ce.sequence_on_date, ce.canonical_event_id
+                        limit 1
+                    ) canonical_draft on true
                     order by dpr.draft_year, dpr.pick_overall, dpr.draft_pick_resolution_id
                     """
                 )
@@ -145,6 +140,8 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
                         pick_overall=int(row[7]),
                         source_bundle_id=str(row[8]),
                         notes=str(row[9]) if row[9] is not None else None,
+                        source_event_id=str(row[10]) if row[10] is not None else None,
+                        canonical_event_id=str(row[11]) if row[11] is not None else None,
                     )
                     for row in cursor.fetchall()
                 ]
@@ -173,7 +170,14 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
                 snapshot_player_rows = cursor.fetchall()
                 cursor.execute(
                     """
-                    select snapshot_id, asset_id
+                    select snapshot_id,
+                           pick_id,
+                           asset_id,
+                           holding_status,
+                           display_order,
+                           source_obligation_id,
+                           confidence,
+                           notes
                     from foundation.roster_snapshot_pick
                     where asset_id is not null
                     order by snapshot_id, display_order nulls last, pick_id
@@ -240,9 +244,19 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
     for snapshot_id, asset_id, is_two_way in snapshot_player_rows:
         target = two_way_assets_by_snapshot if bool(is_two_way) else standard_assets_by_snapshot
         target.setdefault(str(snapshot_id), []).append(str(asset_id))
-    pick_assets_by_snapshot: dict[str, list[str]] = {}
-    for snapshot_id, asset_id in snapshot_pick_rows:
-        pick_assets_by_snapshot.setdefault(str(snapshot_id), []).append(str(asset_id))
+    pick_assets_by_snapshot: dict[str, list[FuturePickSnapshot]] = {}
+    for snapshot_id, pick_id, asset_id, holding_status, display_order, source_obligation_id, confidence, notes in snapshot_pick_rows:
+        pick_assets_by_snapshot.setdefault(str(snapshot_id), []).append(
+            FuturePickSnapshot(
+                asset_id=str(asset_id),
+                pick_id=str(pick_id),
+                holding_status=str(holding_status),
+                display_order=int(display_order) if display_order is not None else None,
+                source_obligation_id=str(source_obligation_id) if source_obligation_id is not None else None,
+                confidence=str(confidence) if confidence is not None else None,
+                notes=str(notes) if notes is not None else None,
+            )
+        )
     export.roster_snapshots = [
         RosterSnapshot(
             snapshot_id=str(row[0]),
@@ -251,7 +265,8 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
             season=str(row[3]),
             roster_asset_ids=standard_assets_by_snapshot.get(str(row[0]), []),
             two_way_asset_ids=two_way_assets_by_snapshot.get(str(row[0]), []),
-            future_pick_asset_ids=pick_assets_by_snapshot.get(str(row[0]), []),
+            future_pick_asset_ids=[pick.asset_id for pick in pick_assets_by_snapshot.get(str(row[0]), [])],
+            future_picks=pick_assets_by_snapshot.get(str(row[0]), []),
         )
         for row in snapshot_rows
     ]
@@ -264,18 +279,19 @@ def build_draft_resolution_export_items(
     events: list[TransactionEvent] = []
     transitions: list[AssetTransition] = []
     for row in rows:
-        event_id = build_draft_resolution_event_id(row.draft_selection_id)
-        event_date = draft_resolution_event_date(row.draft_year, row.round_number)
-        events.append(
-            TransactionEvent(
-                event_id=event_id,
-                event_type="draft",
-                event_date=event_date,
-                label=f"Memphis drafts {row.player_name} at No. {row.pick_overall}",
-                sequence=1000 + row.pick_overall,
-                source_group_id=row.source_bundle_id,
+        event_id = row.canonical_event_id or build_draft_resolution_event_id(row.draft_selection_id)
+        if row.canonical_event_id is None:
+            event_date = draft_resolution_event_date(row.draft_year, row.round_number)
+            events.append(
+                TransactionEvent(
+                    event_id=event_id,
+                    event_type="draft",
+                    event_date=event_date,
+                    label=f"Memphis drafts {row.player_name} at No. {row.pick_overall}",
+                    sequence=1000 + row.pick_overall,
+                    source_group_id=row.source_bundle_id,
+                )
             )
-        )
         transitions.append(
             AssetTransition(
                 transition_id=f"{event_id}:pick-to-player:{row.pick_asset_id}:to:{row.player_asset_id}",
@@ -295,7 +311,4 @@ def build_draft_resolution_event_id(draft_selection_id: str) -> str:
 
 
 def draft_resolution_event_date(draft_year: int, round_number: int) -> str:
-    event_date = DRAFT_DATE_BY_YEAR_ROUND.get((draft_year, round_number))
-    if event_date is None:
-        raise ValueError(f"Missing draft event date for draft_year={draft_year}, round_number={round_number}")
-    return event_date
+    return draft_event_date(draft_year, round_number)

@@ -12,6 +12,7 @@ FOUNDATION_TABLES = (
     "player_alias",
     "pick",
     "asset",
+    "pick_inventory_obligation",
     "roster_baseline_player",
     "roster_snapshot",
     "roster_snapshot_player",
@@ -36,6 +37,7 @@ def audit_foundation_data(database_url: str) -> dict[str, object]:
             "source_coverage": fetch_source_coverage(connection),
             "aliases": fetch_alias_metrics(connection),
             "snapshots": fetch_snapshot_metrics(connection),
+            "pick_inventory": fetch_pick_inventory_metrics(connection),
             "draft": fetch_draft_metrics(connection),
             "canonical": {
                 "events": counts.get("canonical_event", 0),
@@ -271,12 +273,76 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
     }
 
 
+def fetch_pick_inventory_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    if not table_exists(connection, "pick_inventory_obligation"):
+        return {
+            "obligations": 0,
+            "loadable_rows": 0,
+            "documented_only_rows": 0,
+            "uncertain_rows": 0,
+            "rows_missing_source_event": 0,
+            "by_holding_status": [],
+            "by_confidence": [],
+        }
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select count(*),
+                   count(*) filter (where loadable),
+                   count(*) filter (where not loadable),
+                   count(*) filter (where confidence = 'uncertain'),
+                   count(*) filter (where source_event_id is null and canonical_event_id is null)
+            from foundation.pick_inventory_obligation
+            """
+        )
+        count_row = cursor.fetchone()
+        cursor.execute(
+            """
+            select holding_status, count(*)
+            from foundation.pick_inventory_obligation
+            group by holding_status
+            order by holding_status
+            """
+        )
+        holding_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            select confidence, count(*)
+            from foundation.pick_inventory_obligation
+            group by confidence
+            order by confidence
+            """
+        )
+        confidence_rows = cursor.fetchall()
+
+    return {
+        "obligations": int(count_row[0]),
+        "loadable_rows": int(count_row[1]),
+        "documented_only_rows": int(count_row[2]),
+        "uncertain_rows": int(count_row[3]),
+        "rows_missing_source_event": int(count_row[4]),
+        "by_holding_status": [{"holding_status": str(row[0]), "rows": int(row[1])} for row in holding_rows],
+        "by_confidence": [{"confidence": str(row[0]), "rows": int(row[1])} for row in confidence_rows],
+    }
+
+
 def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
     lottery_results = 0
+    lottery_results_with_owner_original = 0
     if table_exists(connection, "draft_lottery_result"):
         with connection.cursor() as cursor:
             cursor.execute("select count(*) from foundation.draft_lottery_result")
             lottery_results = int(cursor.fetchone()[0])
+            cursor.execute(
+                """
+                select count(*)
+                from foundation.draft_lottery_result
+                where owner_team_code is not null
+                  and original_team_code is not null
+                """
+            )
+            lottery_results_with_owner_original = int(cursor.fetchone()[0])
 
     if not table_exists(connection, "draft_selection"):
         return {
@@ -285,6 +351,7 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
             "resolved_pick_rows": 0,
             "unlinked_source_event_rows": 0,
             "lottery_results": lottery_results,
+            "lottery_results_with_owner_original": lottery_results_with_owner_original,
             "by_year": [],
         }
     with connection.cursor() as cursor:
@@ -313,6 +380,7 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
         "resolved_pick_rows": resolved_pick_rows,
         "unlinked_source_event_rows": unlinked_source_event_rows,
         "lottery_results": lottery_results,
+        "lottery_results_with_owner_original": lottery_results_with_owner_original,
         "by_year": [{"draft_year": int(row[0]), "selections": int(row[1])} for row in year_rows],
     }
 
@@ -322,6 +390,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
     graph_export_span = dict(report.get("graph_export_span", report.get("event_span", {})))
     source_coverage = list(report.get("source_coverage", []))
     snapshots = dict(report.get("snapshots", {}))
+    pick_inventory = dict(report.get("pick_inventory", {}))
     draft = dict(report.get("draft", {}))
 
     gaps: list[dict[str, str]] = []
@@ -370,6 +439,27 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Add a pick-inventory source before relying on pick lanes as complete.",
             )
         )
+    elif int(pick_inventory.get("obligations", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Future pick inventory snapshots are not backed by the obligation ledger.",
+                "foundation.roster_snapshot_pick has rows but foundation.pick_inventory_obligation is empty.",
+                "Load source-backed pick obligations and rebuild roster_snapshot_pick from that ledger.",
+            )
+        )
+    if int(pick_inventory.get("uncertain_rows", 0)) > 0 or int(pick_inventory.get("documented_only_rows", 0)) > 0:
+        gaps.append(
+            build_gap(
+                "low",
+                "Future pick obligation ledger includes caveated documentation rows.",
+                (
+                    f"{pick_inventory.get('uncertain_rows', 0)} uncertain rows and "
+                    f"{pick_inventory.get('documented_only_rows', 0)} documented-only rows are present."
+                ),
+                "Keep uncertain rows out of live snapshot projection until source semantics are resolved.",
+            )
+        )
     has_two_way_rows = any(
         isinstance(row, dict) and int(row.get("two_way_rows", 0)) > 0
         for row in list(snapshots.get("contract_status", []))
@@ -410,6 +500,15 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Backfill draft_pick_resolution provenance for every linked draft selection.",
             )
         )
+    if int(draft.get("selections", 0)) > 0 and int(draft.get("unlinked_source_event_rows", 0)) > 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Draft selections lack source-event provenance.",
+                f"{draft.get('unlinked_source_event_rows')} draft_selection rows have no source_event_id.",
+                "Reload draft selections through the checked-in BRef draft loader before treating draft transitions as provenance-complete.",
+            )
+        )
     if int(draft.get("lottery_results", 0)) == 0:
         gaps.append(
             build_gap(
@@ -424,8 +523,11 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
             build_gap(
                 "low",
                 "Draft lottery results are seed-loaded contextual metadata.",
-                "Nonzero draft_lottery_result rows prove only the curated Memphis-owned lottery outcomes currently loaded.",
-                "Keep 2020 Boston-from-Memphis excluded until the schema can model owner team and original team separately.",
+                (
+                    f"{draft.get('lottery_results')} rows are loaded; "
+                    f"{draft.get('lottery_results_with_owner_original', 0)} carry explicit owner/original-team semantics."
+                ),
+                "Expand contextual lottery rows only when they are needed for annotations; the base graph export still does not consume them.",
             )
         )
     if int(counts.get("canonical_event", 0)) == 0 or int(counts.get("event_asset_transition", 0)) == 0:

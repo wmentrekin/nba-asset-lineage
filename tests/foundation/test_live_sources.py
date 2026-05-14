@@ -135,8 +135,20 @@ def test_build_bref_draft_rows_builds_memphis_draft_selection() -> None:
       </tbody>
     </table>
     """
-    source_records, players, selections = build_bref_draft_rows(draft_year=2019, team_code="MEM", html=html)
+    source_records, source_events, players, selections = build_bref_draft_rows(
+        draft_year=2019,
+        team_code="MEM",
+        html=html,
+    )
     assert len(source_records) == 1
+    assert len(source_events) == 1
     assert [player.display_name for player in players] == ["Ja Morant"]
+    assert source_events[0].source_event_id == "bref:draft:2019:pick:009"
+    assert source_events[0].source_record_id == "bref:draft:2019"
+    assert source_events[0].event_date == "2019-06-20"
+    assert source_events[0].event_type == "draft"
+    assert source_events[0].normalized_payload["draft_selection_id"] == "draft:2019:9"
+    assert source_events[0].normalized_payload["player_names_in"] == ["Ja Morant"]
     assert selections[0].draft_selection_id == "draft:2019:9"
     assert selections[0].team_code == "MEM"
+    assert selections[0].source_event_id == "bref:draft:2019:pick:009"

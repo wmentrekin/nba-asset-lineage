@@ -54,10 +54,43 @@ const SAMPLE_EXPORT: GraphExport = {
     { transition_id: "t1", event_id: "evt-1", asset_id: "asset:player:b", transition_type: "departed" },
     { transition_id: "t2", event_id: "evt-1", asset_id: "asset:pick:1", transition_type: "acquired" },
   ],
-  roster_snapshots: [],
+  roster_snapshots: [
+    {
+      snapshot_id: "snapshot:mem:2024-25:post_deadline",
+      as_of_date: "2025-02-15",
+      snapshot_kind: "post_deadline",
+      season: "2024-25",
+      roster_asset_ids: ["asset:player:c"],
+      two_way_asset_ids: [],
+      future_pick_asset_ids: ["asset:pick:1"],
+      future_picks: [
+        {
+          asset_id: "asset:pick:1",
+          pick_id: "pick:inventory:mem:2028:r1:phx",
+          holding_status: "owned",
+          display_order: 1,
+          source_obligation_id: "obligation:incoming:2028:phx",
+          confidence: "validated",
+          notes: "Curated test obligation.",
+        },
+      ],
+    },
+  ],
 };
 
 describe("buildTimelineLayout", () => {
+  it("types roster snapshot future pick metadata while preserving asset ids", () => {
+    const snapshot = SAMPLE_EXPORT.roster_snapshots[0];
+
+    expect(snapshot?.future_pick_asset_ids).toEqual(["asset:pick:1"]);
+    expect(snapshot?.future_picks[0]).toMatchObject({
+      asset_id: "asset:pick:1",
+      holding_status: "owned",
+      source_obligation_id: "obligation:incoming:2028:phx",
+      confidence: "validated",
+    });
+  });
+
   it("builds rows, event points, connectors, and interval-based segments from export data", () => {
     const layout = buildTimelineLayout(SAMPLE_EXPORT);
     expect(layout.rows.length).toBeGreaterThanOrEqual(18);

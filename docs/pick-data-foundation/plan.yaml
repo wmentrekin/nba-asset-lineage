@@ -3,7 +3,7 @@
 artifact: plan
 feature: "pick-data-foundation"
 mode: "large-initiative"
-status: draft
+status: completed
 owner_skill: work
 based_on: "docs/pick-data-foundation/requirements.yaml"
 
@@ -19,6 +19,7 @@ approach:
     - "Represent swaps/conditional branches explicitly rather than flattening them into false concrete ownership."
     - "Block uncertain rows by default in live loaders; allow uncertainty only as documented non-loadable fixture rows unless the user later approves otherwise."
     - "Keep graph export backward compatible by preserving `future_pick_asset_ids`, but add richer snapshot-pick state metadata for frontend use."
+    - "Treat fixture expansion as a possible stop point: source conflicts must be surfaced before schema/live-write batches continue."
 
 execution_batches:
   - id: "B1"
@@ -26,7 +27,7 @@ execution_batches:
     tasks:
       - id: "T1"
         title: "Add pick obligation schema"
-        objective: "Create an additive SQL bootstrap/migration for `foundation.pick_inventory_obligation`, snapshot-pick provenance fields, owner/original-team lottery fields, and optional pick-overall semantics."
+        objective: "Create an additive SQL bootstrap/migration for `foundation.pick_inventory_obligation`, snapshot-pick provenance fields, owner/original-team lottery fields, and optional pick-overall semantics. Keep legacy `draft_lottery_result.team_code` as perspective/team-scope code."
         owned_scope:
           - "sql/0006_foundation_pick_inventory_bootstrap.sql"
           - "sql/0004_foundation_context_bootstrap.sql"
@@ -54,7 +55,7 @@ execution_batches:
     tasks:
       - id: "T3"
         title: "Populate draft selection provenance"
-        objective: "Create per-selection draft source provenance or an agreed source-record alternative, then populate `draft_selection.source_event_id` through the checked-in BRef draft loader."
+        objective: "Create per-selection draft source provenance or an agreed source-record alternative, then populate `draft_selection.source_event_id` through the checked-in BRef draft loader. Do not run live reload until T4 defines draft event export behavior."
         owned_scope:
           - "src/foundation/live_sources.py"
           - "src/foundation/ingest.py"
@@ -66,7 +67,7 @@ execution_batches:
           - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
       - id: "T4"
         title: "Prevent duplicate draft graph events"
-        objective: "Adjust export/audit so draft-resolution transitions attach to canonical draft events when present, otherwise fall back to synthetic draft-resolution events."
+        objective: "Adjust export/audit so draft-resolution transitions attach to canonical draft events when present, otherwise fall back to synthetic draft-resolution events. Add tests proving export does not double-count draft nodes."
         owned_scope:
           - "src/foundation/export.py"
           - "src/foundation/models.py"
@@ -100,6 +101,10 @@ execution_batches:
         expected_validation:
           - ".venv/bin/pytest tests/foundation/test_pick_inventory.py"
           - ".venv/bin/python -m redesign_cli preview-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+        stop_conditions:
+          - "Current-state sources disagree on owner/original/protection/swap details and no source hierarchy resolves it cleanly."
+          - "A required obligation has only a low-confidence/community source."
+          - "The projected latest snapshot cannot reconcile to current RealGM future-pick inventory."
 
   - id: "B4"
     goal: "Guarded obligation and snapshot-pick load path."
@@ -180,6 +185,7 @@ execution_batches:
         objective: "Run checked-in SQL/CLI commands against Supabase only after all previews/dry-runs are clean."
         ordered_commands:
           - ".venv/bin/python -m redesign_cli bootstrap-foundation-pick-inventory"
+          - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path /private/tmp/foundation-graph-before-pick-data.json"
           - ".venv/bin/python -m redesign_cli load-bref-draft-results-span --team-code MEM --start-draft-year 2016 --end-draft-year 2025"
           - ".venv/bin/python -m redesign_cli load-foundation-canonical"
           - ".venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM"
@@ -189,6 +195,7 @@ execution_batches:
           - ".venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
           - ".venv/bin/python -m redesign_cli audit-foundation-data"
           - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path frontend/src/data/generated/foundation-graph.json"
+          - ".venv/bin/python -m redesign_cli export-foundation-graph --output-path /private/tmp/foundation-graph-after-pick-data.json"
         expected_validation:
           - ".venv/bin/pytest"
           - "mise run frontend_test"
@@ -198,6 +205,7 @@ execution_batches:
           - "Run dry-run before every live write."
           - "Use one checked-in CLI path per DB mutation."
           - "Stop if any blocked rows, source discrepancies, or duplicate draft events appear."
+          - "Compare before/after graph exports; any expected change in draft nodes or future pick snapshot metadata must be documented in the implementation report."
 
 risks:
   - "No single source provides complete historical Memphis pick-inventory snapshots; reconstruction must replay dated events and reconcile current state."
@@ -209,10 +217,25 @@ risks:
   - "A complete fixture may expose source conflicts requiring user decisions before live load."
 
 review:
-  status: pending
-  loop_count: 0
-  notes: []
+  status: completed
+  loop_count: 1
+  notes:
+    - "Execution completed with one verification correction: BRef draft reloads were patched to preserve curated draft_selection.pick_id links."
 
 checkpoint:
   required_before_execution: true
-  status: pending
+  status: approved
+
+completion:
+  status: completed
+  live_results:
+    pick_inventory_obligation: 19
+    roster_snapshot_pick: 980
+    draft_selection_pick_links: "20/20"
+    draft_selection_source_event_links: "20/20"
+    draft_lottery_result: 5
+    draft_lottery_owner_original_rows: 5
+  verification:
+    - ".venv/bin/pytest -> 116 passed"
+    - "mise run frontend_test -> 9 passed"
+    - "mise run frontend_build -> passed"

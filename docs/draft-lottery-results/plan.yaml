@@ -7,15 +7,15 @@ status: executed
 owner_skill: work
 based_on: "docs/draft-lottery-results/requirements.yaml"
 
-objective: "Add source-backed Memphis-owned draft lottery result fixture loading for the existing foundation table."
+objective: "Add source-backed Memphis-perspective draft lottery result fixture loading for the existing foundation table."
 
 approach:
   summary: "Mirror the guarded fixture-command pattern used by two-way status and draft pick resolution: add a curated fixture, read-only preview, dry-run/live load command, tests, and docs. Keep SQL schema and graph export unchanged."
   key_decisions:
     - "Use existing `foundation.draft_lottery_result` schema."
-    - "Load only Memphis-owned lottery outcomes under current `team_code` semantics."
+    - "Use `team_code` as the Memphis perspective scope and explicit owner/original-team fields for pick semantics."
     - "Omit non-lottery years rather than inserting null-result rows."
-    - "Exclude the 2020 Boston-from-Memphis outcome until schema supports owner/original-team distinction."
+    - "Represent the 2020 Boston-from-Memphis outcome with `owner_team_code=BOS` and `original_team_code=MEM`."
     - "Include the official 2026 lottery result because it is already known as of 2026-05-10."
     - "Keep lottery data contextual and out of graph export/frontend behavior for this pass."
     - "Require per-row source URLs, source labels, and retrieval dates before any fixture row can be loadable."
@@ -116,7 +116,7 @@ ordering_notes:
   - "Graph export does not need regeneration for lottery-only rows unless the user wants current generated JSON refreshed for unrelated reasons."
 
 risks:
-  - "The current SQL table cannot distinguish pick owner from original team; 2020 is intentionally excluded."
+  - "The base graph export still does not consume draft lottery context."
   - "Provenance is richer in the fixture than in SQL; DB `notes` will be a summary, not full source data."
   - "2026 is current external data; if a source correction occurs, the fixture should be updated and reloaded."
   - "Audit could imply completeness if wording only checks nonzero rows; implementation must preserve contextual seed caveat."

@@ -50,6 +50,9 @@ from foundation.live_sources import (
 )
 from foundation.pick_inventory import (
     DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
+    load_pick_inventory_obligations,
+    load_pick_inventory_snapshots,
+    preview_pick_inventory_obligations,
     preview_pick_inventory_snapshots,
 )
 from foundation.sources import get_default_source_plan
@@ -92,6 +95,17 @@ def parse_args() -> argparse.Namespace:
     pick_inventory_parser.add_argument("--team-code", default="MEM")
     pick_inventory_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
     pick_inventory_parser.add_argument("--max-draft-year", type=int, default=2032)
+    pick_inventory_obligations_parser = subparsers.add_parser("preview-pick-inventory-obligations", help="Read-only validation preview of curated future pick obligation fixture rows.")
+    pick_inventory_obligations_parser.add_argument("--team-code", default="MEM")
+    pick_inventory_obligations_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
+    load_pick_inventory_obligations_parser = subparsers.add_parser("load-pick-inventory-obligations", help="Guarded load of source-backed future pick obligations and needed pick assets.")
+    load_pick_inventory_obligations_parser.add_argument("--team-code", default="MEM")
+    load_pick_inventory_obligations_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
+    load_pick_inventory_obligations_parser.add_argument("--dry-run", action="store_true")
+    load_pick_inventory_snapshots_parser = subparsers.add_parser("load-pick-inventory-snapshots", help="Guarded replacement of derived roster snapshot future-pick inventory rows.")
+    load_pick_inventory_snapshots_parser.add_argument("--team-code", default="MEM")
+    load_pick_inventory_snapshots_parser.add_argument("--max-draft-year", type=int, default=2032)
+    load_pick_inventory_snapshots_parser.add_argument("--dry-run", action="store_true")
     two_way_preview_parser = subparsers.add_parser("preview-two-way-status", help="Read-only preview of curated two-way status intervals against roster snapshot players.")
     two_way_preview_parser.add_argument("--team-code", default="MEM")
     two_way_preview_parser.add_argument("--fixture-path", default=str(DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH))
@@ -117,6 +131,8 @@ def parse_args() -> argparse.Namespace:
     bootstrap_context_parser.add_argument("--sql-path", default="sql/0004_foundation_context_bootstrap.sql")
     bootstrap_draft_resolution_parser = subparsers.add_parser("bootstrap-foundation-draft-pick-resolution", help="Apply reset-era draft pick resolution SQL.")
     bootstrap_draft_resolution_parser.add_argument("--sql-path", default="sql/0005_foundation_draft_pick_resolution_bootstrap.sql")
+    bootstrap_pick_inventory_parser = subparsers.add_parser("bootstrap-foundation-pick-inventory", help="Apply reset-era pick inventory obligation bootstrap SQL.")
+    bootstrap_pick_inventory_parser.add_argument("--sql-path", default="sql/0006_foundation_pick_inventory_bootstrap.sql")
     subparsers.add_parser("preview-derived-foundation-entities", help="Build player, pick, and asset rows from the current foundation.source_event table without writing.")
     subparsers.add_parser("load-derived-foundation-entities", help="Build and load player, pick, and asset rows from the current foundation.source_event table.")
     subparsers.add_parser("load-roster-snapshots-from-baselines", help="Build approximate checkpoint roster snapshots from loaded roster baseline rows.")
@@ -327,6 +343,7 @@ def command_inspect_foundation_counts() -> dict[str, object]:
                 "roster_snapshot_pick",
                 "draft_selection",
                 "draft_pick_resolution",
+                "pick_inventory_obligation",
                 "draft_lottery_result",
                 "canonical_event",
                 "canonical_event_member",
@@ -421,6 +438,26 @@ def main() -> None:
             fixture_path=Path(args.fixture_path),
             max_draft_year=args.max_draft_year,
         ).model_dump(mode="json")
+    elif args.command == "preview-pick-inventory-obligations":
+        payload = preview_pick_inventory_obligations(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
+    elif args.command == "load-pick-inventory-obligations":
+        payload = load_pick_inventory_obligations(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
+    elif args.command == "load-pick-inventory-snapshots":
+        payload = load_pick_inventory_snapshots(
+            load_database_url(),
+            team_code=args.team_code,
+            max_draft_year=args.max_draft_year,
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
     elif args.command == "preview-two-way-status":
         payload = preview_two_way_status(
             load_database_url(),
@@ -463,6 +500,9 @@ def main() -> None:
         payload = {"status": "ok", "sql_path": args.sql_path}
     elif args.command == "bootstrap-foundation-draft-pick-resolution":
         bootstrap_foundation_draft_pick_resolution_schema(load_database_url(), sql_path=Path(args.sql_path))
+        payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "bootstrap-foundation-pick-inventory":
+        bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
         payload = {"status": "ok", "sql_path": args.sql_path}
     elif args.command == "preview-derived-foundation-entities":
         derived = derive_foundation_entities_from_database(load_database_url())

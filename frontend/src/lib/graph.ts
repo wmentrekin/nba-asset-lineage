@@ -36,6 +36,27 @@ export interface GraphTransition {
   notes?: string | null;
 }
 
+export interface GraphRosterSnapshotFuturePick {
+  asset_id: string;
+  pick_id: string;
+  holding_status: "owned" | "owed_out" | "swap_right" | "encumbered" | "conditional";
+  display_order?: number | null;
+  source_obligation_id?: string | null;
+  confidence?: "derived" | "curated" | "validated" | "uncertain" | null;
+  notes?: string | null;
+}
+
+export interface GraphRosterSnapshot {
+  snapshot_id: string;
+  as_of_date: string;
+  snapshot_kind?: string | null;
+  season?: string | null;
+  roster_asset_ids: string[];
+  two_way_asset_ids: string[];
+  future_pick_asset_ids: string[];
+  future_picks: GraphRosterSnapshotFuturePick[];
+}
+
 export interface GraphExport {
   franchise: string;
   span_start: string;
@@ -44,7 +65,7 @@ export interface GraphExport {
   player_assets: GraphPlayerAsset[];
   pick_assets: GraphPickAsset[];
   transitions: GraphTransition[];
-  roster_snapshots: unknown[];
+  roster_snapshots: GraphRosterSnapshot[];
 }
 
 export interface TimelineRow {
