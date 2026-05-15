@@ -1,6 +1,11 @@
+import json
 from pathlib import Path
 
 from foundation.live_sources import (
+    NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
+    DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    build_nba_player_movement_source_rows,
+    build_nba_player_movement_preview_rows,
     build_bref_draft_rows,
     build_bref_roster_rows,
     build_bref_source_rows,
@@ -8,7 +13,10 @@ from foundation.live_sources import (
     extract_bref_roster_rows,
     extract_bref_transaction_blocks,
     extract_nba_dataset_rows,
+    extract_nba_player_movement_rows,
+    preview_nba_player_movement,
 )
+from foundation.sources import RECOGNIZED_SOURCE_SYSTEMS
 
 
 def test_extract_bref_transaction_blocks_from_fixture_fragment() -> None:
@@ -41,6 +49,106 @@ def test_extract_nba_dataset_rows_supports_result_sets_shape() -> None:
     }
     rows = extract_nba_dataset_rows(payload)
     assert rows == [{"PLAYER_ID": 123, "PLAYER": "Ja Morant"}]
+
+
+def test_extract_nba_player_movement_rows_supports_checked_in_fixture() -> None:
+    payload = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH.read_text(encoding="utf-8")
+    rows = extract_nba_player_movement_rows(json.loads(payload))
+    assert len(rows) == 2
+    assert rows[0]["TRANSACTION_TYPE"] == "Trade"
+    assert rows[0]["TEAM_ABBREVIATION"] == "MEM"
+
+
+def test_build_nba_player_movement_preview_rows_exposes_minimum_contract() -> None:
+    payload = {
+        "transactions": [
+            {
+                "transactionDate": "02/08/2024",
+                "transactionType": "Trade",
+                "transactionDescription": "Memphis Grizzlies acquired a fixture-only player.",
+                "teamId": 1610612763,
+                "teamAbbreviation": "MEM",
+                "playerId": 1641713,
+                "playerName": "GG Jackson",
+            }
+        ]
+    }
+    rows = build_nba_player_movement_preview_rows(payload, source_locator="fixture://nba-player-movement")
+    assert len(rows) == 1
+    assert rows[0]["date"] == "2024-02-08"
+    assert rows[0]["transaction_type"] == "Trade"
+    assert rows[0]["transaction_description"] == "Memphis Grizzlies acquired a fixture-only player."
+    assert rows[0]["team_identifiers"] == {"team_id": "1610612763", "team_abbreviation": "MEM"}
+    assert rows[0]["player_identifiers"] == {"player_id": "1641713", "player_name": "GG Jackson"}
+    assert rows[0]["source_locator"] == "fixture://nba-player-movement#row=1"
+    assert rows[0]["normalized_payload"]["normalized_event_type"] == "trade"
+    assert rows[0]["normalized_payload"]["raw_row"] == payload["transactions"][0]
+    assert rows[0]["source_system"] == "nba_player_movement"
+
+
+def test_preview_nba_player_movement_is_fixture_only_and_schema_free() -> None:
+    preview = preview_nba_player_movement()
+    assert preview["status"] == "ok"
+    assert preview["source_system"] == "nba_player_movement"
+    assert preview["source_system"] in RECOGNIZED_SOURCE_SYSTEMS
+    assert preview["fixture_only"] is True
+    assert preview["writes_to_database"] is False
+    assert preview["total_endpoint_rows"] == 2
+    assert preview["memphis_row_count"] == 2
+    assert preview["row_count"] == 2
+    assert preview["date_range"] == {"start_date": "2024-01-10", "end_date": "2024-02-08"}
+    assert preview["transaction_type_counts"] == {"Trade": 1, "Waive": 1}
+    assert preview["preview_rows"][0]["date"] == "2024-02-08"
+    assert preview["preview_rows"][0]["source_system_label"] == "nba_player_movement"
+
+
+def test_nba_player_movement_memphis_filter_uses_id_slug_and_text_fallback() -> None:
+    payload = {
+        "transactions": [
+            {"TRANSACTION_DATE": "2024-01-01", "Transaction_Type": "Signing", "TEAM_ID": 1610612763},
+            {"TRANSACTION_DATE": "2024-01-02", "Transaction_Type": "Signing", "TEAM_SLUG": "grizzlies"},
+            {
+                "TRANSACTION_DATE": "2024-01-03",
+                "Transaction_Type": "Signing",
+                "TRANSACTION_DESCRIPTION": "The Memphis Grizzlies signed a sample player.",
+            },
+            {"TRANSACTION_DATE": "2024-01-04", "Transaction_Type": "Signing", "TEAM_ID": 1610612738},
+        ]
+    }
+    rows = build_nba_player_movement_preview_rows(payload, source_locator="fixture://nba-player-movement")
+    assert [row["date"] for row in rows] == ["2024-01-01", "2024-01-02", "2024-01-03"]
+
+
+def test_build_nba_player_movement_source_rows_sets_deterministic_guarded_candidates() -> None:
+    payload = json.loads(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH.read_text(encoding="utf-8"))
+    first_records, first_events = build_nba_player_movement_source_rows(
+        payload,
+        source_locator=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH),
+        fetched_at="2026-05-15T00:00:00+00:00",
+    )
+    second_records, second_events = build_nba_player_movement_source_rows(
+        payload,
+        source_locator=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH),
+        fetched_at="2026-05-15T00:00:00+00:00",
+    )
+
+    assert [row.source_record_id for row in first_records] == [row.source_record_id for row in second_records]
+    assert [row.source_event_id for row in first_events] == [row.source_event_id for row in second_events]
+    assert len(first_records) == 1
+    assert len(first_events) == 2
+    assert first_records[0].source_system == "nba_player_movement"
+    assert first_records[0].source_type == "transactions_json"
+    assert first_records[0].raw_payload["total_endpoint_rows"] == 2
+    assert first_records[0].raw_payload["memphis_row_count"] == 2
+
+    event = first_events[0]
+    assert event.event_type == "trade"
+    assert event.normalized_payload["raw_transaction_type"] == "Trade"
+    assert event.normalized_payload["normalized_event_type"] == "trade"
+    assert event.normalized_payload["corroboration_only"] is True
+    assert event.normalized_payload["canonical_exclusion_reason"] == NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON
+    assert "loader compatibility only" in str(event.normalized_payload["normalization_note"])
+    assert event.normalized_payload["raw_row"]["TRANSACTION_TYPE"] == "Trade"
 
 
 def test_extract_bref_roster_rows_from_minimal_html() -> None:

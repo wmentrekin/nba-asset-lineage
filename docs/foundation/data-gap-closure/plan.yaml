@@ -1,0 +1,173 @@
+artifact: plan
+feature: "foundation/data-gap-closure"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/foundation/data-gap-closure/requirements.yaml"
+
+objective: "Load the first actual non-BRef source evidence by adding a guarded NBA.com player movement fetch/preview/load path without mutating canonical graph truth."
+
+approach:
+  summary: "Build a conservative ingestion path: live fetch and preview first, source-row dry-run second, canonical graph guard third. Live Supabase load is explicitly gated behind a second checkpoint after dry-run output is reviewed."
+  key_decisions:
+    - "Use `https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json` as the first non-BRef source."
+    - "Filter Memphis rows by team ID `1610612763`, team slug `grizzlies`, or Memphis text fallback."
+    - "Normalize NBA transaction types into existing source_event event types before any load."
+    - "Treat NBA movement as source evidence, not graph lineage truth, until reconciliation is implemented."
+    - "Use `normalized_payload.corroboration_only = true` and `normalized_payload.canonical_exclusion_reason = nba_player_movement_requires_reconciliation` as the exact graph-safety guard."
+    - "Canonical and derived builders should ignore `corroboration_only` source events by default."
+    - "Do not run canonical rebuild or graph export as a required part of this pass; if any live load happens, graph invariance must be verified with pre/post counts and generated graph checksum."
+
+contracts:
+  interfaces:
+    - "`preview-nba-player-movement` should support fixture/file input and live endpoint input."
+    - "A new source-row preview command should show exactly what would be written to `source_record` and `source_event`."
+    - "A new guarded load command should support `--dry-run`; live load requires an explicit `--execute` style flag and a second user checkpoint."
+    - "`audit-foundation-data` remains the verification surface for loaded source coverage."
+  schemas:
+    - "No SQL migrations in this pass."
+    - "Use existing `foundation.source_record` and `foundation.source_event` tables."
+    - "If the exact canonical exclusion marker cannot be represented safely in normalized_payload, stop and ask for a new checkpoint before changing schema."
+  config_changes:
+    - "Add constants for NBA player movement endpoint URL, Memphis team ID/slug, source type, and transaction type mapping."
+    - "No frontend config changes."
+
+graph_safety_contract:
+  canonical_guard:
+    payload_field: "normalized_payload.corroboration_only"
+    required_value: true
+    exclusion_reason_field: "normalized_payload.canonical_exclusion_reason"
+    exclusion_reason_value: "nba_player_movement_requires_reconciliation"
+    default_behavior: "Derived/canonical builders ignore rows with `corroboration_only = true`."
+    opt_in_behavior: "A future reconciliation pass must explicitly opt these rows into canonical-event membership."
+  raw_payload_storage:
+    decision: "Store Memphis-filtered rows plus endpoint metadata, filter metadata, total endpoint row count, date range, transaction type counts, ETag/Last-Modified when available, and retrieval timestamp."
+    reason: "This keeps the source_record Memphis-scoped while preserving enough endpoint provenance for replay and audit."
+  live_write_gate:
+    first_checkpoint: "Approve implementation of preview/dry-run/guard code."
+    second_checkpoint: "After dry-run output is shown, explicitly approve or defer live Supabase load."
+  remediation:
+    primary: "Deterministic upsert IDs let corrected loads overwrite bad source_record/source_event content."
+    destructive_cleanup: "Any deletion/cleanup of bad live rows requires a separate explicit user approval and checked-in command."
+
+execution_batches:
+  - id: "B1"
+    goal: "Harden NBA movement preview and live fetch."
+    tasks:
+      - id: "T1"
+        title: "Add live fetch/preview metadata"
+        objective: "Extend NBA movement preview so it can use the live endpoint or fixture, filter Memphis rows, normalize player/team identifiers, and report counts/date range/type distribution without writes."
+        owned_scope:
+          - "src/foundation/live_sources.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/test_live_sources.py"
+          - "tests/foundation/fixtures/nba_player_movement_sample.json"
+        forbidden_scope:
+          - "database writes"
+          - "SQL migrations"
+          - "canonical rebuild logic"
+          - "frontend files"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
+          - ".venv/bin/python -m redesign_cli preview-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json"
+  - id: "B2"
+    goal: "Build loadable source evidence rows safely."
+    tasks:
+      - id: "T2"
+        title: "Add source-record/source-event preview and dry-run"
+        objective: "Build deterministic NBA movement SourceRecordRow/SourceEventRow objects, transaction type normalization, source_group_hint handling, exact corroboration-only guard fields, and a dry-run command that reports load candidates without writing."
+        owned_scope:
+          - "src/foundation/live_sources.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/test_live_sources.py"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "live DB writes before dry-run passes"
+          - "canonical rebuild"
+          - "graph export"
+        dependencies:
+          - "B1"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
+          - "Dry-run command reports source_records/source_events and writes_to_database=false"
+          - "Rows include a graph-safety/corroboration-only marker in normalized_payload"
+          - "Raw Transaction_Type and normalized event_type are both preserved"
+          - "Repeated dry-runs produce stable source_record/source_event IDs"
+  - id: "B3"
+    goal: "Guard canonical graph truth from corroboration-only rows."
+    tasks:
+      - id: "T3"
+        title: "Prevent accidental graph mutation"
+        objective: "Ensure derived/canonical graph builders ignore source events with `normalized_payload.corroboration_only = true` unless an explicit future reconciliation path opts them in."
+        owned_scope:
+          - "src/foundation/canonical.py"
+          - "src/foundation/ingest.py"
+          - "tests/foundation/test_live_sources.py"
+          - "tests/foundation/test_audit.py"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "SQL migrations"
+          - "frontend files"
+          - "changing BRef canonical behavior"
+        dependencies:
+          - "B2"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+          - "Tests show corroboration-only NBA rows do not change canonical event/transition derivation"
+  - id: "B4"
+    goal: "Prepare live-load checkpoint output."
+    tasks:
+      - id: "T4"
+        title: "Produce dry-run and graph-invariance checkpoint"
+        objective: "Run fixture/live preview and source-row dry-run, capture graph baseline counts/checksum, and produce a concise checkpoint summary for the user to approve or defer live load."
+        owned_scope:
+          - "docs/foundation/data-gap-closure/implementation-report.yaml"
+          - "docs/foundation/data-gap-closure/status.yaml"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "destructive DB operations"
+          - "live Supabase writes before second checkpoint"
+          - "canonical rebuild"
+          - "frontend graph export changes"
+        dependencies:
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/python -m redesign_cli load-nba-player-movement --dry-run"
+          - ".venv/bin/python -m redesign_cli audit-foundation-data"
+          - "Pre-load canonical_event/canonical_event_member/event_asset_transition counts captured"
+          - "Generated graph checksum captured"
+          - "User checkpoint summary explicitly says event-level corroboration remains unlinked until reconciliation"
+
+ordering_notes:
+  - "B1 through B4 are intentionally sequential because each batch depends on the previous safety check."
+  - "Live endpoint and read-only Supabase commands may require escalation."
+  - "If B3 cannot guarantee canonical safety without schema changes, stop before B4 and ask for direction."
+  - "B4 does not perform live writes; it prepares the second checkpoint."
+  - "The required pre-execution checkpoint must be approved before any implementation begins."
+
+risks:
+  - "NBA does not publish a durable schema/coverage guarantee for the JSON file."
+  - "NBA movement rows are player-level and may not map one-to-one to BRef grouped canonical events."
+  - "If corroboration-only source events are not excluded from canonical derivation, a future canonical rebuild can create duplicate events."
+  - "Trade `GroupSort` appears useful for grouping but is not documented as a guaranteed stable ID."
+  - "NBA movement evidence will not cover pick compensation or official release wording."
+  - "This pass may not fully close non-BRef loading if the user defers the second live-load checkpoint."
+
+open_questions:
+  - "After reviewing dry-run output, should live load proceed immediately under a second checkpoint or defer to a separate `$work` pass?"
+
+review:
+  status: reviewed
+  loop_count: 2
+  notes:
+    - "Reviewer requested a second live-write checkpoint, exact canonical guard semantics, graph-invariance checks, idempotency checks, raw Transaction_Type preservation, raw payload storage decision, and remediation notes; plan was revised accordingly."
+    - "Second reviewer approved the revised plan for the user pre-execution checkpoint."
+
+checkpoint:
+  required_before_execution: true
+  status: approved

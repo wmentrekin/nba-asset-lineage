@@ -1,4 +1,5 @@
 from foundation.pick_inventory import PickInventoryObligation
+from foundation.pick_inventory import ExistingPickInventoryObligation
 from foundation.pick_inventory import PickInventoryFixture
 from foundation.pick_inventory import PickInventorySnapshot
 from foundation.pick_inventory import build_pick_and_asset_rows_for_obligations
@@ -336,6 +337,80 @@ def test_pick_inventory_obligation_preview_excludes_loadable_false_rows_from_wri
     assert preview.blocked_rows == 0
     assert preview.ready_rows == 0
     assert preview.rows[0].existing_status == "not_loadable"
+
+
+def test_pick_inventory_obligation_preview_blocks_conflicts_without_allow_updates() -> None:
+    fixture_row = make_obligation("obligation:correction")
+    existing_row = ExistingPickInventoryObligation(
+        obligation_id="obligation:correction",
+        effective_date=fixture_row.effective_date,
+        perspective_team_code=fixture_row.perspective_team_code or "MEM",
+        owner_team_code="UNKNOWN",
+        original_team_code=fixture_row.original_team_code or "ORL",
+        draft_year=fixture_row.draft_year,
+        round_number=fixture_row.round_number,
+        direction=fixture_row.direction,
+        holding_status=fixture_row.holding_status,
+        obligation_type=fixture_row.obligation_type,
+        confidence=fixture_row.confidence,
+        loadable=fixture_row.loadable,
+    )
+    fixture = PickInventoryFixture(
+        fixture_id="test",
+        team_code="MEM",
+        rows=[fixture_row],
+        row_field_names={"obligation:correction": set(fixture_row.model_dump(mode="json"))},
+    )
+
+    preview = build_pick_inventory_obligation_preview(
+        fixture=fixture,
+        fixture_path=__file__,
+        team_code="MEM",
+        existing_rows=[existing_row],
+    )
+
+    assert preview.blocked_rows == 1
+    assert preview.ready_rows == 0
+    assert preview.existing_conflicting_rows == 1
+    assert "conflicts with the fixture row" in preview.rows[0].issues[0]
+
+
+def test_pick_inventory_obligation_preview_allows_explicit_source_backed_update_ids() -> None:
+    fixture_row = make_obligation("obligation:correction")
+    existing_row = ExistingPickInventoryObligation(
+        obligation_id="obligation:correction",
+        effective_date=fixture_row.effective_date,
+        perspective_team_code=fixture_row.perspective_team_code or "MEM",
+        owner_team_code="UNKNOWN",
+        original_team_code=fixture_row.original_team_code or "ORL",
+        draft_year=fixture_row.draft_year,
+        round_number=fixture_row.round_number,
+        direction=fixture_row.direction,
+        holding_status=fixture_row.holding_status,
+        obligation_type=fixture_row.obligation_type,
+        confidence=fixture_row.confidence,
+        loadable=fixture_row.loadable,
+    )
+    fixture = PickInventoryFixture(
+        fixture_id="test",
+        team_code="MEM",
+        rows=[fixture_row],
+        row_field_names={"obligation:correction": set(fixture_row.model_dump(mode="json"))},
+    )
+
+    preview = build_pick_inventory_obligation_preview(
+        fixture=fixture,
+        fixture_path=__file__,
+        team_code="MEM",
+        existing_rows=[existing_row],
+        allow_update_ids={"obligation:correction"},
+    )
+
+    assert preview.blocked_rows == 0
+    assert preview.ready_rows == 1
+    assert preview.existing_conflicting_rows == 1
+    assert preview.rows[0].issues == []
+    assert "explicitly listed in allow_update_ids" in preview.rows[0].warnings[0]
 
 
 def test_projectable_future_pick_obligations_excludes_documentation_rows(tmp_path) -> None:

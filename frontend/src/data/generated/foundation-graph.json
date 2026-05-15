@@ -16019,7 +16019,7 @@
           "confidence": "validated",
           "display_order": 8,
           "holding_status": "owed_out",
-          "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN.",
+          "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade.",
           "pick_id": "pick:inventory:mem:2028:r1:orl",
           "source_obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward"
         },
@@ -16251,7 +16251,7 @@
           "confidence": "validated",
           "display_order": 8,
           "holding_status": "owed_out",
-          "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN.",
+          "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade.",
           "pick_id": "pick:inventory:mem:2028:r1:orl",
           "source_obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward"
         },
@@ -16478,7 +16478,7 @@
           "confidence": "validated",
           "display_order": 8,
           "holding_status": "owed_out",
-          "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN.",
+          "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade.",
           "pick_id": "pick:inventory:mem:2028:r1:orl",
           "source_obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward"
         },
@@ -16761,7 +16761,7 @@
           "confidence": "validated",
           "display_order": 10,
           "holding_status": "owed_out",
-          "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN.",
+          "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade.",
           "pick_id": "pick:inventory:mem:2028:r1:orl",
           "source_obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward"
         },
@@ -17022,7 +17022,7 @@
           "confidence": "validated",
           "display_order": 6,
           "holding_status": "owed_out",
-          "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN.",
+          "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade.",
           "pick_id": "pick:inventory:mem:2028:r1:orl",
           "source_obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward"
         },

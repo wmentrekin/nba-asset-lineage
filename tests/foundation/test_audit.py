@@ -1,5 +1,65 @@
 import foundation.audit as audit
-from foundation.audit import build_known_gaps, fetch_draft_metrics
+from foundation.canonical import derive_foundation_canonical_bundle
+from foundation.audit import build_draft_lineage_limitations
+from foundation.audit import build_event_span_currentness
+from foundation.audit import build_known_gaps
+from foundation.audit import build_pick_inventory_fixture_gap_report
+from foundation.audit import build_source_corroboration_report
+from foundation.audit import build_source_coverage_report
+from foundation.audit import fetch_draft_metrics
+from foundation.audit import infer_corroboration_fact_type
+from foundation.ingest import SourceEventRow, derive_foundation_entities_from_source_events
+from foundation.sources import CORROBORATION_REPORT_EVENT_FIELDS
+
+
+def test_corroboration_only_nba_movement_rows_do_not_affect_canonical_or_assets() -> None:
+    source_events = [
+        SourceEventRow(
+            source_event_id="bref:mem:2024-02-08:trade",
+            source_record_id="bref:mem:2024-02-08",
+            event_date="2024-02-08",
+            event_type="trade",
+            label="Memphis acquired a source-backed player",
+            team_scope="MEM",
+            source_group_hint="bref:2024-02-08:trade",
+            normalized_payload={
+                "player_names_in": ["Source Backed Player"],
+                "player_names_out": [],
+                "pick_details_in": [],
+                "pick_details_out": [],
+            },
+        ),
+        SourceEventRow(
+            source_event_id="nba_player_movement:fixture-only",
+            source_record_id="nba_player_movement:memphis",
+            event_date="2024-02-08",
+            event_type="signing",
+            label="Memphis signed NBA-only Fixture Player",
+            team_scope="MEM",
+            source_group_hint=None,
+            normalized_payload={
+                "corroboration_only": True,
+                "canonical_exclusion_reason": "nba_player_movement_requires_reconciliation",
+                "player_names_in": ["NBA Only Fixture Player"],
+                "player_names_out": [],
+                "pick_details_in": [],
+                "pick_details_out": [
+                    {"raw_text": "2030 second-round pick", "draft_year": 2030, "round_number": 2}
+                ],
+            },
+        ),
+    ]
+
+    canonical = derive_foundation_canonical_bundle(source_events)
+    derived = derive_foundation_entities_from_source_events(source_events)
+
+    assert len(canonical.canonical_events) == 1
+    assert len(canonical.canonical_event_members) == 1
+    assert canonical.canonical_event_members[0].source_event_id == "bref:mem:2024-02-08:trade"
+    assert all("nba_player_movement" not in row.source_event_id for row in canonical.canonical_event_members)
+    assert all(player.display_name != "NBA Only Fixture Player" for player in derived.players)
+    assert derived.picks == []
+    assert all(asset.player_id != "player:nba-only-fixture-player" for asset in derived.assets)
 
 
 def test_fetch_draft_metrics_counts_lottery_results_without_draft_selection(monkeypatch) -> None:
@@ -85,6 +145,376 @@ def test_build_known_gaps_surfaces_current_foundation_caveats() -> None:
     assert "Two-way roster status is not populated" in gap_text
     assert "Draft selections are not fully linked back to pick assets" in gap_text
     assert "Draft lottery results are not loaded" in gap_text
+
+
+def test_build_event_span_currentness_reports_verified_quiet_interval() -> None:
+    currentness = build_event_span_currentness(
+        {
+            "source": "foundation.canonical_event",
+            "start_date": "2016-07-07",
+            "end_date": "2026-04-10",
+            "event_count": 388,
+        }
+    )
+
+    assert currentness["status"] == "verified_quiet_interval"
+    assert currentness["loaded_event_end_date"] == "2026-04-10"
+    assert currentness["last_verified_event_date"] == "2026-04-10"
+    assert currentness["verified_through"] == "2026-05-14"
+    assert currentness["source_basis"]
+
+
+def test_build_known_gaps_flags_event_span_not_current() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "event_span_currentness": {
+                "status": "behind_verified_last_event",
+                "evidence": "Loaded event end date is 2026-03-01.",
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-03-01",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "nba_stats",
+                    "source_type": "common_team_roster",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+                "unknown_owner_rows": 0,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "lottery_results": 4,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Loaded event span is not current to the latest verified Memphis roster event" in gap_text
+
+
+def test_build_source_coverage_report_flags_missing_corrob_source() -> None:
+    report = build_source_coverage_report(
+        [
+            {
+                "source_system": "basketball_reference",
+                "source_type": "transactions_page",
+                "records": 10,
+            }
+        ]
+    )
+
+    assert report["loaded_source_systems"] == ["basketball_reference"]
+    assert report["has_basketball_reference"] is True
+    assert report["has_official_or_corrob_source"] is False
+    assert report["gaps"][0]["gap"] == "Official or corroborating source coverage is not systematic in loaded records."
+
+
+def test_build_source_coverage_report_counts_recognized_corrob_providers() -> None:
+    report = build_source_coverage_report(
+        [
+            {
+                "source_system": "nba_player_movement",
+                "source_type": "transactions_json",
+                "records": 2,
+            },
+            {
+                "source_system": "realgm",
+                "source_type": "future_draft_picks",
+                "records": 1,
+            },
+        ]
+    )
+
+    assert report["loaded_source_systems"] == ["nba_player_movement", "realgm"]
+    assert report["has_basketball_reference"] is False
+    assert report["has_official_or_corrob_source"] is True
+    assert [gap["gap"] for gap in report["gaps"]] == [
+        "Basketball-Reference transaction source coverage is absent."
+    ]
+
+
+def test_infer_corroboration_fact_type_maps_supported_event_families() -> None:
+    assert infer_corroboration_fact_type("trade") == "player_movement"
+    assert infer_corroboration_fact_type("10-day") == "player_movement"
+    assert infer_corroboration_fact_type("conversion") == "player_movement"
+    assert infer_corroboration_fact_type("two way signing") == "player_movement"
+    assert infer_corroboration_fact_type("draft") == "pick_right_detail"
+    assert infer_corroboration_fact_type("pick_swap") == "pick_right_detail"
+    assert infer_corroboration_fact_type("roster_snapshot") == "roster_snapshot"
+    assert infer_corroboration_fact_type("player_reference") == "player_identity"
+    assert infer_corroboration_fact_type("unknown_editorial_marker") == "out_of_scope"
+
+
+def test_build_source_corroboration_report_flags_bref_only_events() -> None:
+    report = build_source_corroboration_report(
+        [
+            {
+                "canonical_event_id": "canonical:2024-02-08:trade:1",
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+            }
+        ]
+    )
+
+    assert report["policy_version"]
+    assert report["summary"]["reporting_unit"] == "canonical_event"
+    assert report["summary"]["event_fields"] == list(CORROBORATION_REPORT_EVENT_FIELDS)
+    assert report["summary"]["bref_only_events"] == 1
+
+    event = report["events"][0]
+    assert set(event) == set(CORROBORATION_REPORT_EVENT_FIELDS)
+    assert event["canonical_event_id"] == "canonical:2024-02-08:trade:1"
+    assert event["fact_type"] == "player_movement"
+    assert event["loaded_source_systems"] == ["basketball_reference"]
+    assert event["recognized_provider_roles"] == [
+        "chronology_spine",
+        "structured_player_movement",
+        "official_confirmation",
+    ]
+    assert event["required_source_roles"] == ["chronology_spine"]
+    assert event["missing_roles"] == []
+    assert event["corroboration_status"] == "bref_only"
+    assert event["conflict_status"] == "not_evaluated"
+    assert any(
+        state["role"] == "structured_player_movement" and state["state"] == "recognized_provider"
+        for state in event["evidence_states"]
+    )
+
+
+def test_build_source_corroboration_report_uses_pick_policy_for_draft_events() -> None:
+    report = build_source_corroboration_report(
+        [
+            {
+                "canonical_event_id": "canonical:2024-06-26:draft:1",
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+            }
+        ]
+    )
+
+    event = report["events"][0]
+    assert event["fact_type"] == "pick_right_detail"
+    assert event["recognized_provider_roles"] == [
+        "secondary_pick_detail",
+        "official_confirmation",
+    ]
+    assert event["required_source_roles"] == ["secondary_pick_detail"]
+    assert event["missing_roles"] == ["secondary_pick_detail"]
+    assert event["corroboration_status"] == "missing_required_evidence"
+
+
+def test_build_source_corroboration_report_marks_unsupported_events_out_of_scope() -> None:
+    report = build_source_corroboration_report(
+        [
+            {
+                "canonical_event_id": "canonical:2024-01-01:chapter_marker:1",
+                "event_date": "2024-01-01",
+                "event_type": "chapter_marker",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+            }
+        ]
+    )
+
+    event = report["events"][0]
+    assert event["fact_type"] == "out_of_scope"
+    assert event["recognized_provider_roles"] == []
+    assert event["required_source_roles"] == []
+    assert event["corroboration_status"] == "out_of_scope"
+    assert event["conflict_status"] == "not_evaluated"
+
+
+def test_build_source_corroboration_report_does_not_count_planned_providers_as_loaded() -> None:
+    report = build_source_corroboration_report(
+        [
+            {
+                "canonical_event_id": "canonical:2025-01-01:signing:1",
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "loaded_source_systems": [],
+                "loaded_source_types": [],
+            }
+        ]
+    )
+
+    event = report["events"][0]
+    assert event["loaded_source_systems"] == []
+    assert event["recognized_provider_roles"] == [
+        "chronology_spine",
+        "structured_player_movement",
+        "official_confirmation",
+    ]
+    assert event["missing_roles"] == ["chronology_spine"]
+    assert event["corroboration_status"] == "missing_required_evidence"
+    assert any(
+        state["role"] == "chronology_spine" and state["state"] == "missing_required_evidence"
+        for state in event["evidence_states"]
+    )
+    assert all(
+        state["loaded_source_systems"] == []
+        for state in event["evidence_states"]
+    )
+
+
+def test_build_pick_inventory_fixture_gap_report_surfaces_non_loadable_and_unknown_owner(tmp_path) -> None:
+    fixture_path = tmp_path / "pick_obligations.json"
+    fixture_path.write_text(
+        """
+        {
+          "fixture_id": "test",
+          "team_code": "MEM",
+          "rows": [
+            {
+              "obligation_id": "obligation:unknown-owner",
+              "effective_date": "2026-06-15",
+              "perspective_team_code": "MEM",
+              "owner_team_code": "UNKNOWN",
+              "original_team_code": "ORL",
+              "draft_year": 2028,
+              "round_number": 1,
+              "direction": "outgoing",
+              "holding_status": "owed_out",
+              "obligation_type": "traded_pick",
+              "source_urls": ["https://example.test/unknown"],
+              "source_labels": ["Example"],
+              "retrieved_at": "2026-05-14T00:00:00Z",
+              "confidence": "validated",
+              "loadable": true
+            },
+            {
+              "obligation_id": "obligation:fallback",
+              "effective_date": "2026-06-15",
+              "perspective_team_code": "MEM",
+              "owner_team_code": "MEM",
+              "original_team_code": "LAL",
+              "draft_year": 2027,
+              "round_number": 2,
+              "direction": "incoming",
+              "holding_status": "conditional",
+              "obligation_type": "conditional_fallback",
+              "source_urls": ["https://example.test/fallback"],
+              "source_labels": ["Example"],
+              "retrieved_at": "2026-05-14T00:00:00Z",
+              "confidence": "uncertain",
+              "loadable": false,
+              "notes": "Fallback row, not active projection."
+            }
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    report = build_pick_inventory_fixture_gap_report(fixture_path)
+
+    assert report["fixture_rows"] == 2
+    assert report["loadable_rows"] == 1
+    assert report["non_loadable_rows"] == 1
+    assert report["unknown_owner_rows"] == 1
+    assert report["non_loadable_samples"][0]["obligation_id"] == "obligation:fallback"
+    assert report["unknown_owner_samples"][0]["obligation_id"] == "obligation:unknown-owner"
+
+
+def test_build_known_gaps_surfaces_pick_inventory_reporting_details() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-04-10",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "nba_stats",
+                    "source_type": "common_team_roster",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+                "unknown_owner_rows": 1,
+            },
+            "pick_inventory_fixture_gap_report": {
+                "unknown_owner_rows": 1,
+                "non_loadable_rows": 2,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "lottery_results": 4,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Future pick obligation ledger has UNKNOWN owner rows" in gap_text
+    assert "Future pick obligation fixture has UNKNOWN owner rows" in gap_text
+    assert "Future pick obligation fixture includes non-loadable fallback documentation rows" in gap_text
+
+
+def test_build_draft_lineage_limitations_always_preserves_deferred_scope() -> None:
+    limitations = build_draft_lineage_limitations(
+        {
+            "draft": {
+                "selections": 20,
+                "resolved_pick_rows": 20,
+            }
+        }
+    )
+
+    assert len(limitations) == 1
+    assert limitations[0]["severity"] == "low"
+    assert limitations[0]["gap"] == "Draft-night pick ownership lineage remains deferred."
+    assert "does not reconstruct every prior ownership branch" in limitations[0]["evidence"]
 
 
 def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:

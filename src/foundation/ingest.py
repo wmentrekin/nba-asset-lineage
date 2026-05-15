@@ -244,6 +244,7 @@ def derive_foundation_entities_from_source_events(
     player_aliases: list[PlayerAliasRow] | None = None,
     reference_players: list[PlayerRow] | None = None,
 ) -> FoundationDerivedEntities:
+    source_events = filter_canonical_source_events(source_events)
     players = build_players_from_source_events(
         source_events,
         baseline_players=baseline_players or [],
@@ -254,6 +255,14 @@ def derive_foundation_entities_from_source_events(
     assets = build_assets(source_events=source_events, players=players, picks=picks)
     derived_aliases = build_default_player_aliases(players)
     return FoundationDerivedEntities(players=players, picks=picks, assets=assets, player_aliases=derived_aliases)
+
+
+def is_corroboration_only_source_event(source_event: SourceEventRow) -> bool:
+    return source_event.normalized_payload.get("corroboration_only") is True
+
+
+def filter_canonical_source_events(source_events: list[SourceEventRow]) -> list[SourceEventRow]:
+    return [source_event for source_event in source_events if not is_corroboration_only_source_event(source_event)]
 
 
 def load_source_events_from_database(database_url: str) -> list[SourceEventRow]:
@@ -330,6 +339,7 @@ def build_roster_snapshots_from_baselines(
     snapshots: list[RosterSnapshotRow] = []
     snapshot_players: list[RosterSnapshotPlayerRow] = []
     source_events = source_events or []
+    source_events = filter_canonical_source_events(source_events)
     for (season, team_code, source_record_id), rows in sorted(grouped.items()):
         start_year, end_year = parse_season_years(season)
         checkpoint_dates = {

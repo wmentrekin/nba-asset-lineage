@@ -1,0 +1,72 @@
+artifact: implementation_report
+feature: "foundation/data-gap-closure"
+mode: "large-initiative"
+status: in_progress
+owner_skill: work
+based_on: "docs/foundation/data-gap-closure/plan.yaml"
+
+summary:
+  scope_executed: "Implemented the NBA player movement dry-run/guard path for B1, B2, B3, and B4 checkpoint prep."
+  outcome: "Fixture/live preview and dry-run source evidence candidates are available without DB writes; canonical and derived builders ignore NBA movement corroboration-only rows pending reconciliation."
+
+task_batches_attempted:
+  - "B1"
+  - "B2"
+  - "B3"
+  - "B4"
+task_batches_completed:
+  - "B1"
+  - "B2"
+  - "B3"
+  - "B4 checkpoint prep"
+
+changes:
+  files:
+    - "docs/foundation/data-gap-closure/requirements.yaml"
+    - "docs/foundation/data-gap-closure/plan.yaml"
+    - "docs/foundation/data-gap-closure/status.yaml"
+    - "docs/foundation/data-gap-closure/implementation-report.yaml"
+  modules:
+    - "src/foundation/live_sources.py"
+    - "src/redesign_cli.py"
+    - "src/foundation/canonical.py"
+    - "src/foundation/ingest.py"
+    - "tests/foundation/test_live_sources.py"
+    - "tests/foundation/test_audit.py"
+    - "tests/foundation/fixtures/nba_player_movement_sample.json"
+  docs_updated:
+    - "Current pass reframed around loading the first actual non-BRef source evidence: NBA.com player movement."
+    - "Documented that this pass prepares dry-run source evidence and canonical guards only; live load needs a second checkpoint."
+    - "Documented read-only graph baseline checkpoint output."
+
+local_validation:
+  checks_run:
+    - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+    - ".venv/bin/python -m redesign_cli preview-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json"
+    - ".venv/bin/python -m redesign_cli load-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json --dry-run"
+    - "YAML parse for data-gap-closure requirements, plan, implementation report, and status"
+  failures: []
+  skipped:
+    - "Live endpoint preview was not run because required validation used the checked-in fixture path."
+    - "Graph baseline command was added for B4 checkpoint prep but not run because it requires live database/export reads; no writes occurred."
+
+review_summary:
+  status: not_started
+  key_findings: []
+
+test_summary:
+  status: focused_passed
+  checks_run:
+    - "tests/foundation/test_live_sources.py"
+    - "tests/foundation/test_audit.py"
+  failures: []
+  gaps: []
+
+open_issues:
+  - "Live Supabase load is intentionally deferred until a second checkpoint."
+  - "Event-level corroboration remains unlinked until a future reconciliation pass maps NBA movement rows to canonical events."
+
+handoff:
+  current_state: in_progress
+  next_owner: "orchestrator"
+  next_action: "Wait for implementation, then verify and prepare dry-run output for the second checkpoint."

@@ -1,0 +1,109 @@
+artifact: requirements
+feature: "foundation/data-gap-closure"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "The foundation audit can now report missing corroboration, but live loaded source records remain Basketball-Reference-only."
+  motivation: "The minimum truthful graph needs source diversity. NBA.com player movement is the safest first non-BRef source because it is structured, includes Memphis rows, and carries NBA player/team identifiers."
+  requested_outcome: "Continue closing the prioritized source-ingestion gap by adding a guarded live fetch/preview/load path for NBA.com player movement evidence without mutating the graph/canonical layer prematurely."
+
+goals:
+  - "Fetch NBA.com player movement JSON through checked-in Python/CLI code."
+  - "Preview Memphis-filtered NBA player movement rows from either fixture or live endpoint."
+  - "Build deterministic source_record/source_event rows for NBA player movement data."
+  - "Prepare NBA player movement source evidence for Supabase loading only through guarded checked-in commands."
+  - "Keep NBA player movement source events from changing canonical events, transitions, or graph export until reconciliation/linking rules are implemented."
+  - "Make audit source coverage show `nba_player_movement` as loaded after a successful load."
+
+non_goals:
+  - "Do not scrape NBA.com or Grizzlies article releases in this pass."
+  - "Do not implement source conflict reconciliation in this pass."
+  - "Do not rebuild the frontend visualization."
+  - "Do not rebuild canonical events from NBA movement rows unless the plan explicitly adds a safe canonical exclusion/matching rule."
+  - "Do not claim NBA player movement covers pick compensation, draft pick lineage, official release wording, or full source completeness."
+  - "Do not perform destructive database operations."
+
+constraints:
+  technical:
+    - "DB writes must use checked-in Python/CLI commands, never ad hoc terminal Python."
+    - "Live fetch and Supabase commands may require escalation because sandbox DNS/network is restricted."
+    - "Existing foundation.source_event event types are constrained; NBA transaction types must be normalized before load."
+    - "Existing canonical derivation reads source_event rows, so NBA movement source events must be marked or handled so they do not create duplicate canonical graph events."
+    - "The existing audit corroboration report derives event-level evidence through canonical_event_member, so raw NBA source loading will improve source coverage first; event-level corroboration linkage is a later reconciliation step."
+  product:
+    - "Minimum truthful graph remains more important than higher source counts."
+    - "Loaded non-BRef evidence must be explicit about limitations and must not silently change graph lineage."
+    - "Memphis-only scope remains the target."
+  process:
+    - "Use `$work` orchestration and stop for the pre-execution checkpoint."
+    - "Use subagents for discovery, plan review, execution, and verification."
+    - "Keep `docs/foundation/data-gap-closure/status.yaml` current."
+
+assumptions:
+  - "The NBA.com player movement endpoint can be treated as a public static NBA web asset, not a guaranteed stable public API."
+  - "This continuation should implement live fetch and dry-run loading first; live Supabase writes require a second explicit checkpoint after dry-run output is available."
+  - "When eventually loaded, NBA movement source events should use `normalized_payload.corroboration_only = true` and `normalized_payload.canonical_exclusion_reason = nba_player_movement_requires_reconciliation`."
+  - "Canonical/derived builders should ignore `corroboration_only` source events by default until a future reconciliation path explicitly opts them in."
+  - "A later pass should link NBA movement rows to existing canonical events after a reconciliation preview proves match quality."
+  - "Transaction type mapping for this pass can normalize `Signing -> signing`, `Trade -> trade`, `Waive -> waiver`, `AwardOnWaivers -> signing`, and `ContractConverted -> conversion`."
+  - "Source_record raw_payload should store the Memphis-filtered rows plus endpoint metadata, filter metadata, total endpoint row count, and date/type summaries rather than every non-Memphis row."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/live_sources.py"
+    - "src/foundation/canonical.py"
+    - "src/foundation/audit.py"
+    - "src/foundation/sources.py"
+    - "src/redesign_cli.py"
+    - "sql/0001_foundation_ingest_bootstrap.sql"
+    - "sql/0002_foundation_canonical_bootstrap.sql"
+    - "tests/foundation/test_live_sources.py"
+    - "tests/foundation/test_audit.py"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/source-research-matrix.md"
+  systems_in_scope:
+    - "NBA.com player movement fixture/live preview"
+    - "foundation.source_record"
+    - "foundation.source_event"
+    - "foundation audit source coverage"
+  prior_artifacts:
+    - "docs/foundation/data-gap-closure/status.yaml"
+    - "docs/foundation/data-gap-closure/implementation-report.yaml"
+
+research:
+  repo_findings:
+    - "NBA player movement fixture parsing and preview rows already exist in `src/foundation/live_sources.py`."
+    - "`preview-nba-player-movement` exists, but no live fetch or load command exists yet."
+    - "Reusable `insert_source_records` and `insert_source_events` helpers already exist."
+    - "Canonical rebuild currently consumes all source_event rows, so loading NBA movement source events needs a graph-safety rule."
+    - "Audit source coverage already recognizes `nba_player_movement`, but live audit currently shows loaded source systems are Basketball-Reference-only."
+  platform_findings:
+    - "The endpoint `https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json` was verified reachable as JSON."
+    - "Current payload root is `NBA_Player_Movement.rows` with fields including `Transaction_Type`, `TRANSACTION_DATE`, `TRANSACTION_DESCRIPTION`, `TEAM_ID`, `TEAM_SLUG`, `PLAYER_ID`, `PLAYER_SLUG`, `Additional_Sort`, and `GroupSort`."
+    - "A current fetch returned 9,467 rows, with date range from 2015-07-01 to 2026-04-12."
+    - "Memphis rows are present; filtering by Grizzlies team ID/slug or description returned 455 rows in the checked payload."
+    - "Observed transaction types were `AwardOnWaivers`, `ContractConverted`, `Signing`, `Trade`, and `Waive`."
+    - "The endpoint returned JSON with cache validators including ETag and Last-Modified, but NBA does not publish a durable schema or coverage guarantee."
+
+acceptance_criteria:
+  - "A live/fixture preview command can read the NBA movement endpoint or fixture and filter Memphis rows without DB writes."
+  - "Preview output reports endpoint metadata, total rows, Memphis rows, transaction type counts, date range, and sample rows."
+  - "Source row preview output shows deterministic source_record and source_event IDs, normalized event types, source_group_hint, normalized payload, and a graph-safety/corroboration-only marker."
+  - "A guarded load command supports dry-run and refuses live load unless an explicit flag/checkpoint-controlled option is used."
+  - "This pass may stop after dry-run. Any live load requires a second explicit user checkpoint after dry-run output is reviewed."
+  - "NBA movement source events must use the exact canonical guard field `normalized_payload.corroboration_only = true`; misspelled variants are not allowed."
+  - "NBA movement source events preserve raw `Transaction_Type`, normalized event type, and a note that normalized type is loader compatibility only, not reconciliation truth."
+  - "Source row generation is idempotent: repeated previews/dry-runs produce stable source_record/source_event IDs and no duplicate live-row plan."
+  - "Canonical/derived builder tests prove `corroboration_only` NBA rows are ignored by default."
+  - "Graph safety validation captures pre/post canonical_event, canonical_event_member, event_asset_transition counts and generated graph checksum around any live load."
+  - "After a future live load, `audit-foundation-data` source coverage can show `nba_player_movement` as loaded while event-level corroboration remains limited until reconciliation."
+  - "Docs explicitly state NBA movement loading is source evidence, not complete canonical corroboration yet."
+  - "Tests cover endpoint/fixture parsing, transaction type normalization, source row construction, graph-safety marker behavior, CLI preview/load dry-run behavior, and audit source coverage expectations."
+
+open_questions:
+  - "After reviewing dry-run output, should the next checkpoint approve live load in this same `$work` continuation or defer to a new pass?"
+
+ready_for_planning: true
+planning_blockers: []

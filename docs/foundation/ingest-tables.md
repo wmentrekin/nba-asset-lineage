@@ -31,6 +31,69 @@ the durable landing zone before canonical event grouping is introduced.
 `source_event`
 - normalized, inclusive Memphis event rows
 
+## Source-Role And Corroboration Boundary
+
+The current B1 source policy is intentionally schema-free. The reset-era source
+contract is encoded in `src/foundation/sources.py` and should be consumed by
+audit/reporting code before any new table is proposed.
+
+No source-corroboration migration is required in this pass. Corroboration
+readiness should be derived from the existing relationship:
+
+`canonical_event -> canonical_event_member -> source_event -> source_record`
+
+Recognized source systems for the first pass are:
+
+- `basketball_reference`
+- `nba_player_movement`
+- `nba_official`
+- `team_official`
+- `realgm`
+- `nba_stats`
+- `curated_fixture`
+
+The planned-vs-loaded rule is strict: recognized providers must not count as
+loaded evidence or supporting evidence unless matching `source_record` and
+`source_event` rows exist. This allows the audit layer to say that NBA.com,
+team releases, RealGM, or NBA Stats are recognized providers without pretending
+they have already corroborated a canonical event.
+
+First-pass fact types:
+
+- `transaction_chronology`
+- `player_movement`
+- `roster_snapshot`
+- `pick_right_detail`
+- `player_identity`
+
+Allowed evidence states:
+
+- `recognized_provider`
+- `loaded_evidence`
+- `supports_event`
+- `conflicts_event`
+- `missing_required_evidence`
+
+Allowed corroboration statuses:
+
+- `meets_minimum`
+- `bref_only`
+- `missing_required_evidence`
+- `recognized_provider_not_loaded`
+- `out_of_scope`
+
+Allowed conflict statuses:
+
+- `not_evaluated`
+- `no_conflict_detected`
+- `conflict_suspected`
+
+The first `source_corroboration_report` should be canonical-event-level and
+include `canonical_event_id`, `event_date`, `event_type`, `fact_type`,
+`loaded_source_systems`, `loaded_source_types`, `recognized_provider_roles`,
+`required_source_roles`, `missing_roles`, `evidence_states`,
+`corroboration_status`, `conflict_status`, and `notes`.
+
 `player`
 - stable player reference identities
 

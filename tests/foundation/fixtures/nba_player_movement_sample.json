@@ -1,0 +1,48 @@
+{
+  "resource": "player_movement",
+  "resultSets": [
+    {
+      "headers": [
+        "TRANSACTION_DATE",
+        "TRANSACTION_TYPE",
+        "TRANSACTION_DESCRIPTION",
+        "TEAM_ID",
+        "TEAM_SLUG",
+        "TEAM_ABBREVIATION",
+        "PLAYER_ID",
+        "PLAYER_SLUG",
+        "PLAYER_NAME",
+        "GroupSort",
+        "Additional_Sort"
+      ],
+      "rowSet": [
+        [
+          "2024-02-08T00:00:00",
+          "Trade",
+          "Memphis Grizzlies acquired GG Jackson from a fixture-only sample source.",
+          1610612763,
+          "grizzlies",
+          "MEM",
+          1641713,
+          "gg-jackson",
+          "GG Jackson",
+          2024020801,
+          1
+        ],
+        [
+          "01/10/2024",
+          "Waive",
+          "Memphis Grizzlies waived a fixture-only sample player.",
+          1610612763,
+          "grizzlies",
+          "MEM",
+          999999,
+          "fixture-player",
+          "Fixture Player",
+          2024011001,
+          1
+        ]
+      ]
+    }
+  ]
+}

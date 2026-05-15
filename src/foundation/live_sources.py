@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
 from datetime import datetime, timezone
 from html import unescape
+from pathlib import Path
 from socket import timeout as socket_timeout
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -38,6 +40,23 @@ NBA_HEADERS = {
 DEFAULT_TEAM_CODE = "MEM"
 DEFAULT_SEASON_START_YEAR = 2017
 DEFAULT_SEASON_END_YEAR = 2026
+NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM = "nba_player_movement"
+NBA_PLAYER_MOVEMENT_ENDPOINT_URL = "https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json"
+NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID = "1610612763"
+NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_SLUG = "grizzlies"
+NBA_PLAYER_MOVEMENT_SOURCE_TYPE = "transactions_json"
+NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON = "nba_player_movement_requires_reconciliation"
+NBA_PLAYER_MOVEMENT_NORMALIZATION_NOTE = (
+    "Normalized event type is loader compatibility only; canonical reconciliation is deferred."
+)
+NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
+    "AwardOnWaivers": "signing",
+    "ContractConverted": "conversion",
+    "Signing": "signing",
+    "Trade": "trade",
+    "Waive": "waiver",
+}
+DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH = Path("tests/foundation/fixtures/nba_player_movement_sample.json")
 
 
 def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
@@ -591,6 +610,395 @@ def load_bref_draft_results_span(
     }
 
 
+def read_nba_player_movement_fixture(path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH) -> object:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def fetch_nba_player_movement_json(*, endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL) -> tuple[object, dict[str, str | None]]:
+    request = Request(endpoint_url, headers=NBA_HEADERS)
+    with urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+        metadata = {
+            "etag": response.headers.get("ETag"),
+            "last_modified": response.headers.get("Last-Modified"),
+        }
+    return payload, metadata
+
+
+def extract_nba_player_movement_rows(payload: object) -> list[dict[str, object]]:
+    if isinstance(payload, dict) and ("resultSets" in payload or "resultSet" in payload):
+        return extract_nba_dataset_rows(payload)
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if not isinstance(payload, dict):
+        raise ValueError("Unrecognized NBA.com player movement payload shape")
+
+    for key in (
+        "NBA_Player_Movement",
+        "rows",
+        "transactions",
+        "playerMovements",
+        "playerMovement",
+        "items",
+        "data",
+    ):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [row for row in value if isinstance(row, dict)]
+        if isinstance(value, dict):
+            try:
+                return extract_nba_player_movement_rows(value)
+            except ValueError:
+                continue
+
+    raise ValueError("Unrecognized NBA.com player movement payload shape")
+
+
+def extract_nba_player_movement_row_fields(row: dict[str, object]) -> dict[str, object]:
+    event_date = normalize_nba_player_movement_date(
+        first_present(
+            row,
+            (
+                "TRANSACTION_DATE",
+                "Transaction_Date",
+                "TRANSACTION_DATE_EST",
+                "TRANSACTION_DT",
+                "date",
+                "transactionDate",
+                "transaction_date",
+            ),
+        )
+    )
+    transaction_type = string_or_none(
+        first_present(
+            row,
+            (
+                "TRANSACTION_TYPE",
+                "Transaction_Type",
+                "TRANSACTION_TYPE_DESCRIPTION",
+                "TRANSACTION_TYPE_NAME",
+                "type",
+                "transactionType",
+                "transaction_type",
+            ),
+        )
+    )
+    transaction_description = string_or_none(
+        first_present(
+            row,
+            (
+                "TRANSACTION_DESCRIPTION",
+                "Transaction_Description",
+                "TRANSACTION_DESC",
+                "DESCRIPTION",
+                "description",
+                "transactionDescription",
+                "transaction_description",
+            ),
+        )
+    )
+    team_identifiers = compact_mapping(
+        {
+            "team_id": string_or_none(first_present(row, ("TEAM_ID", "TeamID", "teamId", "team_id"))),
+            "team_slug": string_or_none(first_present(row, ("TEAM_SLUG", "Team_Slug", "teamSlug", "team_slug"))),
+            "team_abbreviation": string_or_none(
+                first_present(row, ("TEAM_ABBREVIATION", "TEAM_ABBREVIATION_NICKNAME", "teamAbbreviation", "team_abbreviation"))
+            ),
+            "team_name": string_or_none(first_present(row, ("TEAM_NAME", "Team_Name", "teamName", "team_name"))),
+            "from_team_id": string_or_none(first_present(row, ("FROM_TEAM_ID", "fromTeamId", "from_team_id"))),
+            "from_team_abbreviation": string_or_none(
+                first_present(row, ("FROM_TEAM_ABBREVIATION", "fromTeamAbbreviation", "from_team_abbreviation"))
+            ),
+            "to_team_id": string_or_none(first_present(row, ("TO_TEAM_ID", "toTeamId", "to_team_id"))),
+            "to_team_abbreviation": string_or_none(
+                first_present(row, ("TO_TEAM_ABBREVIATION", "toTeamAbbreviation", "to_team_abbreviation"))
+            ),
+        }
+    )
+    player_identifiers = compact_mapping(
+        {
+            "player_id": string_or_none(first_present(row, ("PLAYER_ID", "PersonID", "PERSON_ID", "playerId", "player_id"))),
+            "player_slug": string_or_none(first_present(row, ("PLAYER_SLUG", "Player_Slug", "playerSlug", "player_slug"))),
+            "player_name": string_or_none(first_present(row, ("PLAYER_NAME", "PLAYER", "personName", "playerName", "player_name"))),
+        }
+    )
+    return {
+        "event_date": event_date,
+        "transaction_type": transaction_type,
+        "normalized_event_type": normalize_nba_player_movement_transaction_type(transaction_type),
+        "transaction_description": transaction_description,
+        "team_identifiers": team_identifiers,
+        "player_identifiers": player_identifiers,
+        "group_sort": string_or_none(first_present(row, ("GroupSort", "GROUP_SORT", "groupSort", "group_sort"))),
+        "additional_sort": string_or_none(first_present(row, ("Additional_Sort", "ADDITIONAL_SORT", "additionalSort", "additional_sort"))),
+    }
+
+
+def normalize_nba_player_movement_transaction_type(transaction_type: str | None) -> str:
+    if not transaction_type:
+        return "signing"
+    return NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP.get(transaction_type, "signing")
+
+
+def is_memphis_nba_player_movement_row(row: dict[str, object]) -> bool:
+    fields = extract_nba_player_movement_row_fields(row)
+    team_identifiers = fields["team_identifiers"]
+    if isinstance(team_identifiers, dict):
+        team_id = str(team_identifiers.get("team_id", "")).strip()
+        if team_id == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID:
+            return True
+        team_slug = str(team_identifiers.get("team_slug", "")).strip().lower()
+        if team_slug == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_SLUG:
+            return True
+    description = str(fields.get("transaction_description") or "").lower()
+    return "memphis" in description or "grizzlies" in description
+
+
+def build_nba_player_movement_preview_rows(
+    payload: object,
+    *,
+    source_locator: str,
+) -> list[dict[str, object]]:
+    rows = extract_nba_player_movement_rows(payload)
+    preview_rows: list[dict[str, object]] = []
+    for row_index, row in enumerate(rows, start=1):
+        if not is_memphis_nba_player_movement_row(row):
+            continue
+        fields = extract_nba_player_movement_row_fields(row)
+        event_date = fields["event_date"]
+        transaction_type = fields["transaction_type"]
+        transaction_description = fields["transaction_description"]
+        team_identifiers = fields["team_identifiers"]
+        player_identifiers = fields["player_identifiers"]
+        normalized_payload = {
+            "event_date": event_date,
+            "transaction_type": transaction_type,
+            "normalized_event_type": fields["normalized_event_type"],
+            "transaction_description": transaction_description,
+            "team_identifiers": team_identifiers,
+            "player_identifiers": player_identifiers,
+            "group_sort": fields["group_sort"],
+            "additional_sort": fields["additional_sort"],
+            "raw_row": row,
+        }
+        preview_rows.append(
+            {
+                "date": event_date,
+                "transaction_type": transaction_type,
+                "transaction_description": transaction_description,
+                "team_identifiers": team_identifiers,
+                "player_identifiers": player_identifiers,
+                "source_locator": f"{source_locator}#row={row_index}",
+                "normalized_payload": normalized_payload,
+                "source_system": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+                "source_system_label": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+            }
+        )
+    return preview_rows
+
+
+def preview_nba_player_movement(
+    *,
+    fixture_path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    live: bool = False,
+    endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL,
+) -> dict[str, object]:
+    endpoint_metadata: dict[str, str | None] = {}
+    if live:
+        payload, endpoint_metadata = fetch_nba_player_movement_json(endpoint_url=endpoint_url)
+        source_locator = endpoint_url
+    else:
+        payload = read_nba_player_movement_fixture(fixture_path)
+        source_locator = str(fixture_path)
+    endpoint_rows = extract_nba_player_movement_rows(payload)
+    preview_rows = build_nba_player_movement_preview_rows(payload, source_locator=source_locator)
+    dates = sorted(row["date"] for row in preview_rows if isinstance(row.get("date"), str))
+    type_counts: dict[str, int] = {}
+    for row in preview_rows:
+        transaction_type = str(row.get("transaction_type") or "unknown")
+        type_counts[transaction_type] = type_counts.get(transaction_type, 0) + 1
+    return {
+        "status": "ok",
+        "source_system": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+        "source_type": NBA_PLAYER_MOVEMENT_SOURCE_TYPE,
+        "source_locator": source_locator,
+        "endpoint_url": endpoint_url,
+        "endpoint_metadata": endpoint_metadata,
+        "total_endpoint_rows": len(endpoint_rows),
+        "memphis_row_count": len(preview_rows),
+        "date_range": {
+            "start_date": dates[0] if dates else None,
+            "end_date": dates[-1] if dates else None,
+        },
+        "transaction_type_counts": dict(sorted(type_counts.items())),
+        "preview_rows": preview_rows,
+        "row_count": len(preview_rows),
+        "fixture_only": not live,
+        "writes_to_database": False,
+    }
+
+
+def build_nba_player_movement_source_rows(
+    payload: object,
+    *,
+    source_locator: str,
+    endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL,
+    endpoint_metadata: dict[str, str | None] | None = None,
+    fetched_at: str | None = None,
+) -> tuple[list[SourceRecordRow], list[SourceEventRow]]:
+    endpoint_rows = extract_nba_player_movement_rows(payload)
+    memphis_rows = [
+        (row_index, row)
+        for row_index, row in enumerate(endpoint_rows, start=1)
+        if is_memphis_nba_player_movement_row(row)
+    ]
+    fetched_at = fetched_at or utc_now_iso()
+    preview_rows = build_nba_player_movement_preview_rows(payload, source_locator=source_locator)
+    dates = sorted(row["date"] for row in preview_rows if isinstance(row.get("date"), str))
+    type_counts: dict[str, int] = {}
+    for row in preview_rows:
+        transaction_type = str(row.get("transaction_type") or "unknown")
+        type_counts[transaction_type] = type_counts.get(transaction_type, 0) + 1
+
+    source_record = SourceRecordRow(
+        source_record_id="nba_player_movement:memphis",
+        source_system=NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+        source_type=NBA_PLAYER_MOVEMENT_SOURCE_TYPE,
+        source_locator=source_locator,
+        fetched_at=fetched_at,
+        raw_payload={
+            "endpoint_url": endpoint_url,
+            "endpoint_metadata": endpoint_metadata or {},
+            "source_locator": source_locator,
+            "filter": {
+                "team_id": NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID,
+                "team_slug": NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_SLUG,
+                "text_fallback": ["memphis", "grizzlies"],
+            },
+            "total_endpoint_rows": len(endpoint_rows),
+            "memphis_row_count": len(memphis_rows),
+            "date_range": {
+                "start_date": dates[0] if dates else None,
+                "end_date": dates[-1] if dates else None,
+            },
+            "transaction_type_counts": dict(sorted(type_counts.items())),
+            "rows": [row for _row_index, row in memphis_rows],
+        },
+    )
+
+    source_events: list[SourceEventRow] = []
+    for row_index, row in memphis_rows:
+        fields = extract_nba_player_movement_row_fields(row)
+        event_date = fields["event_date"]
+        transaction_type = fields["transaction_type"]
+        normalized_event_type = str(fields["normalized_event_type"])
+        description = string_or_none(fields["transaction_description"]) or "NBA.com player movement row"
+        row_digest = stable_digest(
+            {
+                "row_index": row_index,
+                "event_date": event_date,
+                "transaction_type": transaction_type,
+                "description": description,
+                "team_identifiers": fields["team_identifiers"],
+                "player_identifiers": fields["player_identifiers"],
+                "group_sort": fields["group_sort"],
+                "additional_sort": fields["additional_sort"],
+            }
+        )
+        source_group_hint = None
+        if fields["group_sort"]:
+            source_group_hint = f"nba_player_movement:group:{fields['group_sort']}"
+        player_identifiers = fields["player_identifiers"]
+        player_names = []
+        if isinstance(player_identifiers, dict) and isinstance(player_identifiers.get("player_name"), str):
+            player_names = [str(player_identifiers["player_name"])]
+        source_events.append(
+            SourceEventRow(
+                source_event_id=f"nba_player_movement:{row_digest}",
+                source_record_id=source_record.source_record_id,
+                event_date=str(event_date) if event_date else "1900-01-01",
+                event_type=normalized_event_type,
+                label=description,
+                team_scope="MEM",
+                source_group_hint=source_group_hint,
+                normalized_payload={
+                    "corroboration_only": True,
+                    "canonical_exclusion_reason": NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
+                    "normalization_note": NBA_PLAYER_MOVEMENT_NORMALIZATION_NOTE,
+                    "raw_transaction_type": transaction_type,
+                    "normalized_event_type": normalized_event_type,
+                    "transaction_description": description,
+                    "player_names_in": player_names if normalized_event_type in {"signing", "trade"} else [],
+                    "player_names_out": player_names if normalized_event_type == "waiver" else [],
+                    "pick_text_in": [],
+                    "pick_text_out": [],
+                    "pick_details_in": [],
+                    "pick_details_out": [],
+                    "group_sort": fields["group_sort"],
+                    "additional_sort": fields["additional_sort"],
+                    "team_identifiers": fields["team_identifiers"],
+                    "player_identifiers": fields["player_identifiers"],
+                    "raw_row": row,
+                },
+            )
+        )
+    return [source_record], source_events
+
+
+def preview_nba_player_movement_source_rows(
+    *,
+    fixture_path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    live: bool = False,
+    endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL,
+) -> dict[str, object]:
+    endpoint_metadata: dict[str, str | None] = {}
+    if live:
+        payload, endpoint_metadata = fetch_nba_player_movement_json(endpoint_url=endpoint_url)
+        source_locator = endpoint_url
+    else:
+        payload = read_nba_player_movement_fixture(fixture_path)
+        source_locator = str(fixture_path)
+    source_records, source_events = build_nba_player_movement_source_rows(
+        payload,
+        source_locator=source_locator,
+        endpoint_url=endpoint_url,
+        endpoint_metadata=endpoint_metadata,
+    )
+    return {
+        "status": "ok",
+        "source_system": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+        "source_type": NBA_PLAYER_MOVEMENT_SOURCE_TYPE,
+        "source_locator": source_locator,
+        "writes_to_database": False,
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
+        "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
+        "first_source_event": source_events[0].model_dump(mode="json") if source_events else None,
+    }
+
+
+def load_nba_player_movement(
+    *,
+    fixture_path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    live: bool = False,
+    endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    if execute or not dry_run:
+        raise ValueError("Live NBA player movement DB writes require a second checkpoint and are not enabled in this command.")
+    return {
+        **preview_nba_player_movement_source_rows(
+            fixture_path=fixture_path,
+            live=live,
+            endpoint_url=endpoint_url,
+        ),
+        "dry_run": True,
+    }
+
+
 def load_nba_reference(database_url: str, *, season: str, team_id: int) -> dict[str, object]:
     all_players_payload = fetch_nba_stats_json(
         "commonallplayers",
@@ -848,6 +1256,44 @@ def normalize_month_day_year(value: str) -> str:
     return datetime.strptime(value, "%B %d, %Y").date().isoformat()
 
 
+def normalize_nba_player_movement_date(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if re.match(r"^\d{4}-\d{2}-\d{2}", text):
+        return text[:10]
+    for date_format in ("%m/%d/%Y", "%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(text, date_format).date().isoformat()
+        except ValueError:
+            continue
+    return text
+
+
+def first_present(row: dict[str, object], keys: tuple[str, ...]) -> object | None:
+    casefolded = {key.lower(): value for key, value in row.items()}
+    for key in keys:
+        if key in row and row[key] not in (None, ""):
+            return row[key]
+        value = casefolded.get(key.lower())
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def string_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def compact_mapping(values: dict[str, str | None]) -> dict[str, str]:
+    return {key: value for key, value in values.items() if value is not None}
+
+
 def parse_int(value: object) -> int | None:
     if value is None:
         return None
@@ -858,6 +1304,11 @@ def parse_int(value: object) -> int | None:
         return int(text)
     except ValueError:
         return None
+
+
+def stable_digest(value: object, *, length: int = 16) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha1(encoded).hexdigest()[:length]
 
 
 def infer_draft_round(pick_overall: int) -> int:

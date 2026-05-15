@@ -6,6 +6,8 @@ Last verified live load scope:
 - transaction seasons: 2016-17 through 2025-26
 - draft years: 2016 through 2025
 - source span in export: 2016-06-23 through 2026-04-10
+- currentness source review: no later public Memphis roster event verified
+  through 2026-05-14
 
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments:
@@ -44,6 +46,41 @@ Audit command:
 This is read-only. Use it after source loads to check source coverage, roster
 snapshot shape, draft linkage, aliases, canonical transition counts, and known
 remaining data gaps.
+
+NBA.com player movement preview:
+
+```bash
+.venv/bin/python -m redesign_cli preview-nba-player-movement
+.venv/bin/python -m redesign_cli preview-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json
+.venv/bin/python -m redesign_cli preview-nba-player-movement --live
+.venv/bin/python -m redesign_cli load-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json --dry-run
+.venv/bin/python -m redesign_cli load-nba-player-movement --live --dry-run
+```
+
+This pass prepares dry-run source evidence and canonical guards only. The
+preview command reads either a checked-in/local JSON file or the live NBA.com
+player movement endpoint, filters Memphis rows by team ID `1610612763`, team
+slug `grizzlies`, or Memphis text fallback, and reports endpoint/source
+metadata, row counts, date range, transaction type counts, and sample rows.
+
+The guarded `load-nba-player-movement --dry-run` command builds deterministic
+`foundation.source_record` and `foundation.source_event` candidates with
+`writes_to_database=false`; it does not perform live Supabase writes. Every NBA
+movement source event is marked with
+`normalized_payload.corroboration_only=true` and
+`normalized_payload.canonical_exclusion_reason=nba_player_movement_requires_reconciliation`,
+and canonical/derived graph builders ignore those rows by default. The
+normalized NBA transaction type is loader compatibility only, not reconciliation
+truth. A live load requires a second explicit checkpoint after dry-run review.
+
+Graph baseline checkpoint output:
+
+```bash
+.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline
+```
+
+This is read-only. It reports current canonical table counts, graph export
+counts, and a graph export checksum for review around any future live load.
 
 Draft-resolution preview:
 
@@ -113,15 +150,20 @@ Future pick inventory preview and guarded load:
 
 ```bash
 .venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM
+.venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM --allow-update-id <obligation_id>
 .venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM --dry-run --allow-update-id <obligation_id>
 .venv/bin/python -m redesign_cli load-pick-inventory-obligations --team-code MEM
 .venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --dry-run --max-draft-year 2032
 .venv/bin/python -m redesign_cli load-pick-inventory-snapshots --team-code MEM --max-draft-year 2032
 ```
 
-The obligation load writes only source-backed loadable fixture rows. The
-snapshot load projects default Memphis own picks plus dated obligation rows and
-replaces covered `roster_snapshot_pick` rows to avoid stale projection state.
+The obligation load writes only source-backed loadable fixture rows. Use
+`--allow-update-id` only for an explicitly reviewed source-backed correction to
+one existing obligation row; without that flag, conflicting existing rows remain
+blocked. The snapshot load projects default Memphis own picks plus dated
+obligation rows and replaces covered `roster_snapshot_pick` rows to avoid stale
+projection state.
 
 Resolved in this pass:
 
@@ -146,9 +188,17 @@ Resolved in this pass:
   `pick_inventory_obligation` and projected `roster_snapshot_pick` rows after
   clean preview/dry-run. The current live database has 19 loaded obligation rows
   and 980 projected snapshot-pick rows.
+- the ORL 2028 first acquired in the Bane trade and sent out in the Cedric
+  Coward draft trade now resolves to `owner_team_code=POR` instead of
+  `UNKNOWN`, based on NBA.com and RealGM source checks
+- `audit-foundation-data` now reports currentness as verified through a dated
+  source review, fixture-only fallback documentation rows, source coverage, and
+  deferred draft-night ownership-lineage limits
 
 Known gaps:
 
+- Loaded source records are still Basketball-Reference-only, so official or
+  corroborating source coverage is not systematic yet.
 - Draft lottery rows are contextual seed coverage only and are not consumed by
   the base graph. The audit clears only the empty-table gap and preserves a
   caveat that lottery rows remain contextual seed coverage.
@@ -157,3 +207,9 @@ Known gaps:
 - Future pick inventory is now non-empty and source-backed, but the fixture is
   still a current-state-focused seed ledger rather than a complete historical
   replay of every obligation branch.
+- Two fallback pick facts are still fixture documentation only: the Lakers 2027
+  second fallback and Orlando 2029 second fallback remain non-loadable until
+  conditional branch semantics can prevent simultaneous primary/fallback
+  projection.
+- Draft-night selected-slot resolution is complete for loaded draft selections,
+  but prior pick ownership lineage remains deferred.

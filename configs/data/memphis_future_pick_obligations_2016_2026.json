@@ -8,7 +8,8 @@
     "event_spine_source": "Basketball-Reference Memphis transactions",
     "official_release_sources": [
       "Memphis Grizzlies official Desmond Bane trade release",
-      "NBA.com Jaren Jackson Jr. trade report"
+      "NBA.com Jaren Jackson Jr. trade report",
+      "NBA.com Cedric Coward draft trade report"
     ],
     "notes": "Rows use BRef source_event_id values where provided. Non-loadable rows document conditional fallbacks or ambiguous historical states that should not be written by the obligation loader."
   },
@@ -213,7 +214,7 @@
       "retrieved_at": "2026-05-14T00:00:00Z",
       "confidence": "uncertain",
       "loadable": false,
-      "notes": "Non-loadable documentation row; the fixture should not project both the protected first and fallback second as active held assets."
+      "notes": "Non-loadable documentation row backed by RealGM, BRef, and NBA.com JJJ trade sources; excluded from active projection because the fallback second applies only if the protected Lakers first does not convey."
     },
     {
       "obligation_id": "mem-pick-obligation:2025-06-15:orl-2028-r1-to-mem",
@@ -247,7 +248,7 @@
       "obligation_id": "mem-pick-obligation:2025-06-25:orl-2028-r1-out-coward",
       "effective_date": "2025-06-25",
       "perspective_team_code": "MEM",
-      "owner_team_code": "UNKNOWN",
+      "owner_team_code": "POR",
       "original_team_code": "ORL",
       "draft_year": 2028,
       "round_number": 1,
@@ -260,16 +261,18 @@
       "source_event_id": "bref:mem:2025:2025-06-25:4:1",
       "source_urls": [
         "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/draft-picks",
-        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html"
+        "https://www.basketball-reference.com/teams/MEM/2025_transactions.html",
+        "https://www.nba.com/news/reports-grizzlies-acquire-rights-to-no-11-pick-cedric-coward-from-blazers/"
       ],
       "source_labels": [
         "RealGM Memphis Grizzlies future draft picks, retrieved 2026-05-14",
-        "Basketball-Reference MEM 2025 transactions, loaded source_event"
+        "Basketball-Reference MEM 2025 transactions, loaded source_event",
+        "NBA.com Cedric Coward draft trade report"
       ],
       "retrieved_at": "2026-05-14T00:00:00Z",
       "confidence": "validated",
       "loadable": true,
-      "notes": "Current RealGM no longer lists this pick as held by Memphis; target team is not in the provided facts, so owner_team_code is UNKNOWN."
+      "notes": "NBA.com reports Portland received the 2028 first-round pick via Orlando in the Cedric Coward draft trade."
     },
     {
       "obligation_id": "mem-pick-obligation:2023-07-11:mem-2028-r2-to-brk",
@@ -357,7 +360,7 @@
       "retrieved_at": "2026-05-14T00:00:00Z",
       "confidence": "uncertain",
       "loadable": false,
-      "notes": "Non-loadable documentation row to avoid projecting a fallback second while the first-round swap right is active."
+      "notes": "Non-loadable documentation row backed by RealGM, BRef, and the official Bane trade release; excluded from active projection because the fallback second applies only if Orlando's protected first-round swap right cannot convey."
     },
     {
       "obligation_id": "mem-pick-obligation:2023-07-11:mem-2029-r2-to-brk",

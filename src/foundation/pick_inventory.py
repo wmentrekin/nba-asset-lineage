@@ -269,6 +269,7 @@ def preview_pick_inventory_obligations(
     *,
     team_code: str = "MEM",
     fixture_path: Path = DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
+    allow_update_ids: set[str] | None = None,
 ) -> PickInventoryObligationPreview:
     fixture = load_pick_inventory_fixture(fixture_path)
     with psycopg.connect(database_url, connect_timeout=10) as connection:
@@ -281,6 +282,7 @@ def preview_pick_inventory_obligations(
         fixture_path=fixture_path,
         team_code=team_code,
         existing_rows=existing_rows,
+        allow_update_ids=allow_update_ids,
     )
 
 
@@ -290,8 +292,10 @@ def build_pick_inventory_obligation_preview(
     fixture_path: Path,
     team_code: str,
     existing_rows: list[ExistingPickInventoryObligation],
+    allow_update_ids: set[str] | None = None,
 ) -> PickInventoryObligationPreview:
     expected_team_code = team_code.upper()
+    allow_update_ids = allow_update_ids or set()
     fixture_issues = validate_pick_inventory_fixture(fixture, team_code=team_code)
     row_issue_by_id: dict[str, list[str]] = {}
     global_issues: list[str] = []
@@ -309,6 +313,7 @@ def build_pick_inventory_obligation_preview(
             expected_team_code=expected_team_code,
             existing_row=existing_by_id.get(row.obligation_id),
             extra_issues=row_issue_by_id.get(row.obligation_id, []),
+            allow_update_ids=allow_update_ids,
         )
         for row in fixture.rows
         if row.perspective_team_code == expected_team_code
@@ -391,9 +396,11 @@ def build_pick_inventory_obligation_preview_row(
     expected_team_code: str,
     existing_row: ExistingPickInventoryObligation | None,
     extra_issues: list[str] | None = None,
+    allow_update_ids: set[str] | None = None,
 ) -> PickInventoryObligationPreviewRow:
     issues = list(extra_issues or [])
     warnings: list[str] = []
+    allow_update_ids = allow_update_ids or set()
     if row.perspective_team_code != expected_team_code:
         issues.append(f"row perspective_team_code {row.perspective_team_code} does not match expected team {expected_team_code}")
 
@@ -407,7 +414,10 @@ def build_pick_inventory_obligation_preview_row(
         existing_status = "matching"
     elif existing_row is not None:
         existing_status = "conflicting"
-        issues.append(f"existing DB row for {row.obligation_id} conflicts with the fixture row")
+        if row.obligation_id in allow_update_ids and row.loadable and row.confidence != "uncertain":
+            warnings.append(f"{row.obligation_id}: existing DB row conflicts and will be updated because it is explicitly listed in allow_update_ids")
+        else:
+            issues.append(f"existing DB row for {row.obligation_id} conflicts with the fixture row")
 
     ready_for_load = row.loadable and row.confidence != "uncertain" and not issues
     return PickInventoryObligationPreviewRow(
@@ -465,8 +475,14 @@ def load_pick_inventory_obligations(
     team_code: str = "MEM",
     fixture_path: Path = DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
     dry_run: bool = False,
+    allow_update_ids: set[str] | None = None,
 ) -> PickInventoryObligationLoadResult:
-    preview = preview_pick_inventory_obligations(database_url, team_code=team_code, fixture_path=fixture_path)
+    preview = preview_pick_inventory_obligations(
+        database_url,
+        team_code=team_code,
+        fixture_path=fixture_path,
+        allow_update_ids=allow_update_ids,
+    )
     if preview.blocked_rows:
         return PickInventoryObligationLoadResult(
             fixture_id=preview.fixture_id,
@@ -514,6 +530,7 @@ def load_pick_inventory_obligations(
             fixture_path=fixture_path,
             team_code=team_code,
             existing_rows=existing_rows,
+            allow_update_ids=allow_update_ids,
         )
         if transactional_preview.blocked_rows:
             connection.rollback()

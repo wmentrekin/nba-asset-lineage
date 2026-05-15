@@ -1,5 +1,106 @@
 from pathlib import Path
 
+from foundation.sources import (
+    ALLOWED_CONFLICT_STATUSES,
+    ALLOWED_CORROBORATION_STATUSES,
+    ALLOWED_EVIDENCE_STATES,
+    CORROBORATION_REPORT_EVENT_FIELDS,
+    CORROBORATION_REPORT_OUTPUT_KEY,
+    FIRST_PASS_FACT_TYPES,
+    PLANNED_VS_LOADED_RULE,
+    PROVIDER_ROLES,
+    RECOGNIZED_SOURCE_SYSTEMS,
+    SOURCE_POLICY,
+)
+
+
+def test_source_policy_defines_first_pass_fact_taxonomy_and_roles() -> None:
+    assert set(FIRST_PASS_FACT_TYPES) == {
+        "transaction_chronology",
+        "player_movement",
+        "roster_snapshot",
+        "pick_right_detail",
+        "player_identity",
+    }
+    assert set(PROVIDER_ROLES) >= {
+        "chronology_spine",
+        "structured_player_movement",
+        "official_confirmation",
+        "roster_snapshot",
+        "secondary_pick_detail",
+        "identity_roster",
+    }
+    assert set(RECOGNIZED_SOURCE_SYSTEMS) >= {
+        "basketball_reference",
+        "nba_player_movement",
+        "nba_official",
+        "team_official",
+        "realgm",
+        "nba_stats",
+    }
+
+    policy_by_fact_type = {row.fact_type: row for row in SOURCE_POLICY.first_pass_fact_types}
+    assert policy_by_fact_type["transaction_chronology"].minimum_required_roles == ["chronology_spine"]
+    assert policy_by_fact_type["player_movement"].target_roles == [
+        "structured_player_movement",
+        "official_confirmation",
+    ]
+    assert policy_by_fact_type["pick_right_detail"].minimum_required_roles == ["secondary_pick_detail"]
+    assert "conditional_pick_branch_resolution" in SOURCE_POLICY.deferred_fact_types
+
+
+def test_source_policy_distinguishes_planned_providers_from_loaded_evidence() -> None:
+    assert set(ALLOWED_EVIDENCE_STATES) == {
+        "recognized_provider",
+        "loaded_evidence",
+        "supports_event",
+        "conflicts_event",
+        "missing_required_evidence",
+    }
+    assert set(ALLOWED_CORROBORATION_STATUSES) == {
+        "meets_minimum",
+        "bref_only",
+        "missing_required_evidence",
+        "recognized_provider_not_loaded",
+        "out_of_scope",
+    }
+    assert set(ALLOWED_CONFLICT_STATUSES) == {
+        "not_evaluated",
+        "no_conflict_detected",
+        "conflict_suspected",
+    }
+    assert "must never count as loaded evidence" in PLANNED_VS_LOADED_RULE
+    assert SOURCE_POLICY.planned_vs_loaded_rule == PLANNED_VS_LOADED_RULE
+
+    provider_state_by_role = {row.role: row.initial_evidence_state for row in SOURCE_POLICY.provider_roles}
+    assert provider_state_by_role["chronology_spine"] == "loaded_evidence"
+    assert provider_state_by_role["structured_player_movement"] == "recognized_provider"
+    assert provider_state_by_role["official_confirmation"] == "recognized_provider"
+
+
+def test_source_policy_defines_corroboration_report_contract_without_schema() -> None:
+    assert CORROBORATION_REPORT_OUTPUT_KEY == "source_corroboration_report"
+    assert set(CORROBORATION_REPORT_EVENT_FIELDS) == {
+        "canonical_event_id",
+        "event_date",
+        "event_type",
+        "fact_type",
+        "loaded_source_systems",
+        "loaded_source_types",
+        "recognized_provider_roles",
+        "required_source_roles",
+        "missing_roles",
+        "evidence_states",
+        "corroboration_status",
+        "conflict_status",
+        "notes",
+    }
+
+    sql_text = "\n".join(path.read_text(encoding="utf-8") for path in Path("sql").glob("*.sql"))
+    assert "foundation.source_corroboration" not in sql_text
+    assert "source_corroboration_report" not in sql_text
+    assert "corroboration_status" not in sql_text
+
 
 def test_draft_pick_resolution_bootstrap_sql_defines_guarded_resolution_table() -> None:
     sql_text = Path("sql/0005_foundation_draft_pick_resolution_bootstrap.sql").read_text(encoding="utf-8")

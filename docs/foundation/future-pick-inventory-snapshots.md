@@ -138,6 +138,8 @@ Relevant examples:
   `https://www.nba.com/news/2025-nba-trade-deadline-buzz`
 - NBA.com 2025 offseason trade tracker:
   `https://www.nba.com/news/2025-offseason-trade-tracker`
+- NBA.com Cedric Coward draft trade report:
+  `https://www.nba.com/news/reports-grizzlies-acquire-rights-to-no-11-pick-cedric-coward-from-blazers/`
 
 Best use:
 
@@ -166,6 +168,12 @@ The ledger should combine:
 - current-state validation against RealGM, Spotrac, Fanspo, and Pro Sports
   Transactions
 - official NBA.com releases for major trade corroboration when available
+
+Current high-confidence correction:
+
+- the ORL 2028 first acquired in the Desmond Bane trade was sent out in the
+  Cedric Coward draft trade, and NBA.com reports Portland received that 2028
+  first via Orlando
 
 ## Current Ledger Fixture
 
@@ -251,9 +259,11 @@ For each `roster_snapshot` date:
    to `owed_out` or `encumbered`.
 5. Keep swap rights as separate inventory rows when Memphis controls optionality,
    even if the eventual pick identity is unresolved.
-6. Keep conditional fallback rows when a protected pick may become a second-round
-   pick or may extinguish.
-7. Mark uncertain rows but do not silently drop them.
+6. Keep conditional fallback facts in the fixture as non-loadable documentation
+   rows when a protected first or swap may become a fallback second.
+7. Do not project fallback documentation rows until conditional branch modeling
+   can prevent simultaneous projection of mutually exclusive primary and
+   fallback assets.
 
 ## Database Fit
 
@@ -325,6 +335,10 @@ prioritizes high-confidence current-state rows validated against RealGM,
 Basketball-Reference source events, and available NBA.com official reports.
 Non-loadable fallback rows document conditional outcomes without allowing the
 loader to project both a primary obligation and its fallback at the same time.
+The current fallback documentation rows remain source-backed but deliberately
+non-loadable: the Lakers 2027 second applies only if the protected Lakers first
+does not convey, and the Orlando 2029 second applies only if Orlando's protected
+2029 first-round swap right cannot convey.
 
 ## Risks
 

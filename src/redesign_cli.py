@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -36,17 +37,20 @@ from foundation.ingest import (
     serialize_foundation_ingest_sample_bundle,
 )
 from foundation.live_sources import (
+    DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     load_bref_draft_results,
     load_bref_draft_results_span,
     load_bref_roster_baseline,
     load_bref_roster_baseline_span,
     load_bref_source_events,
     load_bref_source_events_span,
+    load_nba_player_movement,
     load_nba_reference,
     preview_bref_draft_results,
     preview_bref_roster_baseline,
     preview_bref_source_events,
     preview_nba_reference,
+    preview_nba_player_movement,
 )
 from foundation.pick_inventory import (
     DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
@@ -81,7 +85,8 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("check-db", help="Run a minimal database connectivity check.")
     subparsers.add_parser("inspect-db-state", help="Inspect current non-system schemas and relation counts before reset.")
     subparsers.add_parser("inspect-foundation-counts", help="Inspect row counts for active foundation tables.")
-    subparsers.add_parser("audit-foundation-data", help="Run a read-only audit of loaded foundation data coverage and known gaps.")
+    audit_parser = subparsers.add_parser("audit-foundation-data", help="Run a read-only audit of loaded foundation data coverage and known gaps.")
+    audit_parser.add_argument("--pick-obligation-fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
     draft_resolution_parser = subparsers.add_parser("preview-draft-pick-resolution", help="Read-only preview of draft_selection to pick asset resolution candidates.")
     draft_resolution_parser.add_argument("--team-code", default="MEM")
     curated_draft_resolution_parser = subparsers.add_parser("preview-curated-draft-pick-resolution", help="Read-only preview of curated draft slot resolutions against live draft_selection rows.")
@@ -98,10 +103,22 @@ def parse_args() -> argparse.Namespace:
     pick_inventory_obligations_parser = subparsers.add_parser("preview-pick-inventory-obligations", help="Read-only validation preview of curated future pick obligation fixture rows.")
     pick_inventory_obligations_parser.add_argument("--team-code", default="MEM")
     pick_inventory_obligations_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
+    pick_inventory_obligations_parser.add_argument(
+        "--allow-update-id",
+        action="append",
+        default=[],
+        help="Explicit obligation_id allowed to update if the fixture conflicts with an existing source-backed row. May be passed more than once.",
+    )
     load_pick_inventory_obligations_parser = subparsers.add_parser("load-pick-inventory-obligations", help="Guarded load of source-backed future pick obligations and needed pick assets.")
     load_pick_inventory_obligations_parser.add_argument("--team-code", default="MEM")
     load_pick_inventory_obligations_parser.add_argument("--fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
     load_pick_inventory_obligations_parser.add_argument("--dry-run", action="store_true")
+    load_pick_inventory_obligations_parser.add_argument(
+        "--allow-update-id",
+        action="append",
+        default=[],
+        help="Explicit obligation_id allowed to update if the fixture conflicts with an existing source-backed row. May be passed more than once.",
+    )
     load_pick_inventory_snapshots_parser = subparsers.add_parser("load-pick-inventory-snapshots", help="Guarded replacement of derived roster snapshot future-pick inventory rows.")
     load_pick_inventory_snapshots_parser.add_argument("--team-code", default="MEM")
     load_pick_inventory_snapshots_parser.add_argument("--max-draft-year", type=int, default=2032)
@@ -176,9 +193,20 @@ def parse_args() -> argparse.Namespace:
     preview_nba_parser = subparsers.add_parser("preview-nba-reference", help="Fetch and normalize NBA stats player and roster reference data without writing to the database.")
     preview_nba_parser.add_argument("--season", required=True)
     preview_nba_parser.add_argument("--team-id", type=int, default=1610612763)
+    preview_nba_player_movement_parser = subparsers.add_parser("preview-nba-player-movement", help="Read-only fixture/file or live preview of NBA.com player movement JSON rows.")
+    preview_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
+    preview_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
+    preview_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
+    load_nba_player_movement_parser = subparsers.add_parser("load-nba-player-movement", help="Dry-run NBA.com player movement source_record/source_event candidates without writing.")
+    load_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
+    load_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
+    load_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
+    load_nba_player_movement_parser.add_argument("--dry-run", action="store_true", help="Required dry-run mode; writes are not enabled in this pass.")
+    load_nba_player_movement_parser.add_argument("--execute", action="store_true", help="Reserved for a future checkpoint; currently blocked.")
     load_nba_parser = subparsers.add_parser("load-nba-reference", help="Fetch and load NBA stats player and roster reference data into foundation.source_record and foundation.player.")
     load_nba_parser.add_argument("--season", required=True)
     load_nba_parser.add_argument("--team-id", type=int, default=1610612763)
+    subparsers.add_parser("inspect-foundation-graph-baseline", help="Read-only graph baseline counts and checksum for checkpoint review.")
     subparsers.add_parser("show-base-export", help="Print the current base export scaffold as JSON.")
     subparsers.add_parser("show-source-plan", help="Print the current reset-era source plan as JSON.")
     subparsers.add_parser("run-normalization-workbench", help="Run the local normalization workbench over representative raw samples.")
@@ -415,7 +443,10 @@ def main() -> None:
     elif args.command == "inspect-foundation-counts":
         payload = command_inspect_foundation_counts()
     elif args.command == "audit-foundation-data":
-        payload = audit_foundation_data(load_database_url())
+        payload = audit_foundation_data(
+            load_database_url(),
+            pick_obligation_fixture_path=Path(args.pick_obligation_fixture_path),
+        )
     elif args.command == "preview-draft-pick-resolution":
         payload = preview_draft_pick_resolution(load_database_url(), team_code=args.team_code).model_dump(mode="json")
     elif args.command == "preview-curated-draft-pick-resolution":
@@ -443,6 +474,7 @@ def main() -> None:
             load_database_url(),
             team_code=args.team_code,
             fixture_path=Path(args.fixture_path),
+            allow_update_ids=set(args.allow_update_id or []),
         ).model_dump(mode="json")
     elif args.command == "load-pick-inventory-obligations":
         payload = load_pick_inventory_obligations(
@@ -450,6 +482,7 @@ def main() -> None:
             team_code=args.team_code,
             fixture_path=Path(args.fixture_path),
             dry_run=args.dry_run,
+            allow_update_ids=set(args.allow_update_id or []),
         ).model_dump(mode="json")
     elif args.command == "load-pick-inventory-snapshots":
         payload = load_pick_inventory_snapshots(
@@ -586,8 +619,46 @@ def main() -> None:
         )
     elif args.command == "preview-nba-reference":
         payload = preview_nba_reference(season=args.season, team_id=args.team_id)
+    elif args.command == "preview-nba-player-movement":
+        payload = preview_nba_player_movement(
+            fixture_path=Path(args.fixture_path),
+            live=args.live,
+            endpoint_url=args.endpoint_url,
+        )
+    elif args.command == "load-nba-player-movement":
+        payload = load_nba_player_movement(
+            fixture_path=Path(args.fixture_path),
+            live=args.live,
+            endpoint_url=args.endpoint_url,
+            dry_run=args.dry_run,
+            execute=args.execute,
+        )
     elif args.command == "load-nba-reference":
         payload = load_nba_reference(load_database_url(), season=args.season, team_id=args.team_id)
+    elif args.command == "inspect-foundation-graph-baseline":
+        counts = command_inspect_foundation_counts()["counts"]
+        export = build_base_export_from_database(load_database_url())
+        export_payload = export.model_dump(mode="json")
+        checksum = hashlib.sha256(
+            json.dumps(export_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        payload = {
+            "status": "ok",
+            "writes_to_database": False,
+            "canonical_counts": {
+                "canonical_event": counts.get("canonical_event", 0),
+                "canonical_event_member": counts.get("canonical_event_member", 0),
+                "event_asset_transition": counts.get("event_asset_transition", 0),
+            },
+            "graph_export_counts": {
+                "events": len(export.events),
+                "player_assets": len(export.player_assets),
+                "pick_assets": len(export.pick_assets),
+                "transitions": len(export.transitions),
+                "roster_snapshots": len(export.roster_snapshots),
+            },
+            "graph_export_checksum_sha256": checksum,
+        }
     elif args.command == "show-base-export":
         payload = build_empty_base_export().model_dump(mode="json")
     elif args.command == "show-source-plan":

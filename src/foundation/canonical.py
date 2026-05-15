@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from foundation.ingest import (
     SourceEventRow,
     build_pick_id,
+    filter_canonical_source_events,
     load_player_aliases_from_database,
     load_source_events_from_database,
     normalize_player_alias_name,
@@ -70,6 +71,7 @@ def derive_foundation_canonical_bundle(
     *,
     player_id_by_alias: dict[str, str] | None = None,
 ) -> FoundationCanonicalBundle:
+    source_events = filter_canonical_source_events(source_events)
     groups = group_source_events(source_events)
     canonical_events: list[CanonicalEventRow] = []
     canonical_event_members: list[CanonicalEventMemberRow] = []
