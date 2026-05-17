@@ -7,8 +7,8 @@ owner_skill: work
 objective: "Continue closing remaining data-layer gaps in impact-list order by loading the first actual non-BRef source evidence."
 
 summary:
-  current_focus: "The official-source path now exists and a first curated NBA.com/team-release batch is loaded, so the next pass should expand that fixture across the remaining unresolved signings, waivers, and trade rows."
-  last_completed: "Implemented official-release preview/load commands, generalized audit-time corroboration to official rows, loaded the first 4 official source records / 6 source events, and reduced unresolved player-movement corroboration to 94 `bref_only` plus 9 `conflict_suspected`."
+  current_focus: "The official-source path is now live at larger scale, so the next pass should target the remaining older signings, waivers, and 10 unresolved trade rows with additional official HTML coverage instead of new loader architecture."
+  last_completed: "Expanded the official fixture to 25 source records / 31 source events, loaded it through the live HTML metadata path, corrected the Adama-Alpha Bal naming mismatch, reduced unresolved player-movement corroboration to 79 `bref_only`, and eliminated the trade `conflict_suspected` bucket."
   current_blocker: ""
 
 artifacts:
@@ -23,7 +23,7 @@ agents:
     status: "active"
     stage: "execution"
     task: "Coordinate the next pass to close the remaining unresolved event-level player-movement corroboration gap."
-    last_update: "Official NBA.com and team-release rows now flow through the same corroboration path; the next pass is expanding source-backed fixture coverage rather than inventing more heuristics."
+    last_update: "The expanded official-source load cleared the trade-conflict residue and left mostly straight source-coverage gaps; the next pass is to add more official HTML evidence, not more reconciliation logic."
     blocker: ""
   - id: "developer-bref-repair"
     role: "developer"

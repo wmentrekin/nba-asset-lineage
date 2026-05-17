@@ -10,10 +10,10 @@ Last verified live load scope:
   through 2026-05-14
 
 Current live `foundation` counts after the full-span rebuild plus contextual
-seed enrichments:
+seed enrichments plus the expanded official-source corroboration load:
 
-- `source_record`: 593
-- `source_event`: 882
+- `source_record`: 614
+- `source_event`: 907
 - `player`: 229
 - `player_alias`: 1
 - `pick`: 128
@@ -122,11 +122,19 @@ canonical derivation. `--fetch-live` is optional and enriches `raw_payload`
 metadata from the live article HTML before write; the default fixture-only mode
 still preserves source URLs, titles, timestamps, and curated article excerpts.
 
-The current starter load wrote:
+The current expanded official-source load writes:
 
-- `4` official `source_record` rows
-- `6` official `source_event` rows
+- `25` official `source_record` rows
+- `31` official `source_event` rows
 - loaded official source systems `nba_official` and `team_official`
+
+Current corroboration summary after the expanded official-source load:
+
+- `bref_only=79`
+- `meets_minimum=19`
+- `recognized_provider_not_loaded=272`
+- `missing_required_evidence=38`
+- `conflict_suspected=0`
 
 Graph baseline checkpoint output:
 

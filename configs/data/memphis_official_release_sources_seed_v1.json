@@ -1,6 +1,6 @@
 {
-  "fixture_version": "seed_v1",
-  "notes": "Curated official NBA.com and Memphis team-release evidence for corroboration-only loading. Event dates are transaction dates for audit reconciliation, not necessarily page publish timestamps.",
+  "fixture_version": "seed_v2",
+  "notes": "Curated official NBA.com, team-release, and G League release evidence for corroboration-only loading. Event dates are transaction dates for audit reconciliation, not necessarily page publish timestamps.",
   "articles": [
     {
       "source_record_id": "nba_official:2018-07-20:yuta-watanabe-myke-henry",
@@ -32,6 +32,26 @@
       ]
     },
     {
+      "source_record_id": "nba_official:2018-07-23:jarell-martin-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/grizzlies-magic-trade-jarell-martin-dakari-johnson",
+      "source_title": "Memphis Grizzlies send former 1st-round pick Jarell Martin to Orlando Magic",
+      "source_published_at": "2018-07-24T01:14:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies sent Jarell Martin and cash considerations to Orlando for Dakari Johnson and the draft rights to Tyler Harvey.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2018-07-23:jarell-martin-trade",
+          "event_date": "2018-07-23",
+          "event_type": "trade",
+          "label": "Memphis trades Jarell Martin to Orlando",
+          "player_names_in": ["Dakari Johnson", "Tyler Harvey"],
+          "player_names_out": ["Jarell Martin"],
+          "raw_note": "The Memphis Grizzlies sent forward Jarell Martin and cash considerations to the Orlando Magic in exchange for center Dakari Johnson and the draft rights to Tyler Harvey."
+        }
+      ]
+    },
+    {
       "source_record_id": "nba_official:2019-04-05:tyler-zeller-dusty-hannahs",
       "source_system": "nba_official",
       "source_type": "news_release_article",
@@ -57,6 +77,288 @@
           "player_names_in": [],
           "player_names_out": ["Dusty Hannahs"],
           "raw_note": "The Memphis Grizzlies waived guard Dusty Hannahs."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-12:jonas-valanciunas-resign",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/news/jonas-valanciunas-re-signs-grizzlies-official-release",
+      "source_title": "Grizzlies re-sign Jonas Valanciunas to multi-year contract",
+      "source_published_at": "2019-07-12T02:19:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies announced that the team re-signed center Jonas Valanciunas to a multi-year contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-12:jonas-valanciunas-signing",
+          "event_date": "2019-07-12",
+          "event_type": "signing",
+          "label": "Memphis re-signs Jonas Valanciunas",
+          "player_names_in": ["Jonas Valanciunas"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced today that the team re-signed center Jonas Valanciunas to a multi-year contract."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2020-11-20:desmond-bane-mario-hezonja",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/report-enes-kanter-traded-to-blazers-in-3-team-deal",
+      "source_title": "Enes Kanter traded to Blazers in 3-team deal",
+      "source_published_at": "2020-11-20T21:07:00-05:00",
+      "source_excerpt": "Memphis gets Mario Hezonja and the No. 30 pick, Desmond Bane, as part of the deal.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2020-11-20:desmond-bane-mario-hezonja-trade",
+          "event_date": "2020-11-20",
+          "event_type": "trade",
+          "label": "Memphis completes Desmond Bane and Mario Hezonja trade intake",
+          "player_names_in": ["Desmond Bane", "Mario Hezonja"],
+          "player_names_out": [],
+          "raw_note": "Portland is acquiring Boston's Enes Kanter in a three-way deal with Memphis. Memphis gets Mario Hezonja and the 30th pick, Desmond Bane, from the draft-night deal as part of the trade."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-12-11:ahmad-caver-mario-hezonja",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-ahmad-caver-201211",
+      "source_title": "Memphis Grizzlies sign Ahmad Caver",
+      "source_published_at": "2020-12-11T13:05:00-06:00",
+      "source_excerpt": "The Grizzlies signed Ahmad Caver and waived forward Mario Hezonja.",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-12-11:ahmad-caver-signing",
+          "event_date": "2020-12-11",
+          "event_type": "signing",
+          "label": "Memphis signs Ahmad Caver",
+          "player_names_in": ["Ahmad Caver"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced that the team signed guard Ahmad Caver."
+        },
+        {
+          "source_event_id": "team_official:2020-12-11:mario-hezonja-waiver",
+          "event_date": "2020-12-11",
+          "event_type": "waiver",
+          "label": "Memphis waives Mario Hezonja",
+          "player_names_in": [],
+          "player_names_out": ["Mario Hezonja"],
+          "raw_note": "In addition, the team waived forward Mario Hezonja."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2021-08-25:patrick-beverley-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/report-grizzlies-trade-patrick-beverley-to-timberwolves",
+      "source_title": "Grizzlies officially deal Patrick Beverley to Timberwolves",
+      "source_published_at": "2021-08-25T18:56:00-04:00",
+      "source_excerpt": "Memphis acquires Jarrett Culver and Juancho Hernangomez in the trade with Minnesota.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2021-08-25:patrick-beverley-trade",
+          "event_date": "2021-08-25",
+          "event_type": "trade",
+          "label": "Memphis trades Patrick Beverley to Minnesota",
+          "player_names_in": ["Jarrett Culver", "Juan Hernangomez"],
+          "player_names_out": ["Patrick Beverley"],
+          "raw_note": "The Memphis Grizzlies are trading Patrick Beverley to the Minnesota Timberwolves for Jarrett Culver and Juancho Hernangomez. The teams confirmed the move on Aug. 25."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2021-09-15:juan-hernangomez-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/report-celtics-acquire-juancho-hernangomez-from-grizzlies",
+      "source_title": "Celtics acquire Juancho Hernangomez from Grizzlies",
+      "source_published_at": "2021-09-15T23:06:00-04:00",
+      "source_excerpt": "Memphis receives Kris Dunn, Carsen Edwards and a 2026 second-round pick swap.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2021-09-15:juan-hernangomez-trade",
+          "event_date": "2021-09-15",
+          "event_type": "trade",
+          "label": "Memphis trades Juan Hernangomez to Boston",
+          "player_names_in": ["Carsen Edwards", "Kris Dunn"],
+          "player_names_out": ["Juan Hernangomez"],
+          "raw_note": "Memphis is dealing Juancho Hernangomez to the Boston Celtics in exchange for Kris Dunn, Carsen Edwards and a 2026 second-round pick swap."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2022-06-24:timberwolves-walker-kessler-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/timberwolves/news/timberwolves-acquire-draft-rights-to-center-walker-kessler-from-memphis-grizzlies",
+      "source_title": "Timberwolves acquire draft rights to center Walker Kessler from Memphis Grizzlies",
+      "source_published_at": "2022-06-24T02:13:00-05:00",
+      "source_excerpt": "Minnesota acquired Walker Kessler and TyTy Washington from Memphis in exchange for Jake LaRavia and a future second-round pick.",
+      "events": [
+        {
+          "source_event_id": "team_official:2022-06-24:walker-kessler-trade",
+          "event_date": "2022-06-24",
+          "event_type": "trade",
+          "label": "Memphis completes Walker Kessler and TyTy Washington draft-night trade",
+          "team_scope": "MEM",
+          "source_group_hint": "official:2022-06-24:grizzlies-draft-night-trade-cluster",
+          "player_names_in": ["Jake LaRavia"],
+          "player_names_out": ["TyTy Washington Jr", "Walker Kessler"],
+          "raw_note": "Minnesota announced it acquired the draft rights to Walker Kessler and TyTy Washington from Memphis in exchange for the draft rights to Jake LaRavia and a future second-round pick."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2022-06-24:sixers-deanthony-melton-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/news/sixers-acquire-melton-from-grizzlies",
+      "source_title": "Sixers acquire De'Anthony Melton from Grizzlies in 3-player trade",
+      "source_published_at": "2022-06-24T23:42:00-04:00",
+      "source_excerpt": "Philadelphia sent Danny Green and the draft rights to David Roddy to Memphis for De'Anthony Melton.",
+      "events": [
+        {
+          "source_event_id": "team_official:2022-06-24:deanthony-melton-trade",
+          "event_date": "2022-06-24",
+          "event_type": "trade",
+          "label": "Memphis completes De'Anthony Melton trade with Philadelphia",
+          "team_scope": "MEM",
+          "source_group_hint": "official:2022-06-24:grizzlies-draft-night-trade-cluster",
+          "player_names_in": ["Danny Green", "David Roddy"],
+          "player_names_out": ["De'Anthony Melton"],
+          "raw_note": "Philadelphia announced it acquired De'Anthony Melton from the Memphis Grizzlies and sent Danny Green plus the draft rights to David Roddy to Memphis."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2023-06-23:marcus-smart-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/kristaps-porzingis-trade-celtics-3-team-deal?lctg=5ed4cd31c0cd4110c421d01e&lid=r6qysasrzr7v",
+      "source_title": "Kristaps Porzingis to Celtics, Marcus Smart to Grizzlies in 3-team deal",
+      "source_published_at": "2023-06-25T00:52:00-04:00",
+      "source_excerpt": "Marcus Smart heads to Memphis while Tyus Jones and the 25th pick, Marcus Sasser, move out in the three-team deal.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2023-06-23:marcus-smart-trade",
+          "event_date": "2023-06-23",
+          "event_type": "trade",
+          "label": "Memphis acquires Marcus Smart",
+          "player_names_in": ["Marcus Smart"],
+          "player_names_out": ["Marcus Sasser", "Tyus Jones"],
+          "raw_note": "Kristaps Porzingis, Marcus Smart and Tyus Jones headline the blockbuster trade between the Celtics, Wizards and Grizzlies. As part of the deal, the Grizzlies receive Marcus Smart and send Tyus Jones and the draft rights to Marcus Sasser out."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2023-07-08:dillon-brooks-sign-and-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/dillon-brooks-rockets-agree-80-million-deal",
+      "source_title": "Dillon Brooks lands 4-year deal with Rockets in sign-and-trade",
+      "source_published_at": "2023-07-12T13:51:00-04:00",
+      "source_excerpt": "Brooks joined Houston in a sign-and-trade that sent Josh Christopher to Memphis and also involved draft-rights movement.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2023-07-08:dillon-brooks-trade",
+          "event_date": "2023-07-08",
+          "event_type": "trade",
+          "label": "Memphis sends Dillon Brooks to Houston in multi-team sign-and-trade",
+          "player_names_in": ["Josh Christopher", "Vanja Marinkovic"],
+          "player_names_out": ["Dillon Brooks"],
+          "raw_note": "Brooks joined Houston via a five-team sign-and-trade deal. Houston dealt Josh Christopher to Memphis, and Vanja Marinkovic's draft rights moved to the Grizzlies in the transaction cluster."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2024-02-08:brooklyn-phoenix-memphis-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/nets/news/brooklyn-nets-complete-three-team-trade-with-phoenix-and-memphis",
+      "source_title": "Brooklyn Nets complete three-team trade with Phoenix and Memphis",
+      "source_published_at": "2024-02-08T20:18:00-05:00",
+      "source_excerpt": "Phoenix acquired David Roddy from Memphis for Chimezie Metu and Yuta Watanabe, while Brooklyn acquired the draft rights to Vanja Marinkovic from Memphis.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2024-02-08:brooklyn-phoenix-memphis-trade",
+          "event_date": "2024-02-08",
+          "event_type": "trade",
+          "label": "Memphis completes three-team trade with Phoenix and Brooklyn",
+          "player_names_in": ["Chimezie Metu", "Yuta Watanabe"],
+          "player_names_out": ["David Roddy", "Vanja Marinkovic"],
+          "raw_note": "The Suns acquired David Roddy from the Memphis Grizzlies in exchange for Chimezie Metu and Yuta Watanabe. To complete the deal, Brooklyn acquired the draft rights to Vanja Marinkovic from Memphis."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2024-07-19:nets-acquire-ziaire-williams",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/nets-acquire-ziaire-williams-from-grizzlies",
+      "source_title": "Nets acquire former lottery pick Ziaire Williams from Grizzlies",
+      "source_published_at": "2024-07-20T01:45:00-04:00",
+      "source_excerpt": "Memphis acquired Mamadi Diakite and the draft rights to Nemanja Dangubic from Brooklyn in exchange for Ziaire Williams and a 2030 second-round pick.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2024-07-19:ziaire-williams-trade",
+          "event_date": "2024-07-19",
+          "event_type": "trade",
+          "label": "Memphis trades Ziaire Williams to Brooklyn",
+          "player_names_in": ["Mamadi Diakite", "Nemanja Dangubic"],
+          "player_names_out": ["Ziaire Williams"],
+          "raw_note": "The Memphis Grizzlies acquired Mamadi Diakite and the draft rights to Nemanja Dangubic from the Brooklyn Nets in exchange for Ziaire Williams and a Dallas Mavericks 2030 second-round pick."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-07-24:jay-huff-trey-jemison",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-jay-huff-to-two-way-contract",
+      "source_title": "Grizzlies sign Jay Huff to two-way contract",
+      "source_published_at": "2024-07-24",
+      "source_excerpt": "Memphis signed center Jay Huff to a two-way contract and waived center Trey Jemison.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-07-24:james-huff-two-way-signing",
+          "event_date": "2024-07-24",
+          "event_type": "signing",
+          "label": "Memphis signs James Huff to a two-way contract",
+          "player_names_in": ["James Huff"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed center Jay Huff to a two-way contract."
+        },
+        {
+          "source_event_id": "team_official:2024-07-24:trey-jemison-waiver",
+          "event_date": "2024-07-24",
+          "event_type": "waiver",
+          "label": "Memphis waives Trey Jemison",
+          "player_names_in": [],
+          "player_names_out": ["Trey Jemison"],
+          "raw_note": "In a related move, the Grizzlies waived center Trey Jemison."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-10-28:jay-huff-multi-year",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-jay-huff-to-multi-year-contract",
+      "source_title": "Grizzlies sign Jay Huff to multi-year contract",
+      "source_published_at": "2024-10-28",
+      "source_excerpt": "Memphis signed center Jay Huff to a multi-year contract after his two-way stint.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-10-28:james-huff-multi-year-signing",
+          "event_date": "2024-10-28",
+          "event_type": "signing",
+          "label": "Memphis signs James Huff to a multi-year contract",
+          "player_names_in": ["James Huff"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed center Jay Huff to a multi-year contract."
         }
       ]
     },
@@ -101,6 +403,164 @@
           "pick_text_in": ["Future second-round draft pick", "Future second-round draft pick swap"],
           "pick_text_out": [],
           "raw_note": "The Memphis Grizzlies acquired a future second round draft pick and a future second round draft pick swap from the Indiana Pacers for center Jay Huff."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2025-09-23:braxton-key",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-braxton-key",
+      "source_title": "Grizzlies sign Braxton Key",
+      "source_published_at": "2025-09-23T13:10:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed forward Braxton Key.",
+      "events": [
+        {
+          "source_event_id": "team_official:2025-09-23:braxton-key-signing",
+          "event_date": "2025-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Braxton Key",
+          "player_names_in": ["Braxton Key"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Braxton Key."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2025-10-18:dejon-jarreau-lawson-lovering",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-dejon-jarreau",
+      "source_title": "Grizzlies sign DeJon Jarreau",
+      "source_published_at": "2025-10-18T09:00:00-05:00",
+      "source_excerpt": "Memphis signed DeJon Jarreau and waived Lawson Lovering.",
+      "events": [
+        {
+          "source_event_id": "team_official:2025-10-18:dejon-jarreau-signing",
+          "event_date": "2025-10-18",
+          "event_type": "signing",
+          "label": "Memphis signs DeJon Jarreau",
+          "player_names_in": ["DeJon Jarreau"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed guard DeJon Jarreau."
+        },
+        {
+          "source_event_id": "team_official:2025-10-18:lawson-lovering-waiver",
+          "event_date": "2025-10-18",
+          "event_type": "waiver",
+          "label": "Memphis waives Lawson Lovering",
+          "player_names_in": [],
+          "player_names_out": ["Lawson Lovering"],
+          "raw_note": "In a related move, the Grizzlies waived center Lawson Lovering."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-03-12:tyler-burton",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-tyler-burton-to-10-day-contract",
+      "source_title": "Grizzlies sign Tyler Burton to 10-day contract",
+      "source_published_at": "2026-03-12",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed forward Tyler Burton to a 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-03-12:tyler-burton-signing",
+          "event_date": "2026-03-12",
+          "event_type": "signing",
+          "label": "Memphis signs Tyler Burton to a 10-day contract",
+          "player_names_in": ["Tyler Burton"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Tyler Burton to a 10-day contract."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-03-13:dejon-jarreau",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-dejon-jarreau-to-10-day-contract-2",
+      "source_title": "Grizzlies sign DeJon Jarreau to 10-day contract",
+      "source_published_at": "2026-03-13",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed guard DeJon Jarreau to a 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-03-13:dejon-jarreau-signing",
+          "event_date": "2026-03-13",
+          "event_type": "signing",
+          "label": "Memphis signs DeJon Jarreau to a 10-day contract",
+          "player_names_in": ["DeJon Jarreau"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed guard DeJon Jarreau to a 10-day contract."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-03-23:burton-jarreau-second-10-day",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-tyler-burton-and-dejon-jarreau-to-second-10-day-contracts",
+      "source_title": "Grizzlies sign Tyler Burton and DeJon Jarreau to second 10-day contracts",
+      "source_published_at": "2026-03-23",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed Tyler Burton and DeJon Jarreau to second 10-day contracts.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-03-23:tyler-burton-second-10-day-signing",
+          "event_date": "2026-03-23",
+          "event_type": "signing",
+          "label": "Memphis signs Tyler Burton to a second 10-day contract",
+          "player_names_in": ["Tyler Burton"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Tyler Burton to a second 10-day contract."
+        },
+        {
+          "source_event_id": "team_official:2026-03-23:dejon-jarreau-second-10-day-signing",
+          "event_date": "2026-03-23",
+          "event_type": "signing",
+          "label": "Memphis signs DeJon Jarreau to a second 10-day contract",
+          "player_names_in": ["DeJon Jarreau"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed guard DeJon Jarreau to a second 10-day contract."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-03-28:adama-bal",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-adama-bal-to-10-day-contract",
+      "source_title": "Grizzlies sign Adama Bal to 10-day contract",
+      "source_published_at": "2026-03-28",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed forward Adama Bal to a 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-03-28:adama-bal-signing",
+          "event_date": "2026-03-28",
+          "event_type": "signing",
+          "label": "Memphis signs Adama-Alpha Bal to a 10-day contract",
+          "player_names_in": ["Adama-Alpha Bal"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Adama Bal to a 10-day contract."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-04-07:adama-bal-second-10-day",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-adama-bal-to-second-10-day-contract",
+      "source_title": "Grizzlies sign Adama Bal to second 10-day contract",
+      "source_published_at": "2026-04-07",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed Adama Bal to a second 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-04-07:adama-bal-second-10-day-signing",
+          "event_date": "2026-04-07",
+          "event_type": "signing",
+          "label": "Memphis signs Adama-Alpha Bal to a second 10-day contract",
+          "player_names_in": ["Adama-Alpha Bal"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Adama Bal to a second 10-day contract."
         }
       ]
     }
