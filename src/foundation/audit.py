@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections import defaultdict
+from datetime import date
+from itertools import combinations
 from pathlib import Path
 
 import psycopg
 
 from foundation.export import draft_resolution_event_date
+from foundation.ingest import normalize_player_alias_name
 from foundation.pick_inventory import DEFAULT_FUTURE_PICK_OBLIGATION_PATH
 from foundation.pick_inventory import load_pick_inventory_fixture
 from foundation.sources import (
@@ -24,6 +28,11 @@ CURRENTNESS_SOURCE_BASIS = (
     "NBA.com transaction and team release search",
     "CBS Sports Memphis transactions feed",
     "Memphis Grizzlies and G League official release search",
+)
+CORROBORATING_SOURCE_SYSTEMS = (
+    "nba_player_movement",
+    "nba_official",
+    "team_official",
 )
 
 
@@ -46,6 +55,17 @@ FOUNDATION_TABLES = (
     "canonical_event_member",
     "event_asset_transition",
 )
+
+AUDIT_PLAYER_SUFFIX_TOKENS = frozenset({"jr", "sr", "ii", "iii", "iv", "v", "vi", "vii"})
+AUDIT_NEAR_DATE_RECONCILIATION_WINDOW_DAYS = 3
+AUDIT_MAX_TRADE_MATCH_COMBINATION_SIZE = 4
+# Keep this table intentionally small; expand only with source-backed cases.
+AUDIT_SAFE_FIRST_NAME_VARIANTS = {
+    "kenneth": frozenset({"kenny"}),
+    "kenny": frozenset({"kenneth"}),
+    "vince": frozenset({"vincent"}),
+    "vincent": frozenset({"vince"}),
+}
 
 
 def audit_foundation_data(
@@ -193,8 +213,11 @@ def fetch_source_corroboration_events(connection: psycopg.Connection) -> list[di
             select ce.canonical_event_id,
                    ce.event_date::text,
                    ce.event_type,
-                   array_remove(array_agg(distinct sr.source_system order by sr.source_system), null),
-                   array_remove(array_agg(distinct sr.source_type order by sr.source_type), null)
+                   ce.sequence_on_date,
+                   se.source_event_id,
+                   sr.source_system,
+                   sr.source_type,
+                   se.normalized_payload
             from foundation.canonical_event ce
             left join foundation.canonical_event_member cem
               on cem.canonical_event_id = ce.canonical_event_id
@@ -202,22 +225,608 @@ def fetch_source_corroboration_events(connection: psycopg.Connection) -> list[di
               on se.source_event_id = cem.source_event_id
             left join foundation.source_record sr
               on sr.source_record_id = se.source_record_id
-            group by ce.canonical_event_id, ce.event_date, ce.event_type, ce.sequence_on_date
-            order by ce.event_date, ce.sequence_on_date, ce.canonical_event_id
+            order by ce.event_date, ce.sequence_on_date, ce.canonical_event_id, se.source_event_id
             """
         )
-        rows = cursor.fetchall()
+        canonical_member_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            select se.source_event_id,
+                   se.event_date::text,
+                   se.event_type,
+                   se.source_group_hint,
+                   se.normalized_payload,
+                   sr.source_system,
+                   sr.source_type
+            from foundation.source_event se
+            join foundation.source_record sr
+              on sr.source_record_id = se.source_record_id
+            where sr.source_system = any(%s)
+              and se.normalized_payload ->> 'corroboration_only' = 'true'
+            order by se.event_date, se.source_event_id
+            """
+            ,
+            (list(CORROBORATING_SOURCE_SYSTEMS),),
+        )
+        corroboration_rows = cursor.fetchall()
 
-    return [
-        {
-            "canonical_event_id": str(row[0]),
-            "event_date": str(row[1]),
-            "event_type": str(row[2]),
-            "loaded_source_systems": [str(value) for value in (row[3] or [])],
-            "loaded_source_types": [str(value) for value in (row[4] or [])],
+    event_rows = build_corroboration_report_event_rows(canonical_member_rows)
+    corroboration_groups = build_corroboration_candidate_groups(corroboration_rows)
+    return reconcile_corroboration_report_event_rows(event_rows, corroboration_groups)
+
+
+def build_corroboration_report_event_rows(rows: list[tuple[object, ...]]) -> list[dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+    ordered_ids: list[str] = []
+    for row in rows:
+        canonical_event_id = str(row[0])
+        event_row = grouped.get(canonical_event_id)
+        if event_row is None:
+            event_row = {
+                "canonical_event_id": canonical_event_id,
+                "event_date": str(row[1]),
+                "event_type": str(row[2]),
+                "loaded_source_systems": set(),
+                "loaded_source_types": set(),
+                "_matching_event_type": canonicalize_corroboration_event_type(str(row[2])),
+                "_participant_signature": empty_participant_signature(),
+                "_sequence_on_date": int(row[3]),
+            }
+            grouped[canonical_event_id] = event_row
+            ordered_ids.append(canonical_event_id)
+        if row[5]:
+            event_row["loaded_source_systems"].add(str(row[5]))
+        if row[6]:
+            event_row["loaded_source_types"].add(str(row[6]))
+        merge_participant_signature(
+            event_row["_participant_signature"],
+            extract_participant_signature(dict(row[7] or {})),
+        )
+
+    event_rows: list[dict[str, object]] = []
+    for canonical_event_id in ordered_ids:
+        event_row = grouped[canonical_event_id]
+        event_rows.append(
+            {
+                "canonical_event_id": str(event_row["canonical_event_id"]),
+                "event_date": str(event_row["event_date"]),
+                "event_type": str(event_row["event_type"]),
+                "loaded_source_systems": sorted(event_row["loaded_source_systems"]),
+                "loaded_source_types": sorted(event_row["loaded_source_types"]),
+                "_matching_event_type": event_row["_matching_event_type"],
+                "_participant_signature": event_row["_participant_signature"],
+                "_sequence_on_date": event_row["_sequence_on_date"],
+            }
+        )
+    return event_rows
+
+
+def build_corroboration_candidate_groups(rows: list[tuple[object, ...]]) -> list[dict[str, object]]:
+    grouped: dict[tuple[str, str, str], dict[str, object]] = {}
+    ordered_keys: list[tuple[str, str, str]] = []
+    for row in rows:
+        source_event_id = str(row[0])
+        event_date = str(row[1])
+        event_type = str(row[2])
+        matching_event_type = canonicalize_corroboration_event_type(event_type)
+        source_group_hint = str(row[3]) if row[3] is not None else None
+        group_key = (
+            event_date,
+            matching_event_type,
+            source_group_hint or source_event_id,
+        )
+        candidate_group = grouped.get(group_key)
+        if candidate_group is None:
+            candidate_group = {
+                "event_date": event_date,
+                "event_type": event_type,
+                "_matching_event_type": matching_event_type,
+                "_source_event_ids": set(),
+                "loaded_source_systems": set(),
+                "loaded_source_types": set(),
+                "_participant_signature": empty_participant_signature(),
+            }
+            grouped[group_key] = candidate_group
+            ordered_keys.append(group_key)
+        candidate_group["_source_event_ids"].add(source_event_id)
+        if row[5]:
+            candidate_group["loaded_source_systems"].add(str(row[5]))
+        if row[6]:
+            candidate_group["loaded_source_types"].add(str(row[6]))
+        merge_participant_signature(
+            candidate_group["_participant_signature"],
+            extract_participant_signature(dict(row[4] or {})),
+        )
+
+    candidate_groups: list[dict[str, object]] = []
+    for key in ordered_keys:
+        candidate_group = grouped[key]
+        candidate_groups.append(
+            {
+                "event_date": str(candidate_group["event_date"]),
+                "event_type": str(candidate_group["event_type"]),
+                "_matching_event_type": candidate_group["_matching_event_type"],
+                "_source_event_ids": sorted(candidate_group["_source_event_ids"]),
+                "loaded_source_systems": sorted(candidate_group["loaded_source_systems"]),
+                "loaded_source_types": sorted(candidate_group["loaded_source_types"]),
+                "_participant_signature": candidate_group["_participant_signature"],
+            }
+        )
+    return candidate_groups
+
+
+def reconcile_corroboration_report_event_rows(
+    event_rows: list[dict[str, object]],
+    candidate_groups: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    event_rows_by_id = {
+        str(event_row["canonical_event_id"]): {
+            **event_row,
+            "_loaded_source_systems_set": set(event_row.get("loaded_source_systems", [])),
+            "_loaded_source_types_set": set(event_row.get("loaded_source_types", [])),
         }
-        for row in rows
-    ]
+        for event_row in event_rows
+    }
+    candidate_indexes_by_event_id: dict[str, list[int]] = defaultdict(list)
+    event_ids_by_candidate_index: dict[int, list[str]] = defaultdict(list)
+
+    for candidate_index, candidate_group in enumerate(candidate_groups):
+        for event_row in event_rows:
+            if corroboration_candidate_confidently_matches_event(candidate_group, event_row):
+                canonical_event_id = str(event_row["canonical_event_id"])
+                candidate_indexes_by_event_id[canonical_event_id].append(candidate_index)
+                event_ids_by_candidate_index[candidate_index].append(canonical_event_id)
+
+    matched_candidate_indexes: set[int] = set()
+    for canonical_event_id, candidate_indexes in candidate_indexes_by_event_id.items():
+        eligible_candidate_indexes = [
+            candidate_index
+            for candidate_index in candidate_indexes
+            if event_ids_by_candidate_index.get(candidate_index) == [canonical_event_id]
+        ]
+        if not eligible_candidate_indexes:
+            continue
+        event_row = event_rows_by_id[canonical_event_id]
+        merge_reconciled_candidate_groups_into_event_row(
+            event_row,
+            [candidate_groups[candidate_index] for candidate_index in eligible_candidate_indexes],
+            [
+                f"Audit-time reconciliation matched corroboration-only rows from {describe_candidate_group_source_systems([candidate_groups[candidate_index] for candidate_index in eligible_candidate_indexes])} to this canonical event with no participant mismatch detected."
+            ],
+        )
+        matched_candidate_indexes.update(eligible_candidate_indexes)
+
+    reconcile_grouped_trade_candidates(
+        event_rows=event_rows,
+        event_rows_by_id=event_rows_by_id,
+        candidate_groups=candidate_groups,
+        matched_candidate_indexes=matched_candidate_indexes,
+    )
+    reconcile_nearby_signing_and_waiver_candidates(
+        event_rows=event_rows,
+        event_rows_by_id=event_rows_by_id,
+        candidate_groups=candidate_groups,
+        matched_candidate_indexes=matched_candidate_indexes,
+        max_day_delta=AUDIT_NEAR_DATE_RECONCILIATION_WINDOW_DAYS,
+    )
+
+    for event_row in event_rows_by_id.values():
+        if event_row.get("_reconciled_conflict_status") == "no_conflict_detected":
+            continue
+        conflicting_candidates = [
+            candidate_groups[index]
+            for index in range(len(candidate_groups))
+            if index not in matched_candidate_indexes
+            and corroboration_candidate_conflicts_with_event(candidate_groups[index], event_row)
+        ]
+        if len(conflicting_candidates) == 1:
+            candidate_group = conflicting_candidates[0]
+            event_row["_reconciled_conflict_status"] = "conflict_suspected"
+            event_row["_reconciliation_notes"] = [
+                f"Loaded corroboration rows from {describe_candidate_group_source_systems([candidate_group])} share the event date/type and participant overlap for this canonical event, but the directional participant details do not fully align."
+            ]
+            event_row["_conflicting_source_event_ids"] = candidate_group["_source_event_ids"]
+
+    reconciled_rows: list[dict[str, object]] = []
+    for event_row in event_rows:
+        reconciled = dict(event_rows_by_id[str(event_row["canonical_event_id"])])
+        reconciled["loaded_source_systems"] = sorted(reconciled.pop("_loaded_source_systems_set"))
+        reconciled["loaded_source_types"] = sorted(reconciled.pop("_loaded_source_types_set"))
+        reconciled_rows.append(reconciled)
+    return reconciled_rows
+
+
+def merge_reconciled_candidate_groups_into_event_row(
+    event_row: dict[str, object],
+    candidate_groups: list[dict[str, object]],
+    notes: list[str],
+) -> None:
+    for candidate_group in candidate_groups:
+        event_row["_loaded_source_systems_set"].update(candidate_group["loaded_source_systems"])
+        event_row["_loaded_source_types_set"].update(candidate_group["loaded_source_types"])
+    event_row["_reconciled_conflict_status"] = "no_conflict_detected"
+    event_row["_reconciliation_notes"] = notes
+
+
+def describe_candidate_group_source_systems(candidate_groups: list[dict[str, object]]) -> str:
+    source_systems = sorted(
+        {
+            str(source_system)
+            for candidate_group in candidate_groups
+            for source_system in candidate_group.get("loaded_source_systems", [])
+            if source_system
+        }
+    )
+    if not source_systems:
+        return "corroborating source systems"
+    return ", ".join(source_systems)
+
+
+def reconcile_grouped_trade_candidates(
+    *,
+    event_rows: list[dict[str, object]],
+    event_rows_by_id: dict[str, dict[str, object]],
+    candidate_groups: list[dict[str, object]],
+    matched_candidate_indexes: set[int],
+) -> None:
+    combo_indexes_by_event_id: dict[str, list[tuple[int, ...]]] = defaultdict(list)
+    event_ids_by_combo_indexes: dict[tuple[int, ...], list[str]] = defaultdict(list)
+
+    for event_row in event_rows:
+        canonical_event_id = str(event_row["canonical_event_id"])
+        if event_row.get("_matching_event_type") != "trade":
+            continue
+        if event_rows_by_id[canonical_event_id].get("_reconciled_conflict_status") == "no_conflict_detected":
+            continue
+        candidate_indexes = [
+            candidate_index
+            for candidate_index, candidate_group in enumerate(candidate_groups)
+            if candidate_index not in matched_candidate_indexes
+            and corroboration_candidate_conflicts_with_event(candidate_group, event_row)
+        ]
+        if len(candidate_indexes) < 2:
+            continue
+        candidate_indexes = candidate_indexes[:AUDIT_MAX_TRADE_MATCH_COMBINATION_SIZE]
+        matching_combos: list[tuple[int, ...]] = []
+        for combo_size in range(2, len(candidate_indexes) + 1):
+            for combo_indexes in combinations(candidate_indexes, combo_size):
+                combo_groups = [candidate_groups[index] for index in combo_indexes]
+                if not corroboration_candidate_groups_confidently_match_trade_event(combo_groups, event_row):
+                    continue
+                matching_combos.append(combo_indexes)
+        if len(matching_combos) != 1:
+            continue
+        combo_indexes_by_event_id[canonical_event_id].append(matching_combos[0])
+        event_ids_by_combo_indexes[matching_combos[0]].append(canonical_event_id)
+
+    for canonical_event_id, combos in combo_indexes_by_event_id.items():
+        if len(combos) != 1:
+            continue
+        combo_indexes = combos[0]
+        if event_ids_by_combo_indexes.get(combo_indexes) != [canonical_event_id]:
+            continue
+        merge_reconciled_candidate_groups_into_event_row(
+            event_rows_by_id[canonical_event_id],
+            [candidate_groups[index] for index in combo_indexes],
+            [
+                f"Audit-time reconciliation matched grouped same-day corroboration-only trade rows from {describe_candidate_group_source_systems([candidate_groups[index] for index in combo_indexes])} to this canonical event with no participant mismatch detected."
+            ],
+        )
+        matched_candidate_indexes.update(combo_indexes)
+
+
+def reconcile_nearby_signing_and_waiver_candidates(
+    *,
+    event_rows: list[dict[str, object]],
+    event_rows_by_id: dict[str, dict[str, object]],
+    candidate_groups: list[dict[str, object]],
+    matched_candidate_indexes: set[int],
+    max_day_delta: int,
+) -> None:
+    candidate_indexes_by_event_id: dict[str, list[int]] = defaultdict(list)
+    event_ids_by_candidate_index: dict[int, list[str]] = defaultdict(list)
+    nearby_day_delta_by_match: dict[tuple[str, int], int] = {}
+
+    for candidate_index, candidate_group in enumerate(candidate_groups):
+        if candidate_index in matched_candidate_indexes:
+            continue
+        if candidate_group.get("_matching_event_type") not in {"signing", "waiver"}:
+            continue
+        for event_row in event_rows:
+            canonical_event_id = str(event_row["canonical_event_id"])
+            if event_rows_by_id[canonical_event_id].get("_reconciled_conflict_status") == "no_conflict_detected":
+                continue
+            if not corroboration_candidate_confidently_matches_event_within_window(
+                candidate_group,
+                event_row,
+                max_day_delta=max_day_delta,
+            ):
+                continue
+            candidate_indexes_by_event_id[canonical_event_id].append(candidate_index)
+            event_ids_by_candidate_index[candidate_index].append(canonical_event_id)
+            nearby_day_delta_by_match[(canonical_event_id, candidate_index)] = abs(
+                corroboration_candidate_day_delta(candidate_group, event_row) or 0
+            )
+
+    for candidate_index, event_ids in event_ids_by_candidate_index.items():
+        if len(event_ids) != 1:
+            continue
+        canonical_event_id = event_ids[0]
+        if candidate_indexes_by_event_id.get(canonical_event_id) != [candidate_index]:
+            continue
+        day_delta = nearby_day_delta_by_match[(canonical_event_id, candidate_index)]
+        day_label = "day" if day_delta == 1 else "days"
+        merge_reconciled_candidate_groups_into_event_row(
+            event_rows_by_id[canonical_event_id],
+            [candidate_groups[candidate_index]],
+            [
+                f"Audit-time reconciliation matched a corroboration-only row from {describe_candidate_group_source_systems([candidate_groups[candidate_index]])} to this canonical signing/waiver event with no participant mismatch detected.",
+                f"The corroborating source row is offset by {day_delta} {day_label} from the canonical event date.",
+            ],
+        )
+        matched_candidate_indexes.add(candidate_index)
+
+
+def canonicalize_corroboration_event_type(event_type: str) -> str:
+    normalized = event_type.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"trade", "draft", "waiver", "signing"}:
+        return normalized
+    if normalized in {
+        "re_signing",
+        "resigning",
+        "extension",
+        "conversion",
+        "10_day",
+        "ten_day",
+        "ten_day_signing",
+        "two_way",
+        "two_way_signing",
+        "two_way_conversion",
+    }:
+        return "signing"
+    if normalized in {"release", "released", "waived"}:
+        return "waiver"
+    return normalized
+
+
+def parse_iso_date(value: object) -> date | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def empty_participant_signature() -> dict[str, set[str]]:
+    return {
+        "player_names_in": set(),
+        "player_names_out": set(),
+        "pick_details_in": set(),
+        "pick_details_out": set(),
+    }
+
+
+def extract_participant_signature(payload: dict[str, object]) -> dict[str, set[str]]:
+    signature = empty_participant_signature()
+    for key in ("player_names_in", "player_names_out"):
+        for value in payload.get(key, []):
+            if isinstance(value, str) and value.strip():
+                signature[key].add(normalize_player_alias_name(value))
+    for key in ("pick_details_in", "pick_details_out"):
+        for detail in payload.get(key, []):
+            if not isinstance(detail, dict):
+                continue
+            raw_text = detail.get("raw_text")
+            if isinstance(raw_text, str) and raw_text.strip():
+                signature[key].add(raw_text.strip().lower())
+    return signature
+
+
+def merge_participant_signature(
+    target: dict[str, set[str]],
+    source: dict[str, set[str]],
+) -> None:
+    for key in target:
+        target[key].update(source.get(key, set()))
+
+
+def audit_player_name_tokens(value: str) -> tuple[str, ...]:
+    tokens = [token for token in normalize_player_alias_name(value).split(" ") if token]
+    while tokens and tokens[-1] in AUDIT_PLAYER_SUFFIX_TOKENS:
+        tokens.pop()
+    return tuple(tokens)
+
+
+def audit_player_first_names_equivalent(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    return right in AUDIT_SAFE_FIRST_NAME_VARIANTS.get(left, frozenset())
+
+
+def audit_player_names_equivalent(left: str, right: str) -> bool:
+    if left == right:
+        return True
+
+    left_tokens = audit_player_name_tokens(left)
+    right_tokens = audit_player_name_tokens(right)
+    if not left_tokens or not right_tokens:
+        return False
+    if left_tokens == right_tokens:
+        return True
+    if len(left_tokens) != len(right_tokens):
+        return False
+    if len(left_tokens) < 2:
+        return False
+
+    return left_tokens[1:] == right_tokens[1:] and audit_player_first_names_equivalent(
+        left_tokens[0],
+        right_tokens[0],
+    )
+
+
+def audit_player_name_sets_equivalent(left: set[str], right: set[str]) -> bool:
+    if len(left) != len(right):
+        return False
+    if left == right:
+        return True
+    if not left:
+        return True
+
+    left_names = tuple(sorted(left))
+    right_names = tuple(sorted(right))
+
+    def match_name(index: int, remaining: tuple[str, ...]) -> bool:
+        if index == len(left_names):
+            return True
+        for remaining_index, right_name in enumerate(remaining):
+            if not audit_player_names_equivalent(left_names[index], right_name):
+                continue
+            next_remaining = remaining[:remaining_index] + remaining[remaining_index + 1 :]
+            if match_name(index + 1, next_remaining):
+                return True
+        return False
+
+    return match_name(0, right_names)
+
+
+def audit_player_name_sets_overlap(left: set[str], right: set[str]) -> bool:
+    return any(
+        audit_player_names_equivalent(left_name, right_name)
+        for left_name in left
+        for right_name in right
+    )
+
+
+def corroboration_candidate_confidently_matches_event(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+) -> bool:
+    return (
+        corroboration_candidate_day_delta(candidate_group, event_row) == 0
+        and corroboration_candidate_exact_participant_match(candidate_group, event_row)
+    )
+
+
+def corroboration_candidate_confidently_matches_event_within_window(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+    *,
+    max_day_delta: int,
+) -> bool:
+    if candidate_group.get("_matching_event_type") not in {"signing", "waiver"}:
+        return False
+    day_delta = corroboration_candidate_day_delta(candidate_group, event_row)
+    if day_delta is None or day_delta == 0 or abs(day_delta) > max_day_delta:
+        return False
+    return corroboration_candidate_exact_participant_match(candidate_group, event_row)
+
+
+def corroboration_candidate_day_delta(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+) -> int | None:
+    if str(candidate_group.get("_matching_event_type")) != str(event_row.get("_matching_event_type")):
+        return None
+    candidate_date = parse_iso_date(candidate_group.get("event_date"))
+    event_date = parse_iso_date(event_row.get("event_date"))
+    if candidate_date is None or event_date is None:
+        return None
+    return (candidate_date - event_date).days
+
+
+def corroboration_candidate_exact_participant_match(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+) -> bool:
+    if str(candidate_group.get("_matching_event_type")) != str(event_row.get("_matching_event_type")):
+        return False
+
+    candidate_signature = candidate_group.get("_participant_signature", {})
+    event_signature = event_row.get("_participant_signature", {})
+    candidate_inbound = set(candidate_signature.get("player_names_in", set()))
+    candidate_outbound = set(candidate_signature.get("player_names_out", set()))
+    event_inbound = set(event_signature.get("player_names_in", set()))
+    event_outbound = set(event_signature.get("player_names_out", set()))
+
+    if not candidate_inbound and not candidate_outbound:
+        return False
+
+    event_type = str(candidate_group.get("_matching_event_type"))
+    if event_type == "trade":
+        inbound_matches = (
+            audit_player_name_sets_equivalent(candidate_inbound, event_inbound)
+            if candidate_inbound
+            else True
+        )
+        outbound_matches = (
+            audit_player_name_sets_equivalent(candidate_outbound, event_outbound)
+            if candidate_outbound
+            else True
+        )
+        return inbound_matches and outbound_matches and bool(candidate_inbound or candidate_outbound)
+
+    if event_type == "waiver":
+        return (
+            not candidate_inbound
+            and not event_inbound
+            and audit_player_name_sets_equivalent(candidate_outbound, event_outbound)
+        )
+
+    if event_type == "signing":
+        return (
+            not candidate_outbound
+            and not event_outbound
+            and audit_player_name_sets_equivalent(candidate_inbound, event_inbound)
+        )
+
+    return False
+
+
+def corroboration_candidate_groups_confidently_match_trade_event(
+    candidate_groups: list[dict[str, object]],
+    event_row: dict[str, object],
+) -> bool:
+    if not candidate_groups or str(event_row.get("_matching_event_type")) != "trade":
+        return False
+    if any(corroboration_candidate_day_delta(candidate_group, event_row) != 0 for candidate_group in candidate_groups):
+        return False
+
+    combined_signature = empty_participant_signature()
+    for candidate_group in candidate_groups:
+        merge_participant_signature(
+            combined_signature,
+            candidate_group.get("_participant_signature", {}),
+        )
+    return corroboration_candidate_exact_participant_match(
+        {
+            "_matching_event_type": "trade",
+            "_participant_signature": combined_signature,
+        },
+        event_row,
+    )
+
+
+def corroboration_candidate_conflicts_with_event(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+) -> bool:
+    if str(candidate_group.get("event_date")) != str(event_row.get("event_date")):
+        return False
+    if str(candidate_group.get("_matching_event_type")) != str(event_row.get("_matching_event_type")):
+        return False
+    if corroboration_candidate_confidently_matches_event(candidate_group, event_row):
+        return False
+
+    candidate_signature = candidate_group.get("_participant_signature", {})
+    event_signature = event_row.get("_participant_signature", {})
+    candidate_players = set(candidate_signature.get("player_names_in", set())) | set(
+        candidate_signature.get("player_names_out", set())
+    )
+    event_players = set(event_signature.get("player_names_in", set())) | set(
+        event_signature.get("player_names_out", set())
+    )
+    return bool(candidate_players and event_players and audit_player_name_sets_overlap(candidate_players, event_players))
 
 
 def fetch_alias_metrics(connection: psycopg.Connection) -> dict[str, object]:
@@ -645,12 +1254,19 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         loaded_roles=loaded_roles,
         recognized_provider_roles=recognized_provider_roles,
     )
+    conflict_status = str(row.get("_reconciled_conflict_status") or "not_evaluated")
     notes = build_source_corroboration_notes(
         corroboration_status=corroboration_status,
+        conflict_status=conflict_status,
         missing_roles=missing_roles,
         loaded_source_systems=loaded_source_systems,
         target_roles=target_roles,
         loaded_roles=loaded_roles,
+        reconciliation_notes=[
+            str(note)
+            for note in row.get("_reconciliation_notes", [])
+            if isinstance(note, str) and note.strip()
+        ],
     )
 
     return {
@@ -665,7 +1281,7 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         "missing_roles": missing_roles,
         "evidence_states": evidence_states,
         "corroboration_status": corroboration_status,
-        "conflict_status": "not_evaluated",
+        "conflict_status": conflict_status,
         "notes": notes,
     }
 
@@ -788,12 +1404,14 @@ def classify_corroboration_status(
 def build_source_corroboration_notes(
     *,
     corroboration_status: str,
+    conflict_status: str,
     missing_roles: list[str],
     loaded_source_systems: list[str],
     target_roles: list[str],
     loaded_roles: set[str],
+    reconciliation_notes: list[str],
 ) -> list[str]:
-    notes: list[str] = []
+    notes: list[str] = list(reconciliation_notes)
     if missing_roles:
         notes.append(f"Missing required source roles: {', '.join(missing_roles)}.")
     if corroboration_status == "bref_only":
@@ -806,6 +1424,10 @@ def build_source_corroboration_notes(
             notes.append(
                 f"Recognized target provider roles are not loaded for this event: {', '.join(unloaded_targets)}."
             )
+    if conflict_status == "not_evaluated" and "structured_player_movement" in target_roles:
+        notes.append(
+            "No confident audit-time reconciliation to corroboration-only corroborating source rows was found for this canonical event."
+        )
     if not loaded_source_systems:
         notes.append("No loaded source records are attached through canonical event membership.")
     notes.append(SOURCE_POLICY.planned_vs_loaded_rule)
@@ -823,7 +1445,10 @@ def build_source_corroboration_summary(events: list[dict[str, object]]) -> dict[
 
     return {
         "reporting_unit": CORROBORATION_REPORTING_UNIT,
-        "derivation": CORROBORATION_DERIVATION_PATH,
+        "derivation": (
+            f"{CORROBORATION_DERIVATION_PATH} + audit-time reconciliation of "
+            "corroboration_only source_event rows from loaded corroborating source systems"
+        ),
         "event_fields": list(CORROBORATION_REPORT_EVENT_FIELDS),
         "total_events": len(events),
         "by_corroboration_status": dict(sorted(by_corroboration_status.items())),

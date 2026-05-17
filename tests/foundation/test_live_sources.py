@@ -1,19 +1,26 @@
 import json
 from pathlib import Path
 
+import pytest
+
+from foundation import live_sources
 from foundation.live_sources import (
     NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
+    build_official_release_source_rows,
     build_bref_draft_rows,
     build_bref_roster_rows,
     build_bref_source_rows,
+    extract_official_article_metadata,
     extract_bref_draft_rows,
     extract_bref_roster_rows,
     extract_bref_transaction_blocks,
     extract_nba_dataset_rows,
     extract_nba_player_movement_rows,
+    preview_official_release_sources,
     preview_nba_player_movement,
 )
 from foundation.sources import RECOGNIZED_SOURCE_SYSTEMS
@@ -79,7 +86,11 @@ def test_build_nba_player_movement_preview_rows_exposes_minimum_contract() -> No
     assert rows[0]["transaction_type"] == "Trade"
     assert rows[0]["transaction_description"] == "Memphis Grizzlies acquired a fixture-only player."
     assert rows[0]["team_identifiers"] == {"team_id": "1610612763", "team_abbreviation": "MEM"}
-    assert rows[0]["player_identifiers"] == {"player_id": "1641713", "player_name": "GG Jackson"}
+    assert rows[0]["player_identifiers"] == {
+        "player_id": "1641713",
+        "player_name": "GG Jackson",
+        "player_name_source": "payload",
+    }
     assert rows[0]["source_locator"] == "fixture://nba-player-movement#row=1"
     assert rows[0]["normalized_payload"]["normalized_event_type"] == "trade"
     assert rows[0]["normalized_payload"]["raw_row"] == payload["transactions"][0]
@@ -148,7 +159,443 @@ def test_build_nba_player_movement_source_rows_sets_deterministic_guarded_candid
     assert event.normalized_payload["corroboration_only"] is True
     assert event.normalized_payload["canonical_exclusion_reason"] == NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON
     assert "loader compatibility only" in str(event.normalized_payload["normalization_note"])
+    assert event.normalized_payload["player_names_in"] == ["GG Jackson"]
+    assert event.normalized_payload["player_names_out"] == []
     assert event.normalized_payload["raw_row"]["TRANSACTION_TYPE"] == "Trade"
+
+
+def test_build_nba_player_movement_source_rows_infers_trade_direction_and_description_name() -> None:
+    payload = {
+        "transactions": [
+            {
+                "TRANSACTION_DATE": "2026-02-03T00:00:00",
+                "TRANSACTION_TYPE": "Trade",
+                "TRANSACTION_DESCRIPTION": "Utah Jazz received guard John Konchar from Memphis Grizzlies.",
+                "TEAM_ID": 1610612762.0,
+                "TEAM_SLUG": "jazz",
+                "PLAYER_ID": 1629723.0,
+                "PLAYER_SLUG": "john-konchar",
+                "GroupSort": "Trade 2025022",
+                "Additional_Sort": 1610612763.0,
+            },
+            {
+                "TRANSACTION_DATE": "2026-02-03T00:00:00",
+                "TRANSACTION_TYPE": "Trade",
+                "TRANSACTION_DESCRIPTION": "Memphis Grizzlies received guard Walter Clayton Jr. from Utah Jazz.",
+                "TEAM_ID": 1610612763.0,
+                "TEAM_SLUG": "grizzlies",
+                "PLAYER_ID": 1642383.0,
+                "PLAYER_SLUG": "walter-clayton-jr",
+                "GroupSort": "Trade 2025022",
+                "Additional_Sort": 1610612762.0,
+            },
+        ]
+    }
+
+    _records, events = build_nba_player_movement_source_rows(
+        payload,
+        source_locator="fixture://nba-player-movement",
+        fetched_at="2026-05-15T00:00:00+00:00",
+    )
+
+    assert len(events) == 2
+    outbound_event = next(event for event in events if "John Konchar" in event.label)
+    inbound_event = next(event for event in events if "Walter Clayton Jr." in event.label)
+
+    assert outbound_event.normalized_payload["player_names_in"] == []
+    assert outbound_event.normalized_payload["player_names_out"] == ["John Konchar"]
+    assert outbound_event.normalized_payload["player_direction"] == "out"
+    assert outbound_event.normalized_payload["player_identifiers"] == {
+        "player_id": "1629723",
+        "player_slug": "john-konchar",
+        "player_name": "John Konchar",
+        "player_name_source": "description",
+    }
+
+    assert inbound_event.normalized_payload["player_names_in"] == ["Walter Clayton Jr."]
+    assert inbound_event.normalized_payload["player_names_out"] == []
+    assert inbound_event.normalized_payload["player_direction"] == "in"
+    assert inbound_event.normalized_payload["player_identifiers"] == {
+        "player_id": "1642383",
+        "player_slug": "walter-clayton-jr",
+        "player_name": "Walter Clayton Jr.",
+        "player_name_source": "description",
+    }
+
+
+def test_build_nba_player_movement_source_rows_falls_back_to_slug_name() -> None:
+    payload = {
+        "transactions": [
+            {
+                "TRANSACTION_DATE": "2026-04-10T00:00:00",
+                "TRANSACTION_TYPE": "Signing",
+                "TRANSACTION_DESCRIPTION": "Memphis Grizzlies signed to a 10-Day Contract.",
+                "TEAM_ID": 1610612763.0,
+                "TEAM_SLUG": "grizzlies",
+                "PLAYER_ID": 1631246.0,
+                "PLAYER_SLUG": "vince-williams-jr",
+                "GroupSort": "Signing 1148495",
+                "Additional_Sort": 0.0,
+            }
+        ]
+    }
+
+    rows = build_nba_player_movement_preview_rows(payload, source_locator="fixture://nba-player-movement")
+
+    assert len(rows) == 1
+    assert rows[0]["player_identifiers"] == {
+        "player_id": "1631246",
+        "player_slug": "vince-williams-jr",
+        "player_name": "Vince Williams Jr.",
+        "player_name_source": "slug",
+    }
+    assert rows[0]["normalized_payload"]["player_direction"] == "in"
+
+
+def test_load_nba_player_movement_dry_run_does_not_connect(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = {
+        "status": "ok",
+        "source_system": "nba_player_movement",
+        "source_type": "transactions_json",
+        "source_locator": "fixture://nba-player-movement",
+        "writes_to_database": False,
+        "source_records": 1,
+        "source_events": 2,
+        "source_record_ids": ["nba_player_movement:memphis"],
+        "source_event_ids": ["nba_player_movement:a", "nba_player_movement:b"],
+    }
+    monkeypatch.setattr(live_sources, "preview_nba_player_movement_source_rows", lambda **kwargs: preview)
+    monkeypatch.setattr(
+        live_sources.psycopg,
+        "connect",
+        lambda *args, **kwargs: pytest.fail("dry-run should not open a write connection"),
+    )
+
+    result = live_sources.load_nba_player_movement(dry_run=True)
+
+    assert result["dry_run"] is True
+    assert result["writes_to_database"] is False
+    assert result["source_events"] == 2
+
+
+def test_load_nba_player_movement_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {"transactions": [{"TRANSACTION_TYPE": "Signing"}]}
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="nba_player_movement:memphis",
+            source_system="nba_player_movement",
+            source_type="transactions_json",
+            source_locator="fixture://nba-player-movement",
+            fetched_at="2026-05-15T00:00:00+00:00",
+            raw_payload={"rows": []},
+        )
+    ]
+    source_events = [
+        live_sources.SourceEventRow(
+            source_event_id="nba_player_movement:test",
+            source_record_id="nba_player_movement:memphis",
+            event_date="2026-04-10",
+            event_type="signing",
+            label="Memphis Grizzlies signed Test Player.",
+            team_scope="MEM",
+            source_group_hint=None,
+            normalized_payload={"corroboration_only": True},
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "read_nba_player_movement_fixture", lambda path: payload)
+    monkeypatch.setattr(
+        live_sources,
+        "build_nba_player_movement_source_rows",
+        lambda *args, **kwargs: (source_records, source_events),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+    monkeypatch.setattr(
+        live_sources,
+        "replace_source_events_for_record",
+        lambda connection, source_record_id, rows: calls.append(f"replace:{source_record_id}:{len(rows)}"),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_events", lambda connection, rows: calls.append(f"events:{len(rows)}"))
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = live_sources.load_nba_player_movement(
+        "postgresql://example",
+        fixture_path=Path("fixture.json"),
+        execute=True,
+        dry_run=False,
+    )
+
+    assert calls == ["records:1", "replace:nba_player_movement:memphis:1", "events:1", "commit"]
+    assert result["dry_run"] is False
+    assert result["writes_to_database"] is True
+    assert result["source_records"] == 1
+    assert result["source_events"] == 1
+
+
+def test_extract_official_article_metadata_from_minimal_html() -> None:
+    html = """
+    <html>
+      <head>
+        <meta property="og:title" content="Grizzlies complete trade with Pacers" />
+        <meta property="og:description" content="Memphis trades Jay Huff." />
+        <script type="application/ld+json">
+          {"datePublished":"2025-07-06T13:15:00-05:00","dateModified":"2025-07-06T14:00:00-05:00"}
+        </script>
+      </head>
+      <body>
+        <article>
+          <p>Memphis, Tenn. - The Memphis Grizzlies today announced the team acquired a future second round draft pick.</p>
+        </article>
+      </body>
+    </html>
+    """
+
+    metadata = extract_official_article_metadata(html)
+
+    assert metadata["title"] == "Grizzlies complete trade with Pacers"
+    assert metadata["description"] == "Memphis trades Jay Huff."
+    assert metadata["published_at"] == "2025-07-06T13:15:00-05:00"
+    assert metadata["modified_at"] == "2025-07-06T14:00:00-05:00"
+    assert "Memphis Grizzlies today announced" in str(metadata["article_text_excerpt"])
+    assert metadata["html_sha1"]
+
+
+def test_build_official_release_source_rows_from_fixture_payload() -> None:
+    payload = {
+        "articles": [
+            {
+                "source_record_id": "nba_official:2025-02-06:wizards-acquire-smart",
+                "source_system": "nba_official",
+                "source_type": "transaction_page",
+                "source_locator": "https://www.nba.com/news/2024-25-nba-trade-tracker?hidenav=true",
+                "source_title": "Wizards acquire Smart from Grizzlies",
+                "source_published_at": "2025-02-09T14:33:00-05:00",
+                "source_excerpt": "Wizards receive Marcus Smart. Grizzlies receive Marvin Bagley III, Johnny Davis and two second-round picks.",
+                "events": [
+                    {
+                        "event_date": "2025-02-06",
+                        "event_type": "trade",
+                        "label": "Wizards acquire Smart from Grizzlies",
+                        "player_names_in": ["Marvin Bagley III", "Johnny Davis"],
+                        "player_names_out": ["Marcus Smart"],
+                        "pick_text_in": ["Two second-round picks"],
+                        "pick_text_out": ["2025 first-round pick (via Grizzlies)"],
+                    }
+                ],
+            }
+        ]
+    }
+
+    source_records, source_events = build_official_release_source_rows(
+        payload,
+        fetched_at="2026-05-17T00:00:00+00:00",
+    )
+
+    assert len(source_records) == 1
+    assert len(source_events) == 1
+    assert source_records[0].source_system == "nba_official"
+    assert source_records[0].source_type == "transaction_page"
+    assert source_records[0].raw_payload["fetch_mode"] == "fixture_metadata"
+    assert source_events[0].event_type == "trade"
+    assert source_events[0].normalized_payload["corroboration_only"] is True
+    assert source_events[0].normalized_payload["source_system"] == "nba_official"
+    assert source_events[0].normalized_payload["player_names_in"] == ["Marvin Bagley III", "Johnny Davis"]
+    assert source_events[0].normalized_payload["player_names_out"] == ["Marcus Smart"]
+
+
+def test_preview_official_release_sources_is_fixture_only_and_schema_free(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "official_release_fixture.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-06:trade-pacers",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+                        "source_title": "Grizzlies complete trade with Pacers",
+                        "events": [
+                            {
+                                "event_date": "2025-07-06",
+                                "event_type": "trade",
+                                "label": "Grizzlies complete trade with Pacers",
+                                "player_names_in": [],
+                                "player_names_out": ["Jay Huff"],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    preview = preview_official_release_sources(fixture_path=fixture_path)
+
+    assert preview["status"] == "ok"
+    assert preview["writes_to_database"] is False
+    assert preview["fixture_path"] == str(fixture_path)
+    assert preview["source_records"] == 1
+    assert preview["source_events"] == 1
+    assert preview["source_systems"] == ["team_official"]
+
+
+def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "articles": [
+            {
+                "source_record_id": "team_official:2025-07-06:trade-pacers",
+                "source_system": "team_official",
+                "source_type": "press_release_article",
+                "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+                "events": [{"event_date": "2025-07-06", "event_type": "trade", "player_names_out": ["Jay Huff"]}],
+            }
+        ]
+    }
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="team_official:2025-07-06:trade-pacers",
+            source_system="team_official",
+            source_type="press_release_article",
+            source_locator="https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+            fetched_at="2026-05-17T00:00:00+00:00",
+            raw_payload={"fetch_mode": "fixture_metadata"},
+        )
+    ]
+    source_events = [
+        live_sources.SourceEventRow(
+            source_event_id="team_official:2025-07-06:trade-pacers:event:test",
+            source_record_id="team_official:2025-07-06:trade-pacers",
+            event_date="2025-07-06",
+            event_type="trade",
+            label="Trade",
+            team_scope="MEM",
+            source_group_hint=None,
+            normalized_payload={"corroboration_only": True},
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "read_official_release_fixture", lambda path: payload)
+    monkeypatch.setattr(
+        live_sources,
+        "build_official_release_source_rows",
+        lambda *args, **kwargs: (source_records, source_events),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+    monkeypatch.setattr(
+        live_sources,
+        "replace_source_events_for_records",
+        lambda connection, source_record_ids, rows: calls.append(f"replace:{len(source_record_ids)}:{len(rows)}"),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_events", lambda connection, rows: calls.append(f"events:{len(rows)}"))
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = live_sources.load_official_release_sources(
+        "postgresql://example",
+        fixture_path=Path("fixture.json"),
+        execute=True,
+        dry_run=False,
+    )
+
+    assert calls == ["records:1", "replace:1:1", "events:1", "commit"]
+    assert result["dry_run"] is False
+    assert result["writes_to_database"] is True
+    assert result["source_records"] == 1
+    assert result["source_events"] == 1
+
+
+def test_load_bref_source_events_replaces_stale_rows_per_source_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="bref:mem:2024:2024-01-10:1",
+            source_system="basketball_reference",
+            source_type="team_transactions_page",
+            source_locator="fixture://bref-transactions",
+            fetched_at="2026-05-15T00:00:00+00:00",
+            raw_payload={"note_text": "Signed free agent forward Troy Williams."},
+        ),
+        live_sources.SourceRecordRow(
+            source_record_id="bref:mem:2024:2024-01-10:2",
+            source_system="basketball_reference",
+            source_type="team_transactions_page",
+            source_locator="fixture://bref-transactions",
+            fetched_at="2026-05-15T00:00:00+00:00",
+            raw_payload={"note_text": "Unparsed source row."},
+        ),
+    ]
+    source_events = [
+        live_sources.SourceEventRow(
+            source_event_id="bref:mem:2024:2024-01-10:1:1",
+            source_record_id="bref:mem:2024:2024-01-10:1",
+            event_date="2024-01-10",
+            event_type="signing",
+            label="Memphis signed Troy Williams",
+            team_scope="MEM",
+            source_group_hint="bref:2024-01-10:signing",
+            normalized_payload={"player_names_in": ["Troy Williams"]},
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "fetch_bref_transactions_html", lambda **kwargs: "<html />")
+    monkeypatch.setattr(
+        live_sources,
+        "build_bref_source_rows",
+        lambda *args, **kwargs: (source_records, source_events),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+    monkeypatch.setattr(
+        live_sources,
+        "replace_source_events_for_record",
+        lambda connection, source_record_id, rows: calls.append(f"replace:{source_record_id}:{len(rows)}"),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_events", lambda connection, rows: calls.append(f"events:{len(rows)}"))
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = live_sources.load_bref_source_events("postgresql://example", team_code="MEM", season_end_year=2024)
+
+    assert calls == [
+        "records:2",
+        "replace:bref:mem:2024:2024-01-10:1:1",
+        "replace:bref:mem:2024:2024-01-10:2:0",
+        "events:1",
+        "commit",
+    ]
+    assert result["source_records"] == 2
+    assert result["source_events"] == 1
 
 
 def test_extract_bref_roster_rows_from_minimal_html() -> None:

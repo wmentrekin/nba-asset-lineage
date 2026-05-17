@@ -49,6 +49,20 @@ NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON = "nba_player_movement_requires_r
 NBA_PLAYER_MOVEMENT_NORMALIZATION_NOTE = (
     "Normalized event type is loader compatibility only; canonical reconciliation is deferred."
 )
+OFFICIAL_ARTICLE_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Connection": "keep-alive",
+}
+OFFICIAL_RELEASE_SOURCE_SYSTEMS = frozenset({"nba_official", "team_official"})
+OFFICIAL_RELEASE_SOURCE_TYPES = frozenset(
+    {"news_release_article", "press_release_article", "transaction_page"}
+)
+OFFICIAL_RELEASE_CANONICAL_EXCLUSION_REASON = "official_release_requires_reconciliation"
+OFFICIAL_RELEASE_NORMALIZATION_NOTE = (
+    "Official article evidence is curated/manual and excluded from canonical derivation by default."
+)
 NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
     "AwardOnWaivers": "signing",
     "ContractConverted": "conversion",
@@ -57,6 +71,7 @@ NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
     "Waive": "waiver",
 }
 DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH = Path("tests/foundation/fixtures/nba_player_movement_sample.json")
+DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH = Path("configs/data/memphis_official_release_sources_seed_v1.json")
 
 
 def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
@@ -190,6 +205,11 @@ def load_bref_source_events(database_url: str, *, team_code: str, season_end_yea
     )
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
+        replace_source_events_for_records(
+            connection,
+            source_record_ids=[row.source_record_id for row in source_records],
+            rows=source_events,
+        )
         insert_source_events(connection, source_events)
         connection.commit()
     return {
@@ -562,6 +582,11 @@ def load_bref_draft_results(database_url: str, *, draft_year: int, team_code: st
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
         upsert_players(connection, players)
+        replace_source_events_for_records(
+            connection,
+            source_record_ids=[row.source_record_id for row in source_records],
+            rows=source_events,
+        )
         insert_source_events(connection, source_events)
         upsert_draft_selections(connection, selections)
         connection.commit()
@@ -697,19 +722,24 @@ def extract_nba_player_movement_row_fields(row: dict[str, object]) -> dict[str, 
             ),
         )
     )
+    player_name, player_name_source = resolve_nba_player_movement_player_name(
+        description=transaction_description,
+        raw_player_name=string_or_none(first_present(row, ("PLAYER_NAME", "PLAYER", "personName", "playerName", "player_name"))),
+        player_slug=normalize_identifier_text(first_present(row, ("PLAYER_SLUG", "Player_Slug", "playerSlug", "player_slug"))),
+    )
     team_identifiers = compact_mapping(
         {
-            "team_id": string_or_none(first_present(row, ("TEAM_ID", "TeamID", "teamId", "team_id"))),
+            "team_id": normalize_identifier_text(first_present(row, ("TEAM_ID", "TeamID", "teamId", "team_id"))),
             "team_slug": string_or_none(first_present(row, ("TEAM_SLUG", "Team_Slug", "teamSlug", "team_slug"))),
             "team_abbreviation": string_or_none(
                 first_present(row, ("TEAM_ABBREVIATION", "TEAM_ABBREVIATION_NICKNAME", "teamAbbreviation", "team_abbreviation"))
             ),
             "team_name": string_or_none(first_present(row, ("TEAM_NAME", "Team_Name", "teamName", "team_name"))),
-            "from_team_id": string_or_none(first_present(row, ("FROM_TEAM_ID", "fromTeamId", "from_team_id"))),
+            "from_team_id": normalize_identifier_text(first_present(row, ("FROM_TEAM_ID", "fromTeamId", "from_team_id"))),
             "from_team_abbreviation": string_or_none(
                 first_present(row, ("FROM_TEAM_ABBREVIATION", "fromTeamAbbreviation", "from_team_abbreviation"))
             ),
-            "to_team_id": string_or_none(first_present(row, ("TO_TEAM_ID", "toTeamId", "to_team_id"))),
+            "to_team_id": normalize_identifier_text(first_present(row, ("TO_TEAM_ID", "toTeamId", "to_team_id"))),
             "to_team_abbreviation": string_or_none(
                 first_present(row, ("TO_TEAM_ABBREVIATION", "toTeamAbbreviation", "to_team_abbreviation"))
             ),
@@ -717,9 +747,13 @@ def extract_nba_player_movement_row_fields(row: dict[str, object]) -> dict[str, 
     )
     player_identifiers = compact_mapping(
         {
-            "player_id": string_or_none(first_present(row, ("PLAYER_ID", "PersonID", "PERSON_ID", "playerId", "player_id"))),
-            "player_slug": string_or_none(first_present(row, ("PLAYER_SLUG", "Player_Slug", "playerSlug", "player_slug"))),
-            "player_name": string_or_none(first_present(row, ("PLAYER_NAME", "PLAYER", "personName", "playerName", "player_name"))),
+            "player_id": normalize_identifier_text(
+                first_present(row, ("PLAYER_ID", "PersonID", "PERSON_ID", "playerId", "player_id")),
+                zero_is_none=True,
+            ),
+            "player_slug": normalize_identifier_text(first_present(row, ("PLAYER_SLUG", "Player_Slug", "playerSlug", "player_slug"))),
+            "player_name": player_name,
+            "player_name_source": player_name_source,
         }
     )
     return {
@@ -729,8 +763,8 @@ def extract_nba_player_movement_row_fields(row: dict[str, object]) -> dict[str, 
         "transaction_description": transaction_description,
         "team_identifiers": team_identifiers,
         "player_identifiers": player_identifiers,
-        "group_sort": string_or_none(first_present(row, ("GroupSort", "GROUP_SORT", "groupSort", "group_sort"))),
-        "additional_sort": string_or_none(first_present(row, ("Additional_Sort", "ADDITIONAL_SORT", "additionalSort", "additional_sort"))),
+        "group_sort": normalize_identifier_text(first_present(row, ("GroupSort", "GROUP_SORT", "groupSort", "group_sort"))),
+        "additional_sort": normalize_identifier_text(first_present(row, ("Additional_Sort", "ADDITIONAL_SORT", "additionalSort", "additional_sort"))),
     }
 
 
@@ -754,6 +788,142 @@ def is_memphis_nba_player_movement_row(row: dict[str, object]) -> bool:
     return "memphis" in description or "grizzlies" in description
 
 
+def resolve_nba_player_movement_player_name(
+    *,
+    description: str | None,
+    raw_player_name: str | None,
+    player_slug: str | None,
+) -> tuple[str | None, str | None]:
+    if raw_player_name:
+        return raw_player_name, "payload"
+    description_name = extract_nba_player_movement_player_name_from_description(description)
+    if description_name:
+        return description_name, "description"
+    if player_slug:
+        return humanize_nba_player_movement_slug(player_slug), "slug"
+    return None, None
+
+
+def extract_nba_player_movement_player_name_from_description(description: str | None) -> str | None:
+    if not description:
+        return None
+    text = collapse_spaces(description)
+    patterns = (
+        r"\bconverted the contract of\s+(?P<subject>.+?)\s+to\b",
+        r"\b(?:received|acquired)\s+(?P<subject>.+?)\s+from\b",
+        r"\b(?:signed|re-signed|waived)\s+(?P<subject>.+?)\s+to\b",
+        r"\b(?:claimed|awarded)\s+(?P<subject>.+?)\s+off waivers\b",
+        r"\b(?:signed|re-signed|waived)\s+(?P<subject>.+?)\.?$",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if not match:
+            continue
+        name = clean_nba_player_movement_subject_phrase(match.group("subject"))
+        if name:
+            return name
+    return None
+
+
+def clean_nba_player_movement_subject_phrase(value: str) -> str | None:
+    subject = collapse_spaces(value).strip()
+    if not subject:
+        return None
+    if subject.endswith(".") and not re.search(r"\b(?:Jr|Sr)\.$", subject):
+        subject = subject[:-1].rstrip()
+    subject = re.sub(r"^(?:the\s+)?contract of\s+", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"^(?:the\s+)?draft rights to\s+", "", subject, flags=re.IGNORECASE)
+    subject = re.sub(r"^(?:the\s+)?rights to\s+", "", subject, flags=re.IGNORECASE)
+    position_prefix = (
+        r"^(?:two-way\s+|rest-of-season\s+)?"
+        r"(?:point guard|shooting guard|small forward|power forward|"
+        r"guard/forward|forward/guard|forward/center|center/forward|"
+        r"guard/center|center/guard|guard-forward|forward-guard|"
+        r"forward-center|center-forward|guard-center|center-guard|"
+        r"guard|forward|center|wing)\s+"
+    )
+    while True:
+        stripped = re.sub(position_prefix, "", subject, flags=re.IGNORECASE)
+        if stripped == subject:
+            break
+        subject = stripped.strip()
+    lowered = subject.lower()
+    if lowered.startswith(("to ", "for ")):
+        return None
+    if lowered.startswith(
+        (
+            "draft consideration",
+            "cash consideration",
+            "cash considerations",
+            "future considerations",
+            "trade exception",
+            "future first round draft pick",
+            "future second round draft pick",
+            "first round draft pick",
+            "second round draft pick",
+            "pick swap",
+        )
+    ):
+        return None
+    return subject or None
+
+
+def humanize_nba_player_movement_slug(value: str) -> str:
+    pieces = [piece for piece in value.split("-") if piece]
+    rendered: list[str] = []
+    suffix_map = {
+        "jr": "Jr.",
+        "sr": "Sr.",
+        "ii": "II",
+        "iii": "III",
+        "iv": "IV",
+        "v": "V",
+    }
+    for piece in pieces:
+        lowered = piece.lower()
+        if lowered in suffix_map:
+            rendered.append(suffix_map[lowered])
+        elif piece.isalpha() and len(piece) <= 2:
+            rendered.append(piece.upper())
+        else:
+            rendered.append(piece.capitalize())
+    return " ".join(rendered)
+
+
+def infer_nba_player_movement_player_direction(
+    *,
+    normalized_event_type: str,
+    description: str | None,
+    team_identifiers: dict[str, str],
+) -> str | None:
+    if normalized_event_type in {"signing", "conversion"}:
+        return "in"
+    if normalized_event_type == "waiver":
+        return "out"
+    if normalized_event_type != "trade":
+        return None
+
+    text = collapse_spaces(description or "")
+    if re.search(r"\bfrom\s+(?:the\s+)?memphis grizzlies\b", text, re.IGNORECASE):
+        return "out"
+    if re.search(r"\bto\s+(?:the\s+)?memphis grizzlies\b", text, re.IGNORECASE):
+        return "in"
+    if re.search(r"^(?:the\s+)?memphis grizzlies\s+(?:received|acquired)\b", text, re.IGNORECASE):
+        return "in"
+    if re.search(r"^(?:the\s+)?memphis grizzlies\s+(?:traded|sent)\b", text, re.IGNORECASE):
+        return "out"
+
+    if team_identifiers.get("from_team_id") == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID:
+        return "out"
+    if team_identifiers.get("to_team_id") == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID:
+        return "in"
+    if team_identifiers.get("team_id") == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_ID:
+        return "in"
+    if team_identifiers.get("team_slug", "").lower() == NBA_PLAYER_MOVEMENT_MEMPHIS_TEAM_SLUG:
+        return "in"
+    return None
+
+
 def build_nba_player_movement_preview_rows(
     payload: object,
     *,
@@ -770,6 +940,11 @@ def build_nba_player_movement_preview_rows(
         transaction_description = fields["transaction_description"]
         team_identifiers = fields["team_identifiers"]
         player_identifiers = fields["player_identifiers"]
+        player_direction = infer_nba_player_movement_player_direction(
+            normalized_event_type=str(fields["normalized_event_type"]),
+            description=transaction_description,
+            team_identifiers=team_identifiers,
+        )
         normalized_payload = {
             "event_date": event_date,
             "transaction_type": transaction_type,
@@ -777,6 +952,7 @@ def build_nba_player_movement_preview_rows(
             "transaction_description": transaction_description,
             "team_identifiers": team_identifiers,
             "player_identifiers": player_identifiers,
+            "player_direction": player_direction,
             "group_sort": fields["group_sort"],
             "additional_sort": fields["additional_sort"],
             "raw_row": row,
@@ -895,7 +1071,6 @@ def build_nba_player_movement_source_rows(
         description = string_or_none(fields["transaction_description"]) or "NBA.com player movement row"
         row_digest = stable_digest(
             {
-                "row_index": row_index,
                 "event_date": event_date,
                 "transaction_type": transaction_type,
                 "description": description,
@@ -909,9 +1084,14 @@ def build_nba_player_movement_source_rows(
         if fields["group_sort"]:
             source_group_hint = f"nba_player_movement:group:{fields['group_sort']}"
         player_identifiers = fields["player_identifiers"]
-        player_names = []
+        player_names: list[str] = []
         if isinstance(player_identifiers, dict) and isinstance(player_identifiers.get("player_name"), str):
             player_names = [str(player_identifiers["player_name"])]
+        player_direction = infer_nba_player_movement_player_direction(
+            normalized_event_type=normalized_event_type,
+            description=description,
+            team_identifiers=fields["team_identifiers"],
+        )
         source_events.append(
             SourceEventRow(
                 source_event_id=f"nba_player_movement:{row_digest}",
@@ -928,8 +1108,9 @@ def build_nba_player_movement_source_rows(
                     "raw_transaction_type": transaction_type,
                     "normalized_event_type": normalized_event_type,
                     "transaction_description": description,
-                    "player_names_in": player_names if normalized_event_type in {"signing", "trade"} else [],
-                    "player_names_out": player_names if normalized_event_type == "waiver" else [],
+                    "player_direction": player_direction,
+                    "player_names_in": player_names if player_direction == "in" else [],
+                    "player_names_out": player_names if player_direction == "out" else [],
                     "pick_text_in": [],
                     "pick_text_out": [],
                     "pick_details_in": [],
@@ -980,6 +1161,7 @@ def preview_nba_player_movement_source_rows(
 
 
 def load_nba_player_movement(
+    database_url: str | None = None,
     *,
     fixture_path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     live: bool = False,
@@ -987,16 +1169,349 @@ def load_nba_player_movement(
     dry_run: bool = True,
     execute: bool = False,
 ) -> dict[str, object]:
-    if execute or not dry_run:
-        raise ValueError("Live NBA player movement DB writes require a second checkpoint and are not enabled in this command.")
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if not execute:
+        return {
+            **preview_nba_player_movement_source_rows(
+                fixture_path=fixture_path,
+                live=live,
+                endpoint_url=endpoint_url,
+            ),
+            "dry_run": True,
+            "writes_to_database": False,
+        }
+    if not database_url:
+        raise ValueError("database_url is required when execute=True")
+
+    endpoint_metadata: dict[str, str | None] = {}
+    if live:
+        payload, endpoint_metadata = fetch_nba_player_movement_json(endpoint_url=endpoint_url)
+        source_locator = endpoint_url
+    else:
+        payload = read_nba_player_movement_fixture(fixture_path)
+        source_locator = str(fixture_path)
+    source_records, source_events = build_nba_player_movement_source_rows(
+        payload,
+        source_locator=source_locator,
+        endpoint_url=endpoint_url,
+        endpoint_metadata=endpoint_metadata,
+    )
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        replace_source_events_for_record(
+            connection,
+            source_record_id=source_records[0].source_record_id,
+            rows=source_events,
+        )
+        insert_source_events(connection, source_events)
+        connection.commit()
     return {
-        **preview_nba_player_movement_source_rows(
-            fixture_path=fixture_path,
-            live=live,
-            endpoint_url=endpoint_url,
-        ),
-        "dry_run": True,
+        "status": "ok",
+        "source_system": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
+        "source_type": NBA_PLAYER_MOVEMENT_SOURCE_TYPE,
+        "source_locator": source_locator,
+        "dry_run": False,
+        "writes_to_database": True,
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
     }
+
+
+def read_official_release_fixture(path: Path) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, list):
+        return {"articles": payload}
+    if not isinstance(payload, dict):
+        raise ValueError("Official release fixture must be a JSON object or array.")
+    return payload
+
+
+def extract_official_article_metadata(html: str) -> dict[str, str | None]:
+    title_match = re.search(
+        r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](?P<value>.*?)["\']',
+        html,
+        re.I | re.S,
+    )
+    if title_match is None:
+        title_match = re.search(r"<title>(?P<value>.*?)</title>", html, re.I | re.S)
+    description_match = re.search(
+        r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](?P<value>.*?)["\']',
+        html,
+        re.I | re.S,
+    )
+    published_match = re.search(r'"datePublished"\s*:\s*"(?P<value>[^"]+)"', html, re.I)
+    modified_match = re.search(r'"dateModified"\s*:\s*"(?P<value>[^"]+)"', html, re.I)
+    article_match = re.search(r"<article[^>]*>(?P<value>.*?)</article>", html, re.I | re.S)
+    article_text = clean_html(article_match.group("value")) if article_match else clean_html(html)
+    return {
+        "title": clean_html(title_match.group("value")) if title_match else None,
+        "description": clean_html(description_match.group("value")) if description_match else None,
+        "published_at": published_match.group("value") if published_match else None,
+        "modified_at": modified_match.group("value") if modified_match else None,
+        "article_text_excerpt": article_text[:5000] if article_text else None,
+        "html_sha1": hashlib.sha1(html.encode("utf-8")).hexdigest(),
+    }
+
+
+def fetch_official_article_metadata(*, source_locator: str) -> dict[str, str | None]:
+    html = fetch_text(source_locator, headers=OFFICIAL_ARTICLE_HEADERS)
+    return extract_official_article_metadata(html)
+
+
+def build_official_release_source_rows(
+    payload: dict[str, object],
+    *,
+    fixture_base_path: Path | None = None,
+    fetch_live: bool = False,
+    fetched_at: str | None = None,
+) -> tuple[list[SourceRecordRow], list[SourceEventRow]]:
+    article_entries = payload.get("articles", [])
+    if not isinstance(article_entries, list):
+        raise ValueError("Official release fixture must contain an 'articles' list.")
+
+    fetched_at = fetched_at or utc_now_iso()
+    source_records: list[SourceRecordRow] = []
+    source_events: list[SourceEventRow] = []
+    fixture_base_path = fixture_base_path or Path.cwd()
+
+    for article_index, article in enumerate(article_entries, start=1):
+        if not isinstance(article, dict):
+            raise ValueError("Each official release article entry must be an object.")
+        source_record_id = string_or_none(article.get("source_record_id"))
+        source_system = string_or_none(article.get("source_system"))
+        source_type = string_or_none(article.get("source_type"))
+        source_locator = string_or_none(article.get("source_locator"))
+        if not source_record_id:
+            raise ValueError(f"Official release article entry {article_index} is missing source_record_id.")
+        if source_system not in OFFICIAL_RELEASE_SOURCE_SYSTEMS:
+            raise ValueError(f"Unsupported official release source_system for {source_record_id}: {source_system}")
+        if source_type not in OFFICIAL_RELEASE_SOURCE_TYPES:
+            raise ValueError(f"Unsupported official release source_type for {source_record_id}: {source_type}")
+        if not source_locator:
+            raise ValueError(f"Official release article entry {source_record_id} is missing source_locator.")
+
+        article_metadata: dict[str, str | None] = {
+            "title": string_or_none(article.get("source_title")),
+            "description": string_or_none(article.get("source_description")),
+            "published_at": string_or_none(article.get("source_published_at")),
+            "modified_at": string_or_none(article.get("source_modified_at")),
+            "article_text_excerpt": string_or_none(article.get("source_excerpt")),
+            "html_sha1": None,
+        }
+        fixture_html_path = string_or_none(article.get("html_fixture_path"))
+        fetch_mode = "fixture_metadata"
+        if fetch_live:
+            article_metadata = fetch_official_article_metadata(source_locator=source_locator)
+            fetch_mode = "live_html"
+        elif fixture_html_path:
+            html_path = (fixture_base_path / fixture_html_path).resolve()
+            article_metadata = extract_official_article_metadata(html_path.read_text(encoding="utf-8"))
+            fetch_mode = "fixture_html"
+
+        event_entries = article.get("events", [])
+        if not isinstance(event_entries, list):
+            raise ValueError(f"Official release article entry {source_record_id} must contain an events list.")
+
+        source_records.append(
+            SourceRecordRow(
+                source_record_id=source_record_id,
+                source_system=source_system,
+                source_type=source_type,
+                source_locator=source_locator,
+                fetched_at=fetched_at,
+                raw_payload={
+                    "source_locator": source_locator,
+                    "source_title": article_metadata.get("title") or string_or_none(article.get("source_title")),
+                    "source_description": article_metadata.get("description")
+                    or string_or_none(article.get("source_description")),
+                    "source_published_at": article_metadata.get("published_at")
+                    or string_or_none(article.get("source_published_at")),
+                    "source_modified_at": article_metadata.get("modified_at")
+                    or string_or_none(article.get("source_modified_at")),
+                    "article_text_excerpt": article_metadata.get("article_text_excerpt")
+                    or string_or_none(article.get("source_excerpt")),
+                    "html_sha1": article_metadata.get("html_sha1"),
+                    "fetch_mode": fetch_mode,
+                    "events": event_entries,
+                },
+            )
+        )
+
+        for event_index, event in enumerate(event_entries, start=1):
+            if not isinstance(event, dict):
+                raise ValueError(f"Official release event {event_index} for {source_record_id} must be an object.")
+            event_date = string_or_none(event.get("event_date"))
+            event_type = string_or_none(event.get("event_type"))
+            if not event_date or not event_type:
+                raise ValueError(
+                    f"Official release event {event_index} for {source_record_id} must include event_date and event_type."
+                )
+            label = string_or_none(event.get("label")) or string_or_none(article.get("source_title")) or source_record_id
+            source_event_id = string_or_none(event.get("source_event_id")) or (
+                f"{source_record_id}:event:{stable_digest({'event_date': event_date, 'event_type': event_type, 'index': event_index})}"
+            )
+            pick_details_in = event.get("pick_details_in", [])
+            pick_details_out = event.get("pick_details_out", [])
+            if not isinstance(pick_details_in, list) or not isinstance(pick_details_out, list):
+                raise ValueError(f"Official release event {source_event_id} pick detail fields must be lists.")
+            source_events.append(
+                SourceEventRow(
+                    source_event_id=source_event_id,
+                    source_record_id=source_record_id,
+                    event_date=event_date,
+                    event_type=event_type,
+                    label=label,
+                    team_scope=string_or_none(event.get("team_scope")) or "MEM",
+                    source_group_hint=string_or_none(event.get("source_group_hint")),
+                    normalized_payload={
+                        "corroboration_only": True,
+                        "canonical_exclusion_reason": OFFICIAL_RELEASE_CANONICAL_EXCLUSION_REASON,
+                        "normalization_note": OFFICIAL_RELEASE_NORMALIZATION_NOTE,
+                        "source_system": source_system,
+                        "source_type": source_type,
+                        "source_title": article_metadata.get("title")
+                        or string_or_none(article.get("source_title")),
+                        "source_locator": source_locator,
+                        "source_published_at": article_metadata.get("published_at")
+                        or string_or_none(article.get("source_published_at")),
+                        "player_names_in": list(event.get("player_names_in", [])),
+                        "player_names_out": list(event.get("player_names_out", [])),
+                        "pick_text_in": list(event.get("pick_text_in", [])),
+                        "pick_text_out": list(event.get("pick_text_out", [])),
+                        "pick_details_in": pick_details_in,
+                        "pick_details_out": pick_details_out,
+                        "raw_note": string_or_none(event.get("raw_note"))
+                        or article_metadata.get("article_text_excerpt")
+                        or string_or_none(article.get("source_excerpt"))
+                        or label,
+                    },
+                )
+            )
+
+    return source_records, source_events
+
+
+def preview_official_release_sources(
+    *,
+    fixture_path: Path = DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    fetch_live: bool = False,
+) -> dict[str, object]:
+    payload = read_official_release_fixture(fixture_path)
+    source_records, source_events = build_official_release_source_rows(
+        payload,
+        fixture_base_path=fixture_path.parent,
+        fetch_live=fetch_live,
+    )
+    return {
+        "status": "ok",
+        "source_systems": sorted({row.source_system for row in source_records}),
+        "writes_to_database": False,
+        "fixture_path": str(fixture_path),
+        "fetch_live": fetch_live,
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
+        "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
+        "first_source_event": source_events[0].model_dump(mode="json") if source_events else None,
+    }
+
+
+def load_official_release_sources(
+    database_url: str | None = None,
+    *,
+    fixture_path: Path = DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    fetch_live: bool = False,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if not execute:
+        return {
+            **preview_official_release_sources(
+                fixture_path=fixture_path,
+                fetch_live=fetch_live,
+            ),
+            "dry_run": True,
+            "writes_to_database": False,
+        }
+    if not database_url:
+        raise ValueError("database_url is required when execute=True")
+
+    payload = read_official_release_fixture(fixture_path)
+    source_records, source_events = build_official_release_source_rows(
+        payload,
+        fixture_base_path=fixture_path.parent,
+        fetch_live=fetch_live,
+    )
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        replace_source_events_for_records(
+            connection,
+            source_record_ids=[row.source_record_id for row in source_records],
+            rows=source_events,
+        )
+        insert_source_events(connection, source_events)
+        connection.commit()
+    return {
+        "status": "ok",
+        "dry_run": False,
+        "writes_to_database": True,
+        "fixture_path": str(fixture_path),
+        "fetch_live": fetch_live,
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
+    }
+
+
+def replace_source_events_for_record(
+    connection: psycopg.Connection,
+    *,
+    source_record_id: str,
+    rows: list[SourceEventRow],
+) -> None:
+    source_event_ids = [row.source_event_id for row in rows]
+    with connection.cursor() as cursor:
+        if source_event_ids:
+            cursor.execute(
+                """
+                delete from foundation.source_event
+                where source_record_id = %s
+                  and not (source_event_id = any(%s))
+                """,
+                (source_record_id, source_event_ids),
+            )
+            return
+        cursor.execute(
+            """
+            delete from foundation.source_event
+            where source_record_id = %s
+            """,
+            (source_record_id,),
+        )
+
+
+def replace_source_events_for_records(
+    connection: psycopg.Connection,
+    *,
+    source_record_ids: list[str],
+    rows: list[SourceEventRow],
+) -> None:
+    rows_by_record_id: dict[str, list[SourceEventRow]] = {}
+    for row in rows:
+        rows_by_record_id.setdefault(row.source_record_id, []).append(row)
+    for source_record_id in source_record_ids:
+        replace_source_events_for_record(
+            connection,
+            source_record_id=source_record_id,
+            rows=rows_by_record_id.get(source_record_id, []),
+        )
 
 
 def load_nba_reference(database_url: str, *, season: str, team_id: int) -> dict[str, object]:
@@ -1288,6 +1803,22 @@ def string_or_none(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def normalize_identifier_text(value: object, *, zero_is_none: bool = False) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, float):
+        text = str(int(value)) if value.is_integer() else format(value, "g")
+    else:
+        text = str(value).strip()
+        if re.fullmatch(r"-?\d+\.0+", text):
+            text = text.split(".", 1)[0]
+    if not text:
+        return None
+    if zero_is_none and text == "0":
+        return None
+    return text
 
 
 def compact_mapping(values: dict[str, str | None]) -> dict[str, str]:

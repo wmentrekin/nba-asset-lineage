@@ -1,24 +1,29 @@
 artifact: implementation_report
 feature: "foundation/data-gap-closure"
 mode: "large-initiative"
-status: in_progress
+status: completed
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/plan.yaml"
 
 summary:
-  scope_executed: "Implemented the NBA player movement dry-run/guard path for B1, B2, B3, and B4 checkpoint prep."
-  outcome: "Fixture/live preview and dry-run source evidence candidates are available without DB writes; canonical and derived builders ignore NBA movement corroboration-only rows pending reconciliation."
+  scope_executed: "Implemented the first official-source corroboration pass: added curated official NBA.com/team-release preview and load commands, generalized audit-time reconciliation from `nba_player_movement`-only rows to all loaded corroborating source systems, seeded an initial official fixture, loaded it into Supabase, and fixed the exact-match multi-source ambiguity bug exposed by that load."
+  outcome: "The live foundation now includes official source evidence in addition to Basketball-Reference and NBA player movement. After loading 4 official source records and 6 official source events, the live audit reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`. Event-level corroboration improved from 96 `bref_only` plus 9 `conflict_suspected` to 94 `bref_only` plus 9 `conflict_suspected`, with 4 events now reaching `meets_minimum` and `no_conflict_detected` rising to 276."
 
 task_batches_attempted:
   - "B1"
   - "B2"
   - "B3"
   - "B4"
+  - "B5"
 task_batches_completed:
   - "B1"
   - "B2"
   - "B3"
   - "B4 checkpoint prep"
+  - "B5 live load and reconciliation closeout"
+  - "B6 BRef extraction and audit reconciliation repair pass"
+  - "B7 audit-time grouped-trade and near-date reconciliation pass"
+  - "B8 official-source loader, starter fixture, and live official corroboration load"
 
 changes:
   files:
@@ -27,46 +32,75 @@ changes:
     - "docs/foundation/data-gap-closure/status.yaml"
     - "docs/foundation/data-gap-closure/implementation-report.yaml"
   modules:
+    - "src/foundation/audit.py"
     - "src/foundation/live_sources.py"
+    - "src/foundation/workbench.py"
     - "src/redesign_cli.py"
-    - "src/foundation/canonical.py"
-    - "src/foundation/ingest.py"
+    - "src/foundation/live_sources.py"
     - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_audit.py"
-    - "tests/foundation/fixtures/nba_player_movement_sample.json"
+    - "tests/foundation/test_workbench.py"
   docs_updated:
-    - "Current pass reframed around loading the first actual non-BRef source evidence: NBA.com player movement."
-    - "Documented that this pass prepares dry-run source evidence and canonical guards only; live load needs a second checkpoint."
-    - "Documented read-only graph baseline checkpoint output."
+    - "Recorded the new official-source command surface and starter fixture."
+    - "Updated the live audit counts after the first official-source load."
+    - "Documented that the next pass is fixture expansion rather than new loader architecture."
 
 local_validation:
   checks_run:
+    - ".venv/bin/python -m redesign_cli preview-official-release-sources"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
+    - "Read-only live audit summary after the official-source load and reconciliation bug fix"
+    - ".venv/bin/pytest tests/foundation/test_audit.py"
+    - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+    - ".venv/bin/pytest"
+    - "Read-only live audit summary after grouped-trade and near-date reconciliation changes"
+    - ".venv/bin/pytest tests/foundation/test_workbench.py tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+    - ".venv/bin/python -m redesign_cli load-bref-source-events-span --team-code MEM --start-season-end-year 2017 --end-season-end-year 2026 --request-delay 0.8"
+    - ".venv/bin/python -m redesign_cli load-derived-foundation-entities"
+    - ".venv/bin/python -m redesign_cli load-roster-snapshots-from-baselines"
+    - ".venv/bin/python -m redesign_cli load-two-way-status --team-code MEM"
+    - ".venv/bin/python -m redesign_cli load-foundation-canonical"
     - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
     - ".venv/bin/python -m redesign_cli preview-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json"
     - ".venv/bin/python -m redesign_cli load-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json --dry-run"
+    - ".venv/bin/python -m redesign_cli preview-nba-player-movement --live"
+    - ".venv/bin/python -m redesign_cli load-nba-player-movement --live --dry-run"
+    - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+    - ".venv/bin/python -m redesign_cli audit-foundation-data"
+    - ".venv/bin/python -m redesign_cli load-nba-player-movement --live --execute"
+    - ".venv/bin/pytest"
     - "YAML parse for data-gap-closure requirements, plan, implementation report, and status"
   failures: []
-  skipped:
-    - "Live endpoint preview was not run because required validation used the checked-in fixture path."
-    - "Graph baseline command was added for B4 checkpoint prep but not run because it requires live database/export reads; no writes occurred."
+  skipped: []
 
 review_summary:
-  status: not_started
-  key_findings: []
+  status: manually_verified
+  key_findings:
+    - "Official NBA.com/team-release evidence now uses the same `corroboration_only` source-record/source-event path as NBA player movement."
+    - "Audit-time reconciliation now considers loaded corroborating rows from `nba_player_movement`, `nba_official`, and `team_official`."
+    - "Multiple exact corroborating sources can now reinforce one canonical event instead of creating false ambiguity."
+    - "The official-source load changed source coverage and corroboration counts only; it did not touch canonical or graph tables."
 
 test_summary:
-  status: focused_passed
+  status: full_passed
   checks_run:
+    - "tests/foundation/test_workbench.py"
     - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_audit.py"
+    - "full pytest"
+    - "full-span BRef refresh and canonical rebuild"
+    - "graph baseline inspection"
+    - "read-only audit"
   failures: []
   gaps: []
 
 open_issues:
-  - "Live Supabase load is intentionally deferred until a second checkpoint."
-  - "Event-level corroboration remains unlinked until a future reconciliation pass maps NBA movement rows to canonical events."
+  - "Event-level corroboration is still partial: 94 canonical events remain `bref_only`, and 9 trade events are surfaced as `conflict_suspected`."
+  - "The official-source loader exists, but the current starter fixture is intentionally small and must be expanded to reduce the remaining unresolved player-movement events materially."
+  - "NBA Stats reference data is still absent from loaded source records."
 
 handoff:
-  current_state: in_progress
+  current_state: completed
   next_owner: "orchestrator"
-  next_action: "Wait for implementation, then verify and prepare dry-run output for the second checkpoint."
+  next_action: "Expand `configs/data/memphis_official_release_sources_seed_v1.json` with more source-backed articles, prioritizing unresolved signings/waivers first and then the remaining trade-conflict rows."

@@ -38,6 +38,7 @@ from foundation.ingest import (
 )
 from foundation.live_sources import (
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     load_bref_draft_results,
     load_bref_draft_results_span,
     load_bref_roster_baseline,
@@ -45,12 +46,14 @@ from foundation.live_sources import (
     load_bref_source_events,
     load_bref_source_events_span,
     load_nba_player_movement,
+    load_official_release_sources,
     load_nba_reference,
     preview_bref_draft_results,
     preview_bref_roster_baseline,
     preview_bref_source_events,
     preview_nba_reference,
     preview_nba_player_movement,
+    preview_official_release_sources,
 )
 from foundation.pick_inventory import (
     DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
@@ -197,12 +200,37 @@ def parse_args() -> argparse.Namespace:
     preview_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
     preview_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
     preview_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
-    load_nba_player_movement_parser = subparsers.add_parser("load-nba-player-movement", help="Dry-run NBA.com player movement source_record/source_event candidates without writing.")
+    load_nba_player_movement_parser = subparsers.add_parser(
+        "load-nba-player-movement",
+        help="Build NBA.com player movement source_record/source_event candidates and write them only with --execute.",
+    )
     load_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
     load_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
     load_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
-    load_nba_player_movement_parser.add_argument("--dry-run", action="store_true", help="Required dry-run mode; writes are not enabled in this pass.")
-    load_nba_player_movement_parser.add_argument("--execute", action="store_true", help="Reserved for a future checkpoint; currently blocked.")
+    load_nba_player_movement_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
+    load_nba_player_movement_parser.add_argument("--execute", action="store_true", help="Write foundation.source_record and foundation.source_event rows after preview review.")
+    preview_official_release_parser = subparsers.add_parser(
+        "preview-official-release-sources",
+        help="Read-only preview of curated official NBA.com or team-release corroboration sources.",
+    )
+    preview_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
+    preview_official_release_parser.add_argument(
+        "--fetch-live",
+        action="store_true",
+        help="Fetch the live article URLs referenced by the fixture to enrich source_record raw payload metadata.",
+    )
+    load_official_release_parser = subparsers.add_parser(
+        "load-official-release-sources",
+        help="Build curated official release source_record/source_event candidates and write them only with --execute.",
+    )
+    load_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
+    load_official_release_parser.add_argument(
+        "--fetch-live",
+        action="store_true",
+        help="Fetch the live article URLs referenced by the fixture before writing.",
+    )
+    load_official_release_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
+    load_official_release_parser.add_argument("--execute", action="store_true", help="Write foundation.source_record and foundation.source_event rows after preview review.")
     load_nba_parser = subparsers.add_parser("load-nba-reference", help="Fetch and load NBA stats player and roster reference data into foundation.source_record and foundation.player.")
     load_nba_parser.add_argument("--season", required=True)
     load_nba_parser.add_argument("--team-id", type=int, default=1610612763)
@@ -627,9 +655,23 @@ def main() -> None:
         )
     elif args.command == "load-nba-player-movement":
         payload = load_nba_player_movement(
+            load_database_url() if args.execute else None,
             fixture_path=Path(args.fixture_path),
             live=args.live,
             endpoint_url=args.endpoint_url,
+            dry_run=args.dry_run,
+            execute=args.execute,
+        )
+    elif args.command == "preview-official-release-sources":
+        payload = preview_official_release_sources(
+            fixture_path=Path(args.fixture_path),
+            fetch_live=args.fetch_live,
+        )
+    elif args.command == "load-official-release-sources":
+        payload = load_official_release_sources(
+            load_database_url() if args.execute else None,
+            fixture_path=Path(args.fixture_path),
+            fetch_live=args.fetch_live,
             dry_run=args.dry_run,
             execute=args.execute,
         )

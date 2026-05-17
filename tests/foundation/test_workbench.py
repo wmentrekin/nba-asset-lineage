@@ -3,6 +3,7 @@ from foundation.workbench import (
     normalize_bref_transaction_block,
     parse_asset_clause,
     run_sample_workbench,
+    split_note_sentences,
 )
 
 
@@ -55,6 +56,67 @@ def test_normalize_bref_transaction_block_keeps_trade_with_pick_detail_attachmen
     assert event.player_names_out == ["David Roddy", "Vanja Marinkovic"]
     assert any("right to swap" in text for text in event.pick_text_in)
     assert any(note.startswith("pick_detail_attached:") for note in event.extraction_notes)
+
+
+def test_normalize_bref_transaction_block_extracts_prefixed_free_agent_signing_participant() -> None:
+    result = normalize_bref_transaction_block(
+        source_record_id="bref:mem:test-signing",
+        event_date="2017-07-22",
+        note_text="Signed free agent forward Troy Williams as a free agent.",
+    )
+
+    assert len(result.normalized_events) == 1
+    event = result.normalized_events[0]
+    assert event.event_type == "signing"
+    assert event.player_names_in == ["Troy Williams"]
+    assert event.label == "Memphis signed Troy Williams"
+
+
+def test_normalize_bref_transaction_block_extracts_prefixed_waiver_participant() -> None:
+    result = normalize_bref_transaction_block(
+        source_record_id="bref:mem:test-waiver",
+        event_date="2014-10-25",
+        note_text="Waived guard DJ Stephens.",
+    )
+
+    assert len(result.normalized_events) == 1
+    event = result.normalized_events[0]
+    assert event.event_type == "waiver"
+    assert event.player_names_out == ["DJ Stephens"]
+    assert event.label == "Memphis waived DJ Stephens"
+
+
+def test_split_note_sentences_keeps_repeated_initial_names_intact() -> None:
+    sentences = split_note_sentences("Signed D.J. Stephens. Waived E.J. Singler. Signed P.J. Hairston.")
+
+    assert sentences == ["Signed D.J. Stephens", "Waived E.J. Singler", "Signed P.J. Hairston"]
+
+
+def test_normalize_bref_transaction_block_extracts_initialed_signings_and_waivers() -> None:
+    result = normalize_bref_transaction_block(
+        source_record_id="bref:mem:test-initials",
+        event_date="2014-10-25",
+        note_text="Signed D.J. Stephens. Waived E.J. Singler. Signed P.J. Hairston as a free agent.",
+    )
+
+    assert [event.event_type for event in result.normalized_events] == ["signing", "waiver", "signing"]
+    assert result.normalized_events[0].player_names_in == ["D.J. Stephens"]
+    assert result.normalized_events[1].player_names_out == ["E.J. Singler"]
+    assert result.normalized_events[2].player_names_in == ["P.J. Hairston"]
+
+
+def test_normalize_bref_transaction_block_extracts_unicode_signing_participant() -> None:
+    result = normalize_bref_transaction_block(
+        source_record_id="bref:mem:test-unicode-signing",
+        event_date="2019-07-07",
+        note_text="Signed Jonas Valančiūnas as a free agent.",
+    )
+
+    assert len(result.normalized_events) == 1
+    event = result.normalized_events[0]
+    assert event.event_type == "signing"
+    assert event.player_names_in == ["Jonas Valančiūnas"]
+    assert event.label == "Memphis signed Jonas Valančiūnas"
 
 
 def test_run_sample_workbench_returns_all_examples() -> None:

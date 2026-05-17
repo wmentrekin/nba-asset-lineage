@@ -12,29 +12,29 @@ Last verified live load scope:
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments:
 
-- `source_record`: 588
-- `source_event`: 421
-- `player`: 227
+- `source_record`: 593
+- `source_event`: 882
+- `player`: 229
 - `player_alias`: 1
-- `pick`: 127
-- `asset`: 354
+- `pick`: 128
+- `asset`: 357
 - `roster_baseline_player`: 222
 - `roster_snapshot`: 40
-- `roster_snapshot_player`: 644
+- `roster_snapshot_player`: 636
 - `roster_snapshot_pick`: 980
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
 - `draft_lottery_result`: 5
 - `canonical_event`: 408
 - `canonical_event_member`: 421
-- `event_asset_transition`: 548
+- `event_asset_transition`: 569
 
 Current graph export counts:
 
 - `events`: 408
-- `player_assets`: 227
-- `pick_assets`: 127
-- `transitions`: 568
+- `player_assets`: 229
+- `pick_assets`: 128
+- `transitions`: 589
 - `roster_snapshots`: 40
 
 Audit command:
@@ -55,6 +55,8 @@ NBA.com player movement preview:
 .venv/bin/python -m redesign_cli preview-nba-player-movement --live
 .venv/bin/python -m redesign_cli load-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json --dry-run
 .venv/bin/python -m redesign_cli load-nba-player-movement --live --dry-run
+.venv/bin/python -m redesign_cli load-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json --execute
+.venv/bin/python -m redesign_cli load-nba-player-movement --live --execute
 ```
 
 This pass prepares dry-run source evidence and canonical guards only. The
@@ -63,15 +65,68 @@ player movement endpoint, filters Memphis rows by team ID `1610612763`, team
 slug `grizzlies`, or Memphis text fallback, and reports endpoint/source
 metadata, row counts, date range, transaction type counts, and sample rows.
 
-The guarded `load-nba-player-movement --dry-run` command builds deterministic
+The guarded `load-nba-player-movement` command stays read-only by default and
+only writes when `--execute` is supplied. The dry-run path builds deterministic
 `foundation.source_record` and `foundation.source_event` candidates with
-`writes_to_database=false`; it does not perform live Supabase writes. Every NBA
+`writes_to_database=false`. The execute path upserts the same deterministic rows
+into `foundation.source_record` and `foundation.source_event`. Every NBA
 movement source event is marked with
 `normalized_payload.corroboration_only=true` and
 `normalized_payload.canonical_exclusion_reason=nba_player_movement_requires_reconciliation`,
 and canonical/derived graph builders ignore those rows by default. The
 normalized NBA transaction type is loader compatibility only, not reconciliation
-truth. A live load requires a second explicit checkpoint after dry-run review.
+truth. Trade rows now carry Memphis-perspective `player_names_in` and
+`player_names_out` derived from NBA.com descriptions, and missing player names
+fall back to description parsing before slug inference.
+
+As of 2026-05-17, the live NBA.com preview/dry-run checkpoint reported:
+
+- `9467` total endpoint rows
+- `455` Memphis-filtered rows
+- date range `2015-07-09` through `2026-04-10`
+- transaction types `Signing=184`, `Trade=141`, `Waive=127`,
+  `ContractConverted=2`, `AwardOnWaivers=1`
+- dry-run candidates `source_record=1`, `source_event=455`
+
+The earlier dry-run graph baseline remained unchanged at that checkpoint, which
+is why the NBA.com load could be approved safely before any BRef repair pass.
+The current live baseline after the later BRef corroboration rebuild is:
+
+- canonical counts `canonical_event=408`, `canonical_event_member=421`,
+  `event_asset_transition=569`
+- graph export counts `events=408`, `player_assets=229`, `pick_assets=128`,
+  `transitions=589`, `roster_snapshots=40`
+- graph export checksum
+  `ffa34c46acbb824706f9745169430e6792c6f2e838d2a8b41adff3c873db031a`
+
+The live audit now reports loaded source systems `basketball_reference`,
+`nba_official`, `nba_player_movement`, and `team_official`, confirming that the
+system-level source-coverage gap is closed and the official-source path is now
+live.
+
+Official-release preview and guarded load:
+
+```bash
+.venv/bin/python -m redesign_cli preview-official-release-sources
+.venv/bin/python -m redesign_cli preview-official-release-sources --fetch-live
+.venv/bin/python -m redesign_cli load-official-release-sources --dry-run
+.venv/bin/python -m redesign_cli load-official-release-sources --execute
+.venv/bin/python -m redesign_cli load-official-release-sources --fetch-live --execute
+```
+
+The starter fixture lives at
+[`configs/data/memphis_official_release_sources_seed_v1.json`](../../configs/data/memphis_official_release_sources_seed_v1.json).
+It seeds curated official NBA.com and Memphis team-release evidence into
+`foundation.source_record` and `foundation.source_event` without affecting
+canonical derivation. `--fetch-live` is optional and enriches `raw_payload`
+metadata from the live article HTML before write; the default fixture-only mode
+still preserves source URLs, titles, timestamps, and curated article excerpts.
+
+The current starter load wrote:
+
+- `4` official `source_record` rows
+- `6` official `source_event` rows
+- loaded official source systems `nba_official` and `team_official`
 
 Graph baseline checkpoint output:
 
@@ -194,11 +249,23 @@ Resolved in this pass:
 - `audit-foundation-data` now reports currentness as verified through a dated
   source review, fixture-only fallback documentation rows, source coverage, and
   deferred draft-night ownership-lineage limits
+- curated official NBA.com/team-release source rows can now load into
+  `foundation.source_record` and `foundation.source_event` through
+  `load-official-release-sources`, and the live database now includes a first
+  starter batch of 4 official records / 6 official events
 
 Known gaps:
 
-- Loaded source records are still Basketball-Reference-only, so official or
-  corroborating source coverage is not systematic yet.
+- Source coverage is no longer Basketball-Reference-only. The live database now
+  includes one loaded `nba_player_movement` source record and 455 loaded
+  corroboration-only NBA.com movement source events, and the audit's
+  `source_coverage_report` gap is cleared.
+- Event-level player-movement corroboration remains partial after the NBA.com
+  load, follow-on audit reconciliation passes, and first official-source load:
+  the latest audit reports 276 canonical events with `no_conflict_detected`
+  corroboration, 94 events still `bref_only`, 272
+  `recognized_provider_not_loaded`, 4 `meets_minimum`, and 9 trade events
+  surfaced as `conflict_suspected`.
 - Draft lottery rows are contextual seed coverage only and are not consumed by
   the base graph. The audit clears only the empty-table gap and preserves a
   caveat that lottery rows remain contextual seed coverage.

@@ -1,0 +1,108 @@
+{
+  "fixture_version": "seed_v1",
+  "notes": "Curated official NBA.com and Memphis team-release evidence for corroboration-only loading. Event dates are transaction dates for audit reconciliation, not necessarily page publish timestamps.",
+  "articles": [
+    {
+      "source_record_id": "nba_official:2018-07-20:yuta-watanabe-myke-henry",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/memphis-grizzlies-sign-yuta-watanabe-two-way-deal-waive-myke-henry",
+      "source_title": "Memphis Grizzlies sign Yuta Watanabe to two-way deal, waive Myke Henry",
+      "source_published_at": "2018-07-21T00:04:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies signed forward Yuta Watanabe to a two-way contract Friday and waived guard/forward Myke Henry.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2018-07-20:yuta-watanabe-signing",
+          "event_date": "2018-07-20",
+          "event_type": "signing",
+          "label": "Memphis signs Yuta Watanabe to a two-way contract",
+          "player_names_in": ["Yuta Watanabe"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies signed forward Yuta Watanabe to a two-way contract Friday."
+        },
+        {
+          "source_event_id": "nba_official:2018-07-20:myke-henry-waiver",
+          "event_date": "2018-07-20",
+          "event_type": "waiver",
+          "label": "Memphis waives Myke Henry",
+          "player_names_in": [],
+          "player_names_out": ["Myke Henry"],
+          "raw_note": "The Memphis Grizzlies waived guard/forward Myke Henry."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2019-04-05:tyler-zeller-dusty-hannahs",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/grizzlies-sign-tyler-zeller",
+      "source_title": "Grizzlies sign Tyler Zeller for rest of season, waive Dusty Hannahs",
+      "source_published_at": "2019-04-05T16:07:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies signed Tyler Zeller for the rest of the season and waived guard Dusty Hannahs.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2019-04-05:tyler-zeller-signing",
+          "event_date": "2019-04-05",
+          "event_type": "signing",
+          "label": "Memphis signs Tyler Zeller for rest of season",
+          "player_names_in": ["Tyler Zeller"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies signed Tyler Zeller for the rest of the season."
+        },
+        {
+          "source_event_id": "nba_official:2019-04-04:dusty-hannahs-waiver",
+          "event_date": "2019-04-04",
+          "event_type": "waiver",
+          "label": "Memphis waives Dusty Hannahs",
+          "player_names_in": [],
+          "player_names_out": ["Dusty Hannahs"],
+          "raw_note": "The Memphis Grizzlies waived guard Dusty Hannahs."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2025-02-06:wizards-acquire-smart-trade-tracker",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2024-25-nba-trade-tracker?hidenav=true",
+      "source_title": "2024-25 NBA Trade Tracker: Every official deal",
+      "source_published_at": "2025-02-09T14:33:00-05:00",
+      "source_excerpt": "Wizards receive Marcus Smart and a 2025 first-round pick via the Grizzlies. Grizzlies receive two second-round picks, Marvin Bagley III and Johnny Davis.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2025-02-06:wizards-acquire-smart",
+          "event_date": "2025-02-06",
+          "event_type": "trade",
+          "label": "Wizards acquire Smart from Grizzlies",
+          "player_names_in": ["Marvin Bagley III", "Johnny Davis"],
+          "player_names_out": ["Marcus Smart"],
+          "pick_text_in": ["Two second-round picks"],
+          "pick_text_out": ["2025 first-round pick (via Grizzlies)"],
+          "raw_note": "Wizards receive Marcus Smart and a 2025 first-round pick via the Grizzlies. Grizzlies receive two second-round picks, Marvin Bagley III and Johnny Davis."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2025-07-06:trade-with-pacers",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+      "source_title": "Grizzlies complete trade with Pacers",
+      "source_published_at": "2025-07-06T13:15:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies acquired a future second round draft pick and a future second round draft pick swap from the Indiana Pacers for center Jay Huff.",
+      "events": [
+        {
+          "source_event_id": "team_official:2025-07-06:trade-with-pacers",
+          "event_date": "2025-07-06",
+          "event_type": "trade",
+          "label": "Grizzlies complete trade with Pacers",
+          "player_names_in": [],
+          "player_names_out": ["Jay Huff"],
+          "pick_text_in": ["Future second-round draft pick", "Future second-round draft pick swap"],
+          "pick_text_out": [],
+          "raw_note": "The Memphis Grizzlies acquired a future second round draft pick and a future second round draft pick swap from the Indiana Pacers for center Jay Huff."
+        }
+      ]
+    }
+  ]
+}

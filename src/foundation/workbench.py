@@ -93,6 +93,26 @@ PICK_DETAIL_PATTERNS = [
     re.compile(r"\b\d{4}\s+(?:1st|2nd|first|second)[-\s]rd?\s+pick\b.*", re.IGNORECASE),
     re.compile(r"\b\d{4}\s+(?:1st|2nd|first|second)[-\s]round draft pick\b.*", re.IGNORECASE),
 ]
+PLAYER_ROLE_PATTERN = (
+    r"(?:point guard|shooting guard|small forward|power forward|"
+    r"guard/forward|forward/guard|forward/center|center/forward|"
+    r"guard/center|center/guard|guard-forward|forward-guard|"
+    r"forward-center|center-forward|guard-center|center-guard|"
+    r"guard|forward|center|wing)"
+)
+PLAYER_DESCRIPTOR_PREFIX_PATTERN = re.compile(
+    rf"^(?:(?:free[- ]agent|restricted free[- ]agent|unrestricted free[- ]agent|"
+    rf"undrafted free[- ]agent|veteran|rookie|two-way|two way)\s+|{PLAYER_ROLE_PATTERN}\s+)+",
+    re.IGNORECASE,
+)
+PLAYER_DESCRIPTOR_SUFFIX_PATTERNS = (
+    re.compile(
+        r"\s+as\s+an?\s+(?:undrafted\s+)?(?:unrestricted\s+|restricted\s+)?free[- ]agent$",
+        re.IGNORECASE,
+    ),
+)
+SENTENCE_SPLIT_PROTECTED_PERIOD = "<PERIOD>"
+REPEATED_INITIALS_PATTERN = re.compile(r"\b(?:[A-Z]\.){2,}(?=\s+[A-Z])")
 
 
 def run_sample_workbench() -> WorkbenchSampleBundle:
@@ -214,10 +234,19 @@ def normalize_sentence_to_event(
 
 def split_note_sentences(note_text: str) -> list[str]:
     normalized = collapse_whitespace(note_text)
-    normalized = normalized.replace("Jr.", "Jr<PERIOD>").replace("Sr.", "Sr<PERIOD>")
+    normalized = _protect_sentence_split_abbreviations(normalized)
     segments = re.split(r"(?<=\.)\s+", normalized)
-    restored = [segment.replace("<PERIOD>", ".") for segment in segments]
+    restored = [segment.replace(SENTENCE_SPLIT_PROTECTED_PERIOD, ".") for segment in segments]
     return [segment.strip(" ;.") for segment in restored if segment.strip(" ;.")]
+
+
+def _protect_sentence_split_abbreviations(text: str) -> str:
+    protected = text.replace("Jr.", f"Jr{SENTENCE_SPLIT_PROTECTED_PERIOD}")
+    protected = protected.replace("Sr.", f"Sr{SENTENCE_SPLIT_PROTECTED_PERIOD}")
+    return REPEATED_INITIALS_PATTERN.sub(
+        lambda match: match.group(0).replace(".", SENTENCE_SPLIT_PROTECTED_PERIOD),
+        protected,
+    )
 
 
 def classify_sentence(sentence: str) -> WorkbenchEventType | None:
@@ -396,8 +425,9 @@ def parse_asset_clause(text: str) -> WorkbenchAssetParse:
     players: list[str] = []
     unmatched_chunks: list[str] = []
     for chunk in name_chunks:
-        if looks_like_person_name(chunk):
-            players.append(chunk)
+        normalized_name = normalize_player_name_chunk(chunk)
+        if normalized_name:
+            players.append(normalized_name)
         elif chunk:
             unmatched_chunks.append(chunk)
 
@@ -424,7 +454,37 @@ def extract_pick_sentences(text: str) -> list[str]:
 
 
 def looks_like_person_name(text: str) -> bool:
-    return bool(re.match(r"^[A-Z][A-Za-z'.-]+(?:\s+[A-Z][A-Za-z'.-]+){1,4}$", text))
+    tokens = text.split()
+    if not 2 <= len(tokens) <= 5:
+        return False
+    return all(_looks_like_person_name_token(token) for token in tokens)
+
+
+def _looks_like_person_name_token(token: str) -> bool:
+    if not token or not token[0].isalpha() or not token[0].isupper():
+        return False
+    return all(char.isalpha() or char in ".'-" for char in token[1:])
+
+
+def normalize_player_name_chunk(text: str) -> str | None:
+    candidate = collapse_whitespace(text).strip(" ,.")
+    if not candidate:
+        return None
+    if looks_like_person_name(candidate):
+        return candidate
+
+    stripped = candidate
+    while True:
+        updated = PLAYER_DESCRIPTOR_PREFIX_PATTERN.sub("", stripped).strip(" ,.")
+        if updated == stripped:
+            break
+        stripped = updated
+    for pattern in PLAYER_DESCRIPTOR_SUFFIX_PATTERNS:
+        stripped = pattern.sub("", stripped).strip(" ,.")
+
+    if looks_like_person_name(stripped):
+        return stripped
+    return None
 
 
 def build_workbench_label(

@@ -271,6 +271,498 @@ def test_infer_corroboration_fact_type_maps_supported_event_families() -> None:
     assert infer_corroboration_fact_type("unknown_editorial_marker") == "out_of_scope"
 
 
+def test_build_source_corroboration_report_reconciles_unique_nba_movement_match() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-01-01:signing:1",
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"vince williams jr"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:abc123"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"vince williams jr"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    report = build_source_corroboration_report(event_rows)
+
+    event = report["events"][0]
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
+    assert event["loaded_source_types"] == ["transactions_json", "transactions_page"]
+    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("rows from nba_player_movement" in note for note in event["notes"])
+    assert any(
+        state["role"] == "structured_player_movement" and state["state"] == "supports_event"
+        for state in event["evidence_states"]
+    )
+
+
+def test_build_source_corroboration_report_reconciles_unique_nba_official_match_to_meets_minimum() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-02-06:trade:1",
+                "event_date": "2025-02-06",
+                "event_type": "trade",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "trade",
+                "_participant_signature": {
+                    "player_names_in": {"marvin bagley iii", "johnny davis"},
+                    "player_names_out": {"marcus smart"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2025-02-06",
+                "event_type": "trade",
+                "_matching_event_type": "trade",
+                "_source_event_ids": ["nba_official:wizards-acquire-smart"],
+                "loaded_source_systems": ["nba_official"],
+                "loaded_source_types": ["transaction_page"],
+                "_participant_signature": {
+                    "player_names_in": {"marvin bagley iii", "johnny davis"},
+                    "player_names_out": {"marcus smart"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_official"]
+    assert event["corroboration_status"] == "meets_minimum"
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("rows from nba_official" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_allows_multiple_exact_corroborating_sources_for_one_event() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-01-01:signing:1",
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"vince williams jr"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:abc123"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"vince williams jr"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+            {
+                "event_date": "2025-01-01",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_official:vince-williams"],
+                "loaded_source_systems": ["nba_official"],
+                "loaded_source_types": ["news_release_article"],
+                "_participant_signature": {
+                    "player_names_in": {"vince williams jr"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_official", "nba_player_movement"]
+    assert event["corroboration_status"] == "meets_minimum"
+    assert event["conflict_status"] == "no_conflict_detected"
+
+
+def test_build_source_corroboration_report_reconciles_suffix_variant_match() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2018-02-08:waiver:1",
+                "event_date": "2018-02-08",
+                "event_type": "waiver",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "waiver",
+                "_participant_signature": {
+                    "player_names_in": set(),
+                    "player_names_out": {"james ennis"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2018-02-08",
+                "event_type": "release",
+                "_matching_event_type": "waiver",
+                "_source_event_ids": ["nba_player_movement:james-ennis-iii"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": set(),
+                    "player_names_out": {"james ennis iii"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("rows from nba_player_movement" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_reconciles_safe_first_name_variant_match() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2018-01-15:signing:1",
+                "event_date": "2018-01-15",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"vince hunter"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2018-01-15",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:vincent-hunter"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"vincent hunter"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("rows from nba_player_movement" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_reconciles_grouped_trade_rows() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2024-02-08:trade:grouped",
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "trade",
+                "_participant_signature": {
+                    "player_names_in": {"player a", "player b"},
+                    "player_names_out": {"player c", "player d"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "_matching_event_type": "trade",
+                "_source_event_ids": ["nba_player_movement:part1"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"player a"},
+                    "player_names_out": {"player c"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+            {
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "_matching_event_type": "trade",
+                "_source_event_ids": ["nba_player_movement:part2"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"player b"},
+                    "player_names_out": {"player d"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("grouped same-day" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_reconciles_unique_nearby_signing_match() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-01-04:signing:nearby",
+                "event_date": "2025-01-04",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"player x"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2025-01-03",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:player-x"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"player x"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("offset by 1 day" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_does_not_force_ambiguous_nearby_signing_match() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-01-04:signing:ambiguous",
+                "event_date": "2025-01-04",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"player x"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2025-01-03",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:player-x:1"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"player x"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+            {
+                "event_date": "2025-01-05",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["nba_player_movement:player-x:2"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"player x"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            },
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference"]
+    assert event["corroboration_status"] == "bref_only"
+    assert event["conflict_status"] == "not_evaluated"
+
+
+def test_build_source_corroboration_report_flags_nba_movement_mismatch_without_overlinking() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2024-02-08:trade:1",
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "trade",
+                "_participant_signature": {
+                    "player_names_in": {"marcus smart", "jake laravia"},
+                    "player_names_out": {"luke kennard"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2024-02-08",
+                "event_type": "trade",
+                "_matching_event_type": "trade",
+                "_source_event_ids": ["nba_player_movement:def456"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"marcus smart"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    report = build_source_corroboration_report(event_rows)
+
+    event = report["events"][0]
+    assert event["loaded_source_systems"] == ["basketball_reference"]
+    assert event["corroboration_status"] == "bref_only"
+    assert event["conflict_status"] == "conflict_suspected"
+    assert any("do not fully align" in note for note in event["notes"])
+
+
+def test_build_source_corroboration_report_does_not_force_trade_match_from_variant_overlap() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2018-02-08:trade:1",
+                "event_date": "2018-02-08",
+                "event_type": "trade",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "trade",
+                "_participant_signature": {
+                    "player_names_in": {"vincent hunter", "ben mclemore"},
+                    "player_names_out": {"james ennis"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2018-02-08",
+                "event_type": "trade",
+                "_matching_event_type": "trade",
+                "_source_event_ids": ["nba_player_movement:vince-hunter-only"],
+                "loaded_source_systems": ["nba_player_movement"],
+                "loaded_source_types": ["transactions_json"],
+                "_participant_signature": {
+                    "player_names_in": {"vince hunter"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference"]
+    assert event["corroboration_status"] == "bref_only"
+    assert event["conflict_status"] == "conflict_suspected"
+
+
 def test_build_source_corroboration_report_flags_bref_only_events() -> None:
     report = build_source_corroboration_report(
         [
