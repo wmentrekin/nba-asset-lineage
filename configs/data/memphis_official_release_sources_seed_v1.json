@@ -121,6 +121,26 @@
       ]
     },
     {
+      "source_record_id": "nba_official:2020-11-19:draft-results",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2020-nba-draft-results-picks-1-60",
+      "source_title": "2020 NBA Draft results: Picks 1-60",
+      "source_published_at": "2020-11-19T17:44:00-05:00",
+      "source_excerpt": "Kings draft Xavier Tillman Sr. >> officially traded to the Grizzlies. Grizzlies draft Robert Woodard >> officially traded to the Kings.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2020-11-19:xavier-tillman-robert-woodard-trade",
+          "event_date": "2020-11-19",
+          "event_type": "trade",
+          "label": "Memphis swaps Robert Woodard for Xavier Tillman Sr. on draft night",
+          "player_names_in": ["Xavier Tillman Sr"],
+          "player_names_out": ["Robert Woodard"],
+          "raw_note": "Kings draft Xavier Tillman Sr. officially traded to the Grizzlies, while the Grizzlies draft Robert Woodard and officially trade him to the Kings."
+        }
+      ]
+    },
+    {
       "source_record_id": "team_official:2020-12-11:ahmad-caver-mario-hezonja",
       "source_system": "team_official",
       "source_type": "press_release_article",
@@ -212,6 +232,26 @@
       ]
     },
     {
+      "source_record_id": "nba_official:2022-06-23:draft-results",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2022-nba-draft-order",
+      "source_title": "2022 NBA Draft results: Picks 1-58",
+      "source_published_at": "2022-06-23T23:59:00-04:00",
+      "source_excerpt": "Spurs draft Kennedy Chandler (Tennessee) — Traded to MEM.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2022-06-23:kennedy-chandler-trade",
+          "event_date": "2022-06-23",
+          "event_type": "trade",
+          "label": "Memphis acquires Kennedy Chandler on draft night",
+          "player_names_in": ["Kennedy Chandler"],
+          "player_names_out": [],
+          "raw_note": "Spurs draft Kennedy Chandler (Tennessee) — traded to Memphis."
+        }
+      ]
+    },
+    {
       "source_record_id": "team_official:2022-06-24:sixers-deanthony-melton-trade",
       "source_system": "team_official",
       "source_type": "press_release_article",
@@ -294,6 +334,66 @@
       ]
     },
     {
+      "source_record_id": "team_official:2024-01-29:matthew-hurt-first-10-day",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-matthew-hurt-to-10-day-contract",
+      "source_title": "Grizzlies sign Matthew Hurt to 10-day contract",
+      "source_published_at": "2024-01-29T17:15:00-06:00",
+      "source_excerpt": "The Memphis Grizzlies today announced the team signed forward Matthew Hurt to a 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-01-29:matthew-hurt-signing",
+          "event_date": "2024-01-29",
+          "event_type": "signing",
+          "label": "Memphis signs Matthew Hurt to a 10-day contract",
+          "player_names_in": ["Matthew Hurt"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Matthew Hurt to a 10-day contract as a Call-Up from the Memphis Hustle."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-02-26:matthew-hurt-second-10-day",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/grizzlies-sign-matthew-hurt-to-second-10-day-contract",
+      "source_title": "Grizzlies sign Matthew Hurt to second 10-day contract",
+      "source_published_at": "2024-02-26",
+      "source_excerpt": "The Memphis Grizzlies today announced the team signed forward Matthew Hurt to a second 10-day contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-02-26:matthew-hurt-second-signing",
+          "event_date": "2024-02-26",
+          "event_type": "signing",
+          "label": "Memphis signs Matthew Hurt to a second 10-day contract",
+          "player_names_in": ["Matthew Hurt"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward Matthew Hurt to a second 10-day contract as a Call-Up from the Memphis Hustle."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2024-07-06:offseason-trade-tracker",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2024-offseason-trade-tracker?hidenav=true",
+      "source_title": "2024 NBA Offseason Trade Tracker",
+      "source_published_at": "2024-07-06T13:00:00-04:00",
+      "source_excerpt": "First 6-team trade in NBA history includes Cam Spencer (No. 53 pick via Wolves) to Memphis and draft rights to Ulrich Chomche (No. 57 pick via Grizzlies; traded to Wolves).",
+      "events": [
+        {
+          "source_event_id": "nba_official:2024-07-06:cam-spencer-ulrich-chomche-trade",
+          "event_date": "2024-07-06",
+          "event_type": "trade",
+          "label": "Memphis acquires Cam Spencer and moves Ulrich Chomche draft rights",
+          "player_names_in": ["Cam Spencer"],
+          "player_names_out": ["Ulrich Chomche"],
+          "raw_note": "The official 2024 offseason trade tracker lists the July 6 six-team trade as sending Cam Spencer (No. 53 pick via Wolves) to Memphis and the draft rights to Ulrich Chomche (No. 57 pick via Grizzlies) out to Minnesota."
+        }
+      ]
+    },
+    {
       "source_record_id": "nba_official:2024-07-19:nets-acquire-ziaire-williams",
       "source_system": "nba_official",
       "source_type": "news_release_article",
@@ -310,6 +410,26 @@
           "player_names_in": ["Mamadi Diakite", "Nemanja Dangubic"],
           "player_names_out": ["Ziaire Williams"],
           "raw_note": "The Memphis Grizzlies acquired Mamadi Diakite and the draft rights to Nemanja Dangubic from the Brooklyn Nets in exchange for Ziaire Williams and a Dallas Mavericks 2030 second-round pick."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-10-19:yuki-kawamura-promotion",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-promote-yuki-kawamura-to-two-way-contract",
+      "source_title": "Grizzlies promote Yuki Kawamura to two-way contract",
+      "source_published_at": "2024-10-19T16:11:00-05:00",
+      "source_excerpt": "Kawamura appeared in all five preseason games after initially signing with Memphis on September 6.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-09-06:yuki-kawamura-signing",
+          "event_date": "2024-09-06",
+          "event_type": "signing",
+          "label": "Memphis initially signs Yuki Kawamura",
+          "player_names_in": ["Yuki Kawamura"],
+          "player_names_out": [],
+          "raw_note": "The Grizzlies' October 19 release states Kawamura appeared in all five preseason games after initially signing with Memphis on September 6."
         }
       ]
     },
@@ -385,6 +505,26 @@
       ]
     },
     {
+      "source_record_id": "nba_official:2025-06-25:draft-results",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2025-nba-draft-order",
+      "source_title": "2025 NBA Draft Results: Picks 1-59",
+      "source_published_at": "2025-06-27T13:38:00-04:00",
+      "source_excerpt": "Trail Blazers draft Cedric Coward (Washington State) – Traded to Grizzlies. Grizzlies draft Yang Hansen (Qingdao) – Traded to Trail Blazers.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2025-06-25:cedric-coward-yang-hansen-trade",
+          "event_date": "2025-06-25",
+          "event_type": "trade",
+          "label": "Memphis swaps draft rights involving Cedric Coward and Yang Hansen",
+          "player_names_in": ["Cedric Coward"],
+          "player_names_out": ["Hansen Yang"],
+          "raw_note": "Trail Blazers draft Cedric Coward (Washington State) – traded to the Grizzlies. Grizzlies draft Yang Hansen (Qingdao) – traded to the Trail Blazers."
+        }
+      ]
+    },
+    {
       "source_record_id": "team_official:2025-07-06:trade-with-pacers",
       "source_system": "team_official",
       "source_type": "press_release_article",
@@ -398,11 +538,86 @@
           "event_date": "2025-07-06",
           "event_type": "trade",
           "label": "Grizzlies complete trade with Pacers",
+          "source_group_hint": "official:2025-07-06:grizzlies-trade-cluster",
           "player_names_in": [],
-          "player_names_out": ["Jay Huff"],
+          "player_names_out": ["James Huff"],
           "pick_text_in": ["Future second-round draft pick", "Future second-round draft pick swap"],
           "pick_text_out": [],
           "raw_note": "The Memphis Grizzlies acquired a future second round draft pick and a future second round draft pick swap from the Indiana Pacers for center Jay Huff."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-04-13:end-of-season-game-notes",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/gamenotes/grizzlies.pdf?tid=1707611838501",
+      "source_title": "Memphis Grizzlies 2025-26 End of Season Game Notes",
+      "source_excerpt": "The official game notes transaction log records the Grizzlies' 2025-26 season moves, including the July 6 draft-rights trade and the September/October camp signings and waivers.",
+      "events": [
+        {
+          "source_event_id": "team_official:2025-07-06:mashack-jessup-trade",
+          "event_date": "2025-07-06",
+          "event_type": "trade",
+          "label": "Memphis acquires Jahmai Mashack and Justinian Jessup draft rights",
+          "source_group_hint": "official:2025-07-06:grizzlies-trade-cluster",
+          "player_names_in": ["Jahmai Mashack", "Justinian Jessup"],
+          "player_names_out": ["Will Richard"],
+          "raw_note": "The team transaction log states that on 7/6 Memphis acquired the draft rights to Jahmai Mashack, a future conditional second-round pick and the draft rights to Justinian Jessup from Golden State in exchange for the draft rights to Will Richard."
+        },
+        {
+          "source_event_id": "team_official:2025-09-06:lawson-lovering-signing",
+          "event_date": "2025-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Lawson Lovering",
+          "player_names_in": ["Lawson Lovering"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log lists Lawson Lovering among the players signed by Memphis on 9/6."
+        },
+        {
+          "source_event_id": "team_official:2025-09-06:tyler-burton-preseason-signing",
+          "event_date": "2025-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Tyler Burton",
+          "player_names_in": ["Tyler Burton"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log lists Tyler Burton among the players signed by Memphis on 9/6."
+        },
+        {
+          "source_event_id": "team_official:2025-10-13:charlie-brown-jr-signing",
+          "event_date": "2025-10-13",
+          "event_type": "signing",
+          "label": "Memphis signs Charlie Brown Jr.",
+          "player_names_in": ["Charlie Brown Jr"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/13 Memphis signed Charlie Brown Jr. and waived Tyler Burton."
+        },
+        {
+          "source_event_id": "team_official:2025-10-13:tyler-burton-waiver",
+          "event_date": "2025-10-13",
+          "event_type": "waiver",
+          "label": "Memphis waives Tyler Burton",
+          "player_names_in": [],
+          "player_names_out": ["Tyler Burton"],
+          "raw_note": "The team transaction log states that on 10/13 Memphis signed Charlie Brown Jr. and waived Tyler Burton."
+        },
+        {
+          "source_event_id": "team_official:2025-10-16:nate-hinton-signing",
+          "event_date": "2025-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs Nate Hinton",
+          "player_names_in": ["Nate Hinton"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/16 Memphis signed Nate Hinton and waived Charlie Brown Jr."
+        },
+        {
+          "source_event_id": "team_official:2025-10-16:charlie-brown-jr-waiver",
+          "event_date": "2025-10-16",
+          "event_type": "waiver",
+          "label": "Memphis waives Charlie Brown Jr.",
+          "player_names_in": [],
+          "player_names_out": ["Charlie Brown Jr"],
+          "raw_note": "The team transaction log states that on 10/16 Memphis signed Nate Hinton and waived Charlie Brown Jr."
         }
       ]
     },
@@ -452,6 +667,15 @@
           "player_names_in": [],
           "player_names_out": ["Lawson Lovering"],
           "raw_note": "In a related move, the Grizzlies waived center Lawson Lovering."
+        },
+        {
+          "source_event_id": "team_official:2025-09-06:lawson-lovering-initial-signing",
+          "event_date": "2025-09-06",
+          "event_type": "signing",
+          "label": "Memphis previously signed Lawson Lovering",
+          "player_names_in": ["Lawson Lovering"],
+          "player_names_out": [],
+          "raw_note": "The Grizzlies' October 18 release says Lawson Lovering had signed with Memphis on September 6 before being waived."
         }
       ]
     },

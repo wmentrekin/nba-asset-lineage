@@ -6,8 +6,8 @@ owner_skill: work
 based_on: "docs/foundation/data-gap-closure/plan.yaml"
 
 summary:
-  scope_executed: "Expanded the official-source corroboration pass materially: loaded a larger curated NBA.com/team/G League fixture through the live HTML metadata path, replayed the official source load after fixing the Adama-Alpha Bal naming mismatch, and re-ran live audit plus graph-baseline verification."
-  outcome: "The live foundation still reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`, but official-source coverage is now materially larger. The official fixture grew to 25 source records / 31 source events, `source_record` rose to 614, `source_event` rose to 907, `bref_only` fell to 79, the trade `conflict_suspected` bucket was eliminated, `meets_minimum` holds at 19, and the graph export checksum remained unchanged."
+  scope_executed: "Continued the official-source corroboration pass with two follow-on batches: a 2025 team-transaction/draft-results batch plus a 2024 micro-batch for Matthew Hurt and the Cam Spencer/Ulrich Chomche trade. Both batches were loaded into Supabase and verified against the live audit and graph baseline."
+  outcome: "The live foundation still reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`, but official-source coverage is materially deeper. The official fixture now yields 33 source records / 46 source events, `source_record` rose to 622, `source_event` rose to 922, `bref_only` fell to 67, unresolved trades fell to 5, `meets_minimum` rose to 25, and the graph export checksum remained unchanged."
 
 task_batches_attempted:
   - "B1"
@@ -42,8 +42,8 @@ changes:
     - "tests/foundation/test_workbench.py"
   docs_updated:
     - "Recorded the new official-source command surface and starter fixture."
-    - "Updated the live audit counts after the expanded official-source load."
-    - "Documented that the current residue is now mostly broader official-source coverage rather than trade-conflict heuristics."
+    - "Updated the live audit counts after the 2025 follow-on batch and the 2024 micro-batch."
+    - "Documented that the current residue is now concentrated in 2023-2024 camp/preseason signings plus older chronology coverage."
 
 local_validation:
   checks_run:
@@ -56,6 +56,9 @@ local_validation:
     - "Read-only live audit summary after the official-source load and reconciliation bug fix"
     - "Read-only live audit summary after the expanded official-source load and Adama-Alpha Bal name correction"
     - "Read-only graph baseline inspection after the expanded official-source load"
+    - "Read-only live audit summary after the 2025 follow-on official-source batch"
+    - "Read-only live audit summary after the 2024 Matthew Hurt / Cam Spencer micro-batch"
+    - "Read-only graph baseline inspection after both follow-on loads"
     - ".venv/bin/pytest tests/foundation/test_audit.py"
     - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
     - ".venv/bin/pytest"
@@ -86,6 +89,7 @@ review_summary:
     - "Audit-time reconciliation now considers loaded corroborating rows from `nba_player_movement`, `nba_official`, and `team_official`."
     - "Multiple exact corroborating sources can now reinforce one canonical event instead of creating false ambiguity."
     - "The expanded official-source load eliminated the trade `conflict_suspected` bucket and pushed the remaining unresolved player-movement residue into straight coverage gaps."
+    - "Follow-on batches closed the recent 2025 transaction cluster, multiple draft-night trade rows, both 2024 Matthew Hurt 10-day signings, and the 2024 Cam Spencer / Ulrich Chomche trade."
     - "The official-source load changed source coverage and corroboration counts only; it did not touch canonical or graph tables."
 
 test_summary:
@@ -102,11 +106,11 @@ test_summary:
   gaps: []
 
 open_issues:
-  - "Event-level corroboration is still partial: 79 canonical events remain `bref_only`, now concentrated in older signings plus 10 trades and 4 waivers."
-  - "The official-source loader is now proven at larger scale, but the remaining residue is mostly broader official-source coverage rather than reconciliation logic."
+  - "Event-level corroboration is still partial: 67 canonical events remain `bref_only`, concentrated in 58 signings, 5 trades, and 4 waivers."
+  - "The official-source loader is now proven at larger scale; the remaining high-signal residue is mostly 2023-2024 camp/preseason signings and waivers plus older pre-2020 chronology coverage."
   - "NBA Stats reference data is still absent from loaded source records."
 
 handoff:
   current_state: completed
   next_owner: "orchestrator"
-  next_action: "Target the remaining 79 `bref_only` events with additional official coverage, prioritizing recent roster-signing HTML pages and the 10 remaining trade rows before expanding into broader older chronology coverage."
+  next_action: "Target the remaining 15 recent `bref_only` events first, prioritizing 2023-2024 camp/preseason official documents for Armando Bacot, Miye Oni, Maozinha Pereira, Miles Norris, David Johnson, and the 2023 camp cluster before expanding into older chronology coverage."

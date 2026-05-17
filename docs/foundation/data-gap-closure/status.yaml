@@ -7,8 +7,8 @@ owner_skill: work
 objective: "Continue closing remaining data-layer gaps in impact-list order by loading the first actual non-BRef source evidence."
 
 summary:
-  current_focus: "The official-source path is now live at larger scale, so the next pass should target the remaining older signings, waivers, and 10 unresolved trade rows with additional official HTML coverage instead of new loader architecture."
-  last_completed: "Expanded the official fixture to 25 source records / 31 source events, loaded it through the live HTML metadata path, corrected the Adama-Alpha Bal naming mismatch, reduced unresolved player-movement corroboration to 79 `bref_only`, and eliminated the trade `conflict_suspected` bucket."
+  current_focus: "The official-source path is now proven across multiple live loads, so the next pass should target the remaining 2023-2024 camp/preseason signings and waivers first, then older chronology coverage."
+  last_completed: "Loaded a 2025 follow-on official batch and a 2024 micro-batch, raising official coverage to 33 source records / 46 source events, reducing unresolved player-movement corroboration to 67 `bref_only`, and cutting the unresolved trade residue to 5."
   current_blocker: ""
 
 artifacts:
@@ -23,7 +23,7 @@ agents:
     status: "active"
     stage: "execution"
     task: "Coordinate the next pass to close the remaining unresolved event-level player-movement corroboration gap."
-    last_update: "The expanded official-source load cleared the trade-conflict residue and left mostly straight source-coverage gaps; the next pass is to add more official HTML evidence, not more reconciliation logic."
+    last_update: "The latest follow-on loads cleared most of the recent 2024-2025 residue; the next pass is mainly a hunt for 2023-2024 camp/preseason official docs rather than any new loader or audit logic."
     blocker: ""
   - id: "developer-bref-repair"
     role: "developer"

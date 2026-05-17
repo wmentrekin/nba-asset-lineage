@@ -12,8 +12,8 @@ Last verified live load scope:
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments plus the expanded official-source corroboration load:
 
-- `source_record`: 614
-- `source_event`: 907
+- `source_record`: 622
+- `source_event`: 922
 - `player`: 229
 - `player_alias`: 1
 - `pick`: 128
@@ -124,15 +124,15 @@ still preserves source URLs, titles, timestamps, and curated article excerpts.
 
 The current expanded official-source load writes:
 
-- `25` official `source_record` rows
-- `31` official `source_event` rows
+- `33` official `source_record` rows
+- `46` official `source_event` rows
 - loaded official source systems `nba_official` and `team_official`
 
 Current corroboration summary after the expanded official-source load:
 
-- `bref_only=79`
-- `meets_minimum=19`
-- `recognized_provider_not_loaded=272`
+- `bref_only=67`
+- `meets_minimum=25`
+- `recognized_provider_not_loaded=278`
 - `missing_required_evidence=38`
 - `conflict_suspected=0`
 
