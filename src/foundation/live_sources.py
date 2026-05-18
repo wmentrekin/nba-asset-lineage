@@ -60,6 +60,7 @@ OFFICIAL_RELEASE_SOURCE_TYPES = frozenset(
     {"news_release_article", "press_release_article", "transaction_page"}
 )
 OFFICIAL_RELEASE_CANONICAL_EXCLUSION_REASON = "official_release_requires_reconciliation"
+BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON = "bref_same_day_sign_and_trade_contract"
 OFFICIAL_RELEASE_NORMALIZATION_NOTE = (
     "Official article evidence is curated/manual and excluded from canonical derivation by default."
 )
@@ -193,7 +194,44 @@ def build_bref_source_rows(
                     },
                 )
             )
+    apply_bref_canonical_repairs(source_events)
     return source_records, source_events
+
+
+def apply_bref_canonical_repairs(source_events: list[SourceEventRow]) -> None:
+    outbound_trade_players_by_date: dict[str, set[str]] = {}
+    for source_event in source_events:
+        if source_event.event_type != "trade":
+            continue
+        outbound_trade_players_by_date.setdefault(source_event.event_date, set()).update(
+            str(name)
+            for name in source_event.normalized_payload.get("player_names_out", [])
+            if isinstance(name, str) and name.strip()
+        )
+
+    for source_event in source_events:
+        if source_event.event_type != "signing":
+            continue
+        inbound_players = {
+            str(name)
+            for name in source_event.normalized_payload.get("player_names_in", [])
+            if isinstance(name, str) and name.strip()
+        }
+        if not inbound_players:
+            continue
+        if not inbound_players.intersection(outbound_trade_players_by_date.get(source_event.event_date, set())):
+            continue
+        notes = [
+            str(note)
+            for note in source_event.normalized_payload.get("extraction_notes", [])
+            if isinstance(note, str) and note.strip()
+        ]
+        if "same_day_sign_and_trade_contract_excluded" not in notes:
+            notes.append("same_day_sign_and_trade_contract_excluded")
+        source_event.normalized_payload["extraction_notes"] = notes
+        source_event.normalized_payload["canonical_exclusion_reason"] = (
+            BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON
+        )
 
 
 def load_bref_source_events(database_url: str, *, team_code: str, season_end_year: int) -> dict[str, object]:
@@ -1758,6 +1796,7 @@ def extract_nba_dataset_rows(payload: dict[str, object]) -> list[dict[str, objec
 
 
 def clean_html(value: str) -> str:
+    value = value.replace("\x00", " ")
     value = re.sub(r"<br\s*/?>", " ", value, flags=re.I)
     value = re.sub(r"<[^>]+>", "", value)
     return collapse_spaces(unescape(value))

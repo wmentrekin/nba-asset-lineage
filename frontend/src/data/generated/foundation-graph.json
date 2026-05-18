@@ -84,7 +84,7 @@
       "event_date": "2016-07-21",
       "event_id": "canonical:2016-07-21:signing:c425aaec258c",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed D.J. Stephens",
       "sequence": 1,
       "source_group_id": null
     },
@@ -196,7 +196,7 @@
       "event_date": "2016-10-22",
       "event_id": "canonical:2016-10-22:waiver:bec4c53d5b3c",
       "event_type": "waiver",
-      "label": "Memphis waived no tracked assets",
+      "label": "Memphis waived D.J. Stephens",
       "sequence": 2,
       "source_group_id": null
     },
@@ -588,7 +588,7 @@
       "event_date": "2018-07-09",
       "event_id": "canonical:2018-07-09:signing:fbd9f1d30541",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Kyle Anderson",
       "sequence": 1,
       "source_group_id": null
     },
@@ -596,7 +596,7 @@
       "event_date": "2018-07-11",
       "event_id": "canonical:2018-07-11:signing:bf7fcce6f985",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Omri Casspi",
       "sequence": 1,
       "source_group_id": null
     },
@@ -644,7 +644,7 @@
       "event_date": "2018-08-07",
       "event_id": "canonical:2018-08-07:signing:f82a0ad76606",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Shelvin Mack",
       "sequence": 1,
       "source_group_id": null
     },
@@ -700,7 +700,7 @@
       "event_date": "2018-10-08",
       "event_id": "canonical:2018-10-08:signing:55b82a060100",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed D.J. Stephens",
       "sequence": 1,
       "source_group_id": null
     },
@@ -756,7 +756,7 @@
       "event_date": "2018-12-30",
       "event_id": "canonical:2018-12-30:waiver:5f60cbb44270",
       "event_type": "waiver",
-      "label": "Memphis waived no tracked assets",
+      "label": "Memphis waived D.J. Stephens",
       "sequence": 1,
       "source_group_id": null
     },
@@ -900,7 +900,7 @@
       "event_date": "2019-07-07",
       "event_id": "canonical:2019-07-07:signing:34b24a9939ed",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Tyus Jones",
       "sequence": 1,
       "source_group_id": null
     },
@@ -924,7 +924,7 @@
       "event_date": "2019-07-08",
       "event_id": "canonical:2019-07-08:signing:2627d7a402fc",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Delon Wright",
       "sequence": 1,
       "source_group_id": null
     },
@@ -948,7 +948,7 @@
       "event_date": "2019-07-11",
       "event_id": "canonical:2019-07-11:signing:982fccc4f667",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed Jonas Valan\u010di\u016bnas",
       "sequence": 1,
       "source_group_id": null
     },
@@ -1932,7 +1932,7 @@
       "event_date": "2022-10-13",
       "event_id": "canonical:2022-10-13:signing:36bbc638731d",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed E.J. Onu",
       "sequence": 1,
       "source_group_id": null
     },
@@ -1980,7 +1980,7 @@
       "event_date": "2022-10-14",
       "event_id": "canonical:2022-10-14:waiver:8cc32f084cb7",
       "event_type": "waiver",
-      "label": "Memphis waived no tracked assets",
+      "label": "Memphis waived E.J. Onu",
       "sequence": 3,
       "source_group_id": null
     },
@@ -2098,18 +2098,10 @@
     },
     {
       "event_date": "2023-07-08",
-      "event_id": "canonical:2023-07-08:signing:fa8dfea9e70c",
-      "event_type": "signing",
-      "label": "Memphis signed Dillon Brooks",
-      "sequence": 1,
-      "source_group_id": null
-    },
-    {
-      "event_date": "2023-07-08",
       "event_id": "canonical:2023-07-08:trade:b1d59ae60a44",
       "event_type": "trade",
       "label": "Memphis trade: in Josh Christopher, Vanja Marinkovic / out Dillon Brooks",
-      "sequence": 2,
+      "sequence": 1,
       "source_group_id": null
     },
     {
@@ -2940,7 +2932,7 @@
       "event_date": "2025-07-20",
       "event_id": "canonical:2025-07-20:signing:7ec49521db4f",
       "event_type": "signing",
-      "label": "Memphis signed no tracked assets",
+      "label": "Memphis signed P.J. Hall",
       "sequence": 1,
       "source_group_id": null
     },
@@ -3076,7 +3068,7 @@
       "event_date": "2025-11-16",
       "event_id": "canonical:2025-11-16:waiver:f800f6cf86e5",
       "event_type": "waiver",
-      "label": "Memphis waived no tracked assets",
+      "label": "Memphis waived P.J. Hall",
       "sequence": 2,
       "source_group_id": null
     },
@@ -3738,6 +3730,15 @@
     {
       "asset_id": "asset:pick:pick:c1c65ad460",
       "draft_year": 2018,
+      "kind": "pick",
+      "original_team": "unknown",
+      "protections": null,
+      "round_number": 2,
+      "swap_detail": null
+    },
+    {
+      "asset_id": "asset:pick:pick:c2b50ef30d",
+      "draft_year": 2024,
       "kind": "pick",
       "original_team": "unknown",
       "protections": null,
@@ -4853,6 +4854,14 @@
       "years_experience": null
     },
     {
+      "asset_id": "asset:player:e-j-onu",
+      "baseline_order": null,
+      "display_name": "E.J. Onu",
+      "kind": "player",
+      "player_id": "player:e-j-onu",
+      "years_experience": null
+    },
+    {
       "asset_id": "asset:player:eric-bledsoe",
       "baseline_order": null,
       "display_name": "Eric Bledsoe",
@@ -5675,6 +5684,14 @@
       "kind": "player",
       "player_id": "player:omri-casspi",
       "years_experience": 9
+    },
+    {
+      "asset_id": "asset:player:p-j-hall",
+      "baseline_order": null,
+      "display_name": "P.J. Hall",
+      "kind": "player",
+      "player_id": "player:p-j-hall",
+      "years_experience": null
     },
     {
       "asset_id": "asset:player:patrick-beverley",
@@ -6915,7 +6932,7 @@
         "asset:player:troy-williams",
         "asset:player:brandan-wright",
         "asset:player:chris-crawford",
-        "asset:player:james-ennis"
+        "asset:player:d-j-stephens"
       ],
       "season": "2016-17",
       "snapshot_id": "snapshot:mem:2016-17:season_opening",
@@ -9184,23 +9201,16 @@
         }
       ],
       "roster_asset_ids": [
-        "asset:player:kyle-anderson",
         "asset:player:dillon-brooks",
         "asset:player:marshon-brooks",
-        "asset:player:omri-casspi",
         "asset:player:mike-conley",
         "asset:player:marc-gasol",
         "asset:player:jamychal-green",
         "asset:player:andrew-harrison",
         "asset:player:jaren-jackson-jr",
-        "asset:player:shelvin-mack",
-        "asset:player:c-j-miles",
         "asset:player:chandler-parsons",
         "asset:player:ivan-rabb",
-        "asset:player:wayne-selden",
-        "asset:player:d-j-stephens",
-        "asset:player:jonas-valan-i-nas",
-        "asset:player:delon-wright"
+        "asset:player:wayne-selden"
       ],
       "season": "2018-19",
       "snapshot_id": "snapshot:mem:2018-19:post_draft",
@@ -9505,13 +9515,13 @@
         "asset:player:andrew-harrison",
         "asset:player:jaren-jackson-jr",
         "asset:player:shelvin-mack",
-        "asset:player:c-j-miles",
         "asset:player:chandler-parsons",
         "asset:player:ivan-rabb",
         "asset:player:wayne-selden",
-        "asset:player:d-j-stephens",
         "asset:player:garrett-temple",
-        "asset:player:jonas-valan-i-nas"
+        "asset:player:yuta-watanabe",
+        "asset:player:brandon-goodwin",
+        "asset:player:doral-moore"
       ],
       "season": "2018-19",
       "snapshot_id": "snapshot:mem:2018-19:season_opening",
@@ -9818,11 +9828,11 @@
         "asset:player:joakim-noah",
         "asset:player:chandler-parsons",
         "asset:player:ivan-rabb",
-        "asset:player:d-j-stephens",
         "asset:player:jonas-valan-i-nas",
         "asset:player:julian-washburn",
         "asset:player:yuta-watanabe",
-        "asset:player:delon-wright"
+        "asset:player:delon-wright",
+        "asset:player:tyler-harvey"
       ],
       "season": "2018-19",
       "snapshot_id": "snapshot:mem:2018-19:post_deadline",
@@ -10109,11 +10119,11 @@
         "asset:player:joakim-noah",
         "asset:player:chandler-parsons",
         "asset:player:ivan-rabb",
-        "asset:player:d-j-stephens",
         "asset:player:jonas-valan-i-nas",
         "asset:player:julian-washburn",
         "asset:player:yuta-watanabe",
-        "asset:player:delon-wright"
+        "asset:player:delon-wright",
+        "asset:player:tyler-zeller"
       ],
       "season": "2018-19",
       "snapshot_id": "snapshot:mem:2018-19:season_closing",
@@ -10391,9 +10401,7 @@
         "asset:player:bruno-caboclo",
         "asset:player:marko-guduri",
         "asset:player:jaren-jackson-jr",
-        "asset:player:tyus-jones",
         "asset:player:ja-morant",
-        "asset:player:jonas-valan-i-nas",
         "asset:player:yuta-watanabe"
       ],
       "season": "2019-20",
@@ -12374,7 +12382,8 @@
         "asset:player:killian-tillie",
         "asset:player:xavier-tillman-sr",
         "asset:player:jonas-valan-i-nas",
-        "asset:player:justise-winslow"
+        "asset:player:justise-winslow",
+        "asset:player:robert-woodard-ii"
       ],
       "season": "2020-21",
       "snapshot_id": "snapshot:mem:2020-21:season_closing",
@@ -14338,8 +14347,8 @@
         "asset:player:david-roddy",
         "asset:player:xavier-tillman-sr",
         "asset:player:ziaire-williams",
-        "asset:player:gregory-jackson-ii",
-        "asset:player:marcus-smart"
+        "asset:player:gg-jackson-ii",
+        "asset:player:gregory-jackson-ii"
       ],
       "season": "2022-23",
       "snapshot_id": "snapshot:mem:2022-23:season_closing",
@@ -17300,6 +17309,15 @@
       "transition_type": "acquired"
     },
     {
+      "asset_id": "asset:player:d-j-stephens",
+      "event_id": "canonical:2016-07-21:signing:c425aaec258c",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2016-07-21:signing:c425aaec258c:in:asset:player:d-j-stephens",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:troy-williams",
       "event_id": "canonical:2016-07-24:signing:2293c5935af6",
       "from_state": null,
@@ -17432,6 +17450,15 @@
       "notes": null,
       "to_state": null,
       "transition_id": "canonical:2016-10-22:waiver:ba6b3387420e:out:asset:player:wayne-selden",
+      "transition_type": "departed"
+    },
+    {
+      "asset_id": "asset:player:d-j-stephens",
+      "event_id": "canonical:2016-10-22:waiver:bec4c53d5b3c",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2016-10-22:waiver:bec4c53d5b3c:out:asset:player:d-j-stephens",
       "transition_type": "departed"
     },
     {
@@ -17930,6 +17957,24 @@
       "transition_type": "acquired"
     },
     {
+      "asset_id": "asset:player:kyle-anderson",
+      "event_id": "canonical:2018-07-09:signing:fbd9f1d30541",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2018-07-09:signing:fbd9f1d30541:in:asset:player:kyle-anderson",
+      "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:omri-casspi",
+      "event_id": "canonical:2018-07-11:signing:bf7fcce6f985",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2018-07-11:signing:bf7fcce6f985:in:asset:player:omri-casspi",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:jevon-carter",
       "event_id": "canonical:2018-07-15:signing:c365d91b06d4",
       "from_state": null,
@@ -18020,6 +18065,15 @@
       "transition_type": "departed"
     },
     {
+      "asset_id": "asset:player:shelvin-mack",
+      "event_id": "canonical:2018-08-07:signing:f82a0ad76606",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2018-08-07:signing:f82a0ad76606:in:asset:player:shelvin-mack",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:markel-crawford",
       "event_id": "canonical:2018-08-10:signing:f51480421dd1",
       "from_state": null,
@@ -18071,6 +18125,15 @@
       "notes": null,
       "to_state": null,
       "transition_id": "canonical:2018-09-24:signing:532719a76f45:in:asset:player:ismaila-kane",
+      "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:d-j-stephens",
+      "event_id": "canonical:2018-10-08:signing:55b82a060100",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2018-10-08:signing:55b82a060100:in:asset:player:d-j-stephens",
       "transition_type": "acquired"
     },
     {
@@ -18126,6 +18189,15 @@
       "to_state": null,
       "transition_id": "canonical:2018-12-04:signing:bde34f860a28:in:asset:player:joakim-noah",
       "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:d-j-stephens",
+      "event_id": "canonical:2018-12-30:waiver:5f60cbb44270",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2018-12-30:waiver:5f60cbb44270:out:asset:player:d-j-stephens",
+      "transition_type": "departed"
     },
     {
       "asset_id": "asset:player:jarnell-stokes",
@@ -18209,12 +18281,48 @@
       "transition_type": "acquired"
     },
     {
+      "asset_id": "asset:pick:pick:c2b50ef30d",
+      "event_id": "canonical:2019-02-07:trade:46c4f2a3215f",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-02-07:trade:46c4f2a3215f:in:asset:pick:pick:c2b50ef30d",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:avery-bradley",
       "event_id": "canonical:2019-02-07:trade:46c4f2a3215f",
       "from_state": null,
       "notes": null,
       "to_state": null,
       "transition_id": "canonical:2019-02-07:trade:46c4f2a3215f:in:asset:player:avery-bradley",
+      "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:c-j-miles",
+      "event_id": "canonical:2019-02-07:trade:46c4f2a3215f",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-02-07:trade:46c4f2a3215f:in:asset:player:c-j-miles",
+      "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:delon-wright",
+      "event_id": "canonical:2019-02-07:trade:46c4f2a3215f",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-02-07:trade:46c4f2a3215f:in:asset:player:delon-wright",
+      "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:jonas-valan-i-nas",
+      "event_id": "canonical:2019-02-07:trade:46c4f2a3215f",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-02-07:trade:46c4f2a3215f:in:asset:player:jonas-valan-i-nas",
       "transition_type": "acquired"
     },
     {
@@ -18353,6 +18461,15 @@
       "transition_type": "acquired"
     },
     {
+      "asset_id": "asset:player:dwight-howard",
+      "event_id": "canonical:2019-07-06:trade:a08b6ae49bd1",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-07-06:trade:a08b6ae49bd1:in:asset:player:dwight-howard",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:grayson-allen",
       "event_id": "canonical:2019-07-06:trade:a08b6ae49bd1",
       "from_state": null,
@@ -18389,6 +18506,15 @@
       "transition_type": "departed"
     },
     {
+      "asset_id": "asset:player:c-j-miles",
+      "event_id": "canonical:2019-07-06:trade:a08b6ae49bd1",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-07-06:trade:a08b6ae49bd1:out:asset:player:c-j-miles",
+      "transition_type": "departed"
+    },
+    {
       "asset_id": "asset:player:mike-conley",
       "event_id": "canonical:2019-07-06:trade:a08b6ae49bd1",
       "from_state": null,
@@ -18405,6 +18531,15 @@
       "to_state": null,
       "transition_id": "canonical:2019-07-06:waiver:334db4ecd92b:out:asset:player:avery-bradley",
       "transition_type": "departed"
+    },
+    {
+      "asset_id": "asset:player:tyus-jones",
+      "event_id": "canonical:2019-07-07:signing:34b24a9939ed",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-07-07:signing:34b24a9939ed:in:asset:player:tyus-jones",
+      "transition_type": "acquired"
     },
     {
       "asset_id": "asset:player:brandon-clarke",
@@ -18524,6 +18659,15 @@
       "transition_type": "departed"
     },
     {
+      "asset_id": "asset:player:delon-wright",
+      "event_id": "canonical:2019-07-08:signing:2627d7a402fc",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-07-08:signing:2627d7a402fc:in:asset:player:delon-wright",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:john-konchar",
       "event_id": "canonical:2019-07-08:signing:5f1538f27815",
       "from_state": null,
@@ -18567,6 +18711,15 @@
       "to_state": null,
       "transition_id": "canonical:2019-07-08:trade:25f31b9b57b5:out:asset:player:delon-wright",
       "transition_type": "departed"
+    },
+    {
+      "asset_id": "asset:player:jonas-valan-i-nas",
+      "event_id": "canonical:2019-07-11:signing:982fccc4f667",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2019-07-11:signing:982fccc4f667:in:asset:player:jonas-valan-i-nas",
+      "transition_type": "acquired"
     },
     {
       "asset_id": "asset:player:marko-guduric",
@@ -19361,6 +19514,15 @@
       "transition_type": "departed"
     },
     {
+      "asset_id": "asset:player:jonas-valan-i-nas",
+      "event_id": "canonical:2021-08-07:trade:ded5aa2a0a8b",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2021-08-07:trade:ded5aa2a0a8b:out:asset:player:jonas-valan-i-nas",
+      "transition_type": "departed"
+    },
+    {
       "asset_id": "asset:player:trey-murphy-iii",
       "event_id": "canonical:2021-08-07:trade:ded5aa2a0a8b",
       "from_state": null,
@@ -20099,6 +20261,15 @@
       "transition_type": "departed"
     },
     {
+      "asset_id": "asset:player:e-j-onu",
+      "event_id": "canonical:2022-10-13:signing:36bbc638731d",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2022-10-13:signing:36bbc638731d:in:asset:player:e-j-onu",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:romeo-weems",
       "event_id": "canonical:2022-10-13:signing:5f0f4103574b",
       "from_state": null,
@@ -20133,6 +20304,15 @@
       "to_state": null,
       "transition_id": "canonical:2022-10-14:signing:72a1099bcf0f:in:asset:player:dakota-mathias",
       "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:e-j-onu",
+      "event_id": "canonical:2022-10-14:waiver:8cc32f084cb7",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2022-10-14:waiver:8cc32f084cb7:out:asset:player:e-j-onu",
+      "transition_type": "departed"
     },
     {
       "asset_id": "asset:player:romeo-weems",
@@ -20330,15 +20510,6 @@
       "notes": null,
       "to_state": null,
       "transition_id": "canonical:2023-07-03:signing:60f6c2d4282c:in:asset:player:derrick-rose",
-      "transition_type": "acquired"
-    },
-    {
-      "asset_id": "asset:player:dillon-brooks",
-      "event_id": "canonical:2023-07-08:signing:fa8dfea9e70c",
-      "from_state": null,
-      "notes": null,
-      "to_state": null,
-      "transition_id": "canonical:2023-07-08:signing:fa8dfea9e70c:in:asset:player:dillon-brooks",
       "transition_type": "acquired"
     },
     {
@@ -21683,6 +21854,15 @@
       "transition_type": "acquired"
     },
     {
+      "asset_id": "asset:player:p-j-hall",
+      "event_id": "canonical:2025-07-20:signing:7ec49521db4f",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2025-07-20:signing:7ec49521db4f:in:asset:player:p-j-hall",
+      "transition_type": "acquired"
+    },
+    {
       "asset_id": "asset:player:zyon-pullin",
       "event_id": "canonical:2025-07-20:waiver:2df835d8ce0d",
       "from_state": null,
@@ -21825,6 +22005,15 @@
       "to_state": null,
       "transition_id": "canonical:2025-11-16:signing:3b555d83ecca:in:asset:player:jahmai-mashack",
       "transition_type": "acquired"
+    },
+    {
+      "asset_id": "asset:player:p-j-hall",
+      "event_id": "canonical:2025-11-16:waiver:f800f6cf86e5",
+      "from_state": null,
+      "notes": null,
+      "to_state": null,
+      "transition_id": "canonical:2025-11-16:waiver:f800f6cf86e5:out:asset:player:p-j-hall",
+      "transition_type": "departed"
     },
     {
       "asset_id": "asset:player:kobe-bufkin",

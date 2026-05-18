@@ -7,8 +7,8 @@ owner_skill: work
 objective: "Continue closing remaining data-layer gaps in impact-list order by loading the first actual non-BRef source evidence."
 
 summary:
-  current_focus: "The official-source path is now proven across multiple live loads, so the next pass should target the remaining 2023-2024 camp/preseason signings and waivers first, then older chronology coverage."
-  last_completed: "Loaded a 2025 follow-on official batch and a 2024 micro-batch, raising official coverage to 33 source records / 46 source events, reducing unresolved player-movement corroboration to 67 `bref_only`, and cutting the unresolved trade residue to 5."
+  current_focus: "The official-source path is now proven at larger scale, so the next pass should close the final recent 2023 residue first, then expand older chronology coverage and remaining trade evidence."
+  last_completed: "Loaded an expanded Grizzlies team-news batch, added live official-page metadata sanitization, and repaired the BRef same-day sign-and-trade/canonical replacement path. Live counts remain 628 `source_record` / 933 `source_event`, unresolved player-movement corroboration fell to 56 `bref_only`, and the recent 2023-2024 `bref_only` residue fell from 15 events to 4 while canonical truth dropped from 408 to 407 events as expected."
   current_blocker: ""
 
 artifacts:
@@ -23,7 +23,7 @@ agents:
     status: "active"
     stage: "execution"
     task: "Coordinate the next pass to close the remaining unresolved event-level player-movement corroboration gap."
-    last_update: "The latest follow-on loads cleared most of the recent 2024-2025 residue; the next pass is mainly a hunt for 2023-2024 camp/preseason official docs rather than any new loader or audit logic."
+    last_update: "The latest official-team-news load plus the Dillon Brooks sign-and-trade repair closed nearly all recent residue; the next pass is the remaining Gregory Jackson / Jason Preston / Timmy Allen / Matthew Hurt cluster plus older chronology coverage."
     blocker: ""
   - id: "developer-bref-repair"
     role: "developer"
@@ -366,6 +366,6 @@ gap_checklist:
       status: "open"
       note: "Latest audit now reports 94 `bref_only` events, 9 `conflict_suspected` trade events, 272 `recognized_provider_not_loaded` events, 4 `meets_minimum` events, and 276 `no_conflict_detected` events."
 
-next_action: "Expand the official-release source fixture with more source-backed trade, signing, and waiver articles, then rerun the live audit to keep shrinking the remaining `bref_only` bucket."
+next_action: "Target the remaining four recent `bref_only` events first: the unresolved 2023-08-31 Gregory Jackson signing and the 2023-10-16 Jason Preston / Timmy Allen / Matthew Hurt cluster; then resume older-signing chronology coverage."
 next_recommended_command: "$work"
 user_input_needed: false

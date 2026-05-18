@@ -12,8 +12,8 @@ Last verified live load scope:
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments plus the expanded official-source corroboration load:
 
-- `source_record`: 622
-- `source_event`: 922
+- `source_record`: 628
+- `source_event`: 933
 - `player`: 229
 - `player_alias`: 1
 - `pick`: 128
@@ -25,16 +25,16 @@ seed enrichments plus the expanded official-source corroboration load:
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
 - `draft_lottery_result`: 5
-- `canonical_event`: 408
-- `canonical_event_member`: 421
-- `event_asset_transition`: 569
+- `canonical_event`: 407
+- `canonical_event_member`: 420
+- `event_asset_transition`: 568
 
 Current graph export counts:
 
-- `events`: 408
+- `events`: 407
 - `player_assets`: 229
 - `pick_assets`: 128
-- `transitions`: 589
+- `transitions`: 588
 - `roster_snapshots`: 40
 
 Audit command:
@@ -90,14 +90,14 @@ As of 2026-05-17, the live NBA.com preview/dry-run checkpoint reported:
 
 The earlier dry-run graph baseline remained unchanged at that checkpoint, which
 is why the NBA.com load could be approved safely before any BRef repair pass.
-The current live baseline after the later BRef corroboration rebuild is:
+The current live baseline after the latest BRef corroboration rebuild is:
 
-- canonical counts `canonical_event=408`, `canonical_event_member=421`,
-  `event_asset_transition=569`
-- graph export counts `events=408`, `player_assets=229`, `pick_assets=128`,
-  `transitions=589`, `roster_snapshots=40`
+- canonical counts `canonical_event=407`, `canonical_event_member=420`,
+  `event_asset_transition=568`
+- graph export counts `events=407`, `player_assets=229`, `pick_assets=128`,
+  `transitions=588`, `roster_snapshots=40`
 - graph export checksum
-  `ffa34c46acbb824706f9745169430e6792c6f2e838d2a8b41adff3c873db031a`
+  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
 
 The live audit now reports loaded source systems `basketball_reference`,
 `nba_official`, `nba_player_movement`, and `team_official`, confirming that the
@@ -124,17 +124,29 @@ still preserves source URLs, titles, timestamps, and curated article excerpts.
 
 The current expanded official-source load writes:
 
-- `33` official `source_record` rows
-- `46` official `source_event` rows
+- `39` official `source_record` rows
+- `57` official `source_event` rows
 - loaded official source systems `nba_official` and `team_official`
+- live HTML metadata is now sanitized for NUL bytes before persistence
 
 Current corroboration summary after the expanded official-source load:
 
-- `bref_only=67`
+- `bref_only=56`
 - `meets_minimum=25`
-- `recognized_provider_not_loaded=278`
+- `recognized_provider_not_loaded=288`
 - `missing_required_evidence=38`
 - `conflict_suspected=0`
+- canonical/graph truth now reflects the Dillon Brooks sign-and-trade repair:
+  `canonical_event=407`, `canonical_event_member=420`,
+  `event_asset_transition=568`, graph checksum
+  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+
+Recent unresolved `bref_only` residue is now down to four events:
+
+- `2023-08-31` Gregory Jackson signing
+- `2023-10-16` Timmy Allen signing
+- `2023-10-16` Jason Preston signing
+- `2023-10-16` Matthew Hurt waiver
 
 Graph baseline checkpoint output:
 

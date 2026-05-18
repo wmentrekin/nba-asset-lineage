@@ -261,8 +261,17 @@ def is_corroboration_only_source_event(source_event: SourceEventRow) -> bool:
     return source_event.normalized_payload.get("corroboration_only") is True
 
 
+def has_canonical_exclusion_reason(source_event: SourceEventRow) -> bool:
+    reason = source_event.normalized_payload.get("canonical_exclusion_reason")
+    return isinstance(reason, str) and bool(reason.strip())
+
+
 def filter_canonical_source_events(source_events: list[SourceEventRow]) -> list[SourceEventRow]:
-    return [source_event for source_event in source_events if not is_corroboration_only_source_event(source_event)]
+    return [
+        source_event
+        for source_event in source_events
+        if not is_corroboration_only_source_event(source_event) and not has_canonical_exclusion_reason(source_event)
+    ]
 
 
 def load_source_events_from_database(database_url: str) -> list[SourceEventRow]:

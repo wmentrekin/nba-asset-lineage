@@ -314,6 +314,84 @@
       ]
     },
     {
+      "source_record_id": "team_official:2023-08-31:shaquille-harrison",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-shaquille-harrison",
+      "source_title": "Memphis Grizzlies sign Shaquille Harrison",
+      "source_published_at": "2023-08-31T19:57:00Z",
+      "source_excerpt": "Official Grizzlies release announcing the signing of Shaquille Harrison.",
+      "events": [
+        {
+          "source_event_id": "team_official:2023-08-31:shaquille-harrison-signing",
+          "event_date": "2023-08-31",
+          "event_type": "signing",
+          "label": "Memphis signs Shaquille Harrison",
+          "player_names_in": ["Shaquille Harrison"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Shaquille Harrison."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2023-09-30:matthew-hurt-mychal-mulder",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-matthew-hurt-and-mychal-mulder",
+      "source_title": "Memphis Grizzlies sign Matthew Hurt and Mychal Mulder",
+      "source_published_at": "2023-10-01T00:10:22Z",
+      "source_excerpt": "Official Grizzlies release announcing the signings of Matthew Hurt and Mychal Mulder.",
+      "events": [
+        {
+          "source_event_id": "team_official:2023-09-30:matthew-hurt-signing",
+          "event_date": "2023-09-30",
+          "event_type": "signing",
+          "label": "Memphis signs Matthew Hurt",
+          "player_names_in": ["Matthew Hurt"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Matthew Hurt."
+        },
+        {
+          "source_event_id": "team_official:2023-09-30:mychal-mulder-signing",
+          "event_date": "2023-09-30",
+          "event_type": "signing",
+          "label": "Memphis signs Mychal Mulder",
+          "player_names_in": ["Mychal Mulder"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Mychal Mulder."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2023-10-18:adonis-arms-david-johnson",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-adonis-arms-and-david-johnson",
+      "source_title": "Memphis Grizzlies sign Adonis Arms and David Johnson",
+      "source_published_at": "2023-10-18T23:08:51Z",
+      "source_excerpt": "Official Grizzlies release announcing the signings of Adonis Arms and David Johnson.",
+      "events": [
+        {
+          "source_event_id": "team_official:2023-10-18:adonis-arms-signing",
+          "event_date": "2023-10-18",
+          "event_type": "signing",
+          "label": "Memphis signs Adonis Arms",
+          "player_names_in": ["Adonis Arms"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Adonis Arms."
+        },
+        {
+          "source_event_id": "team_official:2023-10-18:david-johnson-camp-signing",
+          "event_date": "2023-10-18",
+          "event_type": "signing",
+          "label": "Memphis signs David Johnson",
+          "player_names_in": ["David Johnson"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed David Johnson."
+        }
+      ]
+    },
+    {
       "source_record_id": "nba_official:2024-02-08:brooklyn-phoenix-memphis-trade",
       "source_system": "nba_official",
       "source_type": "news_release_article",
@@ -410,6 +488,93 @@
           "player_names_in": ["Mamadi Diakite", "Nemanja Dangubic"],
           "player_names_out": ["Ziaire Williams"],
           "raw_note": "The Memphis Grizzlies acquired Mamadi Diakite and the draft rights to Nemanja Dangubic from the Brooklyn Nets in exchange for Ziaire Williams and a Dallas Mavericks 2030 second-round pick."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-09-06:bacot-kawamura-oni-pereira",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-armando-bacot-yuki-kawamura-miye-oni-and-maozinha-pereira",
+      "source_title": "Grizzlies sign Armando Bacot, Yuki Kawamura, Miye Oni and Maozinha Pereira",
+      "source_published_at": "2024-09-06T18:11:35Z",
+      "source_excerpt": "Official Grizzlies release announcing the signings of Armando Bacot, Yuki Kawamura, Miye Oni and Maozinha Pereira.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-09-06:armando-bacot-signing",
+          "event_date": "2024-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Armando Bacot",
+          "player_names_in": ["Armando Bacot"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Armando Bacot."
+        },
+        {
+          "source_event_id": "team_official:2024-09-06:yuki-kawamura-signing-official",
+          "event_date": "2024-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Yuki Kawamura",
+          "player_names_in": ["Yuki Kawamura"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Yuki Kawamura."
+        },
+        {
+          "source_event_id": "team_official:2024-09-06:miye-oni-signing",
+          "event_date": "2024-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Miye Oni",
+          "player_names_in": ["Miye Oni"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Miye Oni."
+        },
+        {
+          "source_event_id": "team_official:2024-09-06:maozinha-pereira-signing",
+          "event_date": "2024-09-06",
+          "event_type": "signing",
+          "label": "Memphis signs Maozinha Pereira",
+          "player_names_in": ["Maozinha Pereira"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Maozinha Pereira."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-10-16:david-johnson",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-david-johnson",
+      "source_title": "Grizzlies sign David Johnson",
+      "source_published_at": "2024-10-16T15:38:14Z",
+      "source_excerpt": "Official Grizzlies release announcing the signing of David Johnson.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-10-16:david-johnson-signing",
+          "event_date": "2024-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs David Johnson",
+          "player_names_in": ["David Johnson"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed David Johnson."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2024-10-16:miles-norris",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-miles-norris",
+      "source_title": "Grizzlies sign Miles Norris",
+      "source_published_at": "2024-10-17T01:35:00Z",
+      "source_excerpt": "Official Grizzlies release announcing the signing of Miles Norris.",
+      "events": [
+        {
+          "source_event_id": "team_official:2024-10-16:miles-norris-signing",
+          "event_date": "2024-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs Miles Norris",
+          "player_names_in": ["Miles Norris"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies announced the team signed Miles Norris."
         }
       ]
     },

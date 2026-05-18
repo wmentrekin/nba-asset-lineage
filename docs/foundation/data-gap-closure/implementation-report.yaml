@@ -6,8 +6,8 @@ owner_skill: work
 based_on: "docs/foundation/data-gap-closure/plan.yaml"
 
 summary:
-  scope_executed: "Continued the official-source corroboration pass with two follow-on batches: a 2025 team-transaction/draft-results batch plus a 2024 micro-batch for Matthew Hurt and the Cam Spencer/Ulrich Chomche trade. Both batches were loaded into Supabase and verified against the live audit and graph baseline."
-  outcome: "The live foundation still reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`, but official-source coverage is materially deeper. The official fixture now yields 33 source records / 46 source events, `source_record` rose to 622, `source_event` rose to 922, `bref_only` fell to 67, unresolved trades fell to 5, `meets_minimum` rose to 25, and the graph export checksum remained unchanged."
+  scope_executed: "Continued the official-source corroboration pass with a broader Grizzlies team-news batch covering Shaquille Harrison, Matthew Hurt, Mychal Mulder, Adonis Arms, David Johnson, Armando Bacot, Miye Oni, Maozinha Pereira, and Miles Norris, then repaired the BRef same-day sign-and-trade path and canonical replace semantics so stale canonical rows can actually disappear."
+  outcome: "The live foundation still reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`, but official-source coverage is materially deeper and the known Dillon Brooks canonical bug is gone. The official fixture now yields 39 source records / 57 source events, `source_record` rose to 628, `source_event` rose to 933, `bref_only` fell to 56, the recent `bref_only` residue fell from 15 events to 4, `meets_minimum` stayed at 25, and the graph export changed as expected because the stale Dillon Brooks signing event was removed from canonical truth."
 
 task_batches_attempted:
   - "B1"
@@ -43,7 +43,8 @@ changes:
   docs_updated:
     - "Recorded the new official-source command surface and starter fixture."
     - "Updated the live audit counts after the 2025 follow-on batch and the 2024 micro-batch."
-    - "Documented that the current residue is now concentrated in 2023-2024 camp/preseason signings plus older chronology coverage."
+    - "Documented that the current residue is now concentrated in a five-event 2023 cluster plus older chronology coverage."
+    - "Documented that the current residue is now concentrated in a four-event 2023 cluster plus older chronology coverage."
 
 local_validation:
   checks_run:
@@ -53,6 +54,7 @@ local_validation:
     - ".venv/bin/python -m redesign_cli load-official-release-sources --fetch-live --dry-run"
     - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
     - ".venv/bin/python -m redesign_cli load-official-release-sources --fetch-live --execute"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --fetch-live --execute (after NUL-byte sanitization fix)"
     - "Read-only live audit summary after the official-source load and reconciliation bug fix"
     - "Read-only live audit summary after the expanded official-source load and Adama-Alpha Bal name correction"
     - "Read-only graph baseline inspection after the expanded official-source load"
@@ -90,7 +92,9 @@ review_summary:
     - "Multiple exact corroborating sources can now reinforce one canonical event instead of creating false ambiguity."
     - "The expanded official-source load eliminated the trade `conflict_suspected` bucket and pushed the remaining unresolved player-movement residue into straight coverage gaps."
     - "Follow-on batches closed the recent 2025 transaction cluster, multiple draft-night trade rows, both 2024 Matthew Hurt 10-day signings, and the 2024 Cam Spencer / Ulrich Chomche trade."
-    - "The official-source load changed source coverage and corroboration counts only; it did not touch canonical or graph tables."
+    - "The latest Grizzlies team-news batch closed 10 recent camp/preseason signings and reduced the recent unresolved residue to five events."
+    - "Live official HTML fetches now strip NUL bytes before persistence, preventing Postgres JSON write failures during corroboration-only loads."
+    - "The BRef repair now excludes same-day sign-and-trade contract rows from canonical derivation, and the canonical loader now fully replaces stale rows instead of leaving superseded events behind."
 
 test_summary:
   status: full_passed
@@ -106,11 +110,11 @@ test_summary:
   gaps: []
 
 open_issues:
-  - "Event-level corroboration is still partial: 67 canonical events remain `bref_only`, concentrated in 58 signings, 5 trades, and 4 waivers."
-  - "The official-source loader is now proven at larger scale; the remaining high-signal residue is mostly 2023-2024 camp/preseason signings and waivers plus older pre-2020 chronology coverage."
+  - "Event-level corroboration is still partial: 56 canonical events remain `bref_only`, concentrated in 47 signings, 5 trades, and 4 waivers."
+  - "The official-source loader is now proven at larger scale; the remaining high-signal residue is a four-event 2023 cluster plus older pre-2020 chronology coverage."
   - "NBA Stats reference data is still absent from loaded source records."
 
 handoff:
   current_state: completed
   next_owner: "orchestrator"
-  next_action: "Target the remaining 15 recent `bref_only` events first, prioritizing 2023-2024 camp/preseason official documents for Armando Bacot, Miye Oni, Maozinha Pereira, Miles Norris, David Johnson, and the 2023 camp cluster before expanding into older chronology coverage."
+  next_action: "Target the remaining four recent `bref_only` events first: the unresolved Gregory Jackson 2023-08-31 signing and the 2023-10-16 Jason Preston / Timmy Allen / Matthew Hurt cluster; then expand older chronology coverage."

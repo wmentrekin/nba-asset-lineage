@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from foundation import live_sources
+from foundation.ingest import SourceEventRow, filter_canonical_source_events
 from foundation.live_sources import (
+    BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON,
     NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
@@ -43,6 +45,59 @@ def test_build_bref_source_rows_from_fixture_fragment() -> None:
     assert source_events[0].event_type == "trade"
     assert source_events[1].event_type == "conversion"
     assert source_events[2].event_type == "waiver"
+
+
+def test_build_bref_source_rows_excludes_same_day_sign_and_trade_contract_from_canonical() -> None:
+    html = """
+    <li>
+    <span><span>July 8, 2023</span></span>
+    <p><p class="transaction ">Signed <a href="/players/b/brookdi01.html">Dillon Brooks</a> to a multi-year contract.</p></p>
+    <p><p class="transaction ">As part of a 5-team trade, the Memphis Grizzlies traded <a href="/players/b/brookdi01.html">Dillon Brooks</a> to the Houston Rockets; the Houston Rockets traded <a href="/players/c/chrisjo01.html">Josh Christopher</a> to the Memphis Grizzlies.</p></p>
+    </li>
+    """
+
+    _source_records, source_events = build_bref_source_rows(team_code="MEM", season_end_year=2024, html=html)
+
+    signing = next(event for event in source_events if event.event_type == "signing")
+    trade = next(event for event in source_events if event.event_type == "trade")
+
+    assert signing.normalized_payload["canonical_exclusion_reason"] == BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON
+    assert "same_day_sign_and_trade_contract_excluded" in signing.normalized_payload["extraction_notes"]
+    assert "canonical_exclusion_reason" not in trade.normalized_payload
+
+
+def test_filter_canonical_source_events_excludes_explicit_canonical_exclusion_reason() -> None:
+    filtered = filter_canonical_source_events(
+        [
+            SourceEventRow(
+                source_event_id="bref:1",
+                source_record_id="bref:1",
+                event_date="2023-07-08",
+                event_type="signing",
+                label="Memphis signed Dillon Brooks",
+                team_scope="MEM",
+                normalized_payload={
+                    "player_names_in": ["Dillon Brooks"],
+                    "player_names_out": [],
+                    "canonical_exclusion_reason": "bref_same_day_sign_and_trade_contract",
+                },
+            ),
+            SourceEventRow(
+                source_event_id="bref:2",
+                source_record_id="bref:2",
+                event_date="2023-07-08",
+                event_type="trade",
+                label="Memphis trades Dillon Brooks",
+                team_scope="MEM",
+                normalized_payload={
+                    "player_names_in": ["Josh Christopher"],
+                    "player_names_out": ["Dillon Brooks"],
+                },
+            ),
+        ]
+    )
+
+    assert [event.source_event_id for event in filtered] == ["bref:2"]
 
 
 def test_extract_nba_dataset_rows_supports_result_sets_shape() -> None:
@@ -369,6 +424,25 @@ def test_extract_official_article_metadata_from_minimal_html() -> None:
     assert metadata["modified_at"] == "2025-07-06T14:00:00-05:00"
     assert "Memphis Grizzlies today announced" in str(metadata["article_text_excerpt"])
     assert metadata["html_sha1"]
+
+
+def test_extract_official_article_metadata_strips_nul_bytes_from_excerpt() -> None:
+    html = """
+    <html>
+      <head>
+        <meta property="og:title" content="Grizzlies sign David Johnson" />
+      </head>
+      <body>
+        <article>
+          <p>Memphis \x00 announced \x00 David Johnson.</p>
+        </article>
+      </body>
+    </html>
+    """
+
+    metadata = extract_official_article_metadata(html)
+
+    assert metadata["article_text_excerpt"] == "Memphis announced David Johnson."
 
 
 def test_build_official_release_source_rows_from_fixture_payload() -> None:

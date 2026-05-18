@@ -140,6 +140,7 @@ def build_canonical_layer_from_source_events(
 def load_foundation_canonical_bundle(database_url: str) -> dict[str, int]:
     bundle = derive_foundation_canonical_bundle_from_database(database_url)
     with psycopg.connect(database_url, connect_timeout=10) as connection:
+        replace_canonical_tables(connection)
         upsert_canonical_events(connection, bundle.canonical_events)
         upsert_canonical_event_members(connection, bundle.canonical_event_members)
         upsert_event_asset_transitions(connection, bundle.event_asset_transitions)
@@ -272,6 +273,13 @@ def is_normalized_pick_detail(value: object) -> bool:
         and isinstance(value.get("draft_year"), int)
         and isinstance(value.get("round_number"), int)
     )
+
+
+def replace_canonical_tables(connection: psycopg.Connection) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute("delete from foundation.event_asset_transition")
+        cursor.execute("delete from foundation.canonical_event_member")
+        cursor.execute("delete from foundation.canonical_event")
 
 
 def upsert_canonical_events(connection: psycopg.Connection, rows: list[CanonicalEventRow]) -> None:
