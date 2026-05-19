@@ -274,6 +274,99 @@
       ]
     },
     {
+      "source_record_id": "team_official:2023-playoff-media-guide:2022-preseason-camp-cluster",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://s3.grizzliesapp.com/assets/media_guides/MG_22-23_Playoffs_Media_Guide.pdf",
+      "source_title": "Memphis Grizzlies 2022-23 Playoff Media Guide",
+      "source_excerpt": "The official playoff media guide transaction log records the Grizzlies' Sept. 23 and Oct. 10 and 13 preseason/camp moves, including the Gilyard, Bean, Hurt, McDermott and Onu/Weems transactions.",
+      "events": [
+        {
+          "source_event_id": "team_official:2022-09-23:jacob-gilyard-signing",
+          "event_date": "2022-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Jacob Gilyard",
+          "player_names_in": ["Jacob Gilyard"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 9/23 Memphis signed Justin Bean and Jacob Gilyard."
+        },
+        {
+          "source_event_id": "team_official:2022-09-23:justin-bean-signing",
+          "event_date": "2022-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Justin Bean",
+          "player_names_in": ["Justin Bean"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 9/23 Memphis signed Justin Bean and Jacob Gilyard."
+        },
+        {
+          "source_event_id": "team_official:2022-10-10:matthew-hurt-signing",
+          "event_date": "2022-10-10",
+          "event_type": "signing",
+          "label": "Memphis signs Matthew Hurt",
+          "player_names_in": ["Matthew Hurt"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/10 Memphis signed Matthew Hurt and Sean McDermott and waived Justin Bean and Jacob Gilyard."
+        },
+        {
+          "source_event_id": "team_official:2022-10-10:sean-mcdermott-signing",
+          "event_date": "2022-10-10",
+          "event_type": "signing",
+          "label": "Memphis signs Sean McDermott",
+          "player_names_in": ["Sean McDermott"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/10 Memphis signed Matthew Hurt and Sean McDermott and waived Justin Bean and Jacob Gilyard."
+        },
+        {
+          "source_event_id": "team_official:2022-10-13:ej-onu-signing",
+          "event_date": "2022-10-13",
+          "event_type": "signing",
+          "label": "Memphis signs E.J. Onu",
+          "player_names_in": ["E.J. Onu"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/13 Memphis signed EJ Onu and Romeo Weems and waived Matthew Hurt and Sean McDermott."
+        },
+        {
+          "source_event_id": "team_official:2022-10-13:romeo-weems-signing",
+          "event_date": "2022-10-13",
+          "event_type": "signing",
+          "label": "Memphis signs Romeo Weems",
+          "player_names_in": ["Romeo Weems"],
+          "player_names_out": [],
+          "raw_note": "The team transaction log states that on 10/13 Memphis signed EJ Onu and Romeo Weems and waived Matthew Hurt and Sean McDermott."
+        },
+        {
+          "source_event_id": "team_official:2022-10-13:matthew-hurt-waiver",
+          "event_date": "2022-10-13",
+          "event_type": "waiver",
+          "label": "Memphis waives Matthew Hurt",
+          "player_names_in": [],
+          "player_names_out": ["Matthew Hurt"],
+          "raw_note": "The team transaction log states that on 10/13 Memphis signed EJ Onu and Romeo Weems and waived Matthew Hurt and Sean McDermott."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2022-10-14:dakota-mathias",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-dakota-mathias",
+      "source_title": "Memphis Grizzlies sign Dakota Mathias",
+      "source_published_at": "2022-10-14T10:00:00-05:00",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed Dakota Mathias and, in related moves, waived EJ Onu and Romeo Weems.",
+      "events": [
+        {
+          "source_event_id": "team_official:2022-10-14:dakota-mathias-signing",
+          "event_date": "2022-10-14",
+          "event_type": "signing",
+          "label": "Memphis signs Dakota Mathias",
+          "player_names_in": ["Dakota Mathias"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed wing Dakota Mathias. In addition, the Grizzlies waived forward/center EJ Onu and forward Romeo Weems."
+        }
+      ]
+    },
+    {
       "source_record_id": "nba_official:2023-06-23:marcus-smart-trade",
       "source_system": "nba_official",
       "source_type": "news_release_article",
@@ -334,6 +427,26 @@
       ]
     },
     {
+      "source_record_id": "team_official:2023-08-31:gregory-jackson-ii",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://gleague.nba.com/news/memphis-grizzlies-sign-gg-jackson-ii-to-two-way-contract",
+      "source_title": "Memphis Grizzlies Sign GG Jackson II To Two-Way Contract",
+      "source_published_at": "2023-08-31",
+      "source_excerpt": "The Memphis Grizzlies announced the team signed forward GG Jackson II to a two-way contract.",
+      "events": [
+        {
+          "source_event_id": "team_official:2023-08-31:gregory-jackson-ii-signing",
+          "event_date": "2023-08-31",
+          "event_type": "signing",
+          "label": "Memphis signs Gregory Jackson II to a two-way contract",
+          "player_names_in": ["Gregory Jackson II"],
+          "player_names_out": [],
+          "raw_note": "The Memphis Grizzlies today announced the team signed forward GG Jackson II to a two-way contract."
+        }
+      ]
+    },
+    {
       "source_record_id": "team_official:2023-09-30:matthew-hurt-mychal-mulder",
       "source_system": "team_official",
       "source_type": "press_release_article",
@@ -359,6 +472,53 @@
           "player_names_in": ["Mychal Mulder"],
           "player_names_out": [],
           "raw_note": "The Memphis Grizzlies announced the team signed Mychal Mulder."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2023-10-16:timmy-allen-jason-preston-cluster",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/players/transactions",
+      "source_title": "NBA Player Transactions",
+      "source_published_at": "2023-10-16",
+      "source_excerpt": "Curated from the NBA Player Transactions locator for Oct. 16, 2023 with secondary confirmation of the team-announced signings of Timmy Allen and Jason Preston and waivers of Matthew Hurt and Mychal Mulder.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2023-10-16:timmy-allen-signing",
+          "event_date": "2023-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs Timmy Allen",
+          "player_names_in": ["Timmy Allen"],
+          "player_names_out": [],
+          "raw_note": "The Oct. 16, 2023 Memphis transaction cluster added Timmy Allen on an Exhibit 10 deal."
+        },
+        {
+          "source_event_id": "nba_official:2023-10-16:jason-preston-signing",
+          "event_date": "2023-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs Jason Preston",
+          "player_names_in": ["Jason Preston"],
+          "player_names_out": [],
+          "raw_note": "The Oct. 16, 2023 Memphis transaction cluster added Jason Preston on an Exhibit 10 deal."
+        },
+        {
+          "source_event_id": "nba_official:2023-10-16:matthew-hurt-waiver",
+          "event_date": "2023-10-16",
+          "event_type": "waiver",
+          "label": "Memphis waives Matthew Hurt",
+          "player_names_in": [],
+          "player_names_out": ["Matthew Hurt"],
+          "raw_note": "The Oct. 16, 2023 Memphis transaction cluster waived Matthew Hurt."
+        },
+        {
+          "source_event_id": "nba_official:2023-10-16:mychal-mulder-waiver",
+          "event_date": "2023-10-16",
+          "event_type": "waiver",
+          "label": "Memphis waives Mychal Mulder",
+          "player_names_in": [],
+          "player_names_out": ["Mychal Mulder"],
+          "raw_note": "The Oct. 16, 2023 Memphis transaction cluster waived Mychal Mulder."
         }
       ]
     },

@@ -1,173 +1,102 @@
 artifact: plan
 feature: "foundation/data-gap-closure"
-mode: "large-initiative"
+mode: "bounded-feature"
 status: draft
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/requirements.yaml"
 
-objective: "Load the first actual non-BRef source evidence by adding a guarded NBA.com player movement fetch/preview/load path without mutating canonical graph truth."
+objective: "Close the 2022-23 preseason/camp older-chronology cluster through the existing corroboration-only official-source path."
 
 approach:
-  summary: "Build a conservative ingestion path: live fetch and preview first, source-row dry-run second, canonical graph guard third. Live Supabase load is explicitly gated behind a second checkpoint after dry-run output is reviewed."
+  summary: "Treat this as a fixture-first older-chronology pass. Add the missing curated `team_official` / `nba_official` source rows for the four 2022 preseason dates, preview them, dry-run them, and only then proceed to live load and audit verification."
   key_decisions:
-    - "Use `https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json` as the first non-BRef source."
-    - "Filter Memphis rows by team ID `1610612763`, team slug `grizzlies`, or Memphis text fallback."
-    - "Normalize NBA transaction types into existing source_event event types before any load."
-    - "Treat NBA movement as source evidence, not graph lineage truth, until reconciliation is implemented."
-    - "Use `normalized_payload.corroboration_only = true` and `normalized_payload.canonical_exclusion_reason = nba_player_movement_requires_reconciliation` as the exact graph-safety guard."
-    - "Canonical and derived builders should ignore `corroboration_only` source events by default."
-    - "Do not run canonical rebuild or graph export as a required part of this pass; if any live load happens, graph invariance must be verified with pre/post counts and generated graph checksum."
+    - "Bound the pass to the 8-event 2022-09-23 through 2022-10-14 preseason/camp cluster."
+    - "Prefer source curation over loader or audit rewrites."
+    - "Use the official 2022-23 Grizzlies playoff media guide transaction log as the likely backbone source for the four target dates, supplementing with the official Dakota Mathias article where it strengthens the `2022-10-14` row."
+    - "Allow one or more curated `team_official` or `nba_official` transaction-page-style source records if that is the cleanest truthful representation."
+    - "Keep all new source events `corroboration_only` and graph-safe."
+    - "If fixture-only evidence does not reconcile cleanly in preview or dry-run, stop and re-scope instead of carrying matcher code changes in-band."
 
 contracts:
   interfaces:
-    - "`preview-nba-player-movement` should support fixture/file input and live endpoint input."
-    - "A new source-row preview command should show exactly what would be written to `source_record` and `source_event`."
-    - "A new guarded load command should support `--dry-run`; live load requires an explicit `--execute` style flag and a second user checkpoint."
-    - "`audit-foundation-data` remains the verification surface for loaded source coverage."
+    - "`preview-official-release-sources` must show the newly curated rows before any write."
+    - "`load-official-release-sources --dry-run` must show the exact source_record/source_event candidates for the 8 targeted events."
+    - "`load-official-release-sources --execute` remains the only write path."
+    - "`audit-foundation-data` is the truth surface for whether the 8 gaps are actually closed."
   schemas:
-    - "No SQL migrations in this pass."
-    - "Use existing `foundation.source_record` and `foundation.source_event` tables."
-    - "If the exact canonical exclusion marker cannot be represented safely in normalized_payload, stop and ask for a new checkpoint before changing schema."
+    - "No SQL migrations."
+    - "No new tables or columns."
+    - "Reuse `foundation.source_record` and `foundation.source_event` through the existing official-source loader."
   config_changes:
-    - "Add constants for NBA player movement endpoint URL, Memphis team ID/slug, source type, and transaction type mapping."
-    - "No frontend config changes."
-
-graph_safety_contract:
-  canonical_guard:
-    payload_field: "normalized_payload.corroboration_only"
-    required_value: true
-    exclusion_reason_field: "normalized_payload.canonical_exclusion_reason"
-    exclusion_reason_value: "nba_player_movement_requires_reconciliation"
-    default_behavior: "Derived/canonical builders ignore rows with `corroboration_only = true`."
-    opt_in_behavior: "A future reconciliation pass must explicitly opt these rows into canonical-event membership."
-  raw_payload_storage:
-    decision: "Store Memphis-filtered rows plus endpoint metadata, filter metadata, total endpoint row count, date range, transaction type counts, ETag/Last-Modified when available, and retrieval timestamp."
-    reason: "This keeps the source_record Memphis-scoped while preserving enough endpoint provenance for replay and audit."
-  live_write_gate:
-    first_checkpoint: "Approve implementation of preview/dry-run/guard code."
-    second_checkpoint: "After dry-run output is shown, explicitly approve or defer live Supabase load."
-  remediation:
-    primary: "Deterministic upsert IDs let corrected loads overwrite bad source_record/source_event content."
-    destructive_cleanup: "Any deletion/cleanup of bad live rows requires a separate explicit user approval and checked-in command."
+    - "Update `configs/data/memphis_official_release_sources_seed_v1.json`."
+    - "Update active gap docs after the live load and audit."
 
 execution_batches:
   - id: "B1"
-    goal: "Harden NBA movement preview and live fetch."
+    goal: "Curate the missing 2022 preseason/camp source rows."
     tasks:
       - id: "T1"
-        title: "Add live fetch/preview metadata"
-        objective: "Extend NBA movement preview so it can use the live endpoint or fixture, filter Memphis rows, normalize player/team identifiers, and report counts/date range/type distribution without writes."
+        title: "Add the 2022-09-23 through 2022-10-14 source records"
+        objective: "Extend the official-source fixture with the smallest truthful set of new source rows needed to represent the 8 target signings and waivers."
         owned_scope:
-          - "src/foundation/live_sources.py"
-          - "src/redesign_cli.py"
-          - "tests/foundation/test_live_sources.py"
-          - "tests/foundation/fixtures/nba_player_movement_sample.json"
+          - "configs/data/memphis_official_release_sources_seed_v1.json"
+          - "docs/foundation/full-span-load-notes.md"
         forbidden_scope:
-          - "database writes"
-          - "SQL migrations"
-          - "canonical rebuild logic"
+          - "SQL files"
           - "frontend files"
+          - "canonical generation code"
         dependencies: []
         parallelizable: false
         expected_validation:
-          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
-          - ".venv/bin/python -m redesign_cli preview-nba-player-movement --fixture-path tests/foundation/fixtures/nba_player_movement_sample.json"
+          - ".venv/bin/python -m redesign_cli preview-official-release-sources"
+          - ".venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
   - id: "B2"
-    goal: "Build loadable source evidence rows safely."
+    goal: "Load the new corroborating rows and verify the cluster closes."
     tasks:
       - id: "T2"
-        title: "Add source-record/source-event preview and dry-run"
-        objective: "Build deterministic NBA movement SourceRecordRow/SourceEventRow objects, transaction type normalization, source_group_hint handling, exact corroboration-only guard fields, and a dry-run command that reports load candidates without writing."
-        owned_scope:
-          - "src/foundation/live_sources.py"
-          - "src/redesign_cli.py"
-          - "tests/foundation/test_live_sources.py"
-          - "docs/foundation/full-span-load-notes.md"
-        forbidden_scope:
-          - "live DB writes before dry-run passes"
-          - "canonical rebuild"
-          - "graph export"
-        dependencies:
-          - "B1"
-        parallelizable: false
-        expected_validation:
-          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
-          - "Dry-run command reports source_records/source_events and writes_to_database=false"
-          - "Rows include a graph-safety/corroboration-only marker in normalized_payload"
-          - "Raw Transaction_Type and normalized event_type are both preserved"
-          - "Repeated dry-runs produce stable source_record/source_event IDs"
-  - id: "B3"
-    goal: "Guard canonical graph truth from corroboration-only rows."
-    tasks:
-      - id: "T3"
-        title: "Prevent accidental graph mutation"
-        objective: "Ensure derived/canonical graph builders ignore source events with `normalized_payload.corroboration_only = true` unless an explicit future reconciliation path opts them in."
-        owned_scope:
-          - "src/foundation/canonical.py"
-          - "src/foundation/ingest.py"
-          - "tests/foundation/test_live_sources.py"
-          - "tests/foundation/test_audit.py"
-          - "docs/foundation/full-span-load-notes.md"
-        forbidden_scope:
-          - "SQL migrations"
-          - "frontend files"
-          - "changing BRef canonical behavior"
-        dependencies:
-          - "B2"
-        parallelizable: false
-        expected_validation:
-          - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
-          - "Tests show corroboration-only NBA rows do not change canonical event/transition derivation"
-  - id: "B4"
-    goal: "Prepare live-load checkpoint output."
-    tasks:
-      - id: "T4"
-        title: "Produce dry-run and graph-invariance checkpoint"
-        objective: "Run fixture/live preview and source-row dry-run, capture graph baseline counts/checksum, and produce a concise checkpoint summary for the user to approve or defer live load."
+        title: "Load and audit the 2022 cluster closeout"
+        objective: "Capture the exact 8 pre-load target rows, write the curated source rows, rerun the read-only audit, and confirm those exact rows are no longer `bref_only`."
         owned_scope:
           - "docs/foundation/data-gap-closure/implementation-report.yaml"
           - "docs/foundation/data-gap-closure/status.yaml"
           - "docs/foundation/full-span-load-notes.md"
         forbidden_scope:
           - "destructive DB operations"
-          - "live Supabase writes before second checkpoint"
-          - "canonical rebuild"
-          - "frontend graph export changes"
+          - "canonical rebuild logic"
+          - "frontend rendering files"
         dependencies:
-          - "B3"
+          - "B1"
         parallelizable: false
         expected_validation:
-          - ".venv/bin/python -m redesign_cli load-nba-player-movement --dry-run"
+          - "Targeted read-only baseline query for the 8 exact player/date/type rows"
+          - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
           - ".venv/bin/python -m redesign_cli audit-foundation-data"
-          - "Pre-load canonical_event/canonical_event_member/event_asset_transition counts captured"
-          - "Generated graph checksum captured"
-          - "User checkpoint summary explicitly says event-level corroboration remains unlinked until reconciliation"
+          - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+          - "Targeted read-only post-load query confirming the same 8 rows no longer land as `bref_only`"
 
 ordering_notes:
-  - "B1 through B4 are intentionally sequential because each batch depends on the previous safety check."
-  - "Live endpoint and read-only Supabase commands may require escalation."
-  - "If B3 cannot guarantee canonical safety without schema changes, stop before B4 and ask for direction."
-  - "B4 does not perform live writes; it prepares the second checkpoint."
-  - "The required pre-execution checkpoint must be approved before any implementation begins."
+  - "Try the fixture-only path first."
+  - "If preview or dry-run reveals a concrete matching risk, stop and re-scope instead of patching matcher code in this pass."
+  - "Verification is complete only when the post-load audit explicitly clears the 8 exact targeted events."
 
 risks:
-  - "NBA does not publish a durable schema/coverage guarantee for the JSON file."
-  - "NBA movement rows are player-level and may not map one-to-one to BRef grouped canonical events."
-  - "If corroboration-only source events are not excluded from canonical derivation, a future canonical rebuild can create duplicate events."
-  - "Trade `GroupSort` appears useful for grouping but is not documented as a guaranteed stable ID."
-  - "NBA movement evidence will not cover pick compensation or official release wording."
-  - "This pass may not fully close non-BRef loading if the user defers the second live-load checkpoint."
+  - "The 2022 cluster may require more than one curated source record if the available source text naturally splits by date."
+  - "Some source basis may still rely on `nba_official` transaction-page fallback rather than dedicated Grizzlies articles."
+  - "If fixture-only evidence does not reconcile cleanly, the pass will stop without implementation rather than silently broadening scope."
 
 open_questions:
-  - "After reviewing dry-run output, should live load proceed immediately under a second checkpoint or defer to a separate `$work` pass?"
+  - "Is one curated record per date the cleanest truthful representation, or can some dates be grouped under a smaller number of source records without hurting reconciliation clarity?"
 
 review:
-  status: reviewed
+  status: approved
   loop_count: 2
   notes:
-    - "Reviewer requested a second live-write checkpoint, exact canonical guard semantics, graph-invariance checks, idempotency checks, raw Transaction_Type preservation, raw payload storage decision, and remediation notes; plan was revised accordingly."
-    - "Second reviewer approved the revised plan for the user pre-execution checkpoint."
+    - "Reviewer required removing the in-band matcher/code-fix batch from the default execution path."
+    - "Reviewer required making the `team_official` / `nba_official` evidence model explicit."
+    - "Reviewer required exact pre-load and post-load verification targets for the 8 events."
+    - "Reviewer required checkpoint state to remain pending before execution."
+    - "Reviewer approved the revised plan with one residual risk: execution may still stop if truthful `team_official` / `nba_official` evidence cannot be found for one or more events."
 
 checkpoint:
   required_before_execution: true
-  status: approved
+  status: pending

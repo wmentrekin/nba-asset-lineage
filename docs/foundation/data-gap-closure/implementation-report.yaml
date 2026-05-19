@@ -1,13 +1,13 @@
 artifact: implementation_report
 feature: "foundation/data-gap-closure"
-mode: "large-initiative"
+mode: "bounded-feature"
 status: completed
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/plan.yaml"
 
 summary:
-  scope_executed: "Continued the official-source corroboration pass with a broader Grizzlies team-news batch covering Shaquille Harrison, Matthew Hurt, Mychal Mulder, Adonis Arms, David Johnson, Armando Bacot, Miye Oni, Maozinha Pereira, and Miles Norris, then repaired the BRef same-day sign-and-trade path and canonical replace semantics so stale canonical rows can actually disappear."
-  outcome: "The live foundation still reports loaded source systems `basketball_reference`, `nba_official`, `nba_player_movement`, and `team_official`, but official-source coverage is materially deeper and the known Dillon Brooks canonical bug is gone. The official fixture now yields 39 source records / 57 source events, `source_record` rose to 628, `source_event` rose to 933, `bref_only` fell to 56, the recent `bref_only` residue fell from 15 events to 4, `meets_minimum` stayed at 25, and the graph export changed as expected because the stale Dillon Brooks signing event was removed from canonical truth."
+  scope_executed: "Executed the bounded 2022 preseason/camp closeout by extending the curated official-source fixture with one `team_official` transaction-log row for the 2022-09-23, 2022-10-10, and 2022-10-13 moves and one direct `team_official` Dakota Mathias release row for 2022-10-14, then live-loaded those corroboration-only rows and re-ran the audit and graph baseline checks."
+  outcome: "The exact 8 target canonical events are no longer `bref_only`. They now land as `recognized_provider_not_loaded` with `conflict_status=no_conflict_detected`, which closes the bounded visibility gap without promoting them to `meets_minimum`. The official fixture now yields 43 source records / 70 source events, total live counts rose to 632 `source_record` / 946 `source_event`, `bref_only` fell from 52 to 44, `recognized_provider_not_loaded` rose from 288 to 296, `meets_minimum` stayed at 29, and canonical/graph truth remained unchanged at 407 canonical events, 420 canonical members, 568 transitions, and checksum `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`."
 
 task_batches_attempted:
   - "B1"
@@ -24,9 +24,12 @@ task_batches_completed:
   - "B6 BRef extraction and audit reconciliation repair pass"
   - "B7 audit-time grouped-trade and near-date reconciliation pass"
   - "B8 official-source loader, starter fixture, and live official corroboration load"
+  - "B9 four-event recent-residue closeout"
+  - "B10 2022 preseason/camp older-chronology closeout"
 
 changes:
   files:
+    - "configs/data/memphis_official_release_sources_seed_v1.json"
     - "docs/foundation/data-gap-closure/requirements.yaml"
     - "docs/foundation/data-gap-closure/plan.yaml"
     - "docs/foundation/data-gap-closure/status.yaml"
@@ -45,6 +48,10 @@ changes:
     - "Updated the live audit counts after the 2025 follow-on batch and the 2024 micro-batch."
     - "Documented that the current residue is now concentrated in a five-event 2023 cluster plus older chronology coverage."
     - "Documented that the current residue is now concentrated in a four-event 2023 cluster plus older chronology coverage."
+    - "Updated the live counts and corroboration summary after closing the final four recent 2023 `bref_only` events."
+    - "Recorded the exact GG Jackson II locator and the October 16 NBA transactions fallback used in this closeout pass."
+    - "Recorded the exact official 2022 source basis for the older-chronology preseason/camp closeout."
+    - "Updated the live counts and corroboration summary after the 2022 preseason/camp cluster cleared `bref_only`."
 
 local_validation:
   checks_run:
@@ -81,6 +88,19 @@ local_validation:
     - ".venv/bin/python -m redesign_cli load-nba-player-movement --live --execute"
     - ".venv/bin/pytest"
     - "YAML parse for data-gap-closure requirements, plan, implementation report, and status"
+    - ".venv/bin/python -m redesign_cli preview-official-release-sources"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
+    - ".venv/bin/python -m redesign_cli audit-foundation-data"
+    - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+    - "Targeted read-only audit query for the 2023-08-31 / 2023-10-16 signing and waiver events"
+    - "Targeted read-only pre-load query for the exact 2022-09-23 / 2022-10-10 / 2022-10-13 / 2022-10-14 canonical IDs"
+    - ".venv/bin/python -m redesign_cli preview-official-release-sources"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
+    - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
+    - "Read-only targeted audit verification for the exact 8 canonical IDs after the 2022 closeout load"
+    - ".venv/bin/python -m redesign_cli inspect-foundation-counts"
+    - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
   failures: []
   skipped: []
 
@@ -95,6 +115,10 @@ review_summary:
     - "The latest Grizzlies team-news batch closed 10 recent camp/preseason signings and reduced the recent unresolved residue to five events."
     - "Live official HTML fetches now strip NUL bytes before persistence, preventing Postgres JSON write failures during corroboration-only loads."
     - "The BRef repair now excludes same-day sign-and-trade contract rows from canonical derivation, and the canonical loader now fully replaces stale rows instead of leaving superseded events behind."
+    - "The final four recent unresolved 2023 events are no longer `bref_only`; the August 31 Gregory Jackson signing now lands as `recognized_provider_not_loaded`, and the October 16 Timmy Allen / Jason Preston / Matthew Hurt cluster now lands as `meets_minimum`."
+    - "The exact source basis for the closeout is now explicit: `https://gleague.nba.com/news/memphis-grizzlies-sign-gg-jackson-ii-to-two-way-contract` for Gregory Jackson II and `https://www.nba.com/players/transactions` plus secondary confirmation for the October 16 cluster."
+    - "The 2022-09-23 through 2022-10-14 preseason/camp cluster is now closed from a `bref_only` perspective using the official Grizzlies playoff media guide transaction log plus the direct Dakota Mathias release."
+    - "Those 8 events now land as `recognized_provider_not_loaded`, not `meets_minimum`, because the pass added team-official corroboration without loading a matching structured player-movement source role through the canonical-event path."
 
 test_summary:
   status: full_passed
@@ -110,11 +134,12 @@ test_summary:
   gaps: []
 
 open_issues:
-  - "Event-level corroboration is still partial: 56 canonical events remain `bref_only`, concentrated in 47 signings, 5 trades, and 4 waivers."
-  - "The official-source loader is now proven at larger scale; the remaining high-signal residue is a four-event 2023 cluster plus older pre-2020 chronology coverage."
+  - "Event-level corroboration is still partial: 44 canonical events remain `bref_only`, concentrated in older chronology outside the completed 2022 preseason/camp cluster."
+  - "The official-source loader is now proven at larger scale; the next high-yield target is the next bounded older-chronology `bref_only` cluster."
+  - "The 2022 preseason/camp events are visible to the audit and no longer `bref_only`, but they remain `recognized_provider_not_loaded` until a matching structured player-movement source role is also loaded."
   - "NBA Stats reference data is still absent from loaded source records."
 
 handoff:
   current_state: completed
   next_owner: "orchestrator"
-  next_action: "Target the remaining four recent `bref_only` events first: the unresolved Gregory Jackson 2023-08-31 signing and the 2023-10-16 Jason Preston / Timmy Allen / Matthew Hurt cluster; then expand older chronology coverage."
+  next_action: "Move to the next remaining data gap: older player-movement chronology coverage, starting from the remaining 44 `bref_only` events."

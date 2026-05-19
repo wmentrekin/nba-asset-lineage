@@ -10,10 +10,10 @@ Last verified live load scope:
   through 2026-05-14
 
 Current live `foundation` counts after the full-span rebuild plus contextual
-seed enrichments plus the expanded official-source corroboration load:
+seed enrichments plus the latest official-source corroboration loads:
 
-- `source_record`: 628
-- `source_event`: 933
+- `source_record`: 632
+- `source_event`: 946
 - `player`: 229
 - `player_alias`: 1
 - `pick`: 128
@@ -124,16 +124,16 @@ still preserves source URLs, titles, timestamps, and curated article excerpts.
 
 The current expanded official-source load writes:
 
-- `39` official `source_record` rows
-- `57` official `source_event` rows
+- `43` official `source_record` rows
+- `70` official `source_event` rows
 - loaded official source systems `nba_official` and `team_official`
 - live HTML metadata is now sanitized for NUL bytes before persistence
 
 Current corroboration summary after the expanded official-source load:
 
-- `bref_only=56`
-- `meets_minimum=25`
-- `recognized_provider_not_loaded=288`
+- `bref_only=44`
+- `meets_minimum=29`
+- `recognized_provider_not_loaded=296`
 - `missing_required_evidence=38`
 - `conflict_suspected=0`
 - canonical/graph truth now reflects the Dillon Brooks sign-and-trade repair:
@@ -141,12 +141,47 @@ Current corroboration summary after the expanded official-source load:
   `event_asset_transition=568`, graph checksum
   `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
 
-Recent unresolved `bref_only` residue is now down to four events:
+The final recent 2023 unresolved `bref_only` residue is now closed:
 
-- `2023-08-31` Gregory Jackson signing
-- `2023-10-16` Timmy Allen signing
-- `2023-10-16` Jason Preston signing
-- `2023-10-16` Matthew Hurt waiver
+- `2023-08-31` Gregory Jackson signing now lands as `recognized_provider_not_loaded`
+- `2023-10-16` Timmy Allen signing now lands as `meets_minimum`
+- `2023-10-16` Jason Preston signing now lands as `meets_minimum`
+- `2023-10-16` Matthew Hurt waiver now lands as `meets_minimum`
+
+The October 16 curated transaction-cluster row also truthfully carries the
+paired `Mychal Mulder` waiver event even though it was not one of the four
+required closeout targets.
+
+Locator choices used for the closeout:
+
+- Gregory Jackson II signing: `https://gleague.nba.com/news/memphis-grizzlies-sign-gg-jackson-ii-to-two-way-contract`
+- October 16 transaction cluster fallback: `https://www.nba.com/players/transactions`
+- Secondary confirmation used for the October 16 cluster text: `https://www.hoopsrumors.com/2023/10/grizzlies-sign-jason-preston-timmy-allen.html`
+
+The bounded 2022 preseason/camp older-chronology cluster is now also closed
+from a `bref_only` perspective:
+
+- `2022-09-23` Jacob Gilyard signing
+- `2022-09-23` Justin Bean signing
+- `2022-10-10` Matthew Hurt signing
+- `2022-10-10` Sean McDermott signing
+- `2022-10-13` E.J. Onu signing
+- `2022-10-13` Romeo Weems signing
+- `2022-10-13` Matthew Hurt waiver
+- `2022-10-14` Dakota Mathias signing
+
+These 8 canonical events now land as `recognized_provider_not_loaded` with
+`conflict_status=no_conflict_detected`. They are no longer `bref_only`, but
+they do not yet `meet_minimum` because this pass added team-official
+corroboration without a matching structured player-movement source role loaded
+through the canonical-event path.
+
+Locator choices used for the 2022 closeout:
+
+- Grizzlies playoff media guide transaction log:
+  `https://s3.grizzliesapp.com/assets/media_guides/MG_22-23_Playoffs_Media_Guide.pdf`
+- Dakota Mathias official release:
+  `https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-dakota-mathias`
 
 Graph baseline checkpoint output:
 
