@@ -1,46 +1,49 @@
 artifact: plan
 feature: "foundation/data-gap-closure"
-mode: "bounded-feature"
+mode: "large-initiative"
 status: draft
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/requirements.yaml"
 
-objective: "Close the 2022-23 preseason/camp older-chronology cluster through the existing corroboration-only official-source path."
+objective: "Close the remaining older player-movement `bref_only` residue through one bulk, fragment-authored, combined-load initiative."
 
 approach:
-  summary: "Treat this as a fixture-first older-chronology pass. Add the missing curated `team_official` / `nba_official` source rows for the four 2022 preseason dates, preview them, dry-run them, and only then proceed to live load and audit verification."
+  summary: "Treat the remaining `bref_only` residue as one coordinated closeout. First add a minimal fragment-aware loader surface. Then curate the remaining source evidence in parallel through disjoint fragment files. Finish with one aggregate preview, one aggregate dry-run, one live load, and one audit/graph verification cycle."
   key_decisions:
-    - "Bound the pass to the 8-event 2022-09-23 through 2022-10-14 preseason/camp cluster."
-    - "Prefer source curation over loader or audit rewrites."
-    - "Use the official 2022-23 Grizzlies playoff media guide transaction log as the likely backbone source for the four target dates, supplementing with the official Dakota Mathias article where it strengthens the `2022-10-14` row."
-    - "Allow one or more curated `team_official` or `nba_official` transaction-page-style source records if that is the cleanest truthful representation."
-    - "Keep all new source events `corroboration_only` and graph-safe."
-    - "If fixture-only evidence does not reconcile cleanly in preview or dry-run, stop and re-scope instead of carrying matcher code changes in-band."
+    - "Use the current committed state as the baseline and do not continue with another single-cluster pass."
+    - "Define the finish line for this initiative as `bref_only -> 0` or a fully enumerated blocked residue."
+    - "Use fragment-based authoring for parallelism, but keep one serialized final load."
+    - "Shard work primarily by season/source-family so each worker owns disjoint `source_record_id` space."
+    - "Treat promotion from `bref_only` to `recognized_provider_not_loaded` as acceptable for this initiative unless the user explicitly asks for `meets_minimum` closure."
 
 contracts:
   interfaces:
-    - "`preview-official-release-sources` must show the newly curated rows before any write."
-    - "`load-official-release-sources --dry-run` must show the exact source_record/source_event candidates for the 8 targeted events."
-    - "`load-official-release-sources --execute` remains the only write path."
-    - "`audit-foundation-data` is the truth surface for whether the 8 gaps are actually closed."
+    - "The official-source preview/load workflow must support one base `--fixture-path` plus one fragment directory `--fixture-fragment-dir`, aggregating all `*.json` fragments in lexicographic order before validation and load."
+    - "The aggregate workflow must fail on duplicate `source_record_id` or duplicate explicit `source_event_id`."
+    - "The final live path remains one combined `load-official-release-sources --execute` run."
+    - "`audit-foundation-data` remains the truth surface for bulk closure success."
+    - "A checked-in target manifest must exist before execution and must enumerate every current `bref_only` canonical event with shard assignment and status."
   schemas:
     - "No SQL migrations."
-    - "No new tables or columns."
+    - "No new database tables or columns."
     - "Reuse `foundation.source_record` and `foundation.source_event` through the existing official-source loader."
   config_changes:
-    - "Update `configs/data/memphis_official_release_sources_seed_v1.json`."
-    - "Update active gap docs after the live load and audit."
+    - "Add `configs/data/memphis_official_release_fragments/` for new official-source curation batches."
+    - "Retain compatibility with the existing monolithic seed file by using it as the base `--fixture-path` while new fragments are loaded from `--fixture-fragment-dir`."
+    - "Update active gap docs after aggregate load and audit."
 
 execution_batches:
   - id: "B1"
-    goal: "Curate the missing 2022 preseason/camp source rows."
+    goal: "Prepare a safe bulk authoring surface."
     tasks:
       - id: "T1"
-        title: "Add the 2022-09-23 through 2022-10-14 source records"
-        objective: "Extend the official-source fixture with the smallest truthful set of new source rows needed to represent the 8 target signings and waivers."
+        title: "Add fragment-aware aggregation to the official-source preview/load path"
+        objective: "Allow bulk curation to happen in disjoint fixture fragments while preserving one combined preview/dry-run/execute path."
         owned_scope:
-          - "configs/data/memphis_official_release_sources_seed_v1.json"
-          - "docs/foundation/full-span-load-notes.md"
+          - "src/foundation/live_sources.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/test_live_sources.py"
+          - "configs/data/"
         forbidden_scope:
           - "SQL files"
           - "frontend files"
@@ -48,14 +51,78 @@ execution_batches:
         dependencies: []
         parallelizable: false
         expected_validation:
-          - ".venv/bin/python -m redesign_cli preview-official-release-sources"
-          - ".venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
+          - "aggregate preview command against the current base fixture plus an empty or sample fragment set"
   - id: "B2"
-    goal: "Load the new corroborating rows and verify the cluster closes."
+    goal: "Curate the remaining residue in parallel."
     tasks:
-      - id: "T2"
-        title: "Load and audit the 2022 cluster closeout"
-        objective: "Capture the exact 8 pre-load target rows, write the curated source rows, rerun the read-only audit, and confirm those exact rows are no longer `bref_only`."
+      - id: "T2A"
+        title: "Curate the 2016-2018 camp/preseason signing shard"
+        objective: "Add fragment-owned official rows for the 2016-2018 signings using transaction logs, media guides, or direct releases."
+        owned_scope:
+          - "configs/data/memphis_official_release_fragments/"
+        forbidden_scope:
+          - "existing fragment files owned by other workers"
+          - "Python modules outside the assigned fragment-support batch"
+        dependencies:
+          - "B1"
+        parallelizable: true
+      - id: "T2B"
+        title: "Curate the 2019 free-agency / preseason / trade shard"
+        objective: "Add fragment-owned official rows for the remaining 2019 signings and trade clusters."
+        owned_scope:
+          - "configs/data/memphis_official_release_fragments/"
+        forbidden_scope:
+          - "existing fragment files owned by other workers"
+          - "Python modules outside the assigned fragment-support batch"
+        dependencies:
+          - "B1"
+        parallelizable: true
+      - id: "T2C"
+        title: "Curate the 2020 offseason / camp shard"
+        objective: "Add fragment-owned official rows for the remaining 2020 signings, waiver, and extension-style rows."
+        owned_scope:
+          - "configs/data/memphis_official_release_fragments/"
+        forbidden_scope:
+          - "existing fragment files owned by other workers"
+          - "Python modules outside the assigned fragment-support batch"
+        dependencies:
+          - "B1"
+        parallelizable: true
+      - id: "T2D"
+        title: "Curate the 2021 offseason / camp / trade shard"
+        objective: "Add fragment-owned official rows for the remaining 2021 signings, waiver, and trade cluster."
+        owned_scope:
+          - "configs/data/memphis_official_release_fragments/"
+        forbidden_scope:
+          - "existing fragment files owned by other workers"
+          - "Python modules outside the assigned fragment-support batch"
+        dependencies:
+          - "B1"
+        parallelizable: true
+  - id: "B3"
+    goal: "Validate the full bulk payload before writing."
+    tasks:
+      - id: "T3"
+        title: "Run one aggregate preview and dry-run"
+        objective: "Validate the combined fragment set and fail fast on duplicate IDs, malformed rows, or obvious matching issues before any live load."
+        owned_scope:
+          - "docs/foundation/data-gap-closure/status.yaml"
+        forbidden_scope:
+          - "live DB writes"
+        dependencies:
+          - "B2"
+        parallelizable: false
+        expected_validation:
+          - "aggregate preview command"
+          - "aggregate dry-run command"
+          - "targeted inventory diff against `docs/foundation/data-gap-closure/target-manifest.yaml`"
+  - id: "B4"
+    goal: "Execute and verify the closeout."
+    tasks:
+      - id: "T4"
+        title: "Run one live load, audit, and graph-baseline verification"
+        objective: "Write the aggregate corroboration payload once, verify graph invariance, and confirm the remaining `bref_only` residue is either zero or explicitly blocked."
         owned_scope:
           - "docs/foundation/data-gap-closure/implementation-report.yaml"
           - "docs/foundation/data-gap-closure/status.yaml"
@@ -65,37 +132,34 @@ execution_batches:
           - "canonical rebuild logic"
           - "frontend rendering files"
         dependencies:
-          - "B1"
+          - "B3"
         parallelizable: false
         expected_validation:
-          - "Targeted read-only baseline query for the 8 exact player/date/type rows"
-          - ".venv/bin/python -m redesign_cli load-official-release-sources --execute"
+          - "live aggregate `load-official-release-sources --execute`"
           - ".venv/bin/python -m redesign_cli audit-foundation-data"
           - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
-          - "Targeted read-only post-load query confirming the same 8 rows no longer land as `bref_only`"
+          - "post-load event-level diff for the manifest canonical IDs showing `bref_only=0` or an explicit blocked remainder"
 
 ordering_notes:
-  - "Try the fixture-only path first."
-  - "If preview or dry-run reveals a concrete matching risk, stop and re-scope instead of patching matcher code in this pass."
-  - "Verification is complete only when the post-load audit explicitly clears the 8 exact targeted events."
+  - "Do not let multiple workers edit one shared monolithic fixture file."
+  - "Parallelism applies to authoring and source curation, not to live database execute."
+  - "If discovery surfaces structurally blocked rows, isolate them in the target manifest before the final preview/dry-run instead of letting them hide inside the batch."
 
 risks:
-  - "The 2022 cluster may require more than one curated source record if the available source text naturally splits by date."
-  - "Some source basis may still rely on `nba_official` transaction-page fallback rather than dedicated Grizzlies articles."
-  - "If fixture-only evidence does not reconcile cleanly, the pass will stop without implementation rather than silently broadening scope."
+  - "Some 2020 extension-style or assetless BRef rows may not map cleanly to team-official player-movement evidence."
+  - "Trade clusters may require grouped source rows and careful participant-direction fidelity."
+  - "Introducing fragment-aware aggregation is small but real infrastructure work; it must stay minimal."
+  - "If the finish line is silently reinterpreted from `bref_only` to `meets_minimum`, the initiative scope will expand materially."
 
 open_questions:
-  - "Is one curated record per date the cleanest truthful representation, or can some dates be grouped under a smaller number of source records without hurting reconciliation clarity?"
+  - "Do any remaining 2020 extension-style rows need to be carved out as a separate blocker batch before execution?"
 
 review:
   status: approved
-  loop_count: 2
+  loop_count: 1
   notes:
-    - "Reviewer required removing the in-band matcher/code-fix batch from the default execution path."
-    - "Reviewer required making the `team_official` / `nba_official` evidence model explicit."
-    - "Reviewer required exact pre-load and post-load verification targets for the 8 events."
-    - "Reviewer required checkpoint state to remain pending before execution."
-    - "Reviewer approved the revised plan with one residual risk: execution may still stop if truthful `team_official` / `nba_official` evidence cannot be found for one or more events."
+    - "Reviewer accepted the bulk-pass scope after requiring a first-class target manifest, a locked fragment interface, and a cleaned-up checkpoint state."
+    - "The biggest residual risk remains the 2020 extension-style assetless rows, which are now isolated explicitly in the manifest."
 
 checkpoint:
   required_before_execution: true

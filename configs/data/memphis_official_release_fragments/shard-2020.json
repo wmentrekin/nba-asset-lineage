@@ -1,0 +1,147 @@
+{
+  "articles": [
+    {
+      "source_record_id": "team_official:2024-25-hustle-media-guide:2020-02-27-dusty-hannahs-waiver",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://s3.grizzliesapp.com/memphis-hustle/media_guides/MH_24-25_HustleMediaGuide.pdf",
+      "source_title": "Memphis Hustle 2024-25 Media Guide",
+      "source_excerpt": "2/27 Grizzlies sign Jarrod Uthoff to 10-day contract, waive Dusty Hannahs, Hannahs returns to Hustle.",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-02-27:dusty-hannahs-waiver",
+          "event_date": "2020-02-27",
+          "event_type": "waiver",
+          "label": "Memphis waives Dusty Hannahs",
+          "player_names_in": [],
+          "player_names_out": [
+            "Dusty Hannahs"
+          ],
+          "raw_note": "The official Memphis Hustle transaction log lists on 2/27 that the Grizzlies signed Jarrod Uthoff to a 10-day contract and waived Dusty Hannahs."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-11-24:killian-tillie-sean-mcdermott",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-killian-tillie-and-sean-mcdermott-to-two-way-contracts-201124",
+      "source_title": "Grizzlies sign Killian Tillie and Sean McDermott to two-way contracts",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-11-24:killian-tillie-signing",
+          "event_date": "2020-11-24",
+          "event_type": "signing",
+          "label": "Memphis signs Killian Tillie",
+          "player_names_in": [
+            "Killian Tillie"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Grizzlies sign Killian Tillie and Sean McDermott to two-way contracts."
+        },
+        {
+          "source_event_id": "team_official:2020-11-24:sean-mcdermott-signing",
+          "event_date": "2020-11-24",
+          "event_type": "signing",
+          "label": "Memphis signs Sean McDermott",
+          "player_names_in": [
+            "Sean McDermott"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Grizzlies sign Killian Tillie and Sean McDermott to two-way contracts."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-11-28:jahlil-tripp",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-sign-jahlil-tripp-201128",
+      "source_title": "Grizzlies sign Jahlil Tripp",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-11-28:jahlil-tripp-signing",
+          "event_date": "2020-11-28",
+          "event_type": "signing",
+          "label": "Memphis signs Jahlil Tripp",
+          "player_names_in": [
+            "Jahlil Tripp"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Grizzlies sign Jahlil Tripp."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-12-15:zhaire-smith-bennie-boatwright",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-zhaire-smith-and-bennie-boatwright-201215",
+      "source_title": "Memphis Grizzlies sign Zhaire Smith and Bennie Boatwright",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-12-15:zhaire-smith-signing",
+          "event_date": "2020-12-15",
+          "event_type": "signing",
+          "label": "Memphis signs Zhaire Smith",
+          "player_names_in": [
+            "Zhaire Smith"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Zhaire Smith and Bennie Boatwright."
+        },
+        {
+          "source_event_id": "team_official:2020-12-15:bennie-boatwright-signing",
+          "event_date": "2020-12-15",
+          "event_type": "signing",
+          "label": "Memphis signs Bennie Boatwright",
+          "player_names_in": [
+            "Bennie Boatwright"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Zhaire Smith and Bennie Boatwright."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-12-16:christian-vital",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-christian-vital-201216",
+      "source_title": "Memphis Grizzlies sign Christian Vital",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-12-16:christian-vital-signing",
+          "event_date": "2020-12-16",
+          "event_type": "signing",
+          "label": "Memphis signs Christian Vital",
+          "player_names_in": [
+            "Christian Vital"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Christian Vital."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2020-12-16:shaq-buchanan",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-shaq-buchanan-201216",
+      "source_title": "Memphis Grizzlies sign Shaq Buchanan",
+      "events": [
+        {
+          "source_event_id": "team_official:2020-12-16:shaq-buchanan-signing",
+          "event_date": "2020-12-16",
+          "event_type": "signing",
+          "label": "Memphis signs Shaq Buchanan",
+          "player_names_in": [
+            "Shaq Buchanan"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Shaq Buchanan."
+        }
+      ]
+    }
+  ]
+}

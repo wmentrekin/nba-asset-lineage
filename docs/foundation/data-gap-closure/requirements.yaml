@@ -1,53 +1,54 @@
 artifact: requirements
 feature: "foundation/data-gap-closure"
-mode: "bounded-feature"
+mode: "large-initiative"
 status: draft
 owner_skill: work
 
 summary:
-  problem: "After the recent 2023 closeout, the live audit still reports 52 older `bref_only` player-movement events. The highest-yield remaining subset is the 2022-23 preseason/camp cluster: 8 simple named signings/waivers across 4 dates."
-  motivation: "Closing a larger, low-complexity older cluster continues shrinking the chronology residue without jumping into trades, unnamed moves, or draft/pick evidence."
-  requested_outcome: "Load enough curated `team_official` and/or `nba_official` corroborating source evidence so the 8-event 2022-23 preseason/camp cluster no longer appears as `bref_only` in the foundation audit."
+  problem: "The live audit still reports 44 older `bref_only` player-movement canonical events after the recent narrow closeout passes. The remaining residue is concentrated entirely in 2016-2021 and is dominated by signings, with smaller trade and waiver clusters."
+  motivation: "Another single-cluster pass would keep making instrumental progress without finishing the residue. The next pass needs to attack the full remaining `bref_only` set as one coordinated bulk initiative."
+  requested_outcome: "Eliminate the remaining older player-movement `bref_only` residue through one bulk corroboration initiative built around parallel source curation, one combined preview/dry-run, one combined live load, and one combined audit/graph verification cycle."
 
 goals:
-  - "Close the 2022-09-23 Jacob Gilyard and Justin Bean signing gaps."
-  - "Close the 2022-10-10 Matthew Hurt and Sean McDermott signing gaps."
-  - "Close the 2022-10-13 EJ Onu and Romeo Weems signing gaps plus the Matthew Hurt waiver gap."
-  - "Close the 2022-10-14 Dakota Mathias signing gap."
-  - "Keep the change on the existing corroboration-only source path so canonical events, transitions, and graph export truth do not change."
-  - "Prefer fixture-first source additions and stop to re-scope if fixture-only evidence does not reconcile cleanly."
+  - "Reduce the live `bref_only` count from 44 to 0 if truthful official or NBA source evidence exists for the remaining older player-movement events."
+  - "If any event cannot be closed truthfully, isolate it explicitly as blocked with a named source-basis reason instead of letting it remain implicit residue."
+  - "Shard the remaining residue into parallelizable curation batches with disjoint ownership and no overlapping `source_record_id` surfaces."
+  - "Introduce the smallest safe loader/CLI improvement needed to support fragment-based parallel authoring without forcing workers onto one shared fixture file."
+  - "Keep all new corroborating rows on the existing `corroboration_only` path so canonical truth and graph export remain invariant."
+  - "Preserve one combined preview, one combined dry-run, one combined execute, and one combined audit/graph verification step."
 
 non_goals:
-  - "Do not widen this pass into the remaining older 44 `bref_only` events outside this 2022 cluster."
-  - "Do not address the older trade-heavy 2019-2021 residue in this pass."
-  - "Do not address `recognized_provider_not_loaded` or `missing_required_evidence` outside this cluster."
-  - "Do not change canonical derivation, transition generation, or frontend rendering."
-  - "Do not introduce new source systems or SQL schema changes."
+  - "Do not widen this pass into `recognized_provider_not_loaded` events that are already out of `bref_only` unless they are part of the same authored source records."
+  - "Do not widen this pass into the 38 `missing_required_evidence` draft/pick events."
+  - "Do not change canonical derivation rules, transition generation rules, or frontend rendering behavior."
   - "Do not perform destructive database operations."
+  - "Do not promise promotion of all touched events to `meets_minimum`; this pass is about eliminating `bref_only` residue."
 
 constraints:
   technical:
     - "All DB writes must continue to go through checked-in Python/CLI commands."
-    - "Curated `team_official` / `nba_official` corroboration rows must remain `normalized_payload.corroboration_only = true`."
-    - "For signings and waivers, audit reconciliation is per event/player; grouped source records may contain multiple events, but each player move still needs its own `source_event` row."
-    - "The official-source fixture and loader must stay compatible with existing `team_official` / `nba_official` source types."
-    - "If existing fixture records are edited instead of adding new records, the loader replaces the full `source_record_id` payload as a unit."
+    - "Curated corroboration rows must remain `normalized_payload.corroboration_only = true`."
+    - "The official-source loader currently treats each `source_record_id` as a replacement unit, so batch ownership must stay disjoint at the article/record level."
+    - "Parallel authoring must avoid concurrent edits to the same fixture record or fragment file."
+    - "The final live load should remain serialized even if curation happens in parallel."
   product:
-    - "Truthfulness is more important than forcing a close. If a source cannot be justified with `team_official` or `nba_official` evidence, leave the event unresolved and call it out."
+    - "Truthfulness is more important than getting to zero by force. Missing or weak source basis must be surfaced, not invented."
     - "Memphis-only scope remains the target."
+    - "For this pass, 'gap closed' means 'no longer `bref_only`', not necessarily `meets_minimum`."
   process:
-    - "Use `$work` orchestration and stop for the pre-execution checkpoint before any edits or live loads."
-    - "Use subagents for discovery, plan review, execution, and verification."
+    - "Use `$work` orchestration and stop for the required pre-execution checkpoint before implementation begins."
+    - "Use subagents for discovery, plan critique, execution, and verification."
     - "Keep `docs/foundation/data-gap-closure/status.yaml` current."
 
 assumptions:
-  - "This cluster is likely closable with a small number of curated `team_official` and/or `nba_official` transaction-page or team-release source records."
-  - "The audit will accept event dates that differ from source publication dates when curated transaction-page rows carry the correct historical `event_date`."
-  - "This slice does not appear to require name-matching changes because all eight events already have clean player identities."
+  - "Most remaining signings and waivers are likely closable through official team transaction logs, media guides, preseason transaction pages, or direct team releases."
+  - "The remaining trade clusters are likely closable through official NBA/team trade tracker or direct official trade-release coverage."
+  - "A fragment-based curation surface plus one aggregate load is the best throughput/safety tradeoff."
 
 repo_context:
   relevant_paths:
     - "configs/data/memphis_official_release_sources_seed_v1.json"
+    - "configs/data/memphis_official_release_fragments/"
     - "src/foundation/live_sources.py"
     - "src/foundation/audit.py"
     - "src/redesign_cli.py"
@@ -55,38 +56,60 @@ repo_context:
     - "tests/foundation/test_audit.py"
     - "docs/foundation/full-span-load-notes.md"
     - "docs/foundation/data-gap-closure/status.yaml"
+    - "docs/foundation/data-gap-closure/target-manifest.yaml"
   systems_in_scope:
-    - "official-source fixture curation"
+    - "official-source fixture loading"
     - "official-source preview/load CLI"
     - "foundation audit corroboration report"
+    - "small loader/CLI support for aggregated fragment inputs"
   prior_artifacts:
     - "docs/foundation/data-gap-closure/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
 
 research:
   repo_findings:
-    - "The remaining older chronology residue is concentrated in signings and waivers, with the 2022-23 preseason/camp cluster offering 8 low-complexity named events."
-    - "The current official-source fixture already supports one article or transaction page carrying multiple event rows, which fits this slice well."
-    - "The current audit logic reconciles signings and waivers per event/player rather than as one grouped multi-event match, so each player move must have its own event row."
-    - "The current residue appears to be a coverage gap, not a conflict or reconciliation bug."
+    - "The live residue is currently `44` `bref_only` events."
+    - "The residue is concentrated entirely in 2016-2021: `2016=6`, `2017=3`, `2018=4`, `2019=12`, `2020=10`, `2021=9`."
+    - "Event-type mix is `signing=37`, `trade=5`, `waiver=2`."
+    - "The current single-file official-source fixture is a poor parallel authoring surface even though it remains acceptable as a final combined load artifact."
+    - "The official-source loader already supports grouped multi-event article records cleanly, which means sharding should happen by source record/article ownership rather than by individual event rows."
   platform_findings:
-    - "The official 2022-23 Grizzlies playoff media guide transaction log explicitly lists the target `9/23`, `10/10`, `10/13`, and `10/14` moves on one official team document."
-    - "The official Dakota Mathias Grizzlies article directly covers the `2022-10-14` Dakota Mathias signing plus the EJ Onu and Romeo Weems waivers."
-    - "The likely source strategy is the same proven path used in recent passes: curated `team_official` or `nba_official` locators, with event dates carried in corroboration-only rows."
-    - "This slice is lower risk than 2019-2021 because it avoids unnamed signings and trade-heavy dates."
+    - "The most likely backbone sources are official Grizzlies media-guide transaction logs, NBA/team transaction pages, direct Grizzlies release articles, and NBA trade-tracker style pages."
+    - "Some events with empty tracked assets in BRef notes, such as extension-style rows, may be structurally harder and should be isolated early."
+
+inventory:
+  current_bref_only_breakdown:
+    total: 44
+    by_year:
+      "2016": 6
+      "2017": 3
+      "2018": 4
+      "2019": 12
+      "2020": 10
+      "2021": 9
+    by_event_type:
+      signing: 37
+      trade: 5
+      waiver: 2
+  likely_bulk_shards:
+    - "2016-2018 camp/preseason signings"
+    - "2019 free-agency / preseason signings and trade cluster"
+    - "2020 offseason / camp signings, waiver, and extension-style rows"
+    - "2021 offseason / camp signings, waiver, and trade cluster"
 
 acceptance_criteria:
-  - "The official-source fixture contains curated corroborating entries that cover the 8 target events."
-  - "The official-source preview and dry-run output show the new source rows with the expected event dates, event types, and player names."
-  - "A live `load-official-release-sources --execute` run succeeds without changing canonical/graph baseline counts or checksum."
-  - "Pre-load verification captures the exact 8 target rows by date, event type, and player so post-load verification can confirm those exact rows clear."
-  - "A post-load `audit-foundation-data` run no longer lists these 8 events as `bref_only`."
-  - "Total `bref_only` count falls by at least 8 from the current baseline of 52, unless a named source-quality or matching issue is discovered and documented."
-  - "If fixture-only evidence does not reconcile cleanly, the pass stops and re-scopes instead of carrying code changes in-band."
-  - "Docs clearly record which locator(s) were used for the 2022-09-23 through 2022-10-14 cluster."
+  - "A refreshed inventory of the exact remaining `bref_only` canonical events is captured in the docs before execution."
+  - "A target manifest exists with one row per current `bref_only` canonical event, including shard assignment, expected source family, and status `planned` or `blocked`."
+  - "The repo contains a safe parallel authoring surface for official-source curation fragments, or an explicitly approved equivalent."
+  - "Execution shards have disjoint record ownership and a clear merge/load path."
+  - "One combined preview and one combined dry-run show the full bulk payload before any live write."
+  - "The before/after verification explicitly diffs the same target-manifest canonical IDs so no target event is skipped and no out-of-scope player-movement event changes status silently."
+  - "One combined live `load-official-release-sources --execute` succeeds without changing canonical/graph baseline counts or checksum."
+  - "A post-load audit reduces `bref_only` from 44 to 0, or every surviving event is explicitly documented with a truthful blocker."
+  - "Docs clearly record the finish-line caveat that removal from `bref_only` is not the same as promotion to `meets_minimum`."
 
 open_questions:
-  - "Does this cluster resolve cleanly from one or two curated transaction-page records, or does it need more granular record splits by date?"
+  - "Which remaining rows with empty tracked assets should be treated as likely structural blockers before execution starts?"
 
 ready_for_planning: true
 planning_blockers: []

@@ -1,29 +1,30 @@
 artifact: status
 feature: "foundation/data-gap-closure"
-mode: "bounded-feature"
-stage: "verification"
+mode: "large-initiative"
+stage: "execution"
 owner_skill: work
 
-objective: "Close the 2022-23 preseason/camp older-chronology cluster inside the older `bref_only` residue."
+objective: "Design and execute a bulk closeout of the remaining older player-movement `bref_only` residue instead of another narrow single-cluster pass."
 
 summary:
-  current_focus: "Record the completed 2022-09-23 to 2022-10-14 preseason/camp closeout and hand off the remaining older chronology residue."
-  last_completed: "Live-loaded the 2022 preseason/camp official-source rows, cleared the exact 8 target canonical events from `bref_only`, and confirmed graph invariance."
+  current_focus: "Implement fragment-aware official-source loading, then run the four shard curation lanes against the remaining 42 planned events."
+  last_completed: "Received explicit user approval to execute the bulk closeout plan."
   current_blocker: ""
 
 artifacts:
   requirements: "docs/foundation/data-gap-closure/requirements.yaml"
   plan: "docs/foundation/data-gap-closure/plan.yaml"
   implementation_report: "docs/foundation/data-gap-closure/implementation-report.yaml"
+  target_manifest: "docs/foundation/data-gap-closure/target-manifest.yaml"
 
 agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
     status: "active"
-    stage: "verification"
-    task: "Close out the 2022-23 preseason/camp pass, keep the live board current, and hand off the next older-chronology slice."
-    last_update: "The live load and verification passed. The remaining work is documentation and selecting the next bounded older-chronology cluster."
+    stage: "execution"
+    task: "Coordinate the bulk closeout execution, keep the live board current, and own the aggregate preview/load/verification path."
+    last_update: "Execution is approved. The critical path is fragment-aware loader support, then four shard curation lanes."
     blocker: ""
   - id: "repo-researcher-5"
     role: "repo-researcher"
@@ -33,37 +34,77 @@ agents:
     task: "Profile the remaining `bref_only` chronology residue by season, event type, and likely corroboration opportunity."
     last_update: "Recommended the 2022-23 preseason/camp cluster: 8 simple named signings/waivers across 4 dates with no trade or pick complexity."
     blocker: ""
-  - id: "developer-closeout-2022cluster"
-    role: "developer"
+  - id: "repo-researcher-bulk-inventory"
+    role: "repo-researcher"
     model_guidance: "high"
     status: "completed"
-    stage: "execution"
-    task: "Implement the curated official-source rows for the 2022 preseason/camp cluster and run local preview/dry-run only."
-    last_update: "Added the playoff-media-guide transaction-page row plus the direct Dakota Mathias release row and passed local preview/dry-run."
+    stage: "discovery"
+    task: "Refresh the live remaining `bref_only` inventory and group it by season, type, source family, and likely closure path."
+    last_update: "Confirmed the live residue is 44 events from 2016-2021 with a 37 signing / 5 trade / 2 waiver split."
     blocker: ""
   - id: "reviewer-12"
     role: "reviewer"
     model_guidance: "medium"
     status: "completed"
     stage: "planning"
-    task: "Critique the next bounded older-chronology plan for scope, risk, and execution readiness."
-    last_update: "Approved the revised 2022 cluster plan. Residual risk has narrowed because the official 2022-23 Grizzlies playoff media guide transaction log covers the target dates, but execution still stops if any target event cannot be justified cleanly from `team_official` / `nba_official` evidence."
+    task: "Critique the bulk-pass plan shape for parallelism, batching, and finish-line definition."
+    last_update: "Required a first-class target manifest, a locked fragment interface, and a cleaned-up checkpoint state before the user checkpoint."
     blocker: ""
-  - id: "tester-closeout-2022cluster"
-    role: "tester"
+  - id: "repo-researcher-fixture-strategy"
+    role: "repo-researcher"
     model_guidance: "medium"
     status: "completed"
-    stage: "verification"
-    task: "Verify exact 8-row closure in audit output and graph invariance after the live path."
-    last_update: "Confirmed the pass is successful. The 8 target events cleared `bref_only` but land as `recognized_provider_not_loaded`, while canonical counts and checksum stayed invariant."
+    stage: "discovery"
+    task: "Inspect the current official-source fixture and recommend the safest parallel write strategy for a bulk pass."
+    last_update: "Recommended fragment-based parallel authoring with one combined serialized load."
+    blocker: ""
+  - id: "developer-loader-fragments"
+    role: "developer"
+    model_guidance: "high"
+    status: "running"
+    stage: "execution"
+    task: "Implement fragment-aware official-source preview/load support and add the fragment directory surface."
+    last_update: "Implementing the base `--fixture-path` plus `--fixture-fragment-dir` aggregation path and test coverage."
+    blocker: ""
+  - id: "developer-shard-2016-2018"
+    role: "developer"
+    model_guidance: "high"
+    status: "running"
+    stage: "execution"
+    task: "Curate the 2016-2018 shard once fragment support lands."
+    last_update: "Researching and authoring the 2016-2018 fragment in its own file."
+    blocker: ""
+  - id: "developer-shard-2019"
+    role: "developer"
+    model_guidance: "high"
+    status: "running"
+    stage: "execution"
+    task: "Curate the 2019 shard once fragment support lands."
+    last_update: "Researching and authoring the 2019 fragment in its own file."
+    blocker: ""
+  - id: "developer-shard-2020"
+    role: "developer"
+    model_guidance: "high"
+    status: "running"
+    stage: "execution"
+    task: "Curate the 2020 shard once fragment support lands."
+    last_update: "Researching and authoring the 2020 fragment in its own file while preserving the blocked rows."
+    blocker: ""
+  - id: "developer-shard-2021"
+    role: "developer"
+    model_guidance: "high"
+    status: "running"
+    stage: "execution"
+    task: "Curate the 2021 shard once fragment support lands."
+    last_update: "Researching and authoring the 2021 fragment in its own file."
     blocker: ""
 
 loops:
   planning_review:
-    count: 2
+    count: 1
     max: 2
   execution_verification:
-    count: 1
+    count: 0
     max: 2
 
 checkpoint:
@@ -77,11 +118,11 @@ checkpoint:
 
 blockers: []
 decisions:
-  - "Treat the four-event 2023 residue pass as complete and move to older chronology coverage."
-  - "Bound the next pass to the 2022-23 preseason/camp cluster with 8 named player-movement events."
-  - "Prefer fixture-first corroboration rows and stop to re-scope if fixture-only evidence does not reconcile cleanly."
-  - "Keep the existing corroboration-only path and canonical graph invariance guarantees."
+  - "Treat the 2022 preseason/camp closeout as complete and start from the committed `main` state."
+  - "Stop using another single-cluster closure pass as the default unit of work."
+  - "Re-scope the remaining older chronology coverage as a bulk initiative with explicit batch boundaries."
+  - "Keep the existing corroboration-only path and canonical graph invariance guarantees unless discovery proves that the finish line needs a policy change."
 
-next_action: "Mark the 2022 preseason/camp closeout complete in the docs and move to the next bounded older-chronology `bref_only` cluster."
+next_action: "Implement fragment-aware loader support, then spawn the four shard curation lanes and aggregate their outputs."
 next_recommended_command: "$work"
 user_input_needed: false

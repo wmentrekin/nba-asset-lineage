@@ -73,6 +73,7 @@ NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
 }
 DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH = Path("tests/foundation/fixtures/nba_player_movement_sample.json")
 DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH = Path("configs/data/memphis_official_release_sources_seed_v1.json")
+DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR = Path("configs/data/memphis_official_release_fragments")
 
 
 def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
@@ -1267,6 +1268,58 @@ def read_official_release_fixture(path: Path) -> dict[str, object]:
     return payload
 
 
+def build_official_release_fixture_bundle(
+    fixture_path: Path,
+    *,
+    fixture_fragment_dir: Path | None = None,
+) -> dict[str, object]:
+    article_entries: list[dict[str, object]] = []
+    explicit_source_event_ids: set[str] = set()
+    source_record_ids: set[str] = set()
+
+    def append_fixture_articles(path: Path) -> None:
+        payload = read_official_release_fixture(path)
+        raw_articles = payload.get("articles", [])
+        if not isinstance(raw_articles, list):
+            raise ValueError(f"Official release fixture {path} must contain an 'articles' list.")
+        for article_index, article in enumerate(raw_articles, start=1):
+            if not isinstance(article, dict):
+                raise ValueError(f"Official release fixture {path} article {article_index} must be an object.")
+            source_record_id = string_or_none(article.get("source_record_id"))
+            if not source_record_id:
+                raise ValueError(f"Official release fixture {path} article {article_index} is missing source_record_id.")
+            if source_record_id in source_record_ids:
+                raise ValueError(f"Duplicate official release source_record_id across aggregate bundle: {source_record_id}")
+            source_record_ids.add(source_record_id)
+
+            cloned_article = dict(article)
+            cloned_article["_fixture_base_path"] = str(path.parent)
+            event_entries = cloned_article.get("events", [])
+            if not isinstance(event_entries, list):
+                raise ValueError(f"Official release fixture {path} article {source_record_id} must contain an events list.")
+            for event_index, event in enumerate(event_entries, start=1):
+                if not isinstance(event, dict):
+                    raise ValueError(
+                        f"Official release fixture {path} article {source_record_id} event {event_index} must be an object."
+                    )
+                source_event_id = string_or_none(event.get("source_event_id"))
+                if source_event_id:
+                    if source_event_id in explicit_source_event_ids:
+                        raise ValueError(
+                            "Duplicate official release explicit source_event_id across aggregate bundle: "
+                            f"{source_event_id}"
+                        )
+                    explicit_source_event_ids.add(source_event_id)
+            article_entries.append(cloned_article)
+
+    append_fixture_articles(fixture_path)
+
+    if fixture_fragment_dir and fixture_fragment_dir.exists():
+        for fragment_path in sorted(path for path in fixture_fragment_dir.glob("*.json") if path.is_file()):
+            append_fixture_articles(fragment_path)
+    return {"articles": article_entries}
+
+
 def extract_official_article_metadata(html: str) -> dict[str, str | None]:
     title_match = re.search(
         r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](?P<value>.*?)["\']',
@@ -1340,12 +1393,18 @@ def build_official_release_source_rows(
             "html_sha1": None,
         }
         fixture_html_path = string_or_none(article.get("html_fixture_path"))
+        article_fixture_base_path_value = string_or_none(article.get("_fixture_base_path"))
+        article_fixture_base_path = (
+            Path(article_fixture_base_path_value)
+            if article_fixture_base_path_value
+            else (fixture_base_path or Path.cwd())
+        )
         fetch_mode = "fixture_metadata"
         if fetch_live:
             article_metadata = fetch_official_article_metadata(source_locator=source_locator)
             fetch_mode = "live_html"
         elif fixture_html_path:
-            html_path = (fixture_base_path / fixture_html_path).resolve()
+            html_path = (article_fixture_base_path / fixture_html_path).resolve()
             article_metadata = extract_official_article_metadata(html_path.read_text(encoding="utf-8"))
             fetch_mode = "fixture_html"
 
@@ -1435,9 +1494,13 @@ def build_official_release_source_rows(
 def preview_official_release_sources(
     *,
     fixture_path: Path = DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    fixture_fragment_dir: Path | None = None,
     fetch_live: bool = False,
 ) -> dict[str, object]:
-    payload = read_official_release_fixture(fixture_path)
+    payload = build_official_release_fixture_bundle(
+        fixture_path,
+        fixture_fragment_dir=fixture_fragment_dir,
+    )
     source_records, source_events = build_official_release_source_rows(
         payload,
         fixture_base_path=fixture_path.parent,
@@ -1448,6 +1511,7 @@ def preview_official_release_sources(
         "source_systems": sorted({row.source_system for row in source_records}),
         "writes_to_database": False,
         "fixture_path": str(fixture_path),
+        "fixture_fragment_dir": str(fixture_fragment_dir) if fixture_fragment_dir else None,
         "fetch_live": fetch_live,
         "source_records": len(source_records),
         "source_events": len(source_events),
@@ -1462,6 +1526,7 @@ def load_official_release_sources(
     database_url: str | None = None,
     *,
     fixture_path: Path = DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    fixture_fragment_dir: Path | None = None,
     fetch_live: bool = False,
     dry_run: bool = True,
     execute: bool = False,
@@ -1472,6 +1537,7 @@ def load_official_release_sources(
         return {
             **preview_official_release_sources(
                 fixture_path=fixture_path,
+                fixture_fragment_dir=fixture_fragment_dir,
                 fetch_live=fetch_live,
             ),
             "dry_run": True,
@@ -1480,7 +1546,10 @@ def load_official_release_sources(
     if not database_url:
         raise ValueError("database_url is required when execute=True")
 
-    payload = read_official_release_fixture(fixture_path)
+    payload = build_official_release_fixture_bundle(
+        fixture_path,
+        fixture_fragment_dir=fixture_fragment_dir,
+    )
     source_records, source_events = build_official_release_source_rows(
         payload,
         fixture_base_path=fixture_path.parent,
@@ -1500,6 +1569,7 @@ def load_official_release_sources(
         "dry_run": False,
         "writes_to_database": True,
         "fixture_path": str(fixture_path),
+        "fixture_fragment_dir": str(fixture_fragment_dir) if fixture_fragment_dir else None,
         "fetch_live": fetch_live,
         "source_records": len(source_records),
         "source_events": len(source_events),

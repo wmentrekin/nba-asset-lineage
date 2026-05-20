@@ -10,6 +10,7 @@ from foundation.live_sources import (
     NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    build_official_release_fixture_bundle,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
     build_official_release_source_rows,
@@ -526,6 +527,267 @@ def test_preview_official_release_sources_is_fixture_only_and_schema_free(tmp_pa
     assert preview["source_systems"] == ["team_official"]
 
 
+def test_preview_official_release_sources_aggregates_fragment_directory(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "official_release_fixture.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-06:trade-pacers",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+                        "source_title": "Grizzlies complete trade with Pacers",
+                        "events": [
+                            {
+                                "source_event_id": "team_official:2025-07-06:trade-pacers:event:1",
+                                "event_date": "2025-07-06",
+                                "event_type": "trade",
+                                "player_names_out": ["Jay Huff"],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    fragment_dir = tmp_path / "fragments"
+    fragment_dir.mkdir()
+    (fragment_dir / "10_second.json").write_text(
+        json.dumps(
+            [
+                {
+                    "source_record_id": "team_official:2024-01-10:waiver",
+                    "source_system": "team_official",
+                    "source_type": "press_release_article",
+                    "source_locator": "https://www.nba.com/grizzlies/news/waiver",
+                    "source_title": "Waiver update",
+                    "events": [
+                        {
+                            "source_event_id": "team_official:2024-01-10:waiver:event:1",
+                            "event_date": "2024-01-10",
+                            "event_type": "waiver",
+                            "player_names_out": ["Player C"],
+                        }
+                    ],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (fragment_dir / "02_first.json").write_text(
+        json.dumps(
+            [
+                {
+                    "source_record_id": "team_official:2026-09-06:camp-signing",
+                    "source_system": "team_official",
+                    "source_type": "press_release_article",
+                    "source_locator": "https://www.nba.com/grizzlies/news/camp-signing",
+                    "source_title": "Camp signing",
+                    "events": [
+                        {
+                            "source_event_id": "team_official:2026-09-06:camp-signing:event:1",
+                            "event_date": "2026-09-06",
+                            "event_type": "signing",
+                            "player_names_in": ["Player B"],
+                        }
+                    ],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    preview = preview_official_release_sources(
+        fixture_path=fixture_path,
+        fixture_fragment_dir=fragment_dir,
+    )
+
+    assert preview["status"] == "ok"
+    assert preview["fixture_path"] == str(fixture_path)
+    assert preview["fixture_fragment_dir"] == str(fragment_dir)
+    assert preview["source_records"] == 3
+    assert preview["source_events"] == 3
+    assert preview["source_record_ids"] == [
+        "team_official:2025-07-06:trade-pacers",
+        "team_official:2026-09-06:camp-signing",
+        "team_official:2024-01-10:waiver",
+    ]
+
+
+def test_build_official_release_source_rows_resolve_fragment_html_fixture_paths(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "official_release_fixture.json"
+    fixture_path.write_text(json.dumps({"articles": []}), encoding="utf-8")
+    fragment_dir = tmp_path / "fragments"
+    fragment_dir.mkdir()
+    (fragment_dir / "article.html").write_text(
+        """
+        <html>
+          <head>
+            <meta property="og:title" content="Fragment HTML title" />
+          </head>
+          <body>
+            <article>
+              <p>Fragment html excerpt.</p>
+            </article>
+          </body>
+        </html>
+        """,
+        encoding="utf-8",
+    )
+    (fragment_dir / "01_fragment.json").write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-07:fragment-html",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/fragment-html",
+                        "html_fixture_path": "article.html",
+                        "events": [
+                            {
+                                "event_date": "2025-07-07",
+                                "event_type": "trade",
+                                "player_names_in": ["Player D"],
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_official_release_fixture_bundle(
+        fixture_path,
+        fixture_fragment_dir=fragment_dir,
+    )
+    source_records, _source_events = build_official_release_source_rows(
+        payload,
+        fixture_base_path=fixture_path.parent,
+    )
+
+    assert len(source_records) == 1
+    assert source_records[0].raw_payload["fetch_mode"] == "fixture_html"
+    assert source_records[0].raw_payload["source_title"] == "Fragment HTML title"
+    assert source_records[0].raw_payload["article_text_excerpt"] == "Fragment html excerpt."
+
+
+def test_build_official_release_fixture_bundle_rejects_duplicate_source_record_ids(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "official_release_fixture.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-06:trade-pacers",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+                        "events": [
+                            {
+                                "source_event_id": "base:event",
+                                "event_date": "2025-07-06",
+                                "event_type": "trade",
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    fragment_dir = tmp_path / "fragments"
+    fragment_dir.mkdir()
+    (fragment_dir / "a.json").write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-06:trade-pacers",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/duplicate",
+                        "events": [
+                            {
+                                "source_event_id": "fragment:event",
+                                "event_date": "2025-07-06",
+                                "event_type": "trade",
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Duplicate official release source_record_id"):
+        build_official_release_fixture_bundle(
+            fixture_path,
+            fixture_fragment_dir=fragment_dir,
+        )
+
+
+def test_build_official_release_fixture_bundle_rejects_duplicate_explicit_source_event_ids(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "official_release_fixture.json"
+    fixture_path.write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-06:trade-pacers",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
+                        "events": [
+                            {
+                                "source_event_id": "duplicate:event",
+                                "event_date": "2025-07-06",
+                                "event_type": "trade",
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    fragment_dir = tmp_path / "fragments"
+    fragment_dir.mkdir()
+    (fragment_dir / "a.json").write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {
+                        "source_record_id": "team_official:2025-07-07:different-record",
+                        "source_system": "team_official",
+                        "source_type": "press_release_article",
+                        "source_locator": "https://www.nba.com/grizzlies/news/duplicate-event",
+                        "events": [
+                            {
+                                "source_event_id": "duplicate:event",
+                                "event_date": "2025-07-07",
+                                "event_type": "signing",
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Duplicate official release explicit source_event_id"):
+        build_official_release_fixture_bundle(
+            fixture_path,
+            fixture_fragment_dir=fragment_dir,
+        )
+
+
 def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "articles": [
@@ -599,6 +861,27 @@ def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: p
     assert result["writes_to_database"] is True
     assert result["source_records"] == 1
     assert result["source_events"] == 1
+
+
+def test_load_bref_source_events_replaces_stale_rows_per_source_record(monkeypatch: pytest.MonkeyPatch) -> None:
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="bref:mem:2024:2024-01-10:1",
+            source_system="basketball_reference",
+            source_type="team_transactions_page",
+            source_locator="fixture://bref-transactions",
+            fetched_at="2026-05-15T00:00:00+00:00",
+            raw_payload={"note_text": "Signed free agent forward Troy Williams."},
+        ),
+        live_sources.SourceRecordRow(
+            source_record_id="bref:mem:2024:2024-01-10:2",
+            source_system="basketball_reference",
+            source_type="team_transactions_page",
+            source_locator="fixture://bref-transactions",
+            fetched_at="2026-05-15T00:00:00+00:00",
+            raw_payload={"note_text": "Unparsed source row."},
+        ),
+    ]
 
 
 def test_load_bref_source_events_replaces_stale_rows_per_source_record(monkeypatch: pytest.MonkeyPatch) -> None:

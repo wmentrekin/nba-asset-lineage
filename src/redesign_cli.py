@@ -38,6 +38,7 @@ from foundation.ingest import (
 )
 from foundation.live_sources import (
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
+    DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     load_bref_draft_results,
     load_bref_draft_results_span,
@@ -215,6 +216,11 @@ def parse_args() -> argparse.Namespace:
     )
     preview_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
     preview_official_release_parser.add_argument(
+        "--fixture-fragment-dir",
+        default=str(DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR),
+        help="Directory of additional official-release fixture fragments to aggregate with the base fixture.",
+    )
+    preview_official_release_parser.add_argument(
         "--fetch-live",
         action="store_true",
         help="Fetch the live article URLs referenced by the fixture to enrich source_record raw payload metadata.",
@@ -224,6 +230,11 @@ def parse_args() -> argparse.Namespace:
         help="Build curated official release source_record/source_event candidates and write them only with --execute.",
     )
     load_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
+    load_official_release_parser.add_argument(
+        "--fixture-fragment-dir",
+        default=str(DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR),
+        help="Directory of additional official-release fixture fragments to aggregate with the base fixture.",
+    )
     load_official_release_parser.add_argument(
         "--fetch-live",
         action="store_true",
@@ -665,12 +676,14 @@ def main() -> None:
     elif args.command == "preview-official-release-sources":
         payload = preview_official_release_sources(
             fixture_path=Path(args.fixture_path),
+            fixture_fragment_dir=Path(args.fixture_fragment_dir),
             fetch_live=args.fetch_live,
         )
     elif args.command == "load-official-release-sources":
         payload = load_official_release_sources(
             load_database_url() if args.execute else None,
             fixture_path=Path(args.fixture_path),
+            fixture_fragment_dir=Path(args.fixture_fragment_dir),
             fetch_live=args.fetch_live,
             dry_run=args.dry_run,
             execute=args.execute,

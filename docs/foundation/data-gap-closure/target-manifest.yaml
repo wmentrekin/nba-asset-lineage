@@ -1,0 +1,390 @@
+artifact: target_manifest
+feature: "foundation/data-gap-closure"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  reporting_unit: "canonical_event"
+  baseline_bref_only_count: 44
+  planned_count: 42
+  blocked_count: 2
+  notes:
+    - "One row per current `bref_only` canonical event."
+    - "Shard ownership is by event-level planning surface; fragment ownership during execution must still remain disjoint at the `source_record_id` level."
+    - "Blocked rows are excluded from the bulk closure success target unless their blocker status is revised before execution."
+
+shards:
+  - shard_id: "shard_2016_2018_signings"
+    focus: "2016-2018 camp/preseason signings plus the 2017 draft-night trade canonical event."
+    expected_source_family: "team_media_guide_or_transaction_log / official_trade_tracker_or_team_release"
+    events:
+      - canonical_event_id: "canonical:2016-07-26:signing:ac68ec08a2b7"
+        event_date: "2016-07-26"
+        event_type: "signing"
+        summary_label: "Memphis signed Wayne Selden"
+        players_in: ["Wayne Selden"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2016-08-08:signing:0b8c2eb94a8b"
+        event_date: "2016-08-08"
+        event_type: "signing"
+        summary_label: "Memphis signed Tony Wroten"
+        players_in: ["Tony Wroten"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2016-09-26:signing:18616a6c3f87"
+        event_date: "2016-09-26"
+        event_type: "signing"
+        summary_label: "Memphis signed Chris Crawford"
+        players_in: ["Chris Crawford"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2016-10-09:signing:d4c0a283bfbf"
+        event_date: "2016-10-09"
+        event_type: "signing"
+        summary_label: "Memphis signed Vince Hunter"
+        players_in: ["Vince Hunter"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2016-10-20:signing:ac06627ae852"
+        event_date: "2016-10-20"
+        event_type: "signing"
+        summary_label: "Memphis signed Kellen Dunham"
+        players_in: ["Kellen Dunham"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2016-10-21:signing:f2a6176ed1fe"
+        event_date: "2016-10-21"
+        event_type: "signing"
+        summary_label: "Memphis signed JaKarr Sampson"
+        players_in: ["JaKarr Sampson"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2017-06-22:trade:5c67cd0dccc6"
+        event_date: "2017-06-22"
+        event_type: "trade"
+        summary_label: "Memphis draft-night trade cluster for Dillon Brooks and Ivan Rabb"
+        players_in: ["Dillon Brooks", "Ivan Rabb"]
+        players_out: []
+        source_family: "official_trade_tracker_or_team_release"
+        status: "planned"
+      - canonical_event_id: "canonical:2017-07-09:signing:d5390e4c83b5"
+        event_date: "2017-07-09"
+        event_type: "signing"
+        summary_label: "Memphis signed Jeremy Morgan"
+        players_in: ["Jeremy Morgan"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2017-10-06:signing:0459603ecf11"
+        event_date: "2017-10-06"
+        event_type: "signing"
+        summary_label: "Memphis signed Durand Scott"
+        players_in: ["Durand Scott"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2018-08-10:signing:f51480421dd1"
+        event_date: "2018-08-10"
+        event_type: "signing"
+        summary_label: "Memphis signed Markel Crawford"
+        players_in: ["Markel Crawford"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2018-08-28:signing:9899244fdeb0"
+        event_date: "2018-08-28"
+        event_type: "signing"
+        summary_label: "Memphis signed Doral Moore"
+        players_in: ["Doral Moore"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2018-09-04:signing:b2edcbe52436"
+        event_date: "2018-09-04"
+        event_type: "signing"
+        summary_label: "Memphis signed Brandon Goodwin"
+        players_in: ["Brandon Goodwin"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2018-09-24:signing:532719a76f45"
+        event_date: "2018-09-24"
+        event_type: "signing"
+        summary_label: "Memphis signed Ismaila Kane"
+        players_in: ["Ismaila Kane"]
+        players_out: []
+        source_family: "team_media_guide_or_transaction_log"
+        status: "planned"
+
+  - shard_id: "shard_2019_signings_trades"
+    focus: "2019 free-agency signings, preseason Exhibit 10 signings, and multi-member trade clusters."
+    expected_source_family: "team_release_or_transaction_log / official_trade_tracker_or_team_release"
+    events:
+      - canonical_event_id: "canonical:2019-02-07:trade:46c4f2a3215f"
+        event_date: "2019-02-07"
+        event_type: "trade"
+        summary_label: "Memphis trade cluster for Marc Gasol, JaMychal Green / Garrett Temple, and Shelvin Mack"
+        players_in: ["C.J. Miles", "Jonas Valanciunas", "Delon Wright", "Avery Bradley", "Tyler Dorsey"]
+        players_out: ["Marc Gasol", "JaMychal Green", "Garrett Temple", "Shelvin Mack"]
+        source_family: "official_trade_tracker_or_team_release"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-07-06:trade:a08b6ae49bd1"
+        event_date: "2019-07-06"
+        event_type: "trade"
+        summary_label: "Memphis trade cluster for Mike Conley, C.J. Miles, and Brandon Clarke / Dwight Howard intake"
+        players_in: ["Grayson Allen", "Darius Bazley", "Jae Crowder", "Kyle Korver", "Dwight Howard", "Brandon Clarke"]
+        players_out: ["Mike Conley", "C.J. Miles", "Darius Bazley"]
+        source_family: "official_trade_tracker_or_team_release"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-07-07:signing:34b24a9939ed"
+        event_date: "2019-07-07"
+        event_type: "signing"
+        summary_label: "Memphis signed Tyus Jones"
+        players_in: ["Tyus Jones"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-07-07:trade:f93a7d150a90"
+        event_date: "2019-07-07"
+        event_type: "trade"
+        summary_label: "Memphis trade cluster for Josh Jackson / De'Anthony Melton, Andre Iguodala, and Solomon Hill / Miles Plumlee"
+        players_in: ["Josh Jackson", "De'Anthony Melton", "Andre Iguodala", "Solomon Hill", "Miles Plumlee"]
+        players_out: ["Jevon Carter", "Kyle Korver", "Julian Washburn", "Chandler Parsons"]
+        source_family: "official_trade_tracker_or_team_release"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-07-08:signing:2627d7a402fc"
+        event_date: "2019-07-08"
+        event_type: "signing"
+        summary_label: "Memphis signed Delon Wright"
+        players_in: ["Delon Wright"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-07-11:signing:982fccc4f667"
+        event_date: "2019-07-11"
+        event_type: "signing"
+        summary_label: "Memphis signed Jonas Valanciunas"
+        players_in: ["Jonas Valanciunas"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-09-04:signing:af72893cef6e"
+        event_date: "2019-09-04"
+        event_type: "signing"
+        summary_label: "Memphis signed Matt Mooney"
+        players_in: ["Matt Mooney"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-10-14:signing:f85324ef168a"
+        event_date: "2019-10-14"
+        event_type: "signing"
+        summary_label: "Memphis signed Dusty Hannahs"
+        players_in: ["Dusty Hannahs"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-10-15:signing:4ceeb009e4de"
+        event_date: "2019-10-15"
+        event_type: "signing"
+        summary_label: "Memphis signed Ahmad Caver"
+        players_in: ["Ahmad Caver"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-10-16:signing:6908edb2248c"
+        event_date: "2019-10-16"
+        event_type: "signing"
+        summary_label: "Memphis signed Jarrod Uthoff"
+        players_in: ["Jarrod Uthoff"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-10-17:signing:180de8f7a976"
+        event_date: "2019-10-17"
+        event_type: "signing"
+        summary_label: "Memphis signed Shaq Buchanan"
+        players_in: ["Shaq Buchanan"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2019-10-18:signing:92e9942e1619"
+        event_date: "2019-10-18"
+        event_type: "signing"
+        summary_label: "Memphis signed Bennie Boatwright"
+        players_in: ["Bennie Boatwright"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+
+  - shard_id: "shard_2020_offseason_camp"
+    focus: "2020 waiver, offseason camp signings, and extension-style rows needing manual review."
+    expected_source_family: "team_release_or_transaction_log"
+    events:
+      - canonical_event_id: "canonical:2020-02-05:signing:0c5d2c3b9a91"
+        event_date: "2020-02-05"
+        event_type: "signing"
+        summary_label: "Memphis extension-style BRef row with no tracked player asset"
+        players_in: []
+        players_out: []
+        source_family: "manual_review_required"
+        status: "blocked"
+        blocker_reason: "BRef row has no tracked player asset and appears to be an extension/re-signing style contract row that may not map cleanly to the player-movement corroboration contract."
+      - canonical_event_id: "canonical:2020-02-27:waiver:f99f0dca46d9"
+        event_date: "2020-02-27"
+        event_type: "waiver"
+        summary_label: "Memphis waived Dusty Hannahs"
+        players_in: []
+        players_out: ["Dusty Hannahs"]
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-11-19:signing:a4e4f8101751"
+        event_date: "2020-11-19"
+        event_type: "signing"
+        summary_label: "Memphis signed Killian Tillie"
+        players_in: ["Killian Tillie"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-11-19:signing:b9259390ae04"
+        event_date: "2020-11-19"
+        event_type: "signing"
+        summary_label: "Memphis signed Sean McDermott"
+        players_in: ["Sean McDermott"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-11-19:signing:fb9b72c75843"
+        event_date: "2020-11-19"
+        event_type: "signing"
+        summary_label: "Memphis signed Jahlil Tripp"
+        players_in: ["Jahlil Tripp"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-11-22:signing:b1ec41f0d851"
+        event_date: "2020-11-22"
+        event_type: "signing"
+        summary_label: "Memphis contract-style BRef row with no tracked player asset"
+        players_in: []
+        players_out: []
+        source_family: "manual_review_required"
+        status: "blocked"
+        blocker_reason: "BRef row has no tracked player asset and appears to be an extension/re-signing style contract row that may not map cleanly to the player-movement corroboration contract."
+      - canonical_event_id: "canonical:2020-12-15:signing:2bcc90b87bfa"
+        event_date: "2020-12-15"
+        event_type: "signing"
+        summary_label: "Memphis signed Zhaire Smith"
+        players_in: ["Zhaire Smith"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-12-15:signing:8c3ae1ecbbdc"
+        event_date: "2020-12-15"
+        event_type: "signing"
+        summary_label: "Memphis signed Bennie Boatwright"
+        players_in: ["Bennie Boatwright"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-12-16:signing:c33b0b8f19e3"
+        event_date: "2020-12-16"
+        event_type: "signing"
+        summary_label: "Memphis signed Christian Vital"
+        players_in: ["Christian Vital"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2020-12-16:signing:f1f9f1edfc56"
+        event_date: "2020-12-16"
+        event_type: "signing"
+        summary_label: "Memphis signed Shaq Buchanan"
+        players_in: ["Shaq Buchanan"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+
+  - shard_id: "shard_2021_offseason_camp_trades"
+    focus: "2021 offseason trade cluster, camp signings, and one waiver."
+    expected_source_family: "official_trade_tracker_or_team_release / team_release_or_transaction_log"
+    events:
+      - canonical_event_id: "canonical:2021-08-07:trade:ded5aa2a0a8b"
+        event_date: "2021-08-07"
+        event_type: "trade"
+        summary_label: "Memphis trade cluster for Steven Adams / Eric Bledsoe / Ziaire Williams, Sam Merrill, and Santi Aldama"
+        players_in: ["Steven Adams", "Eric Bledsoe", "Jared Butler", "Ziaire Williams", "Sam Merrill", "Santi Aldama"]
+        players_out: ["Brandon Boston Jr", "Trey Murphy III", "Jonas Valanciunas", "Tyler Harvey", "Grayson Allen", "Jared Butler"]
+        source_family: "official_trade_tracker_or_team_release"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-08-09:signing:f7e5dfd51b4f"
+        event_date: "2021-08-09"
+        event_type: "signing"
+        summary_label: "Memphis signed Yves Pons"
+        players_in: ["Yves Pons"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-09-23:signing:1ddd75924803"
+        event_date: "2021-09-23"
+        event_type: "signing"
+        summary_label: "Memphis signed Shaq Buchanan"
+        players_in: ["Shaq Buchanan"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-09-23:signing:246ac0695ad6"
+        event_date: "2021-09-23"
+        event_type: "signing"
+        summary_label: "Memphis signed Sean McDermott"
+        players_in: ["Sean McDermott"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-10-08:signing:c4b53f663a88"
+        event_date: "2021-10-08"
+        event_type: "signing"
+        summary_label: "Memphis signed Romeo Weems"
+        players_in: ["Romeo Weems"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-10-14:signing:104830ad4c56"
+        event_date: "2021-10-14"
+        event_type: "signing"
+        summary_label: "Memphis signed Matthew Hurt"
+        players_in: ["Matthew Hurt"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-10-14:signing:662cffe266c1"
+        event_date: "2021-10-14"
+        event_type: "signing"
+        summary_label: "Memphis signed Ahmad Caver"
+        players_in: ["Ahmad Caver"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-10-15:signing:3379ae5884eb"
+        event_date: "2021-10-15"
+        event_type: "signing"
+        summary_label: "Memphis signed David Stockton"
+        players_in: ["David Stockton"]
+        players_out: []
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
+      - canonical_event_id: "canonical:2021-10-16:waiver:48953182bf49"
+        event_date: "2021-10-16"
+        event_type: "waiver"
+        summary_label: "Memphis waived Matthew Hurt"
+        players_in: []
+        players_out: ["Matthew Hurt"]
+        source_family: "team_release_or_transaction_log"
+        status: "planned"
