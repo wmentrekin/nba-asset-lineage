@@ -1,128 +1,92 @@
 artifact: plan
 feature: "foundation/data-gap-closure"
-mode: "large-initiative"
-status: draft
+mode: "bounded-feature"
+status: completed
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/requirements.yaml"
 
-objective: "Close the remaining older player-movement `bref_only` residue through one bulk, fragment-authored, combined-load initiative."
+objective: "Close the remaining `missing_required_evidence = 38` draft/pick bucket through one bulk curated `secondary_pick_detail` load and one verification cycle."
 
 approach:
-  summary: "Treat the remaining `bref_only` residue as one coordinated closeout. First add a minimal fragment-aware loader surface. Then curate the remaining source evidence in parallel through disjoint fragment files. Finish with one aggregate preview, one aggregate dry-run, one live load, and one audit/graph verification cycle."
+  summary: "Treat the remaining `missing_required_evidence` bucket as one draft-only closeout. First add a small curated draft-pick-detail load path that emits `corroboration_only` `curated_fixture` source rows from the existing draft selection truth surface. Then extend audit reconciliation so exact same-day draft corroboration rows can satisfy duplicate canonical draft events for the same player/selection. Finish with one preview or dry-run, one live load, and one audit/graph verification cycle."
   key_decisions:
-    - "Use the current committed state as the baseline and do not continue with another single-cluster pass."
-    - "Define the finish line for this initiative as `bref_only -> 0` or a fully enumerated blocked residue."
-    - "Use fragment-based authoring for parallelism, but keep one serialized final load."
-    - "Shard work primarily by season/source-family so each worker owns disjoint `source_record_id` space."
-    - "Treat promotion from `bref_only` to `recognized_provider_not_loaded` as acceptable for this initiative unless the user explicitly asks for `meets_minimum` closure."
+    - "Keep the existing `corroboration_only` path and do not alter canonical graph derivation."
+    - "Use `curated_fixture` as the `secondary_pick_detail` provider role for this pass."
+    - "Build the bulk payload around the unique Memphis draft selections behind the 38 canonical rows, not around each duplicate canonical event."
+    - "Treat promotion from `missing_required_evidence` to `recognized_provider_not_loaded` as acceptable unless an event already has official confirmation loaded."
 
 contracts:
   interfaces:
-    - "The official-source preview/load workflow must support one base `--fixture-path` plus one fragment directory `--fixture-fragment-dir`, aggregating all `*.json` fragments in lexicographic order before validation and load."
-    - "The aggregate workflow must fail on duplicate `source_record_id` or duplicate explicit `source_event_id`."
-    - "The final live path remains one combined `load-official-release-sources --execute` run."
+    - "Add a read-only preview and guarded load path for curated draft-pick-detail corroboration rows."
+    - "The new load path must write only `foundation.source_record` and `foundation.source_event` rows."
+    - "The final live path remains one combined guarded execute run."
     - "`audit-foundation-data` remains the truth surface for bulk closure success."
-    - "A checked-in target manifest must exist before execution and must enumerate every current `bref_only` canonical event with shard assignment and status."
   schemas:
     - "No SQL migrations."
     - "No new database tables or columns."
-    - "Reuse `foundation.source_record` and `foundation.source_event` through the existing official-source loader."
+    - "Reuse `foundation.source_record` and `foundation.source_event` only."
   config_changes:
-    - "Add `configs/data/memphis_official_release_fragments/` for new official-source curation batches."
-    - "Retain compatibility with the existing monolithic seed file by using it as the base `--fixture-path` while new fragments are loaded from `--fixture-fragment-dir`."
+    - "Either introduce a new checked-in draft-pick-detail fixture or generate the payload directly from the existing draft selection tables with a clearly documented source basis."
     - "Update active gap docs after aggregate load and audit."
 
 execution_batches:
   - id: "B1"
-    goal: "Prepare a safe bulk authoring surface."
+    goal: "Prepare the draft closeout load path."
     tasks:
       - id: "T1"
-        title: "Add fragment-aware aggregation to the official-source preview/load path"
-        objective: "Allow bulk curation to happen in disjoint fixture fragments while preserving one combined preview/dry-run/execute path."
+        title: "Add curated draft-pick-detail preview/load support"
+        objective: "Create the smallest checked-in path that can emit `corroboration_only` `curated_fixture` source rows for the Memphis draft selections behind the 38 missing-required canonical events."
         owned_scope:
-          - "src/foundation/live_sources.py"
+          - "src/foundation/"
           - "src/redesign_cli.py"
-          - "tests/foundation/test_live_sources.py"
-          - "configs/data/"
+          - "tests/foundation/"
         forbidden_scope:
           - "SQL files"
           - "frontend files"
-          - "canonical generation code"
+          - "canonical generation code outside draft-only audit reconciliation"
         dependencies: []
         parallelizable: false
         expected_validation:
-          - ".venv/bin/pytest tests/foundation/test_live_sources.py"
-          - "aggregate preview command against the current base fixture plus an empty or sample fragment set"
+          - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
+          - "preview command for the curated draft-pick-detail payload"
   - id: "B2"
-    goal: "Curate the remaining residue in parallel."
+    goal: "Teach the audit to consume the new draft evidence correctly."
     tasks:
-      - id: "T2A"
-        title: "Curate the 2016-2018 camp/preseason signing shard"
-        objective: "Add fragment-owned official rows for the 2016-2018 signings using transaction logs, media guides, or direct releases."
+      - id: "T2"
+        title: "Add exact draft reconciliation support"
+        objective: "Extend audit reconciliation so exact same-day draft corroboration rows can satisfy the current canonical draft rows, including duplicate same-day rows for the same player/selection and the GG/Gregory alias case."
         owned_scope:
-          - "configs/data/memphis_official_release_fragments/"
+          - "src/foundation/audit.py"
+          - "tests/foundation/test_audit.py"
         forbidden_scope:
-          - "existing fragment files owned by other workers"
-          - "Python modules outside the assigned fragment-support batch"
+          - "non-draft player-movement reconciliation logic"
         dependencies:
           - "B1"
-        parallelizable: true
-      - id: "T2B"
-        title: "Curate the 2019 free-agency / preseason / trade shard"
-        objective: "Add fragment-owned official rows for the remaining 2019 signings and trade clusters."
-        owned_scope:
-          - "configs/data/memphis_official_release_fragments/"
-        forbidden_scope:
-          - "existing fragment files owned by other workers"
-          - "Python modules outside the assigned fragment-support batch"
-        dependencies:
-          - "B1"
-        parallelizable: true
-      - id: "T2C"
-        title: "Curate the 2020 offseason / camp shard"
-        objective: "Add fragment-owned official rows for the remaining 2020 signings, waiver, and extension-style rows."
-        owned_scope:
-          - "configs/data/memphis_official_release_fragments/"
-        forbidden_scope:
-          - "existing fragment files owned by other workers"
-          - "Python modules outside the assigned fragment-support batch"
-        dependencies:
-          - "B1"
-        parallelizable: true
-      - id: "T2D"
-        title: "Curate the 2021 offseason / camp / trade shard"
-        objective: "Add fragment-owned official rows for the remaining 2021 signings, waiver, and trade cluster."
-        owned_scope:
-          - "configs/data/memphis_official_release_fragments/"
-        forbidden_scope:
-          - "existing fragment files owned by other workers"
-          - "Python modules outside the assigned fragment-support batch"
-        dependencies:
-          - "B1"
-        parallelizable: true
+        parallelizable: false
   - id: "B3"
-    goal: "Validate the full bulk payload before writing."
+    goal: "Validate the full draft evidence payload before writing."
     tasks:
       - id: "T3"
-        title: "Run one aggregate preview and dry-run"
-        objective: "Validate the combined fragment set and fail fast on duplicate IDs, malformed rows, or obvious matching issues before any live load."
+        title: "Run one preview and dry-run"
+        objective: "Validate the draft evidence payload and fail fast on malformed rows, duplicate IDs, or obvious matching misses before any live load."
         owned_scope:
           - "docs/foundation/data-gap-closure/status.yaml"
         forbidden_scope:
           - "live DB writes"
         dependencies:
+          - "B1"
           - "B2"
         parallelizable: false
         expected_validation:
-          - "aggregate preview command"
-          - "aggregate dry-run command"
-          - "targeted inventory diff against `docs/foundation/data-gap-closure/target-manifest.yaml`"
+          - "preview command"
+          - "dry-run command"
+          - "targeted diff of the 38 canonical draft events"
   - id: "B4"
     goal: "Execute and verify the closeout."
     tasks:
       - id: "T4"
         title: "Run one live load, audit, and graph-baseline verification"
-        objective: "Write the aggregate corroboration payload once, verify graph invariance, and confirm the remaining `bref_only` residue is either zero or explicitly blocked."
+        objective: "Write the draft corroboration payload once, verify graph invariance, and confirm the remaining `missing_required_evidence` residue is either zero or explicitly blocked."
         owned_scope:
           - "docs/foundation/data-gap-closure/implementation-report.yaml"
           - "docs/foundation/data-gap-closure/status.yaml"
@@ -135,32 +99,31 @@ execution_batches:
           - "B3"
         parallelizable: false
         expected_validation:
-          - "live aggregate `load-official-release-sources --execute`"
+          - "live draft-pick-detail execute command"
           - ".venv/bin/python -m redesign_cli audit-foundation-data"
           - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
-          - "post-load event-level diff for the manifest canonical IDs showing `bref_only=0` or an explicit blocked remainder"
+          - "post-load event-level diff for the 38 draft canonical IDs showing `missing_required_evidence=0` or an explicit blocked remainder"
 
 ordering_notes:
-  - "Do not let multiple workers edit one shared monolithic fixture file."
-  - "Parallelism applies to authoring and source curation, not to live database execute."
-  - "If discovery surfaces structurally blocked rows, isolate them in the target manifest before the final preview/dry-run instead of letting them hide inside the batch."
+  - "Do not broaden this into prior-ownership lineage or future-pick replay work inside the same pass."
+  - "Keep the closure surface draft-only and exact-match oriented."
+  - "If one or more draft rows still fail after the new load path, stop after the first verification loop and report the explicit blockers."
 
 risks:
-  - "Some 2020 extension-style or assetless BRef rows may not map cleanly to team-official player-movement evidence."
-  - "Trade clusters may require grouped source rows and careful participant-direction fidelity."
-  - "Introducing fragment-aware aggregation is small but real infrastructure work; it must stay minimal."
-  - "If the finish line is silently reinterpreted from `bref_only` to `meets_minimum`, the initiative scope will expand materially."
+  - "A generated `curated_fixture` payload could look self-referential if its source basis is not documented clearly enough."
+  - "Duplicate same-day draft canonical rows may require a narrow new reconciliation rule rather than the current unique-candidate rule."
+  - "The GG/Gregory Jackson alias mismatch can leave one selection unresolved if the matcher stays too literal."
+  - "If the finish line is silently reinterpreted from `missing_required_evidence` to `meets_minimum`, the scope expands materially."
 
 open_questions:
-  - "Do any remaining 2020 extension-style rows need to be carved out as a separate blocker batch before execution?"
+  - "Should the new load path be backed by a checked-in fixture file or by deterministic generation from the live draft-selection truth surface?"
 
 review:
   status: approved
   loop_count: 1
   notes:
-    - "Reviewer accepted the bulk-pass scope after requiring a first-class target manifest, a locked fragment interface, and a cleaned-up checkpoint state."
-    - "The biggest residual risk remains the 2020 extension-style assetless rows, which are now isolated explicitly in the manifest."
+    - "Planning basis is now narrower and cleaner than the earlier player-movement bulk pass: one fact type, one required role, one closure surface."
 
 checkpoint:
   required_before_execution: true
-  status: pending
+  status: approved

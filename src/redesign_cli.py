@@ -37,6 +37,7 @@ from foundation.ingest import (
     serialize_foundation_ingest_sample_bundle,
 )
 from foundation.live_sources import (
+    load_curated_draft_pick_detail_sources,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
@@ -52,6 +53,7 @@ from foundation.live_sources import (
     preview_bref_draft_results,
     preview_bref_roster_baseline,
     preview_bref_source_events,
+    preview_curated_draft_pick_detail_sources,
     preview_nba_reference,
     preview_nba_player_movement,
     preview_official_release_sources,
@@ -194,6 +196,26 @@ def parse_args() -> argparse.Namespace:
     load_bref_draft_span_parser.add_argument("--start-draft-year", type=int, default=2016)
     load_bref_draft_span_parser.add_argument("--end-draft-year", type=int, default=2025)
     load_bref_draft_span_parser.add_argument("--request-delay", type=float, default=0.8)
+    preview_curated_draft_pick_detail_parser = subparsers.add_parser(
+        "preview-curated-draft-pick-detail-sources",
+        help="Read-only preview of curated draft-pick-detail corroboration rows generated from loaded Memphis draft selections.",
+    )
+    preview_curated_draft_pick_detail_parser.add_argument("--team-code", default="MEM")
+    load_curated_draft_pick_detail_parser = subparsers.add_parser(
+        "load-curated-draft-pick-detail-sources",
+        help="Build curated draft-pick-detail source_record/source_event candidates and write them only with --execute.",
+    )
+    load_curated_draft_pick_detail_parser.add_argument("--team-code", default="MEM")
+    load_curated_draft_pick_detail_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Explicit read-only mode; this is also the default unless --execute is supplied.",
+    )
+    load_curated_draft_pick_detail_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Write foundation.source_record and foundation.source_event rows after preview review.",
+    )
     preview_nba_parser = subparsers.add_parser("preview-nba-reference", help="Fetch and normalize NBA stats player and roster reference data without writing to the database.")
     preview_nba_parser.add_argument("--season", required=True)
     preview_nba_parser.add_argument("--team-id", type=int, default=1610612763)
@@ -655,6 +677,15 @@ def main() -> None:
             start_draft_year=args.start_draft_year,
             end_draft_year=args.end_draft_year,
             request_delay=args.request_delay,
+        )
+    elif args.command == "preview-curated-draft-pick-detail-sources":
+        payload = preview_curated_draft_pick_detail_sources(load_database_url(), team_code=args.team_code)
+    elif args.command == "load-curated-draft-pick-detail-sources":
+        payload = load_curated_draft_pick_detail_sources(
+            load_database_url(),
+            team_code=args.team_code,
+            dry_run=args.dry_run,
+            execute=args.execute,
         )
     elif args.command == "preview-nba-reference":
         payload = preview_nba_reference(season=args.season, team_id=args.team_id)

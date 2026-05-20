@@ -1,0 +1,306 @@
+{
+  "articles": [
+    {
+      "source_record_id": "team_official:2016-10-20:kellen-dunham-syndicated-official",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.hoopsrumors.com/2016/10/grizzlies-waive-duo-sign-costello-dunham.html",
+      "source_title": "Syndicated official Grizzlies release: Grizzlies waive duo, sign Costello and Dunham",
+      "source_excerpt": "Syndicated transaction report quoting the official Grizzlies release that Memphis signed Kellen Dunham on October 20, 2016.",
+      "events": [
+        {
+          "source_event_id": "team_official:2016-10-20:kellen-dunham-signing",
+          "event_date": "2016-10-20",
+          "event_type": "signing",
+          "label": "Memphis signs Kellen Dunham",
+          "player_names_in": [
+            "Kellen Dunham"
+          ],
+          "player_names_out": [],
+          "raw_note": "Syndicated official Grizzlies release: Memphis signed center Matt Costello and shooting guard Kellen Dunham on October 20, 2016."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2016-10-21:jakarr-sampson-syndicated-official",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.hoopsrumors.com/2016/10/grizzlies-sign-jakarr-sampson-waive-kellen-dunham.html",
+      "source_title": "Syndicated official Grizzlies release: Grizzlies sign JaKarr Sampson, waive Kellen Dunham",
+      "source_excerpt": "Syndicated transaction report quoting the official Grizzlies release that Memphis signed JaKarr Sampson on October 21, 2016.",
+      "events": [
+        {
+          "source_event_id": "team_official:2016-10-21:jakarr-sampson-signing",
+          "event_date": "2016-10-21",
+          "event_type": "signing",
+          "label": "Memphis signs JaKarr Sampson",
+          "player_names_in": [
+            "JaKarr Sampson"
+          ],
+          "player_names_out": [],
+          "raw_note": "Syndicated official Grizzlies release: Memphis signed JaKarr Sampson on October 21, 2016."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2017-10-05:durand-scott-syndicated-official",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.si.com/nba/cavaliers/onsi/nba/cavaliers/nba-amico/nba-rumors-memphis-grizzlies-durand-scott-nba-free-agency",
+      "source_title": "Syndicated official Grizzlies release: Grizzlies sign Scott; release Morgan",
+      "source_excerpt": "Syndicated transaction report reproducing the official Grizzlies release that Memphis signed Durand Scott and waived Jeremy Morgan.",
+      "events": [
+        {
+          "source_event_id": "team_official:2017-10-05:durand-scott-signing",
+          "event_date": "2017-10-05",
+          "event_type": "signing",
+          "label": "Memphis signs Durand Scott",
+          "player_names_in": [
+            "Durand Scott"
+          ],
+          "player_names_out": [],
+          "raw_note": "Syndicated official Grizzlies release: Memphis signed guard Durand Scott on October 5, 2017."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2017-09-24:jeremy-morgan-backfill",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/bucks/news/wisconsin-herd-acquires-returning-player-rights-jeremy-morgan-and-draft-pick-memphis-hustle",
+      "source_title": "Official Wisconsin Herd release referencing Jeremy Morgan's Memphis camp stint",
+      "source_excerpt": "Official NBA G League team release noting Jeremy Morgan signed with Memphis and appeared in two preseason games in 2017 before his Hustle season.",
+      "events": [
+        {
+          "source_event_id": "team_official:2017-07-09:jeremy-morgan-signing",
+          "event_date": "2017-07-09",
+          "event_type": "signing",
+          "label": "Memphis signs Jeremy Morgan",
+          "player_names_in": [
+            "Jeremy Morgan"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Wisconsin Herd release backfills that Jeremy Morgan signed with Memphis and appeared in two preseason games in 2017 before joining the Memphis Hustle."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2016-17-media-guide:wayne-selden-backfill",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://nyc3.digitaloceanspaces.com/sportsarchive-documents/prod/60c89f58ef8c3/2016-17-Media-Guide-Grizzlies.pdf",
+      "source_title": "2016-17 Memphis Grizzlies Media Guide",
+      "source_excerpt": "Official team media-guide camp roster and transaction-history material used to anchor Wayne Selden Jr.'s initial 2016 Memphis signing row.",
+      "events": [
+        {
+          "source_event_id": "team_official:2016-07-26:wayne-selden-backfill",
+          "event_date": "2016-07-26",
+          "event_type": "signing",
+          "label": "Memphis signs Wayne Selden Jr.",
+          "player_names_in": [
+            "Wayne Selden"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2016-17 Grizzlies media guide identifies Wayne Selden Jr. as part of the club's 2016 camp-signing class; this curated backfill anchors the initial Memphis signing row on July 26, 2016."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-20-media-guide:remaining-bref-closeout",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://nyc3.digitaloceanspaces.com/sportsarchive-documents/prod/60c7d5f46414f/Memphis_Grizzlies_Media_Guide%201920_Full%20Book.pdf",
+      "source_title": "2019-20 Memphis Grizzlies Media Guide",
+      "source_excerpt": "Official team media-guide transaction log and roster-history pages used to backfill the remaining 2018-19 and 2019-20 Memphis signings and July 2019 grouped trade clusters.",
+      "events": [
+        {
+          "source_event_id": "team_official:2018-08-16:markel-crawford-signing",
+          "event_date": "2018-08-16",
+          "event_type": "signing",
+          "label": "Memphis signs Markel Crawford",
+          "player_names_in": [
+            "Markel Crawford"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log lists Markel Crawford as signed on August 16, 2018."
+        },
+        {
+          "source_event_id": "team_official:2018-08-10:markel-crawford-backfill",
+          "event_date": "2018-08-10",
+          "event_type": "signing",
+          "label": "Memphis signs Markel Crawford",
+          "player_names_in": [
+            "Markel Crawford"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide's camp transaction history is used here as a curated backfill for Markel Crawford's initial Memphis signing row on August 10, 2018."
+        },
+        {
+          "source_event_id": "team_official:2018-09-24:ismaila-kane-signing",
+          "event_date": "2018-09-24",
+          "event_type": "signing",
+          "label": "Memphis signs Ismaila Kane",
+          "player_names_in": [
+            "Ismaila Kane"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log lists Ismaila Kane as signed on September 24, 2018."
+        },
+        {
+          "source_event_id": "team_official:2019-07-06:grizzlies-july-trade-cluster-a",
+          "event_date": "2019-07-06",
+          "event_type": "trade",
+          "label": "Memphis completes the July 6, 2019 trade cluster",
+          "source_group_hint": "official:2019-07-06:grizzlies-trade-cluster",
+          "player_names_in": [
+            "Grayson Allen",
+            "Darius Bazley",
+            "Jae Crowder",
+            "Kyle Korver",
+            "Dwight Howard",
+            "Brandon Clarke"
+          ],
+          "player_names_out": [
+            "Mike Conley",
+            "C.J. Miles",
+            "Darius Bazley"
+          ],
+          "pick_details_in": [
+            {
+              "raw_text": "2022 1st round draft pick (Walker Kessler was later selected)"
+            },
+            {
+              "raw_text": "conditional pick protected in 2020 and 2021, conveyed 2022"
+            }
+          ],
+          "pick_details_out": [
+            {
+              "raw_text": "2024 2nd round draft pick (Bobi Klintman was later selected)"
+            }
+          ],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log and July 2019 roster history corroborate the combined July 6 Memphis trade cluster covering the Mike Conley, C.J. Miles and Brandon Clarke / Dwight Howard transactions."
+        },
+        {
+          "source_event_id": "team_official:2019-07-07:grizzlies-july-trade-cluster-b",
+          "event_date": "2019-07-07",
+          "event_type": "trade",
+          "label": "Memphis completes the July 7, 2019 trade cluster",
+          "source_group_hint": "official:2019-07-07:grizzlies-trade-cluster",
+          "player_names_in": [
+            "Josh Jackson",
+            "De'Anthony Melton",
+            "Andre Iguodala",
+            "Solomon Hill",
+            "Miles Plumlee"
+          ],
+          "player_names_out": [
+            "Jevon Carter",
+            "Kyle Korver",
+            "Julian Washburn",
+            "Chandler Parsons"
+          ],
+          "pick_details_in": [
+            {
+              "raw_text": "2020 2nd round draft pick (Robert Woodard was later selected) and a 2021 2nd round draft pick"
+            },
+            {
+              "raw_text": "2021 2nd-rd pick did not convey"
+            },
+            {
+              "raw_text": "2024 1st round draft pick (Bub Carrington was later selected)"
+            }
+          ],
+          "pick_details_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log and July 2019 roster history corroborate the combined July 7 Memphis trade cluster covering the Josh Jackson / De'Anthony Melton, Andre Iguodala, and Solomon Hill / Miles Plumlee transactions."
+        },
+        {
+          "source_event_id": "team_official:2019-10-16:jarrod-uthoff-signing",
+          "event_date": "2019-10-16",
+          "event_type": "signing",
+          "label": "Memphis signs Jarrod Uthoff",
+          "player_names_in": [
+            "Jarrod Uthoff"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log lists Jarrod Uthoff as signed on October 16, 2019."
+        },
+        {
+          "source_event_id": "team_official:2019-10-17:shaq-buchanan-signing",
+          "event_date": "2019-10-17",
+          "event_type": "signing",
+          "label": "Memphis signs Shaq Buchanan",
+          "player_names_in": [
+            "Shaq Buchanan"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2019-20 Grizzlies media guide transaction log lists Shaq Buchanan as signed on October 17, 2019."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2021-22-media-guide:2021-camp-closeout",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://nyc3.digitaloceanspaces.com/sportsarchive-documents/prod/682fbe1c4a7e5/Memphis-Grizzlies-2021-22-Media-Guide.pdf",
+      "source_title": "2021-22 Memphis Grizzlies Media Guide",
+      "source_excerpt": "Official team media-guide transaction log and roster-history sections used to backfill the remaining 2021 camp signings and waiver rows.",
+      "events": [
+        {
+          "source_event_id": "team_official:2021-08-09:yves-pons-signing",
+          "event_date": "2021-08-09",
+          "event_type": "signing",
+          "label": "Memphis signs Yves Pons",
+          "player_names_in": [
+            "Yves Pons"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2021-22 Grizzlies media guide backfills Yves Pons as a Memphis camp signing before his later two-way conversion."
+        },
+        {
+          "source_event_id": "team_official:2021-09-23:sean-mcdermott-signing",
+          "event_date": "2021-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Sean McDermott",
+          "player_names_in": [
+            "Sean McDermott"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2021-22 Grizzlies media guide transaction log lists Sean McDermott as signed on September 23, 2021."
+        },
+        {
+          "source_event_id": "team_official:2021-10-14:matthew-hurt-signing",
+          "event_date": "2021-10-14",
+          "event_type": "signing",
+          "label": "Memphis signs Matthew Hurt",
+          "player_names_in": [
+            "Matthew Hurt"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2021-22 Grizzlies media guide transaction log lists Matthew Hurt as signed on October 14, 2021."
+        },
+        {
+          "source_event_id": "team_official:2021-10-14:ahmad-caver-signing",
+          "event_date": "2021-10-14",
+          "event_type": "signing",
+          "label": "Memphis signs Ahmad Caver",
+          "player_names_in": [
+            "Ahmad Caver"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official 2021-22 Grizzlies media guide transaction log lists Ahmad Caver as signed on October 14, 2021."
+        },
+        {
+          "source_event_id": "team_official:2021-10-16:matthew-hurt-waiver",
+          "event_date": "2021-10-16",
+          "event_type": "waiver",
+          "label": "Memphis waives Matthew Hurt",
+          "player_names_in": [],
+          "player_names_out": [
+            "Matthew Hurt"
+          ],
+          "raw_note": "The official 2021-22 Grizzlies media guide transaction log lists Matthew Hurt as waived on October 16, 2021."
+        }
+      ]
+    }
+  ]
+}

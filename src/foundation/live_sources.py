@@ -61,8 +61,12 @@ OFFICIAL_RELEASE_SOURCE_TYPES = frozenset(
 )
 OFFICIAL_RELEASE_CANONICAL_EXCLUSION_REASON = "official_release_requires_reconciliation"
 BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON = "bref_same_day_sign_and_trade_contract"
+CURATED_DRAFT_PICK_DETAIL_CANONICAL_EXCLUSION_REASON = "curated_draft_pick_detail_requires_reconciliation"
 OFFICIAL_RELEASE_NORMALIZATION_NOTE = (
     "Official article evidence is curated/manual and excluded from canonical derivation by default."
+)
+CURATED_DRAFT_PICK_DETAIL_NORMALIZATION_NOTE = (
+    "Curated draft pick detail evidence is generated from loaded Memphis draft selections and excluded from canonical derivation by default."
 )
 NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
     "AwardOnWaivers": "signing",
@@ -671,6 +675,219 @@ def load_bref_draft_results_span(
         "players": total_players,
         "draft_selections": total_selections,
         "years": years,
+    }
+
+
+def load_draft_pick_detail_seed_rows(
+    database_url: str,
+    *,
+    team_code: str = DEFAULT_TEAM_CODE,
+) -> list[dict[str, object]]:
+    with psycopg.connect(database_url, connect_timeout=10) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                select ds.draft_selection_id,
+                       ds.draft_year,
+                       ds.pick_overall,
+                       ds.round_number,
+                       ds.team_code,
+                       ds.player_id,
+                       p.display_name,
+                       ds.source_event_id,
+                       se.event_date::text,
+                       se.label
+                from foundation.draft_selection ds
+                left join foundation.player p
+                  on p.player_id = ds.player_id
+                left join foundation.source_event se
+                  on se.source_event_id = ds.source_event_id
+                where ds.team_code = %s
+                order by ds.draft_year, ds.pick_overall, ds.draft_selection_id
+                """,
+                (team_code.upper(),),
+            )
+            rows = cursor.fetchall()
+    return [
+        {
+            "draft_selection_id": str(row[0]),
+            "draft_year": int(row[1]),
+            "pick_overall": int(row[2]),
+            "round_number": int(row[3]),
+            "team_code": str(row[4]),
+            "player_id": str(row[5]),
+            "player_name": str(row[6]) if row[6] is not None else None,
+            "source_event_id": str(row[7]) if row[7] is not None else None,
+            "event_date": str(row[8]) if row[8] is not None else None,
+            "source_event_label": str(row[9]) if row[9] is not None else None,
+        }
+        for row in rows
+    ]
+
+
+def build_curated_draft_pick_detail_source_rows(
+    selections: list[dict[str, object]],
+    *,
+    team_code: str = DEFAULT_TEAM_CODE,
+    fetched_at: str | None = None,
+) -> tuple[list[SourceRecordRow], list[SourceEventRow]]:
+    team_code = team_code.upper()
+    fetched_at = fetched_at or utc_now_iso()
+    source_record_id = f"curated_fixture:{team_code.lower()}:draft_pick_detail:generated_v1"
+    source_locator = f"generated://foundation/draft_selection/{team_code.lower()}/draft-pick-detail-v1"
+
+    source_record = SourceRecordRow(
+        source_record_id=source_record_id,
+        source_system="curated_fixture",
+        source_type="draft_pick_detail_projection",
+        source_locator=source_locator,
+        fetched_at=fetched_at,
+        raw_payload={
+            "generation_mode": "loaded_draft_selection_projection",
+            "team_code": team_code,
+            "selection_count": len(selections),
+            "selection_ids": [str(selection["draft_selection_id"]) for selection in selections],
+            "selections": selections,
+        },
+    )
+
+    source_events: list[SourceEventRow] = []
+    for selection in selections:
+        player_name = string_or_none(selection.get("player_name"))
+        if not player_name:
+            raise ValueError(
+                f"Draft pick detail seed generation requires player_name for {selection.get('draft_selection_id')}."
+            )
+        draft_selection_id = str(selection["draft_selection_id"])
+        draft_year = int(selection["draft_year"])
+        pick_overall = int(selection["pick_overall"])
+        round_number = int(selection["round_number"])
+        source_event_id = f"{source_record_id}:draft:{draft_year}:pick:{pick_overall:03d}"
+        event_date = string_or_none(selection.get("event_date")) or draft_event_date(draft_year, round_number)
+        pick_raw_text = f"{draft_year} Memphis No. {pick_overall} overall pick"
+        label = f"Curated draft pick detail for Memphis selecting {player_name} at No. {pick_overall}"
+        source_events.append(
+            SourceEventRow(
+                source_event_id=source_event_id,
+                source_record_id=source_record_id,
+                event_date=event_date,
+                event_type="draft",
+                label=label,
+                team_scope=team_code,
+                source_group_hint=None,
+                normalized_payload={
+                    "corroboration_only": True,
+                    "canonical_exclusion_reason": CURATED_DRAFT_PICK_DETAIL_CANONICAL_EXCLUSION_REASON,
+                    "normalization_note": CURATED_DRAFT_PICK_DETAIL_NORMALIZATION_NOTE,
+                    "source_system": "curated_fixture",
+                    "source_type": "draft_pick_detail_projection",
+                    "draft_selection_id": draft_selection_id,
+                    "draft_year": draft_year,
+                    "pick_overall": pick_overall,
+                    "round_number": round_number,
+                    "team_code": team_code,
+                    "player_id": str(selection["player_id"]),
+                    "player_name": player_name,
+                    "linked_source_event_id": string_or_none(selection.get("source_event_id")),
+                    "linked_source_event_label": string_or_none(selection.get("source_event_label")),
+                    "player_names_in": [player_name],
+                    "player_names_out": [],
+                    "pick_text_in": [pick_raw_text],
+                    "pick_text_out": [],
+                    "pick_details_in": [
+                        {
+                            "raw_text": pick_raw_text,
+                            "draft_selection_id": draft_selection_id,
+                            "draft_year": draft_year,
+                            "pick_overall": pick_overall,
+                            "round_number": round_number,
+                            "team_code": team_code,
+                            "player_id": str(selection["player_id"]),
+                            "player_name": player_name,
+                        }
+                    ],
+                    "pick_details_out": [],
+                    "raw_note": (
+                        f"Curated secondary pick-detail corroboration generated from loaded draft_selection "
+                        f"{draft_selection_id}."
+                    ),
+                },
+            )
+        )
+    return [source_record], source_events
+
+
+def preview_curated_draft_pick_detail_sources(
+    database_url: str,
+    *,
+    team_code: str = DEFAULT_TEAM_CODE,
+) -> dict[str, object]:
+    selections = load_draft_pick_detail_seed_rows(database_url, team_code=team_code)
+    source_records, source_events = build_curated_draft_pick_detail_source_rows(
+        selections,
+        team_code=team_code,
+    )
+    return {
+        "status": "ok",
+        "writes_to_database": False,
+        "team_code": team_code.upper(),
+        "selection_rows": len(selections),
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
+        "first_selection": selections[0] if selections else None,
+        "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
+        "first_source_event": source_events[0].model_dump(mode="json") if source_events else None,
+    }
+
+
+def load_curated_draft_pick_detail_sources(
+    database_url: str | None = None,
+    *,
+    team_code: str = DEFAULT_TEAM_CODE,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if not execute:
+        if not database_url:
+            raise ValueError("database_url is required for preview or dry-run")
+        return {
+            **preview_curated_draft_pick_detail_sources(database_url, team_code=team_code),
+            "dry_run": True,
+            "writes_to_database": False,
+        }
+    if not database_url:
+        raise ValueError("database_url is required when execute=True")
+
+    selections = load_draft_pick_detail_seed_rows(database_url, team_code=team_code)
+    source_records, source_events = build_curated_draft_pick_detail_source_rows(
+        selections,
+        team_code=team_code,
+    )
+    source_record_id = source_records[0].source_record_id if source_records else None
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        if source_record_id:
+            replace_source_events_for_record(
+                connection,
+                source_record_id=source_record_id,
+                rows=source_events,
+            )
+        insert_source_events(connection, source_events)
+        connection.commit()
+    return {
+        "status": "ok",
+        "dry_run": False,
+        "writes_to_database": True,
+        "team_code": team_code.upper(),
+        "selection_rows": len(selections),
+        "source_records": len(source_records),
+        "source_events": len(source_events),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
     }
 
 

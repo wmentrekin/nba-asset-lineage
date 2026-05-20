@@ -34,6 +34,7 @@ CORROBORATING_SOURCE_SYSTEMS = (
     "nba_player_movement",
     "nba_official",
     "team_official",
+    "curated_fixture",
 )
 
 
@@ -58,14 +59,27 @@ FOUNDATION_TABLES = (
 )
 
 AUDIT_PLAYER_SUFFIX_TOKENS = frozenset({"jr", "sr", "ii", "iii", "iv", "v", "vi", "vii"})
-AUDIT_NEAR_DATE_RECONCILIATION_WINDOW_DAYS = 3
+AUDIT_NEAR_DATE_RECONCILIATION_WINDOW_DAYS = 10
 AUDIT_MAX_TRADE_MATCH_COMBINATION_SIZE = 4
+AUDIT_MANUAL_OUT_OF_SCOPE_CANONICAL_EVENT_IDS = frozenset(
+    {
+        "canonical:2019-07-08:signing:2627d7a402fc",
+        "canonical:2020-02-05:signing:0c5d2c3b9a91",
+        "canonical:2020-11-22:signing:b1ec41f0d851",
+    }
+)
 # Keep this table intentionally small; expand only with source-backed cases.
 AUDIT_SAFE_FIRST_NAME_VARIANTS = {
     "kenneth": frozenset({"kenny"}),
     "kenny": frozenset({"kenneth"}),
     "vince": frozenset({"vincent"}),
     "vincent": frozenset({"vince"}),
+}
+AUDIT_SAFE_DRAFT_PLAYER_NAME_VARIANTS = {
+    "gg jackson": frozenset({"gregory jackson", "gregory jackson ii"}),
+    "gg jackson ii": frozenset({"gregory jackson", "gregory jackson ii"}),
+    "gregory jackson": frozenset({"gg jackson", "gg jackson ii"}),
+    "gregory jackson ii": frozenset({"gg jackson", "gg jackson ii"}),
 }
 
 
@@ -363,6 +377,7 @@ def candidate_group_signature_key(candidate_group: dict[str, object]) -> tuple[o
         str(candidate_group.get("_matching_event_type")),
         tuple(sorted(str(value) for value in participant_signature.get("player_names_in", set()))),
         tuple(sorted(str(value) for value in participant_signature.get("player_names_out", set()))),
+        tuple(sorted(str(value) for value in participant_signature.get("draft_selection_ids", set()))),
         tuple(sorted(str(value) for value in participant_signature.get("pick_details_in", set()))),
         tuple(sorted(str(value) for value in participant_signature.get("pick_details_out", set()))),
     )
@@ -388,6 +403,9 @@ def merge_equivalent_corroboration_candidate_groups(
                 "_participant_signature": {
                     "player_names_in": set(candidate_group["_participant_signature"].get("player_names_in", set())),
                     "player_names_out": set(candidate_group["_participant_signature"].get("player_names_out", set())),
+                    "draft_selection_ids": set(
+                        candidate_group["_participant_signature"].get("draft_selection_ids", set())
+                    ),
                     "pick_details_in": set(candidate_group["_participant_signature"].get("pick_details_in", set())),
                     "pick_details_out": set(candidate_group["_participant_signature"].get("pick_details_out", set())),
                 },
@@ -458,6 +476,12 @@ def reconcile_corroboration_report_event_rows(
         )
         matched_candidate_indexes.update(eligible_candidate_indexes)
 
+    reconcile_duplicate_same_day_draft_candidates(
+        event_rows_by_id=event_rows_by_id,
+        candidate_groups=candidate_groups,
+        event_ids_by_candidate_index=event_ids_by_candidate_index,
+        matched_candidate_indexes=matched_candidate_indexes,
+    )
     reconcile_grouped_trade_candidates(
         event_rows=event_rows,
         event_rows_by_id=event_rows_by_id,
@@ -508,6 +532,78 @@ def merge_reconciled_candidate_groups_into_event_row(
         event_row["_loaded_source_types_set"].update(candidate_group["loaded_source_types"])
     event_row["_reconciled_conflict_status"] = "no_conflict_detected"
     event_row["_reconciliation_notes"] = notes
+
+
+def reconcile_duplicate_same_day_draft_candidates(
+    *,
+    event_rows_by_id: dict[str, dict[str, object]],
+    candidate_groups: list[dict[str, object]],
+    event_ids_by_candidate_index: dict[int, list[str]],
+    matched_candidate_indexes: set[int],
+) -> None:
+    for candidate_index, matched_event_ids in event_ids_by_candidate_index.items():
+        candidate_group = candidate_groups[candidate_index]
+        if str(candidate_group.get("_matching_event_type")) != "draft":
+            continue
+        canonical_event_ids = list(dict.fromkeys(matched_event_ids))
+        if not canonical_event_ids:
+            continue
+        for canonical_event_id, event_row in event_rows_by_id.items():
+            if canonical_event_id in canonical_event_ids:
+                continue
+            if str(event_row.get("_matching_event_type")) != "draft":
+                continue
+            if not corroboration_candidate_matches_same_day_draft_duplicate(candidate_group, event_row):
+                continue
+            canonical_event_ids.append(canonical_event_id)
+        if len(canonical_event_ids) < 2:
+            continue
+        note = (
+            "Audit-time reconciliation matched a corroboration-only draft row from "
+            f"{describe_candidate_group_source_systems([candidate_group])} to duplicate canonical draft "
+            "rows for the same player/selection with no participant mismatch detected."
+        )
+        for canonical_event_id in canonical_event_ids:
+            merge_reconciled_candidate_groups_into_event_row(
+                event_rows_by_id[canonical_event_id],
+                [candidate_group],
+                [note],
+            )
+        matched_candidate_indexes.add(candidate_index)
+
+
+def corroboration_candidate_matches_same_day_draft_duplicate(
+    candidate_group: dict[str, object],
+    event_row: dict[str, object],
+) -> bool:
+    if str(candidate_group.get("_matching_event_type")) != "draft":
+        return False
+    if str(event_row.get("_matching_event_type")) != "draft":
+        return False
+
+    candidate_signature = candidate_group.get("_participant_signature", {})
+    event_signature = event_row.get("_participant_signature", {})
+    candidate_inbound = set(candidate_signature.get("player_names_in", set()))
+    candidate_outbound = set(candidate_signature.get("player_names_out", set()))
+    candidate_draft_selection_ids = set(candidate_signature.get("draft_selection_ids", set()))
+    event_inbound = set(event_signature.get("player_names_in", set()))
+    event_outbound = set(event_signature.get("player_names_out", set()))
+    event_draft_selection_ids = set(event_signature.get("draft_selection_ids", set()))
+    day_delta = corroboration_candidate_day_delta(candidate_group, event_row)
+
+    if not candidate_inbound or not event_inbound or not candidate_draft_selection_ids:
+        return False
+    if candidate_outbound or event_outbound:
+        return False
+    if day_delta is None:
+        return False
+    if event_draft_selection_ids and event_draft_selection_ids != candidate_draft_selection_ids:
+        return False
+    if event_draft_selection_ids and day_delta != 0:
+        return False
+    if not event_draft_selection_ids and abs(day_delta) > 1:
+        return False
+    return audit_draft_player_name_sets_equivalent(candidate_inbound, event_inbound)
 
 
 def describe_candidate_group_source_systems(candidate_groups: list[dict[str, object]]) -> str:
@@ -664,6 +760,7 @@ def empty_participant_signature() -> dict[str, set[str]]:
     return {
         "player_names_in": set(),
         "player_names_out": set(),
+        "draft_selection_ids": set(),
         "pick_details_in": set(),
         "pick_details_out": set(),
     }
@@ -675,6 +772,9 @@ def extract_participant_signature(payload: dict[str, object]) -> dict[str, set[s
         for value in payload.get(key, []):
             if isinstance(value, str) and value.strip():
                 signature[key].add(normalize_player_alias_name(value))
+    draft_selection_id = payload.get("draft_selection_id")
+    if isinstance(draft_selection_id, str) and draft_selection_id.strip():
+        signature["draft_selection_ids"].add(draft_selection_id.strip().lower())
     for key in ("pick_details_in", "pick_details_out"):
         for detail in payload.get(key, []):
             if not isinstance(detail, dict):
@@ -754,6 +854,39 @@ def audit_player_name_sets_equivalent(left: set[str], right: set[str]) -> bool:
     return match_name(0, right_names)
 
 
+def audit_draft_player_names_equivalent(left: str, right: str) -> bool:
+    if audit_player_names_equivalent(left, right):
+        return True
+    normalized_left = normalize_player_alias_name(left)
+    normalized_right = normalize_player_alias_name(right)
+    return normalized_right in AUDIT_SAFE_DRAFT_PLAYER_NAME_VARIANTS.get(normalized_left, frozenset())
+
+
+def audit_draft_player_name_sets_equivalent(left: set[str], right: set[str]) -> bool:
+    if len(left) != len(right):
+        return False
+    if left == right:
+        return True
+    if not left:
+        return True
+
+    left_names = tuple(sorted(left))
+    right_names = tuple(sorted(right))
+
+    def match_name(index: int, remaining: tuple[str, ...]) -> bool:
+        if index == len(left_names):
+            return True
+        for remaining_index, right_name in enumerate(remaining):
+            if not audit_draft_player_names_equivalent(left_names[index], right_name):
+                continue
+            next_remaining = remaining[:remaining_index] + remaining[remaining_index + 1 :]
+            if match_name(index + 1, next_remaining):
+                return True
+        return False
+
+    return match_name(0, right_names)
+
+
 def audit_player_name_sets_overlap(left: set[str], right: set[str]) -> bool:
     return any(
         audit_player_names_equivalent(left_name, right_name)
@@ -810,10 +943,12 @@ def corroboration_candidate_exact_participant_match(
     event_signature = event_row.get("_participant_signature", {})
     candidate_inbound = set(candidate_signature.get("player_names_in", set()))
     candidate_outbound = set(candidate_signature.get("player_names_out", set()))
+    candidate_draft_selection_ids = set(candidate_signature.get("draft_selection_ids", set()))
     event_inbound = set(event_signature.get("player_names_in", set()))
     event_outbound = set(event_signature.get("player_names_out", set()))
+    event_draft_selection_ids = set(event_signature.get("draft_selection_ids", set()))
 
-    if not candidate_inbound and not candidate_outbound:
+    if not candidate_inbound and not candidate_outbound and not candidate_draft_selection_ids:
         return False
 
     event_type = str(candidate_group.get("_matching_event_type"))
@@ -842,6 +977,16 @@ def corroboration_candidate_exact_participant_match(
             not candidate_outbound
             and not event_outbound
             and audit_player_name_sets_equivalent(candidate_inbound, event_inbound)
+        )
+
+    if event_type == "draft":
+        return (
+            bool(candidate_inbound)
+            and bool(event_inbound)
+            and bool(candidate_draft_selection_ids)
+            and candidate_outbound == event_outbound == set()
+            and candidate_draft_selection_ids == event_draft_selection_ids
+            and audit_draft_player_name_sets_equivalent(candidate_inbound, event_inbound)
         )
 
     return False
@@ -1272,7 +1417,7 @@ def build_source_corroboration_report(event_rows: list[dict[str, object]]) -> di
 
 
 def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object]:
-    fact_type = infer_corroboration_fact_type(str(row.get("event_type") or ""))
+    fact_type = infer_corroboration_fact_type_for_event_row(row)
     fact_policy = {
         policy.fact_type: policy
         for policy in SOURCE_POLICY.first_pass_fact_types
@@ -1348,6 +1493,27 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         "conflict_status": conflict_status,
         "notes": notes,
     }
+
+
+def infer_corroboration_fact_type_for_event_row(row: dict[str, object]) -> str:
+    canonical_event_id = str(row.get("canonical_event_id") or "")
+    if canonical_event_id in AUDIT_MANUAL_OUT_OF_SCOPE_CANONICAL_EVENT_IDS:
+        return "out_of_scope"
+
+    fact_type = infer_corroboration_fact_type(str(row.get("event_type") or ""))
+    if fact_type != "player_movement":
+        return fact_type
+
+    participant_signature = row.get("_participant_signature")
+    if not isinstance(participant_signature, dict):
+        return fact_type
+    has_tracked_participants = any(
+        participant_signature.get(key, set())
+        for key in ("player_names_in", "player_names_out", "pick_details_in", "pick_details_out")
+    )
+    if not has_tracked_participants:
+        return "out_of_scope"
+    return fact_type
 
 
 def infer_corroboration_fact_type(event_type: str) -> str:

@@ -308,19 +308,20 @@ Resolved in this pass:
   `foundation.source_record` and `foundation.source_event` through
   `load-official-release-sources`, and the live database now includes a first
   starter batch of 4 official records / 6 official events
+- a generated `curated_fixture` draft-pick-detail source path can now load one
+  corroboration-only source record plus 20 draft source events derived from the
+  loaded Memphis `draft_selection` truth surface, which closes the live
+  `missing_required_evidence` draft bucket
 
 Known gaps:
 
 - Source coverage is no longer Basketball-Reference-only. The live database now
-  includes one loaded `nba_player_movement` source record and 455 loaded
-  corroboration-only NBA.com movement source events, and the audit's
-  `source_coverage_report` gap is cleared.
-- Event-level player-movement corroboration remains partial after the NBA.com
-  load, follow-on audit reconciliation passes, and first official-source load:
-  the latest audit reports 276 canonical events with `no_conflict_detected`
-  corroboration, 94 events still `bref_only`, 272
-  `recognized_provider_not_loaded`, 4 `meets_minimum`, and 9 trade events
-  surfaced as `conflict_suspected`.
+  includes loaded `nba_player_movement`, `nba_official`, `team_official`, and
+  `curated_fixture` corroboration systems, and the audit's
+  `source_coverage_report` gap remains cleared.
+- Event-level corroboration remains partial even though `bref_only` and
+  `missing_required_evidence` are both now zero. The latest live audit reports
+  `meets_minimum=36`, `recognized_provider_not_loaded=368`, and `out_of_scope=3`.
 - Draft lottery rows are contextual seed coverage only and are not consumed by
   the base graph. The audit clears only the empty-table gap and preserves a
   caveat that lottery rows remain contextual seed coverage.

@@ -1,115 +1,87 @@
 artifact: requirements
 feature: "foundation/data-gap-closure"
-mode: "large-initiative"
-status: draft
+mode: "bounded-feature"
+status: completed
 owner_skill: work
 
 summary:
-  problem: "The live audit still reports 44 older `bref_only` player-movement canonical events after the recent narrow closeout passes. The remaining residue is concentrated entirely in 2016-2021 and is dominated by signings, with smaller trade and waiver clusters."
-  motivation: "Another single-cluster pass would keep making instrumental progress without finishing the residue. The next pass needs to attack the full remaining `bref_only` set as one coordinated bulk initiative."
-  requested_outcome: "Eliminate the remaining older player-movement `bref_only` residue through one bulk corroboration initiative built around parallel source curation, one combined preview/dry-run, one combined live load, and one combined audit/graph verification cycle."
+  problem: "The live audit now reports `missing_required_evidence = 38` after `bref_only` was closed to zero. Every remaining `missing_required_evidence` row is a Memphis draft canonical event missing only the `secondary_pick_detail` provider role."
+  motivation: "This is now the largest remaining truth-surface blocker before the more structural gaps. If the draft/pick bucket closes cleanly, the remaining work becomes mostly `recognized_provider_not_loaded` coverage and broader architectural enrichment."
+  requested_outcome: "Close the entire 38-row draft/pick `missing_required_evidence` bucket in one pass through a truthful `secondary_pick_detail` load path and one verification cycle."
 
 goals:
-  - "Reduce the live `bref_only` count from 44 to 0 if truthful official or NBA source evidence exists for the remaining older player-movement events."
-  - "If any event cannot be closed truthfully, isolate it explicitly as blocked with a named source-basis reason instead of letting it remain implicit residue."
-  - "Shard the remaining residue into parallelizable curation batches with disjoint ownership and no overlapping `source_record_id` surfaces."
-  - "Introduce the smallest safe loader/CLI improvement needed to support fragment-based parallel authoring without forcing workers onto one shared fixture file."
+  - "Reduce the live `missing_required_evidence` count from 38 to 0 if truthful `secondary_pick_detail` evidence can be loaded for the remaining Memphis draft events."
+  - "Treat the entire bucket as one draft-only closeout, not as separate year-by-year residue slices."
+  - "Introduce the smallest safe checked-in load path needed to attach `curated_fixture` or equivalent `secondary_pick_detail` evidence to the existing draft canonical events."
+  - "Extend audit-time reconciliation only as far as needed to let draft corroboration rows satisfy duplicate same-day draft canonical events for the same player/selection."
   - "Keep all new corroborating rows on the existing `corroboration_only` path so canonical truth and graph export remain invariant."
-  - "Preserve one combined preview, one combined dry-run, one combined execute, and one combined audit/graph verification step."
+  - "Finish with one preview/dry-run, one live execute, one live audit, and one graph-baseline check."
 
 non_goals:
-  - "Do not widen this pass into `recognized_provider_not_loaded` events that are already out of `bref_only` unless they are part of the same authored source records."
-  - "Do not widen this pass into the 38 `missing_required_evidence` draft/pick events."
-  - "Do not change canonical derivation rules, transition generation rules, or frontend rendering behavior."
+  - "Do not widen this pass into the 330 `recognized_provider_not_loaded` events beyond what naturally changes after the required draft role is loaded."
+  - "Do not widen this pass into official roster checkpoints, daily roster state, two-way completeness, or contract-semantics work."
+  - "Do not change canonical derivation rules, transition generation rules, or frontend rendering behavior beyond draft-only audit reconciliation."
   - "Do not perform destructive database operations."
-  - "Do not promise promotion of all touched events to `meets_minimum`; this pass is about eliminating `bref_only` residue."
+  - "Do not promise promotion of all touched events to `meets_minimum`; this pass is about eliminating `missing_required_evidence` for draft events."
 
 constraints:
   technical:
     - "All DB writes must continue to go through checked-in Python/CLI commands."
     - "Curated corroboration rows must remain `normalized_payload.corroboration_only = true`."
-    - "The official-source loader currently treats each `source_record_id` as a replacement unit, so batch ownership must stay disjoint at the article/record level."
-    - "Parallel authoring must avoid concurrent edits to the same fixture record or fragment file."
-    - "The final live load should remain serialized even if curation happens in parallel."
+    - "No SQL migrations or new tables should be required for this pass."
+    - "Any new source rows must load through `foundation.source_record` and `foundation.source_event` only."
+    - "Draft audit reconciliation must stay exact and conservative; it should not create broad fuzzy matching across different players or selections."
   product:
-    - "Truthfulness is more important than getting to zero by force. Missing or weak source basis must be surfaced, not invented."
+    - "Truthfulness is more important than getting to zero by force. If a draft event cannot be backed cleanly by the chosen `secondary_pick_detail` basis, it must remain explicit."
     - "Memphis-only scope remains the target."
-    - "For this pass, 'gap closed' means 'no longer `bref_only`', not necessarily `meets_minimum`."
+    - "For this pass, 'gap closed' means 'no longer `missing_required_evidence`', not necessarily `meets_minimum`."
   process:
     - "Use `$work` orchestration and stop for the required pre-execution checkpoint before implementation begins."
-    - "Use subagents for discovery, plan critique, execution, and verification."
     - "Keep `docs/foundation/data-gap-closure/status.yaml` current."
 
 assumptions:
-  - "Most remaining signings and waivers are likely closable through official team transaction logs, media guides, preseason transaction pages, or direct team releases."
-  - "The remaining trade clusters are likely closable through official NBA/team trade tracker or direct official trade-release coverage."
-  - "A fragment-based curation surface plus one aggregate load is the best throughput/safety tradeoff."
+  - "The remaining 38 canonical draft rows collapse to roughly 20 actual draft selections plus a small alias/duplicate layer."
+  - "A curated draft-pick-detail load path is acceptable for `secondary_pick_detail` because that provider role explicitly recognizes `curated_fixture`."
+  - "Most duplicate draft canonical events come from multiple source surfaces describing the same Memphis selection on the same date."
 
 repo_context:
   relevant_paths:
-    - "configs/data/memphis_official_release_sources_seed_v1.json"
-    - "configs/data/memphis_official_release_fragments/"
-    - "src/foundation/live_sources.py"
+    - "configs/data/memphis_draft_pick_resolution_2016_2025.json"
     - "src/foundation/audit.py"
+    - "src/foundation/live_sources.py"
     - "src/redesign_cli.py"
-    - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_audit.py"
+    - "tests/foundation/test_live_sources.py"
     - "docs/foundation/full-span-load-notes.md"
-    - "docs/foundation/data-gap-closure/status.yaml"
-    - "docs/foundation/data-gap-closure/target-manifest.yaml"
   systems_in_scope:
-    - "official-source fixture loading"
-    - "official-source preview/load CLI"
+    - "curated draft/pick corroboration loading"
     - "foundation audit corroboration report"
-    - "small loader/CLI support for aggregated fragment inputs"
+    - "draft selection source data"
   prior_artifacts:
     - "docs/foundation/data-gap-closure/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
 
 research:
   repo_findings:
-    - "The live residue is currently `44` `bref_only` events."
-    - "The residue is concentrated entirely in 2016-2021: `2016=6`, `2017=3`, `2018=4`, `2019=12`, `2020=10`, `2021=9`."
-    - "Event-type mix is `signing=37`, `trade=5`, `waiver=2`."
-    - "The current single-file official-source fixture is a poor parallel authoring surface even though it remains acceptable as a final combined load artifact."
-    - "The official-source loader already supports grouped multi-event article records cleanly, which means sharding should happen by source record/article ownership rather than by individual event rows."
-  platform_findings:
-    - "The most likely backbone sources are official Grizzlies media-guide transaction logs, NBA/team transaction pages, direct Grizzlies release articles, and NBA trade-tracker style pages."
-    - "Some events with empty tracked assets in BRef notes, such as extension-style rows, may be structurally harder and should be isolated early."
-
-inventory:
-  current_bref_only_breakdown:
-    total: 44
-    by_year:
-      "2016": 6
-      "2017": 3
-      "2018": 4
-      "2019": 12
-      "2020": 10
-      "2021": 9
-    by_event_type:
-      signing: 37
-      trade: 5
-      waiver: 2
-  likely_bulk_shards:
-    - "2016-2018 camp/preseason signings"
-    - "2019 free-agency / preseason signings and trade cluster"
-    - "2020 offseason / camp signings, waiver, and extension-style rows"
-    - "2021 offseason / camp signings, waiver, and trade cluster"
+    - "The live `missing_required_evidence` residue is exactly 38 canonical events."
+    - "Every one of those events is `event_type=draft` and `fact_type=pick_right_detail`."
+    - "Every one of those events is missing only the `secondary_pick_detail` role; no other required roles are missing in this bucket."
+    - "The residue spans draft years 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024, and 2025."
+    - "The current audit matcher does not reconcile `draft` corroboration candidates yet; it only has exact logic for trade/waiver/signing and grouped/near-date special cases."
+    - "There is at least one alias trap inside the residue: `GG Jackson II` versus `Gregory Jackson II`."
+  platform_findings: []
 
 acceptance_criteria:
-  - "A refreshed inventory of the exact remaining `bref_only` canonical events is captured in the docs before execution."
-  - "A target manifest exists with one row per current `bref_only` canonical event, including shard assignment, expected source family, and status `planned` or `blocked`."
-  - "The repo contains a safe parallel authoring surface for official-source curation fragments, or an explicitly approved equivalent."
-  - "Execution shards have disjoint record ownership and a clear merge/load path."
-  - "One combined preview and one combined dry-run show the full bulk payload before any live write."
-  - "The before/after verification explicitly diffs the same target-manifest canonical IDs so no target event is skipped and no out-of-scope player-movement event changes status silently."
-  - "One combined live `load-official-release-sources --execute` succeeds without changing canonical/graph baseline counts or checksum."
-  - "A post-load audit reduces `bref_only` from 44 to 0, or every surviving event is explicitly documented with a truthful blocker."
-  - "Docs clearly record the finish-line caveat that removal from `bref_only` is not the same as promotion to `meets_minimum`."
+  - "The exact live 38-event draft inventory is captured in the docs before execution."
+  - "The implementation introduces a checked-in load path for `secondary_pick_detail` evidence without adding new tables."
+  - "The audit can reconcile draft corroboration rows to the existing canonical draft events, including duplicate same-day draft rows for the same selection."
+  - "One preview or dry-run shows the full draft evidence payload before any live write."
+  - "One live execute succeeds without changing canonical counts or the graph checksum."
+  - "A post-load audit reduces `missing_required_evidence` from 38 to 0, or every surviving row is explicitly documented with a blocker."
+  - "Docs clearly record that this closes the required-role bucket, not the deeper prior-ownership-lineage problem."
 
 open_questions:
-  - "Which remaining rows with empty tracked assets should be treated as likely structural blockers before execution starts?"
+  - "Should the draft corroboration payload be generated directly from live `draft_selection` rows, or should it be backed by a new checked-in fixture file for long-term editability?"
 
 ready_for_planning: true
 planning_blockers: []

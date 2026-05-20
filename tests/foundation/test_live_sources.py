@@ -7,9 +7,11 @@ from foundation import live_sources
 from foundation.ingest import SourceEventRow, filter_canonical_source_events
 from foundation.live_sources import (
     BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON,
+    CURATED_DRAFT_PICK_DETAIL_CANONICAL_EXCLUSION_REASON,
     NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    build_curated_draft_pick_detail_source_rows,
     build_official_release_fixture_bundle,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
@@ -23,6 +25,7 @@ from foundation.live_sources import (
     extract_bref_transaction_blocks,
     extract_nba_dataset_rows,
     extract_nba_player_movement_rows,
+    load_curated_draft_pick_detail_sources,
     preview_official_release_sources,
     preview_nba_player_movement,
 )
@@ -1064,3 +1067,166 @@ def test_build_bref_draft_rows_builds_memphis_draft_selection() -> None:
     assert selections[0].draft_selection_id == "draft:2019:9"
     assert selections[0].team_code == "MEM"
     assert selections[0].source_event_id == "bref:draft:2019:pick:009"
+
+
+def test_build_curated_draft_pick_detail_source_rows_from_selection_truth() -> None:
+    selections = [
+        {
+            "draft_selection_id": "draft:2019:2",
+            "draft_year": 2019,
+            "pick_overall": 2,
+            "round_number": 1,
+            "team_code": "MEM",
+            "player_id": "player:ja-morant",
+            "player_name": "Ja Morant",
+            "source_event_id": "bref:draft:2019:pick:002",
+            "event_date": "2019-06-20",
+            "source_event_label": "Memphis drafts Ja Morant at No. 2",
+        }
+    ]
+
+    source_records, source_events = build_curated_draft_pick_detail_source_rows(
+        selections,
+        team_code="MEM",
+        fetched_at="2026-05-20T00:00:00+00:00",
+    )
+
+    assert len(source_records) == 1
+    assert len(source_events) == 1
+    assert source_records[0].source_system == "curated_fixture"
+    assert source_records[0].source_type == "draft_pick_detail_projection"
+    assert source_records[0].raw_payload["generation_mode"] == "loaded_draft_selection_projection"
+    assert source_records[0].raw_payload["selection_ids"] == ["draft:2019:2"]
+
+    event = source_events[0]
+    assert event.source_record_id == source_records[0].source_record_id
+    assert event.source_event_id == "curated_fixture:mem:draft_pick_detail:generated_v1:draft:2019:pick:002"
+    assert event.event_type == "draft"
+    assert event.event_date == "2019-06-20"
+    assert event.source_group_hint is None
+    assert event.normalized_payload["corroboration_only"] is True
+    assert event.normalized_payload["canonical_exclusion_reason"] == CURATED_DRAFT_PICK_DETAIL_CANONICAL_EXCLUSION_REASON
+    assert event.normalized_payload["draft_selection_id"] == "draft:2019:2"
+    assert event.normalized_payload["player_names_in"] == ["Ja Morant"]
+    assert event.normalized_payload["pick_text_in"] == ["2019 Memphis No. 2 overall pick"]
+    assert event.normalized_payload["pick_details_in"] == [
+        {
+            "raw_text": "2019 Memphis No. 2 overall pick",
+            "draft_selection_id": "draft:2019:2",
+            "draft_year": 2019,
+            "pick_overall": 2,
+            "round_number": 1,
+            "team_code": "MEM",
+            "player_id": "player:ja-morant",
+            "player_name": "Ja Morant",
+        }
+    ]
+
+
+def test_load_curated_draft_pick_detail_sources_dry_run_does_not_connect(monkeypatch: pytest.MonkeyPatch) -> None:
+    preview = {
+        "status": "ok",
+        "writes_to_database": False,
+        "team_code": "MEM",
+        "selection_rows": 1,
+        "source_records": 1,
+        "source_events": 1,
+        "source_record_ids": ["curated_fixture:mem:draft_pick_detail:generated_v1"],
+        "source_event_ids": ["curated_fixture:mem:draft_pick_detail:generated_v1:draft:2019:pick:002"],
+    }
+    monkeypatch.setattr(live_sources, "preview_curated_draft_pick_detail_sources", lambda *args, **kwargs: preview)
+    monkeypatch.setattr(
+        live_sources.psycopg,
+        "connect",
+        lambda *args, **kwargs: pytest.fail("dry-run should not open a write connection"),
+    )
+
+    result = load_curated_draft_pick_detail_sources("postgresql://example", team_code="MEM", dry_run=True)
+
+    assert result["dry_run"] is True
+    assert result["writes_to_database"] is False
+    assert result["source_events"] == 1
+
+
+def test_load_curated_draft_pick_detail_sources_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    selections = [
+        {
+            "draft_selection_id": "draft:2019:2",
+            "draft_year": 2019,
+            "pick_overall": 2,
+            "round_number": 1,
+            "team_code": "MEM",
+            "player_id": "player:ja-morant",
+            "player_name": "Ja Morant",
+            "source_event_id": "bref:draft:2019:pick:002",
+            "event_date": "2019-06-20",
+            "source_event_label": "Memphis drafts Ja Morant at No. 2",
+        }
+    ]
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="curated_fixture:mem:draft_pick_detail:generated_v1",
+            source_system="curated_fixture",
+            source_type="draft_pick_detail_projection",
+            source_locator="generated://foundation/draft_selection/mem/draft-pick-detail-v1",
+            fetched_at="2026-05-20T00:00:00+00:00",
+            raw_payload={"selection_ids": ["draft:2019:2"]},
+        )
+    ]
+    source_events = [
+        live_sources.SourceEventRow(
+            source_event_id="curated_fixture:mem:draft_pick_detail:generated_v1:draft:2019:pick:002",
+            source_record_id="curated_fixture:mem:draft_pick_detail:generated_v1",
+            event_date="2019-06-20",
+            event_type="draft",
+            label="Curated draft pick detail for Memphis selecting Ja Morant at No. 2",
+            team_scope="MEM",
+            source_group_hint="draft:2019",
+            normalized_payload={"corroboration_only": True},
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "load_draft_pick_detail_seed_rows", lambda *args, **kwargs: selections)
+    monkeypatch.setattr(
+        live_sources,
+        "build_curated_draft_pick_detail_source_rows",
+        lambda *args, **kwargs: (source_records, source_events),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+    monkeypatch.setattr(
+        live_sources,
+        "replace_source_events_for_record",
+        lambda connection, source_record_id, rows: calls.append(f"replace:{source_record_id}:{len(rows)}"),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_events", lambda connection, rows: calls.append(f"events:{len(rows)}"))
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = load_curated_draft_pick_detail_sources(
+        "postgresql://example",
+        team_code="MEM",
+        execute=True,
+        dry_run=False,
+    )
+
+    assert calls == [
+        "records:1",
+        "replace:curated_fixture:mem:draft_pick_detail:generated_v1:1",
+        "events:1",
+        "commit",
+    ]
+    assert result["dry_run"] is False
+    assert result["writes_to_database"] is True
+    assert result["selection_rows"] == 1
+    assert result["source_records"] == 1
+    assert result["source_events"] == 1

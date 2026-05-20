@@ -6,10 +6,16 @@ from foundation.audit import build_known_gaps
 from foundation.audit import build_pick_inventory_fixture_gap_report
 from foundation.audit import build_source_corroboration_report
 from foundation.audit import build_source_coverage_report
+from foundation.audit import CORROBORATING_SOURCE_SYSTEMS
 from foundation.audit import fetch_draft_metrics
 from foundation.audit import infer_corroboration_fact_type
+from foundation.audit import infer_corroboration_fact_type_for_event_row
 from foundation.ingest import SourceEventRow, derive_foundation_entities_from_source_events
 from foundation.sources import CORROBORATION_REPORT_EVENT_FIELDS
+
+
+def test_corroborating_source_systems_include_curated_fixture() -> None:
+    assert "curated_fixture" in CORROBORATING_SOURCE_SYSTEMS
 
 
 def test_corroboration_only_nba_movement_rows_do_not_affect_canonical_or_assets() -> None:
@@ -269,6 +275,42 @@ def test_infer_corroboration_fact_type_maps_supported_event_families() -> None:
     assert infer_corroboration_fact_type("roster_snapshot") == "roster_snapshot"
     assert infer_corroboration_fact_type("player_reference") == "player_identity"
     assert infer_corroboration_fact_type("unknown_editorial_marker") == "out_of_scope"
+
+
+def test_infer_corroboration_fact_type_for_event_row_marks_manual_out_of_scope_ids() -> None:
+    assert (
+        infer_corroboration_fact_type_for_event_row(
+            {
+                "canonical_event_id": "canonical:2019-07-08:signing:2627d7a402fc",
+                "event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"delon wright"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        )
+        == "out_of_scope"
+    )
+
+
+def test_infer_corroboration_fact_type_for_event_row_marks_assetless_player_movement_out_of_scope() -> None:
+    assert (
+        infer_corroboration_fact_type_for_event_row(
+            {
+                "canonical_event_id": "canonical:2020-11-22:signing:b1ec41f0d851",
+                "event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": set(),
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        )
+        == "out_of_scope"
+    )
 
 
 def test_build_source_corroboration_report_reconciles_unique_nba_movement_match() -> None:
@@ -882,6 +924,245 @@ def test_build_source_corroboration_report_flags_bref_only_events() -> None:
         state["role"] == "structured_player_movement" and state["state"] == "recognized_provider"
         for state in event["evidence_states"]
     )
+
+
+def test_build_source_corroboration_report_reconciles_exact_draft_match_with_safe_alias() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2023-06-22:draft:45",
+                "event_date": "2023-06-22",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"gregory jackson ii"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2023:45"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2023-06-22",
+                "event_type": "draft",
+                "_matching_event_type": "draft",
+                "_source_event_ids": ["curated_fixture:draft:2023:45"],
+                "loaded_source_systems": ["curated_fixture"],
+                "loaded_source_types": ["draft_pick_detail"],
+                "_participant_signature": {
+                    "player_names_in": {"gg jackson ii"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2023:45"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
+    assert event["loaded_source_types"] == ["draft_pick_detail", "draft_results"]
+    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert any("rows from curated_fixture" in note for note in event["notes"])
+    assert any(
+        state["role"] == "secondary_pick_detail" and state["state"] == "supports_event"
+        for state in event["evidence_states"]
+    )
+
+
+def test_build_source_corroboration_report_reuses_exact_draft_match_for_duplicate_same_day_rows() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2024-06-26:draft:39:a",
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"jaylen wells"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2024:39"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            },
+            {
+                "canonical_event_id": "canonical:2024-06-26:draft:39:b",
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"jaylen wells"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 2,
+            },
+        ],
+        [
+            {
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "_matching_event_type": "draft",
+                "_source_event_ids": ["curated_fixture:draft:2024:39"],
+                "loaded_source_systems": ["curated_fixture"],
+                "loaded_source_types": ["draft_pick_detail"],
+                "_participant_signature": {
+                    "player_names_in": {"jaylen wells"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2024:39"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    events = build_source_corroboration_report(event_rows)["events"]
+
+    assert len(events) == 2
+    by_id = {event["canonical_event_id"]: event for event in events}
+    for event in events:
+        assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
+        assert event["corroboration_status"] == "recognized_provider_not_loaded"
+        assert event["conflict_status"] == "no_conflict_detected"
+    assert any(
+        "duplicate canonical draft rows" in note
+        for note in by_id["canonical:2024-06-26:draft:39:b"]["notes"]
+    )
+
+
+def test_build_source_corroboration_report_reuses_exact_draft_match_for_nearby_day_duplicate_rows() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2025-06-26:draft:48:a",
+                "event_date": "2025-06-26",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"javon small"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2025:48"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            },
+            {
+                "canonical_event_id": "canonical:2025-06-25:draft:48:b",
+                "event_date": "2025-06-25",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["team_transactions_page"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"javon small"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 2,
+            },
+        ],
+        [
+            {
+                "event_date": "2025-06-26",
+                "event_type": "draft",
+                "_matching_event_type": "draft",
+                "_source_event_ids": ["curated_fixture:draft:2025:48"],
+                "loaded_source_systems": ["curated_fixture"],
+                "loaded_source_types": ["draft_pick_detail"],
+                "_participant_signature": {
+                    "player_names_in": {"javon small"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2025:48"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    events = build_source_corroboration_report(event_rows)["events"]
+
+    assert len(events) == 2
+    by_id = {event["canonical_event_id"]: event for event in events}
+    for event in events:
+        assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
+        assert event["corroboration_status"] == "recognized_provider_not_loaded"
+        assert event["conflict_status"] == "no_conflict_detected"
+    assert any(
+        "duplicate canonical draft rows" in note
+        for note in by_id["canonical:2025-06-25:draft:48:b"]["notes"]
+    )
+
+
+def test_build_source_corroboration_report_keeps_draft_matching_selection_exact() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2024-06-26:draft:39",
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["draft_results"],
+                "_matching_event_type": "draft",
+                "_participant_signature": {
+                    "player_names_in": {"jaylen wells"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2024:39"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2024-06-26",
+                "event_type": "draft",
+                "_matching_event_type": "draft",
+                "_source_event_ids": ["curated_fixture:draft:2024:45"],
+                "loaded_source_systems": ["curated_fixture"],
+                "loaded_source_types": ["draft_pick_detail"],
+                "_participant_signature": {
+                    "player_names_in": {"jaylen wells"},
+                    "player_names_out": set(),
+                    "draft_selection_ids": {"draft:2024:45"},
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference"]
+    assert event["missing_roles"] == ["secondary_pick_detail"]
+    assert event["corroboration_status"] == "missing_required_evidence"
+    assert event["conflict_status"] == "conflict_suspected"
+    assert any("Missing required source roles: secondary_pick_detail." in note for note in event["notes"])
+    assert any("curated_fixture" in note for note in event["notes"])
 
 
 def test_build_source_corroboration_report_uses_pick_policy_for_draft_events() -> None:
