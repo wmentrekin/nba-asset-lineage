@@ -425,6 +425,89 @@ def test_build_source_corroboration_report_allows_multiple_exact_corroborating_s
     assert event["conflict_status"] == "no_conflict_detected"
 
 
+def test_build_corroboration_candidate_groups_merge_equivalent_sources() -> None:
+    candidate_groups = audit.build_corroboration_candidate_groups(
+        [
+            (
+                "nba_player_movement:jonas",
+                "2019-07-11",
+                "signing",
+                None,
+                {
+                    "player_names_in": ["Jonas Valanciunas"],
+                    "player_names_out": [],
+                    "pick_details_in": [],
+                    "pick_details_out": [],
+                },
+                "nba_player_movement",
+                "transactions_json",
+            ),
+            (
+                "team_official:jonas",
+                "2019-07-11",
+                "signing",
+                None,
+                {
+                    "player_names_in": ["Jonas Valanciunas"],
+                    "player_names_out": [],
+                    "pick_details_in": [],
+                    "pick_details_out": [],
+                },
+                "team_official",
+                "transaction_page",
+            ),
+        ]
+    )
+
+    assert len(candidate_groups) == 1
+    assert candidate_groups[0]["loaded_source_systems"] == ["nba_player_movement", "team_official"]
+    assert candidate_groups[0]["_source_event_ids"] == ["nba_player_movement:jonas", "team_official:jonas"]
+
+
+def test_build_source_corroboration_report_reconciles_diacritic_name_variant() -> None:
+    event_rows = audit.reconcile_corroboration_report_event_rows(
+        [
+            {
+                "canonical_event_id": "canonical:2019-07-11:signing:jonas",
+                "event_date": "2019-07-11",
+                "event_type": "signing",
+                "loaded_source_systems": ["basketball_reference"],
+                "loaded_source_types": ["transactions_page"],
+                "_matching_event_type": "signing",
+                "_participant_signature": {
+                    "player_names_in": {"jonas valančiūnas"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+                "_sequence_on_date": 1,
+            }
+        ],
+        [
+            {
+                "event_date": "2019-07-11",
+                "event_type": "signing",
+                "_matching_event_type": "signing",
+                "_source_event_ids": ["team_official:jonas"],
+                "loaded_source_systems": ["team_official"],
+                "loaded_source_types": ["transaction_page"],
+                "_participant_signature": {
+                    "player_names_in": {"jonas valanciunas"},
+                    "player_names_out": set(),
+                    "pick_details_in": set(),
+                    "pick_details_out": set(),
+                },
+            }
+        ],
+    )
+
+    event = build_source_corroboration_report(event_rows)["events"][0]
+
+    assert event["loaded_source_systems"] == ["basketball_reference", "team_official"]
+    assert event["conflict_status"] == "no_conflict_detected"
+    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+
+
 def test_build_source_corroboration_report_reconciles_suffix_variant_match() -> None:
     event_rows = audit.reconcile_corroboration_report_event_rows(
         [

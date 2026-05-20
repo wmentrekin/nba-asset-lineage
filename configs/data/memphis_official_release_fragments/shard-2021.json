@@ -1,0 +1,101 @@
+{
+  "articles": [
+    {
+      "source_record_id": "nba_official:2021-08-07:memphis-offseason-trade-cluster",
+      "source_system": "nba_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://www.nba.com/news/2021-offseason-trade-tracker",
+      "source_title": "2021 Offseason Trade Tracker",
+      "source_excerpt": "Curated from the official NBA offseason trade tracker with supporting Grizzlies releases for the Aug. 7 Memphis trade cluster.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2021-08-07:memphis-offseason-trade-cluster",
+          "event_date": "2021-08-07",
+          "event_type": "trade",
+          "label": "Memphis completes the Aug. 7 offseason trade cluster",
+          "player_names_in": [
+            "Steven Adams",
+            "Eric Bledsoe",
+            "Jared Butler",
+            "Ziaire Williams",
+            "Sam Merrill",
+            "Santi Aldama"
+          ],
+          "player_names_out": [
+            "Brandon Boston Jr",
+            "Trey Murphy III",
+            "Jonas Valanciunas",
+            "Tyler Harvey",
+            "Grayson Allen",
+            "Jared Butler"
+          ],
+          "raw_note": "The official NBA offseason trade tracker, together with the Grizzlies' Sam Merrill and first-round pick releases, corroborates the full Aug. 7 Memphis trade cluster."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2021-10-08:romeo-weems-cluster",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-romeo-weems-211008",
+      "source_title": "Memphis Grizzlies sign Romeo Weems",
+      "source_excerpt": "The official release announces Romeo Weems and notes that Shaq Buchanan had been signed on Sept. 23.",
+      "events": [
+        {
+          "source_event_id": "team_official:2021-09-23:shaq-buchanan-signing",
+          "event_date": "2021-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Shaq Buchanan",
+          "player_names_in": [
+            "Shaq Buchanan"
+          ],
+          "player_names_out": [],
+          "raw_note": "The Romeo Weems release states that Shaq Buchanan was signed on Sept. 23 before being waived on Oct. 8."
+        },
+        {
+          "source_event_id": "team_official:2021-10-08:romeo-weems-signing",
+          "event_date": "2021-10-08",
+          "event_type": "signing",
+          "label": "Memphis signs Romeo Weems",
+          "player_names_in": [
+            "Romeo Weems"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Romeo Weems."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2021-10-15:david-stockton-cluster",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-david-stockton-211015",
+      "source_title": "Memphis Grizzlies sign David Stockton",
+      "source_excerpt": "The official release announces David Stockton and notes that Ahmad Caver was waived in the related move.",
+      "events": [
+        {
+          "source_event_id": "team_official:2021-10-15:david-stockton-signing",
+          "event_date": "2021-10-15",
+          "event_type": "signing",
+          "label": "Memphis signs David Stockton",
+          "player_names_in": [
+            "David Stockton"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign David Stockton."
+        },
+        {
+          "source_event_id": "team_official:2021-10-15:ahmad-caver-waiver",
+          "event_date": "2021-10-15",
+          "event_type": "waiver",
+          "label": "Memphis waives Ahmad Caver",
+          "player_names_in": [],
+          "player_names_out": [
+            "Ahmad Caver"
+          ],
+          "raw_note": "Official Grizzlies release: In addition, the Grizzlies waived guard Ahmad Caver."
+        }
+      ]
+    }
+  ]
+}

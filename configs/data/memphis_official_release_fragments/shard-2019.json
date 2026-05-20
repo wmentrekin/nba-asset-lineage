@@ -1,0 +1,342 @@
+{
+  "articles": [
+    {
+      "source_record_id": "nba_official:2019-02-07:marc-gasol-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/marc-gasol-grizzlies-raptors-trade-official-release",
+      "source_title": "Marc Gasol traded from Grizzlies to Raptors",
+      "source_excerpt": "Official release covering the Marc Gasol trade that sent Jonas Valanciunas, Delon Wright and C.J. Miles to Memphis.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2019-02-07:marc-gasol-trade",
+          "event_date": "2019-02-07",
+          "event_type": "trade",
+          "label": "Memphis trades Marc Gasol to Toronto",
+          "player_names_in": [
+            "C.J. Miles",
+            "Jonas Valanciunas",
+            "Delon Wright"
+          ],
+          "player_names_out": [
+            "Marc Gasol"
+          ],
+          "raw_note": "Official NBA release: Toronto acquired Marc Gasol from Memphis, while the Grizzlies received Jonas Valanciunas, Delon Wright and C.J. Miles."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2019-02-07:avery-bradley-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/clippers-grizzlies-bradley-trade-official-release",
+      "source_title": "Clippers acquire JaMychal Green and Garrett Temple from Memphis",
+      "source_excerpt": "Official release covering the Memphis-LA Clippers trade for Avery Bradley.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2019-02-07:avery-bradley-trade",
+          "event_date": "2019-02-07",
+          "event_type": "trade",
+          "label": "Memphis trades JaMychal Green and Garrett Temple to the Clippers",
+          "player_names_in": [
+            "Avery Bradley"
+          ],
+          "player_names_out": [
+            "JaMychal Green",
+            "Garrett Temple"
+          ],
+          "raw_note": "Official NBA release: the Clippers acquired JaMychal Green and Garrett Temple from Memphis for Avery Bradley."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-02-07:shelvin-mack-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/hawks/atlanta-hawks-acquire-shelvin-mack-memphis-grizzlies",
+      "source_title": "Atlanta Hawks acquire Shelvin Mack from Memphis Grizzlies",
+      "source_excerpt": "Official Hawks release covering the Shelvin Mack for Tyler Dorsey swap.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-02-07:shelvin-mack-trade",
+          "event_date": "2019-02-07",
+          "event_type": "trade",
+          "label": "Memphis trades Shelvin Mack to Atlanta",
+          "player_names_in": [
+            "Tyler Dorsey"
+          ],
+          "player_names_out": [
+            "Shelvin Mack"
+          ],
+          "raw_note": "Official Hawks release: Atlanta acquired Shelvin Mack from Memphis in exchange for Tyler Dorsey."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-06:mike-conley-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-utah-jazz-trade-190706",
+      "source_title": "Memphis Grizzlies acquire Grayson Allen, Jae Crowder, Kyle Korver, draft rights to Darius Bazley and future first-round pick from Utah Jazz",
+      "source_excerpt": "Official Grizzlies release covering the Mike Conley trade with Utah.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-06:mike-conley-trade",
+          "event_date": "2019-07-06",
+          "event_type": "trade",
+          "label": "Memphis trades Mike Conley to Utah",
+          "player_names_in": [
+            "Grayson Allen",
+            "Jae Crowder",
+            "Kyle Korver",
+            "Darius Bazley"
+          ],
+          "player_names_out": [
+            "Mike Conley"
+          ],
+          "raw_note": "Official Grizzlies release: Memphis acquired Grayson Allen, Jae Crowder, Kyle Korver, the draft rights to Darius Bazley and a future first-round pick from Utah for Mike Conley."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-06:cj-miles-dwight-howard-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/wizards/wizards-acquire-cj-miles-grizzlies-dwight-howard-trade",
+      "source_title": "Wizards acquire C.J. Miles from Grizzlies in Dwight Howard trade",
+      "source_excerpt": "Official Wizards release covering the Dwight Howard/C.J. Miles swap.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-06:cj-miles-dwight-howard-trade",
+          "event_date": "2019-07-06",
+          "event_type": "trade",
+          "label": "Memphis trades C.J. Miles and acquires Dwight Howard",
+          "player_names_in": [
+            "Dwight Howard"
+          ],
+          "player_names_out": [
+            "C.J. Miles"
+          ],
+          "raw_note": "Official Wizards release: Washington acquired C.J. Miles from Memphis, while the Grizzlies received Dwight Howard."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-07:brandon-clarke-darius-bazley-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/thunder/news/bazley-190707",
+      "source_title": "Thunder sign Darius Bazley",
+      "source_excerpt": "Official Thunder release used to corroborate the draft-rights swap that sent Brandon Clarke to Memphis and Darius Bazley away.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-06:brandon-clarke-darius-bazley-trade",
+          "event_date": "2019-07-06",
+          "event_type": "trade",
+          "label": "Memphis acquires Brandon Clarke and moves out Darius Bazley",
+          "player_names_in": [
+            "Brandon Clarke"
+          ],
+          "player_names_out": [
+            "Darius Bazley"
+          ],
+          "raw_note": "Official team transaction coverage around Darius Bazley's signing corroborates that the draft-rights swap sent Brandon Clarke to Memphis and Darius Bazley away from Memphis."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2022-07-06:tyus-jones-backfill",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-re-sign-tyus-jones-to-multi-year-contract-220706",
+      "source_title": "Memphis Grizzlies re-sign Tyus Jones to multi-year contract",
+      "source_excerpt": "The official re-signing release notes Jones originally signed with Memphis on July 7, 2019.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-07:tyus-jones-signing",
+          "event_date": "2019-07-07",
+          "event_type": "signing",
+          "label": "Memphis signs Tyus Jones",
+          "player_names_in": [
+            "Tyus Jones"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release notes that Tyus Jones originally signed with Memphis on July 7, 2019."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-07:josh-jackson-melton-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/suns/press-release/suns-complete-trade-memphis",
+      "source_title": "Suns complete trade with Memphis",
+      "source_excerpt": "Official Suns release covering the Josh Jackson and De'Anthony Melton trade.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-07:josh-jackson-melton-trade",
+          "event_date": "2019-07-07",
+          "event_type": "trade",
+          "label": "Memphis acquires Josh Jackson and De'Anthony Melton",
+          "player_names_in": [
+            "Josh Jackson",
+            "De'Anthony Melton"
+          ],
+          "player_names_out": [
+            "Jevon Carter",
+            "Kyle Korver"
+          ],
+          "raw_note": "Official Suns release: Phoenix completed a trade with Memphis that sent Josh Jackson and De'Anthony Melton to the Grizzlies for Jevon Carter and Kyle Korver."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2019-07-07:andre-iguodala-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/warriors-trade-iguodala-will-retire-jersey-official-release",
+      "source_title": "Warriors trade Andre Iguodala to Memphis",
+      "source_excerpt": "Official release covering the Andre Iguodala trade to Memphis.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2019-07-07:andre-iguodala-trade",
+          "event_date": "2019-07-07",
+          "event_type": "trade",
+          "label": "Memphis acquires Andre Iguodala",
+          "player_names_in": [
+            "Andre Iguodala"
+          ],
+          "player_names_out": [
+            "Julian Washburn"
+          ],
+          "raw_note": "Official NBA release: the Warriors traded Andre Iguodala to Memphis as part of the July 7 transaction cluster."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-07-07:solomon-hill-miles-plumlee-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/-grizzlies-acquire-solomon-hill-and-miles-plumlee-from-hawks-190707",
+      "source_title": "Grizzlies acquire Solomon Hill and Miles Plumlee from Hawks",
+      "source_excerpt": "Official Grizzlies release covering the Chandler Parsons trade.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-07:solomon-hill-miles-plumlee-trade",
+          "event_date": "2019-07-07",
+          "event_type": "trade",
+          "label": "Memphis acquires Solomon Hill and Miles Plumlee",
+          "player_names_in": [
+            "Solomon Hill",
+            "Miles Plumlee"
+          ],
+          "player_names_out": [
+            "Chandler Parsons"
+          ],
+          "raw_note": "Official Grizzlies release: Memphis acquired Solomon Hill and Miles Plumlee from Atlanta in exchange for Chandler Parsons."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2023-24-pelicans-media-guide:jonas-valanciunas-backfill",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://cdn.nba.com/teams/uploads/sites/1610612740/2023/10/Pelicans-2324-Media-Guide.pdf",
+      "source_title": "New Orleans Pelicans 2023-24 Media Guide",
+      "source_excerpt": "The official transaction note in the Pelicans media guide lists Jonas Valanciunas as re-signing with Memphis on July 11, 2019.",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-07-11:jonas-valanciunas-signing",
+          "event_date": "2019-07-11",
+          "event_type": "signing",
+          "label": "Memphis re-signs Jonas Valanciunas",
+          "player_names_in": [
+            "Jonas Valanciunas"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official Pelicans media guide transaction log lists Jonas Valanciunas as re-signing with Memphis on July 11, 2019."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-09-04:matt-mooney-signing",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-matt-mooney-190904",
+      "source_title": "Memphis Grizzlies sign Matt Mooney",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-09-04:matt-mooney-signing",
+          "event_date": "2019-09-04",
+          "event_type": "signing",
+          "label": "Memphis signs Matt Mooney",
+          "player_names_in": [
+            "Matt Mooney"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Matt Mooney."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-10-14:dusty-hannahs-signing",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-dusty-hannahs-191014",
+      "source_title": "Memphis Grizzlies sign Dusty Hannahs",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-10-14:dusty-hannahs-signing",
+          "event_date": "2019-10-14",
+          "event_type": "signing",
+          "label": "Memphis signs Dusty Hannahs",
+          "player_names_in": [
+            "Dusty Hannahs"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Dusty Hannahs."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-10-15:ahmad-caver-signing",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-ahmad-caver-191015",
+      "source_title": "Memphis Grizzlies sign Ahmad Caver",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-10-15:ahmad-caver-signing",
+          "event_date": "2019-10-15",
+          "event_type": "signing",
+          "label": "Memphis signs Ahmad Caver",
+          "player_names_in": [
+            "Ahmad Caver"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Ahmad Caver."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2019-10-18:bennie-boatwright-signing",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-sign-bennie-boatwright-191018",
+      "source_title": "Memphis Grizzlies sign Bennie Boatwright",
+      "events": [
+        {
+          "source_event_id": "team_official:2019-10-18:bennie-boatwright-signing",
+          "event_date": "2019-10-18",
+          "event_type": "signing",
+          "label": "Memphis signs Bennie Boatwright",
+          "player_names_in": [
+            "Bennie Boatwright"
+          ],
+          "player_names_out": [],
+          "raw_note": "Official Grizzlies release: Memphis Grizzlies sign Bennie Boatwright."
+        }
+      ]
+    }
+  ]
+}

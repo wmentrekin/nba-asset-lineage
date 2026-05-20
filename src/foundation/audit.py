@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date
 from itertools import combinations
 from pathlib import Path
+import unicodedata
 
 import psycopg
 
@@ -352,7 +353,68 @@ def build_corroboration_candidate_groups(rows: list[tuple[object, ...]]) -> list
                 "_participant_signature": candidate_group["_participant_signature"],
             }
         )
-    return candidate_groups
+    return merge_equivalent_corroboration_candidate_groups(candidate_groups)
+
+
+def candidate_group_signature_key(candidate_group: dict[str, object]) -> tuple[object, ...]:
+    participant_signature = candidate_group.get("_participant_signature", {})
+    return (
+        str(candidate_group.get("event_date")),
+        str(candidate_group.get("_matching_event_type")),
+        tuple(sorted(str(value) for value in participant_signature.get("player_names_in", set()))),
+        tuple(sorted(str(value) for value in participant_signature.get("player_names_out", set()))),
+        tuple(sorted(str(value) for value in participant_signature.get("pick_details_in", set()))),
+        tuple(sorted(str(value) for value in participant_signature.get("pick_details_out", set()))),
+    )
+
+
+def merge_equivalent_corroboration_candidate_groups(
+    candidate_groups: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    grouped: dict[tuple[object, ...], dict[str, object]] = {}
+    ordered_keys: list[tuple[object, ...]] = []
+
+    for candidate_group in candidate_groups:
+        group_key = candidate_group_signature_key(candidate_group)
+        merged_group = grouped.get(group_key)
+        if merged_group is None:
+            merged_group = {
+                "event_date": str(candidate_group["event_date"]),
+                "event_type": str(candidate_group["event_type"]),
+                "_matching_event_type": str(candidate_group["_matching_event_type"]),
+                "_source_event_ids": set(candidate_group.get("_source_event_ids", [])),
+                "loaded_source_systems": set(candidate_group.get("loaded_source_systems", [])),
+                "loaded_source_types": set(candidate_group.get("loaded_source_types", [])),
+                "_participant_signature": {
+                    "player_names_in": set(candidate_group["_participant_signature"].get("player_names_in", set())),
+                    "player_names_out": set(candidate_group["_participant_signature"].get("player_names_out", set())),
+                    "pick_details_in": set(candidate_group["_participant_signature"].get("pick_details_in", set())),
+                    "pick_details_out": set(candidate_group["_participant_signature"].get("pick_details_out", set())),
+                },
+            }
+            grouped[group_key] = merged_group
+            ordered_keys.append(group_key)
+            continue
+
+        merged_group["_source_event_ids"].update(candidate_group.get("_source_event_ids", []))
+        merged_group["loaded_source_systems"].update(candidate_group.get("loaded_source_systems", []))
+        merged_group["loaded_source_types"].update(candidate_group.get("loaded_source_types", []))
+
+    merged_candidate_groups: list[dict[str, object]] = []
+    for group_key in ordered_keys:
+        merged_group = grouped[group_key]
+        merged_candidate_groups.append(
+            {
+                "event_date": str(merged_group["event_date"]),
+                "event_type": str(merged_group["event_type"]),
+                "_matching_event_type": str(merged_group["_matching_event_type"]),
+                "_source_event_ids": sorted(merged_group["_source_event_ids"]),
+                "loaded_source_systems": sorted(merged_group["loaded_source_systems"]),
+                "loaded_source_types": sorted(merged_group["loaded_source_types"]),
+                "_participant_signature": merged_group["_participant_signature"],
+            }
+        )
+    return merged_candidate_groups
 
 
 def reconcile_corroboration_report_event_rows(
@@ -632,7 +694,9 @@ def merge_participant_signature(
 
 
 def audit_player_name_tokens(value: str) -> tuple[str, ...]:
-    tokens = [token for token in normalize_player_alias_name(value).split(" ") if token]
+    normalized = unicodedata.normalize("NFKD", normalize_player_alias_name(value))
+    ascii_folded = "".join(char for char in normalized if not unicodedata.combining(char))
+    tokens = [token for token in ascii_folded.split(" ") if token]
     while tokens and tokens[-1] in AUDIT_PLAYER_SUFFIX_TOKENS:
         tokens.pop()
     return tuple(tokens)

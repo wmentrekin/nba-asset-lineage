@@ -1,0 +1,123 @@
+{
+  "articles": [
+    {
+      "source_record_id": "team_official:2016-17-media-guide:2016-camp-signings",
+      "source_system": "team_official",
+      "source_type": "transaction_page",
+      "source_locator": "https://ak-static-int.nba.com/wp-content/uploads/sites/3/2016/10/2016-17-Media-Guide-Grizzlies.pdf",
+      "source_title": "2016-17 Memphis Grizzlies Media Guide",
+      "source_excerpt": "The official transaction log lists August 8 signings for Wayne Selden Jr. and Tony Wroten, a September 23 signing for Chris Crawford, and an October 9 signing for Vince Hunter.",
+      "events": [
+        {
+          "source_event_id": "team_official:2016-08-08:wayne-selden-signing",
+          "event_date": "2016-08-08",
+          "event_type": "signing",
+          "label": "Memphis signs Wayne Selden Jr.",
+          "player_names_in": [
+            "Wayne Selden"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official Memphis transaction log states that on August 8 the Grizzlies signed free agents Wayne Selden Jr., D.J. Stephens, Troy Williams and Tony Wroten."
+        },
+        {
+          "source_event_id": "team_official:2016-08-08:tony-wroten-signing",
+          "event_date": "2016-08-08",
+          "event_type": "signing",
+          "label": "Memphis signs Tony Wroten",
+          "player_names_in": [
+            "Tony Wroten"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official Memphis transaction log states that on August 8 the Grizzlies signed free agents Wayne Selden Jr., D.J. Stephens, Troy Williams and Tony Wroten."
+        },
+        {
+          "source_event_id": "team_official:2016-09-23:chris-crawford-signing",
+          "event_date": "2016-09-23",
+          "event_type": "signing",
+          "label": "Memphis signs Chris Crawford",
+          "player_names_in": [
+            "Chris Crawford"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official Memphis transaction log and training camp roster release state that on September 23 the Grizzlies signed guard Chris Crawford."
+        },
+        {
+          "source_event_id": "team_official:2016-10-09:vince-hunter-signing",
+          "event_date": "2016-10-09",
+          "event_type": "signing",
+          "label": "Memphis signs Vince Hunter",
+          "player_names_in": [
+            "Vince Hunter"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official Memphis transaction log states that on October 9 the Grizzlies signed free agent Vince Hunter."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2017-06-22:dillon-brooks-ivan-rabb-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/memphis-grizzlies-acquire-draft-rights-ivan-rabb-and-dillon-brooks",
+      "source_title": "Memphis Grizzlies acquire draft rights to Ivan Rabb and Dillon Brooks",
+      "source_excerpt": "Official release announcing Memphis acquired the draft rights to Ivan Rabb and Dillon Brooks on draft night.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2017-06-22:dillon-brooks-ivan-rabb-trade",
+          "event_date": "2017-06-22",
+          "event_type": "trade",
+          "label": "Memphis acquires the draft rights to Dillon Brooks and Ivan Rabb",
+          "player_names_in": [
+            "Dillon Brooks",
+            "Ivan Rabb"
+          ],
+          "player_names_out": [],
+          "raw_note": "Memphis announced it acquired the draft rights to Ivan Rabb from Orlando and Dillon Brooks from Houston on June 22, 2017."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2018-10-13:roster-finalization-backfill",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/memphis-grizzlies-finalize-2018-19-regular-season-roster-181013",
+      "source_title": "Memphis Grizzlies finalize 2018-19 regular season roster",
+      "source_excerpt": "The official roster-finalization release states Markel Crawford signed on August 15, Brandon Goodwin on September 4, and Doral Moore on August 30.",
+      "events": [
+        {
+          "source_event_id": "team_official:2018-08-15:markel-crawford-signing",
+          "event_date": "2018-08-15",
+          "event_type": "signing",
+          "label": "Memphis signs Markel Crawford",
+          "player_names_in": [
+            "Markel Crawford"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official roster-finalization release says Crawford competed in preseason games after he was signed by Memphis on August 15."
+        },
+        {
+          "source_event_id": "team_official:2018-08-30:doral-moore-signing",
+          "event_date": "2018-08-30",
+          "event_type": "signing",
+          "label": "Memphis signs Doral Moore",
+          "player_names_in": [
+            "Doral Moore"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official roster-finalization release says Moore saw action in preseason games after he was signed by Memphis on August 30."
+        },
+        {
+          "source_event_id": "team_official:2018-09-04:brandon-goodwin-signing",
+          "event_date": "2018-09-04",
+          "event_type": "signing",
+          "label": "Memphis signs Brandon Goodwin",
+          "player_names_in": [
+            "Brandon Goodwin"
+          ],
+          "player_names_out": [],
+          "raw_note": "The official roster-finalization release says Goodwin appeared in preseason games after signing with the Grizzlies on September 4."
+        }
+      ]
+    }
+  ]
+}
