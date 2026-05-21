@@ -1,0 +1,86 @@
+artifact: requirements
+feature: "foundation/official-roster-checkpoints"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+
+summary:
+  problem: "The live `foundation.roster_snapshot` layer already contains 40 Memphis checkpoints and all of them are date-aware reconstructions, but every checkpoint still points at a Basketball-Reference season roster source record like `bref:mem:2017:roster`. There are currently no loaded `nba_stats` source records and no durable official validation metadata for checkpoints."
+  motivation: "Roster checkpoints are part of the base graph export. Even though the current builder is materially better than the earlier baseline-only version, the checkpoint layer still lacks an official-source-backed reference surface. Closing that gap will make the roster-state portion of the export more trustworthy and give later frontend work a more stable truth surface."
+  requested_outcome: "Complete one pass that makes the Memphis checkpoint layer durably backed by an official roster-reference source and explicit validation metadata, without pretending we have exact archived day-of-checkpoint official roster pages if we do not."
+
+goals:
+  - "Load official NBA Stats roster-reference source records for the full Memphis span needed by the active checkpoints."
+  - "Create a durable checkpoint-validation surface so each `foundation.roster_snapshot` can record whether it is backed by an official roster reference."
+  - "Keep the current date-aware event-derived checkpoint builder as the roster-state constructor unless a truthful official point-in-time builder already exists in the repo."
+  - "Update audit reporting so the snapshot layer explicitly distinguishes reconstructed-only checkpoints from checkpoints validated against official roster references."
+  - "Finish with a live read-only audit that shows the roster checkpoint gap is materially closed under the agreed truthful finish line."
+
+non_goals:
+  - "Do not claim that `CommonTeamRoster` is a complete day-by-day historical roster log if it is only a season-scoped reference surface."
+  - "Do not broaden this pass into daily roster state generation."
+  - "Do not broaden this pass into full two-way completeness, contract semantics, or frontend rendering changes."
+  - "Do not perform destructive database operations."
+  - "Do not silently repoint checkpoint provenance to an official source if the underlying checkpoint is still event-derived and only season-reference validated."
+
+constraints:
+  technical:
+    - "All database writes must go through checked-in Python/CLI commands."
+    - "If schema changes are needed, they must directly support the reset-era minimum graph contract and remain narrow."
+    - "The official roster reference must come from a loaded source record, not from implied or remembered roster membership."
+    - "The validator may read from stored `source_record.raw_payload` if no dedicated roster-reference membership table exists."
+  product:
+    - "Truthfulness matters more than closing the gap cosmetically."
+    - "Memphis-only scope remains the target."
+    - "If exact point-in-time official roster loads are not actually available from the current source surface, the pass must say so explicitly and use honest validation language."
+  process:
+    - "Use `$work` orchestration and stop for the required pre-execution checkpoint before implementation begins."
+    - "Keep `docs/foundation/official-roster-checkpoints/status.yaml` current."
+
+assumptions:
+  - "The active truthful finish line for one pass is official season-scoped validation of the 40 existing checkpoints, not a brand-new exact day-of-checkpoint official snapshot loader."
+  - "NBA Stats `CommonTeamRoster` is available season-by-season for Memphis and is suitable as the first official roster reference layer."
+  - "The existing `load-nba-reference` path can be extended or wrapped to load all seasons needed by the checkpoint layer."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/live_sources.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "docs/foundation/source-research-matrix.md"
+    - "docs/foundation/ingest-tables.md"
+    - "docs/foundation/full-span-load-notes.md"
+  systems_in_scope:
+    - "NBA Stats roster reference loading"
+    - "roster snapshot provenance and validation"
+    - "snapshot audit reporting"
+  prior_artifacts:
+    - "docs/foundation/data-gap-closure/implementation-report.yaml"
+    - "docs/foundation/full-span-load-notes.md"
+
+research:
+  repo_findings:
+    - "Live DB currently has 40 `roster_snapshot` rows, all date-aware (`derived_from_roster_baseline=0`) and season-distributed across 2016-17 through 2025-26."
+    - "Every inspected `roster_snapshot.source_record_id` still points at a Basketball-Reference season roster source record, and snapshot notes explicitly say they are reconstructed from BRef plus loaded transactions."
+    - "The live audit currently reports no loaded `nba_stats` source records."
+    - "The existing `load-nba-reference` command writes only `foundation.source_record` and `foundation.player`; it does not persist season roster membership rows or checkpoint validation rows."
+    - "Repo docs already describe NBA Stats `CommonTeamRoster` as the best official roster reference layer, but not as a complete day-by-day state log."
+    - "Current `foundation.roster_snapshot` schema has only `source_record_id` and `notes`; it does not yet have explicit official validation fields."
+  platform_findings:
+    - "A live NBA Stats spot-check was attempted from this environment but did not complete quickly enough to treat endpoint responsiveness as proven during discovery."
+
+acceptance_criteria:
+  - "The implementation defines and persists a durable official roster-reference validation surface for checkpoints."
+  - "The full Memphis checkpoint span can be associated with loaded official roster reference source records."
+  - "A post-change live audit explicitly reports the official checkpoint validation state instead of leaving snapshots implicitly reconstructed-only."
+  - "The implementation does not mislabel event-derived checkpoints as exact archived point-in-time official roster loads if that source truth is not actually present."
+  - "Relevant tests pass and the graph export remains coherent."
+
+open_questions:
+  - "Should the durable validation surface live as new columns on `foundation.roster_snapshot`, or as a small sidecar validation table keyed by `snapshot_id`?"
+  - "Is season-scoped official validation an acceptable finish line for this one pass, or do you want this narrowed further if exact day-of-checkpoint official loads are not available?"
+
+ready_for_planning: true
+planning_blockers: []

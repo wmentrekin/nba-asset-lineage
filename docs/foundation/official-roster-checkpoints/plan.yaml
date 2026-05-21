@@ -1,0 +1,125 @@
+artifact: plan
+feature: "foundation/official-roster-checkpoints"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+based_on: "docs/foundation/official-roster-checkpoints/requirements.yaml"
+
+objective: "Give the existing Memphis roster checkpoint layer a durable official roster-reference backing in one bounded pass."
+
+approach:
+  summary: "Keep the current event-derived checkpoint builder, but add an official roster-reference layer around it. The pass should load NBA Stats `CommonTeamRoster` source records for the Memphis span, persist official checkpoint-validation metadata durably, and teach the audit to report whether checkpoints are still reconstructed-only or officially reference-backed. The truthful finish line is season-scoped official validation unless execution uncovers a credible exact point-in-time official source already available in the repo."
+  key_decisions:
+    - "Do not rebuild checkpoints from scratch; extend the existing snapshot layer with official validation."
+    - "Treat `CommonTeamRoster` as the first official roster-reference source, not as a guaranteed day-by-day historical checkpoint archive."
+    - "Store durable validation metadata instead of only rewriting notes."
+    - "Close the gap by making the checkpoint layer officially reference-backed and auditable, not by overstating the precision of the underlying official source."
+
+contracts:
+  interfaces:
+    - "Add a convenient multi-season NBA roster-reference load path."
+    - "Add a checkpoint-validation command that reads loaded official roster-reference source records and records validation results for every Memphis checkpoint."
+    - "Extend audit snapshot reporting so official checkpoint validation becomes visible in the live audit."
+  schemas:
+    - "Add the smallest durable schema needed for checkpoint validation metadata."
+    - "Preserve the existing `foundation.roster_snapshot` and `foundation.roster_snapshot_player` graph-facing contract."
+  config_changes:
+    - "Update active docs to define the truthful finish line as season-scoped official validation unless stronger source precision is proven."
+
+execution_batches:
+  - id: "B1"
+    goal: "Define and persist checkpoint validation metadata."
+    tasks:
+      - id: "T1"
+        title: "Add the minimal roster checkpoint validation schema and Python rows"
+        objective: "Introduce a durable place to store official roster-reference validation state for each checkpoint."
+        owned_scope:
+          - "sql/"
+          - "src/foundation/ingest.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest tests/foundation/test_sql_contracts.py"
+  - id: "B2"
+    goal: "Load official roster-reference source records across the Memphis span."
+    tasks:
+      - id: "T2"
+        title: "Add a multi-season NBA Stats roster-reference loader"
+        objective: "Load or wrap `CommonTeamRoster`/`CommonAllPlayers` across the seasons represented in the checkpoint layer."
+        owned_scope:
+          - "src/foundation/live_sources.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "canonical graph logic"
+        dependencies:
+          - "B1"
+        parallelizable: false
+        expected_validation:
+          - "read-only preview for at least one season"
+          - "focused loader tests"
+  - id: "B3"
+    goal: "Validate all checkpoints against official roster references."
+    tasks:
+      - id: "T3"
+        title: "Implement checkpoint validation and audit reporting"
+        objective: "Compare the existing checkpoint player sets against the loaded official season roster reference, persist validation results, and surface the result in `audit-foundation-data`."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "src/foundation/ingest.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B1"
+          - "B2"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest tests/foundation/test_audit.py"
+          - "live read-only audit after execution"
+  - id: "B4"
+    goal: "Execute and verify the full pass."
+    tasks:
+      - id: "T4"
+        title: "Run the official roster checkpoint pass"
+        objective: "Execute the multi-season NBA Stats load, apply checkpoint validation, and verify the new official backing state in the live audit."
+        owned_scope:
+          - "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
+          - "docs/foundation/official-roster-checkpoints/status.yaml"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "destructive DB operations"
+        dependencies:
+          - "B2"
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+          - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+
+ordering_notes:
+  - "If live execution proves `CommonTeamRoster` is unavailable or too thin to back the checkpoints truthfully, stop after the first verification loop and report the exact blocker instead of inventing stronger official precision than the source provides."
+  - "Do not let this pass turn into daily roster state generation."
+
+risks:
+  - "NBA Stats endpoint responsiveness or historical season support may be inconsistent from this environment."
+  - "Season-scoped official roster references may validate season membership without proving exact day-of-checkpoint occupancy."
+  - "A schema choice that is too narrow could make later stronger official validation awkward."
+
+open_questions:
+  - "Use new columns on `foundation.roster_snapshot` or a sidecar validation table?"
+
+review:
+  status: approved
+  loop_count: 1
+  notes:
+    - "The current truthful one-pass finish is official season-scoped checkpoint validation, not a claim of exact archived official point-in-time rosters."
+
+checkpoint:
+  required_before_execution: true
+  status: approved

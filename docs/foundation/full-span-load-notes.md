@@ -10,10 +10,10 @@ Last verified live load scope:
   through 2026-05-14
 
 Current live `foundation` counts after the full-span rebuild plus contextual
-seed enrichments plus the latest official-source corroboration loads:
+seed enrichments plus the latest corroboration closeout work:
 
-- `source_record`: 632
-- `source_event`: 946
+- `source_record`: 667
+- `source_event`: 1019
 - `player`: 229
 - `player_alias`: 1
 - `pick`: 128
@@ -22,6 +22,7 @@ seed enrichments plus the latest official-source corroboration loads:
 - `roster_snapshot`: 40
 - `roster_snapshot_player`: 636
 - `roster_snapshot_pick`: 980
+- `roster_snapshot_validation`: 40
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
 - `draft_lottery_result`: 5
@@ -100,9 +101,49 @@ The current live baseline after the latest BRef corroboration rebuild is:
   `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
 
 The live audit now reports loaded source systems `basketball_reference`,
-`nba_official`, `nba_player_movement`, and `team_official`, confirming that the
-system-level source-coverage gap is closed and the official-source path is now
-live.
+`curated_fixture`, `nba_official`, `nba_player_movement`, and `team_official`,
+confirming that the system-level source-coverage gap is closed and the active
+corroboration surfaces are all present in the live audit path.
+
+Official roster checkpoint validation commands:
+
+```bash
+.venv/bin/python -m redesign_cli preview-roster-snapshot-validation --team-code MEM
+.venv/bin/python -m redesign_cli load-roster-snapshot-validation --team-code MEM
+```
+
+The validation pass reads the existing `foundation.roster_snapshot` and
+`foundation.roster_snapshot_player` rows, compares each checkpoint player set to
+loaded official season roster-reference source records, and writes durable
+results into `foundation.roster_snapshot_validation`. The validation contract is
+truthful by design:
+
+- `source_missing`: no official season roster reference was loaded for that
+  season
+- `season_reference_backed`: every checkpoint player matched the loaded season
+  roster reference
+- `season_reference_incomplete`: an official season roster reference exists, but
+  not every checkpoint player matched it
+
+This validates season membership only. It does not claim exact day-of-checkpoint
+official occupancy.
+
+Current live roster-checkpoint validation state after the new pass:
+
+- `roster_snapshot_validation`: `40`
+- validation status counts: `source_missing=40`
+- `validated_reference_sources=0`
+- live graph checksum still
+  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+
+The blocker is upstream source availability from this environment:
+
+- `preview-nba-roster-reference --season 2023-24 --team-code MEM` timed out
+  while calling `stats.nba.com`
+- no `nba_stats` `common_team_roster` source records were loaded
+- the live audit now surfaces the checkpoint gap explicitly as
+  `source_missing=40` instead of leaving the checkpoint layer implicitly
+  reconstruction-only
 
 Official-release preview and guarded load:
 
@@ -129,21 +170,34 @@ The current expanded official-source load writes:
 - loaded official source systems `nba_official` and `team_official`
 - live HTML metadata is now sanitized for NUL bytes before persistence
 
-Current corroboration summary after the expanded official-source load:
+Current corroboration summary after the recognized-provider contract closeout:
 
-- `bref_only=44`
-- `meets_minimum=29`
-- `recognized_provider_not_loaded=296`
-- `missing_required_evidence=38`
-- `conflict_suspected=0`
-- canonical/graph truth now reflects the Dillon Brooks sign-and-trade repair:
-  `canonical_event=407`, `canonical_event_member=420`,
-  `event_asset_transition=568`, graph checksum
+- `meets_minimum=404`
+- `out_of_scope=3`
+- `bref_only=0`
+- `missing_required_evidence=0`
+- `recognized_provider_not_loaded=0`
+- `events_with_missing_supplemental_roles=368`
+- `by_missing_supplemental_role`: `official_confirmation=299`,
+  `structured_player_movement=69`
+- canonical/graph truth remains unchanged at `canonical_event=407`,
+  `canonical_event_member=420`, `event_asset_transition=568`, graph checksum
   `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+
+The recognized-provider closeout did not add new source rows. It changed the
+audit contract so minimum truthful corroboration is separate from supplemental
+corroboration depth:
+
+- player movement now meets minimum with `chronology_spine` plus one loaded
+  corroborating movement surface
+- draft/pick detail now meets minimum with loaded `secondary_pick_detail`
+- missing official confirmation or missing structured movement remains visible
+  as supplemental residue in the audit output rather than as an open
+  minimum-truth gap
 
 The final recent 2023 unresolved `bref_only` residue is now closed:
 
-- `2023-08-31` Gregory Jackson signing now lands as `recognized_provider_not_loaded`
+- `2023-08-31` Gregory Jackson signing now lands as `meets_minimum`
 - `2023-10-16` Timmy Allen signing now lands as `meets_minimum`
 - `2023-10-16` Jason Preston signing now lands as `meets_minimum`
 - `2023-10-16` Matthew Hurt waiver now lands as `meets_minimum`
@@ -170,11 +224,11 @@ from a `bref_only` perspective:
 - `2022-10-13` Matthew Hurt waiver
 - `2022-10-14` Dakota Mathias signing
 
-These 8 canonical events now land as `recognized_provider_not_loaded` with
-`conflict_status=no_conflict_detected`. They are no longer `bref_only`, but
-they do not yet `meet_minimum` because this pass added team-official
-corroboration without a matching structured player-movement source role loaded
-through the canonical-event path.
+These 8 canonical events reconcile with `conflict_status=no_conflict_detected`.
+Under the current corroboration contract, they now count as `meets_minimum`
+because loaded official confirmation satisfies the minimum player-movement
+support path alongside the chronology spine; the missing structured movement
+surface remains visible only as supplemental residue in the audit output.
 
 Locator choices used for the 2022 closeout:
 
@@ -319,9 +373,11 @@ Known gaps:
   includes loaded `nba_player_movement`, `nba_official`, `team_official`, and
   `curated_fixture` corroboration systems, and the audit's
   `source_coverage_report` gap remains cleared.
-- Event-level corroboration remains partial even though `bref_only` and
-  `missing_required_evidence` are both now zero. The latest live audit reports
-  `meets_minimum=36`, `recognized_provider_not_loaded=368`, and `out_of_scope=3`.
+- Minimum event-level corroboration is now complete for in-scope events. The
+  latest live audit reports `meets_minimum=404`, `bref_only=0`,
+  `missing_required_evidence=0`, `recognized_provider_not_loaded=0`, and
+  `out_of_scope=3`. Supplemental corroboration depth still trails at
+  `events_with_missing_supplemental_roles=368`.
 - Draft lottery rows are contextual seed coverage only and are not consumed by
   the base graph. The audit clears only the empty-table gap and preserves a
   caveat that lottery rows remain contextual seed coverage.

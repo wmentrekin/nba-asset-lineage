@@ -1,0 +1,80 @@
+artifact: status
+feature: "foundation/official-roster-checkpoints"
+mode: "bounded-feature"
+stage: "completed"
+owner_skill: work
+
+objective: "Replace reconstructed-only Memphis roster checkpoint provenance with a durable official roster-reference validation layer in one bounded pass."
+
+summary:
+  current_focus: "The validation architecture is live; the remaining blocker is loading a truthful official season roster reference surface."
+  last_completed: "Bootstrapped the new sidecar table live and wrote 40 checkpoint validation rows into Supabase."
+  current_blocker: "Live `stats.nba.com` `CommonTeamRoster` requests timed out from this environment, so no official roster reference records were loaded."
+
+artifacts:
+  requirements: "docs/foundation/official-roster-checkpoints/requirements.yaml"
+  plan: "docs/foundation/official-roster-checkpoints/plan.yaml"
+  implementation_report: "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "verification"
+    task: "Integrated the validation surface, the identity-safe loader path, the CLI commands, and the audit reporting."
+    last_update: "Live DB now has 40 `roster_snapshot_validation` rows, all currently `source_missing`; graph checksum stayed unchanged."
+    blocker: "Official roster reference source load is still blocked by NBA Stats timeouts."
+  - id: "019e4bf8-6bfb-7783-ad90-719517f9ac01"
+    role: "developer"
+    model_guidance: "high"
+    status: "completed"
+    stage: "verification"
+    task: "Add the durable checkpoint-validation schema surface."
+    last_update: "Added `foundation.roster_snapshot_validation` and the SQL contract tests."
+    blocker: ""
+  - id: "019e4bf8-720e-7060-a8c0-00e1d5192dff"
+    role: "developer"
+    model_guidance: "high"
+    status: "completed"
+    stage: "verification"
+    task: "Add an identity-safe official roster-reference load path."
+    last_update: "Added `preview/load-nba-roster-reference` commands that never write `foundation.player`."
+    blocker: "Live `CommonTeamRoster` fetches timed out."
+  - id: "019e4bf9-36aa-7630-a53d-f3f374961f33"
+    role: "developer"
+    model_guidance: "high"
+    status: "completed"
+    stage: "verification"
+    task: "Implement checkpoint validation and audit reporting."
+    last_update: "The orchestrator completed this slice locally with alias-safe season-reference validation and audit reporting."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: approved_and_in_progress
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers:
+  - "Live `stats.nba.com` `CommonTeamRoster` requests timed out from this environment."
+decisions:
+  - "Treat this as a bounded feature, not a large initiative."
+  - "Use the existing NBA Stats `CommonTeamRoster` layer as the official roster reference surface unless discovery proves it is unusable."
+  - "Be explicit that the likely truthful one-pass finish is season-scoped official validation, not a claim of exact archived point-in-time official rosters."
+  - "Keep the checkpoint validation sidecar even when the official source load is blocked, because it makes the gap explicit in live audit output."
+
+next_action: "Decide whether to fix live NBA Stats connectivity or add a checked-in official roster-reference fixture from NBA/team official sources, then rerun `load-roster-snapshot-validation`."
+next_recommended_command: "$work"
+user_input_needed: false

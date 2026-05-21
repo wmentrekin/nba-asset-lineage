@@ -197,6 +197,8 @@ def test_build_known_gaps_flags_event_span_not_current() -> None:
                 "pick_rows": 40,
                 "date_aware_reconstruction": 40,
                 "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
                 "contract_status": [
                     {
                         "roster_status": "two_way",
@@ -222,6 +224,62 @@ def test_build_known_gaps_flags_event_span_not_current() -> None:
 
     gap_text = " ".join(gap["gap"] for gap in gaps)
     assert "Loaded event span is not current to the latest verified Memphis roster event" in gap_text
+
+
+def test_build_known_gaps_flags_missing_official_roster_checkpoint_validation() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "event_span_currentness": {
+                "status": "verified_quiet_interval",
+                "evidence": "quiet",
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-04-10",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "nba_stats",
+                    "source_type": "common_team_roster",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "validation_rows": 0,
+                "source_missing": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+                "unknown_owner_rows": 0,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "lottery_results": 4,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Roster checkpoint snapshots are not yet validated against official season roster references" in gap_text
 
 
 def test_build_source_coverage_report_flags_missing_corrob_source() -> None:
@@ -313,7 +371,7 @@ def test_infer_corroboration_fact_type_for_event_row_marks_assetless_player_move
     )
 
 
-def test_build_source_corroboration_report_reconciles_unique_nba_movement_match() -> None:
+def test_build_source_corroboration_report_reconciles_unique_nba_movement_match_to_meets_minimum() -> None:
     event_rows = audit.reconcile_corroboration_report_event_rows(
         [
             {
@@ -355,11 +413,15 @@ def test_build_source_corroboration_report_reconciles_unique_nba_movement_match(
     event = report["events"][0]
     assert event["loaded_source_systems"] == ["basketball_reference", "nba_player_movement"]
     assert event["loaded_source_types"] == ["transactions_json", "transactions_page"]
-    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+    assert event["corroboration_status"] == "meets_minimum"
     assert event["conflict_status"] == "no_conflict_detected"
     assert any("rows from nba_player_movement" in note for note in event["notes"])
     assert any(
         state["role"] == "structured_player_movement" and state["state"] == "supports_event"
+        for state in event["evidence_states"]
+    )
+    assert any(
+        state["role"] == "official_confirmation" and state["state"] == "recognized_provider"
         for state in event["evidence_states"]
     )
 
@@ -547,7 +609,15 @@ def test_build_source_corroboration_report_reconciles_diacritic_name_variant() -
 
     assert event["loaded_source_systems"] == ["basketball_reference", "team_official"]
     assert event["conflict_status"] == "no_conflict_detected"
-    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+    assert event["corroboration_status"] == "meets_minimum"
+    assert any(
+        state["role"] == "official_confirmation" and state["state"] == "supports_event"
+        for state in event["evidence_states"]
+    )
+    assert any(
+        state["role"] == "structured_player_movement" and state["state"] == "recognized_provider"
+        for state in event["evidence_states"]
+    )
 
 
 def test_build_source_corroboration_report_reconciles_suffix_variant_match() -> None:
@@ -969,11 +1039,15 @@ def test_build_source_corroboration_report_reconciles_exact_draft_match_with_saf
 
     assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
     assert event["loaded_source_types"] == ["draft_pick_detail", "draft_results"]
-    assert event["corroboration_status"] == "recognized_provider_not_loaded"
+    assert event["corroboration_status"] == "meets_minimum"
     assert event["conflict_status"] == "no_conflict_detected"
     assert any("rows from curated_fixture" in note for note in event["notes"])
     assert any(
         state["role"] == "secondary_pick_detail" and state["state"] == "supports_event"
+        for state in event["evidence_states"]
+    )
+    assert any(
+        state["role"] == "official_confirmation" and state["state"] == "recognized_provider"
         for state in event["evidence_states"]
     )
 
@@ -1039,8 +1113,12 @@ def test_build_source_corroboration_report_reuses_exact_draft_match_for_duplicat
     by_id = {event["canonical_event_id"]: event for event in events}
     for event in events:
         assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
-        assert event["corroboration_status"] == "recognized_provider_not_loaded"
+        assert event["corroboration_status"] == "meets_minimum"
         assert event["conflict_status"] == "no_conflict_detected"
+        assert any(
+            state["role"] == "official_confirmation" and state["state"] == "recognized_provider"
+            for state in event["evidence_states"]
+        )
     assert any(
         "duplicate canonical draft rows" in note
         for note in by_id["canonical:2024-06-26:draft:39:b"]["notes"]
@@ -1108,8 +1186,12 @@ def test_build_source_corroboration_report_reuses_exact_draft_match_for_nearby_d
     by_id = {event["canonical_event_id"]: event for event in events}
     for event in events:
         assert event["loaded_source_systems"] == ["basketball_reference", "curated_fixture"]
-        assert event["corroboration_status"] == "recognized_provider_not_loaded"
+        assert event["corroboration_status"] == "meets_minimum"
         assert event["conflict_status"] == "no_conflict_detected"
+        assert any(
+            state["role"] == "official_confirmation" and state["state"] == "recognized_provider"
+            for state in event["evidence_states"]
+        )
     assert any(
         "duplicate canonical draft rows" in note
         for note in by_id["canonical:2025-06-25:draft:48:b"]["notes"]
@@ -1324,6 +1406,8 @@ def test_build_known_gaps_surfaces_pick_inventory_reporting_details() -> None:
                 "pick_rows": 40,
                 "date_aware_reconstruction": 40,
                 "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
                 "contract_status": [
                     {
                         "roster_status": "two_way",
@@ -1400,6 +1484,8 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
                 "pick_rows": 40,
                 "date_aware_reconstruction": 40,
                 "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
                 "contract_status": [
                     {
                         "roster_status": "two_way",

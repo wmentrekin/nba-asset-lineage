@@ -5,83 +5,80 @@ status: completed
 owner_skill: work
 
 summary:
-  problem: "The live audit now reports `missing_required_evidence = 38` after `bref_only` was closed to zero. Every remaining `missing_required_evidence` row is a Memphis draft canonical event missing only the `secondary_pick_detail` provider role."
-  motivation: "This is now the largest remaining truth-surface blocker before the more structural gaps. If the draft/pick bucket closes cleanly, the remaining work becomes mostly `recognized_provider_not_loaded` coverage and broader architectural enrichment."
-  requested_outcome: "Close the entire 38-row draft/pick `missing_required_evidence` bucket in one pass through a truthful `secondary_pick_detail` load path and one verification cycle."
+  problem: "The live audit now reports `recognized_provider_not_loaded = 368` after both `bref_only` and `missing_required_evidence` were closed to zero. The residue is concentrated in three already-loaded evidence surfaces: `basketball_reference|nba_player_movement` (261), `basketball_reference|team_official` (69), and `basketball_reference|curated_fixture` (38)."
+  motivation: "This is now the largest remaining live data-foundation gap. Discovery shows most of it is not missing raw evidence; it is a corroboration-contract problem where supplemental provider depth is still being counted as an open gap even when the minimum truthful support path is already loaded."
+  requested_outcome: "Close the entire `recognized_provider_not_loaded` bucket in one bounded pass by separating minimum-required corroboration from supplemental corroboration, preserving visibility into missing supplemental depth without continuing to count it as an open minimum-truth gap."
 
 goals:
-  - "Reduce the live `missing_required_evidence` count from 38 to 0 if truthful `secondary_pick_detail` evidence can be loaded for the remaining Memphis draft events."
-  - "Treat the entire bucket as one draft-only closeout, not as separate year-by-year residue slices."
-  - "Introduce the smallest safe checked-in load path needed to attach `curated_fixture` or equivalent `secondary_pick_detail` evidence to the existing draft canonical events."
-  - "Extend audit-time reconciliation only as far as needed to let draft corroboration rows satisfy duplicate same-day draft canonical events for the same player/selection."
-  - "Keep all new corroborating rows on the existing `corroboration_only` path so canonical truth and graph export remain invariant."
-  - "Finish with one preview/dry-run, one live execute, one live audit, and one graph-baseline check."
+  - "Reduce the live `recognized_provider_not_loaded` count from 368 to 0 in one pass if the existing loaded evidence surfaces already satisfy the truthful minimum contract."
+  - "Keep the closure truthful: no `basketball_reference`-only event may be promoted by this pass."
+  - "Model player-movement corroboration so that loaded chronology plus one corroborating movement surface is sufficient for minimum truth, while still exposing any missing supplemental corroboration."
+  - "Model pick-right-detail corroboration so that loaded `secondary_pick_detail` satisfies the minimum, while still exposing missing official draft confirmation as supplemental depth rather than an open minimum-truth gap."
+  - "Preserve the existing `planned_vs_loaded_rule`: recognized providers still only count when a matching loaded row exists."
+  - "Finish with one focused verification cycle against the live read-only audit and graph-baseline check."
 
 non_goals:
-  - "Do not widen this pass into the 330 `recognized_provider_not_loaded` events beyond what naturally changes after the required draft role is loaded."
-  - "Do not widen this pass into official roster checkpoints, daily roster state, two-way completeness, or contract-semantics work."
-  - "Do not change canonical derivation rules, transition generation rules, or frontend rendering behavior beyond draft-only audit reconciliation."
+  - "Do not re-open `bref_only` or `missing_required_evidence` work that is already closed."
+  - "Do not weaken the contract so that `basketball_reference` alone can satisfy player-movement or pick-detail truth."
+  - "Do not broaden this pass into roster checkpoints, daily roster state, two-way completeness, contract semantics, or future-pick lineage."
   - "Do not perform destructive database operations."
-  - "Do not promise promotion of all touched events to `meets_minimum`; this pass is about eliminating `missing_required_evidence` for draft events."
+  - "Do not silently hide missing supplemental corroboration; it must remain inspectable in the audit output."
 
 constraints:
   technical:
-    - "All DB writes must continue to go through checked-in Python/CLI commands."
-    - "Curated corroboration rows must remain `normalized_payload.corroboration_only = true`."
-    - "No SQL migrations or new tables should be required for this pass."
-    - "Any new source rows must load through `foundation.source_record` and `foundation.source_event` only."
-    - "Draft audit reconciliation must stay exact and conservative; it should not create broad fuzzy matching across different players or selections."
+    - "Any implementation must preserve canonical graph invariance."
+    - "If no new source rows are needed, this pass should remain code-only plus read-only verification."
+    - "If the audit schema changes, it should remain backward-readable enough for the current docs and tests to track the transition cleanly."
+    - "The corroboration report must continue to distinguish required-role failure from optional-depth residue."
   product:
-    - "Truthfulness is more important than getting to zero by force. If a draft event cannot be backed cleanly by the chosen `secondary_pick_detail` basis, it must remain explicit."
+    - "Minimum truthful graph output remains the governing standard."
     - "Memphis-only scope remains the target."
-    - "For this pass, 'gap closed' means 'no longer `missing_required_evidence`', not necessarily `meets_minimum`."
+    - "The result should make the remaining gap list smaller and clearer, not just move counts into a renamed bucket."
   process:
     - "Use `$work` orchestration and stop for the required pre-execution checkpoint before implementation begins."
     - "Keep `docs/foundation/data-gap-closure/status.yaml` current."
 
 assumptions:
-  - "The remaining 38 canonical draft rows collapse to roughly 20 actual draft selections plus a small alias/duplicate layer."
-  - "A curated draft-pick-detail load path is acceptable for `secondary_pick_detail` because that provider role explicitly recognizes `curated_fixture`."
-  - "Most duplicate draft canonical events come from multiple source surfaces describing the same Memphis selection on the same date."
+  - "The `261` `basketball_reference|nba_player_movement` events already have loaded structured player-movement evidence and are being held open only because official confirmation is still treated as required for `meets_minimum`."
+  - "The `69` `basketball_reference|team_official` events already have loaded official confirmation and are being held open only because structured movement is still treated as required for `meets_minimum`."
+  - "The `38` `basketball_reference|curated_fixture` draft events already have loaded `secondary_pick_detail` evidence and are being held open only because official confirmation is still treated as required for `meets_minimum`."
+  - "A truthful minimum contract for `player_movement` can be expressed as chronology spine plus at least one corroborating movement surface (`structured_player_movement` or `official_confirmation`)."
 
 repo_context:
   relevant_paths:
-    - "configs/data/memphis_draft_pick_resolution_2016_2025.json"
+    - "src/foundation/sources.py"
     - "src/foundation/audit.py"
-    - "src/foundation/live_sources.py"
-    - "src/redesign_cli.py"
     - "tests/foundation/test_audit.py"
-    - "tests/foundation/test_live_sources.py"
+    - "docs/foundation/data-gap-closure/status.yaml"
+    - "docs/foundation/data-gap-closure/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
   systems_in_scope:
-    - "curated draft/pick corroboration loading"
-    - "foundation audit corroboration report"
-    - "draft selection source data"
+    - "source policy semantics"
+    - "foundation audit corroboration classification"
+    - "audit summary/report output"
   prior_artifacts:
     - "docs/foundation/data-gap-closure/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
 
 research:
   repo_findings:
-    - "The live `missing_required_evidence` residue is exactly 38 canonical events."
-    - "Every one of those events is `event_type=draft` and `fact_type=pick_right_detail`."
-    - "Every one of those events is missing only the `secondary_pick_detail` role; no other required roles are missing in this bucket."
-    - "The residue spans draft years 2016, 2018, 2019, 2020, 2021, 2022, 2023, 2024, and 2025."
-    - "The current audit matcher does not reconcile `draft` corroboration candidates yet; it only has exact logic for trade/waiver/signing and grouped/near-date special cases."
-    - "There is at least one alias trap inside the residue: `GG Jackson II` versus `Gregory Jackson II`."
+    - "The live residue splits cleanly into `261` `basketball_reference|nba_player_movement`, `69` `basketball_reference|team_official`, and `38` `basketball_reference|curated_fixture` events."
+    - "Current `player_movement` policy text already says movement details are corroborated by structured movement data `or` official text."
+    - "Current audit classification promotes an event to `meets_minimum` only when every recognized provider role is loaded, not when the minimum truthful support path is loaded."
+    - "The `69` `team_official` events already reconcile to loaded corroboration-only official rows with no participant mismatch detected."
+    - "The `38` draft rows are already out of `missing_required_evidence`; the remaining residue is supplemental official confirmation, not the required `secondary_pick_detail` role."
   platform_findings: []
 
 acceptance_criteria:
-  - "The exact live 38-event draft inventory is captured in the docs before execution."
-  - "The implementation introduces a checked-in load path for `secondary_pick_detail` evidence without adding new tables."
-  - "The audit can reconcile draft corroboration rows to the existing canonical draft events, including duplicate same-day draft rows for the same selection."
-  - "One preview or dry-run shows the full draft evidence payload before any live write."
-  - "One live execute succeeds without changing canonical counts or the graph checksum."
-  - "A post-load audit reduces `missing_required_evidence` from 38 to 0, or every surviving row is explicitly documented with a blocker."
-  - "Docs clearly record that this closes the required-role bucket, not the deeper prior-ownership-lineage problem."
+  - "The implementation explicitly separates minimum required corroboration from supplemental corroboration depth in the active source-policy/audit contract."
+  - "A post-change live read-only audit reduces `recognized_provider_not_loaded` from 368 to 0, or any surviving rows are explicitly documented as truthful blockers."
+  - "No event with loaded source systems equal to only `basketball_reference` is promoted by this pass."
+  - "The audit still surfaces missing supplemental corroboration in notes or dedicated fields after the `recognized_provider_not_loaded` bucket is closed."
+  - "Canonical counts and graph checksum remain unchanged."
+  - "Tests cover all three live closure surfaces: `basketball_reference|nba_player_movement`, `basketball_reference|team_official`, and `basketball_reference|curated_fixture`."
 
 open_questions:
-  - "Should the draft corroboration payload be generated directly from live `draft_selection` rows, or should it be backed by a new checked-in fixture file for long-term editability?"
+  - "Should supplemental corroboration residue remain note-only, or should the audit add an explicit `missing_supplemental_roles` field and summary metric so the depth gap remains measurable after the bucket closes?"
 
 ready_for_planning: true
 planning_blockers: []

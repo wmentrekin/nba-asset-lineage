@@ -1,14 +1,14 @@
 artifact: status
 feature: "foundation/data-gap-closure"
-mode: "bounded-feature"
-stage: "verification"
+mode: "large-initiative"
+stage: "completed"
 owner_skill: work
 
-objective: "Close the remaining `missing_required_evidence = 38` draft/pick corroboration gap in one bulk pass."
+objective: "Close the remaining `recognized_provider_not_loaded = 368` live gap in one bounded pass without weakening the minimum truthful graph contract."
 
 summary:
-  current_focus: "Draft/pick `missing_required_evidence` is closed; the next decision is how to attack the larger `recognized_provider_not_loaded` bucket."
-  last_completed: "Loaded one generated `curated_fixture` draft-pick-detail source record plus 20 corroboration-only draft events, fixed draft-specific audit reconciliation, and reduced `missing_required_evidence` from 38 to 0 without changing the canonical graph."
+  current_focus: "Completed the recognized-provider closeout and replaced that bucket with explicit supplemental-gap tracking."
+  last_completed: "Closed `recognized_provider_not_loaded` to zero while preserving canonical graph invariance."
   current_blocker: ""
 
 artifacts:
@@ -20,39 +20,47 @@ agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
+    status: "completed"
     stage: "verification"
-    task: "Record the final live verification state and hand off the next remaining gap."
-    last_update: "Focused tests, full pytest, live preview/dry-run, live execute, live audit, and live graph-baseline verification all completed."
+    task: "Executed the recognized-provider closeout, verified the live audit delta, and recorded the resulting supplemental-gap metrics."
+    last_update: "Live audit now reports `recognized_provider_not_loaded=0`, `meets_minimum=404`, `out_of_scope=3`, and `events_with_missing_supplemental_roles=368`."
     blocker: ""
-  - id: "developer-draft-loader"
-    role: "developer"
+  - id: "019e4ba8-9bc9-72e0-b41d-e01c971db583"
+    role: "repo-researcher"
     model_guidance: "high"
     status: "completed"
-    stage: "execution"
-    task: "Implement the curated draft-pick-detail preview/load path and focused loader tests."
-    last_update: "Completed deterministic generation from loaded draft_selection rows plus new preview/load CLI commands and focused loader tests."
+    stage: "discovery"
+    task: "Assess the `basketball_reference|nba_player_movement` surface."
+    last_update: "Recommended treating the 261-event NBA-movement residue as policy/contract residue, not a new source-loading problem."
     blocker: ""
-  - id: "developer-draft-audit"
-    role: "developer"
+  - id: "019e4ba8-9c7a-7423-827d-6519a44e3edf"
+    role: "repo-researcher"
     model_guidance: "high"
     status: "completed"
-    stage: "execution"
-    task: "Implement draft-specific audit reconciliation and focused audit tests."
-    last_update: "Completed exact draft reconciliation keyed by draft_selection_id, duplicate-draft reuse, the GG/Gregory alias exception, and the 2025 nearby-day duplicate fix."
+    stage: "discovery"
+    task: "Assess the `basketball_reference|team_official` surface."
+    last_update: "Warned against a blind shortcut, but the live audit shows the 69-event team-official residue already reconciles cleanly to loaded official rows and is being held open by the current minimum-versus-supplemental semantics."
+    blocker: ""
+  - id: "019e4ba8-9d36-7063-b67c-882037f020a0"
+    role: "repo-researcher"
+    model_guidance: "high"
+    status: "completed"
+    stage: "discovery"
+    task: "Assess the `basketball_reference|curated_fixture` draft surface."
+    last_update: "Confirmed the 38 draft rows already satisfy the required `secondary_pick_detail` role and are open only because supplemental official confirmation is still being counted as required for `meets_minimum`."
     blocker: ""
 
 loops:
   planning_review:
-    count: 1
+    count: 2
     max: 2
   execution_verification:
-    count: 1
+    count: 2
     max: 2
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: approved
+  pre_execution_status: approved_and_completed
   options:
     - proceed
     - revise_plan
@@ -61,13 +69,12 @@ checkpoint:
 
 blockers: []
 decisions:
-  - "Treat the `bref_only` closeout as complete and move the active gap-closure slice to `missing_required_evidence`."
-  - "Define this slice as a one-pass closeout of the 38 remaining draft/pick rows, not another partial residue-reduction pass."
-  - "Use the existing `corroboration_only` path and keep canonical graph invariance guarantees."
-  - "Assume the smallest truthful finish line is `missing_required_evidence -> 0`, even if many touched events land only as `recognized_provider_not_loaded` afterward."
-  - "Use one generated `curated_fixture` draft-pick-detail source record derived from loaded Memphis draft_selection truth rather than introducing a new SQL surface."
-  - "Keep draft matching exact on player plus `draft_selection_id`, then allow narrow duplicate-row reuse for same-day and 2025 second-round nearby-day draft rows."
+  - "Treat the `368`-event residue as a corroboration-contract gap first, not as a new data-ingestion gap."
+  - "Keep the existing `planned_vs_loaded_rule`; no provider role counts unless a matching loaded row exists."
+  - "Use the live split of `261` `basketball_reference|nba_player_movement`, `69` `basketball_reference|team_official`, and `38` `basketball_reference|curated_fixture` as the execution target surface."
+  - "Do not weaken the contract enough to let `basketball_reference`-only events meet minimum."
+  - "Track missing official/structured depth through explicit supplemental-gap metrics instead of the old `recognized_provider_not_loaded` status bucket."
 
-next_action: "Choose the next remaining gap to attack, with `recognized_provider_not_loaded` now the largest live bucket."
+next_action: "Choose the next structural data gap now that the corroboration-contract gap is closed."
 next_recommended_command: "$work"
 user_input_needed: false

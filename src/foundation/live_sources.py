@@ -17,9 +17,14 @@ import psycopg
 from foundation.ingest import (
     DraftSelectionRow,
     PlayerRow,
+    PlayerAliasRow,
     RosterBaselinePlayerRow,
     SourceEventRow,
     SourceRecordRow,
+    load_player_aliases_from_database,
+    load_players_from_database,
+    load_roster_baseline_players_from_database,
+    normalize_player_alias_name,
     upsert_draft_selections,
     upsert_roster_baseline_players,
 )
@@ -78,6 +83,7 @@ NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
 DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH = Path("tests/foundation/fixtures/nba_player_movement_sample.json")
 DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH = Path("configs/data/memphis_official_release_sources_seed_v1.json")
 DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR = Path("configs/data/memphis_official_release_fragments")
+DEFAULT_MEMPHIS_TEAM_ID = 1610612763
 
 
 def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
@@ -1837,6 +1843,306 @@ def replace_source_events_for_records(
             source_record_id=source_record_id,
             rows=rows_by_record_id.get(source_record_id, []),
         )
+
+
+def preview_nba_roster_reference(
+    database_url: str | None = None,
+    *,
+    season: str,
+    team_id: int = DEFAULT_MEMPHIS_TEAM_ID,
+    team_code: str = DEFAULT_TEAM_CODE,
+) -> dict[str, object]:
+    roster_payload = fetch_nba_stats_json(
+        "commonteamroster",
+        {"LeagueID": "00", "Season": season, "TeamID": team_id},
+    )
+    identity_lookup = build_roster_reference_identity_lookup(database_url) if database_url else {}
+    source_records, baseline_rows, identity_resolution = build_nba_roster_reference_rows(
+        roster_payload=roster_payload,
+        season=season,
+        team_id=team_id,
+        team_code=team_code,
+        identity_lookup=identity_lookup,
+    )
+    return {
+        "status": "ok",
+        "writes_to_database": False,
+        "source_records": len(source_records),
+        "baseline_rows": len(baseline_rows),
+        "identity_resolution": identity_resolution,
+        "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
+        "first_baseline_row": baseline_rows[0].model_dump(mode="json") if baseline_rows else None,
+        "season": season,
+        "team_id": team_id,
+        "team_code": team_code.upper(),
+    }
+
+
+def load_nba_roster_reference(
+    database_url: str,
+    *,
+    season: str,
+    team_id: int = DEFAULT_MEMPHIS_TEAM_ID,
+    team_code: str = DEFAULT_TEAM_CODE,
+) -> dict[str, object]:
+    roster_payload = fetch_nba_stats_json(
+        "commonteamroster",
+        {"LeagueID": "00", "Season": season, "TeamID": team_id},
+    )
+    identity_lookup = build_roster_reference_identity_lookup(database_url)
+    source_records, baseline_rows, identity_resolution = build_nba_roster_reference_rows(
+        roster_payload=roster_payload,
+        season=season,
+        team_id=team_id,
+        team_code=team_code,
+        identity_lookup=identity_lookup,
+    )
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        upsert_roster_baseline_players(connection, baseline_rows)
+        connection.commit()
+    return {
+        "status": "ok",
+        "writes_to_database": True,
+        "source_records": len(source_records),
+        "baseline_rows": len(baseline_rows),
+        "identity_resolution": identity_resolution,
+        "season": season,
+        "team_id": team_id,
+        "team_code": team_code.upper(),
+    }
+
+
+def load_nba_roster_reference_span(
+    database_url: str,
+    *,
+    team_id: int = DEFAULT_MEMPHIS_TEAM_ID,
+    team_code: str = DEFAULT_TEAM_CODE,
+    start_season_end_year: int = DEFAULT_SEASON_START_YEAR,
+    end_season_end_year: int = DEFAULT_SEASON_END_YEAR,
+    request_delay: float = 0.8,
+) -> dict[str, object]:
+    seasons: list[dict[str, object]] = []
+    total_source_records = 0
+    total_baseline_rows = 0
+    aggregated_identity_resolution: dict[str, int] = {}
+    for season_end_year in range(start_season_end_year, end_season_end_year + 1):
+        season = format_nba_season(season_end_year)
+        result = load_nba_roster_reference(
+            database_url,
+            season=season,
+            team_id=team_id,
+            team_code=team_code,
+        )
+        seasons.append(result)
+        total_source_records += int(result["source_records"])
+        total_baseline_rows += int(result["baseline_rows"])
+        merge_counter_values(aggregated_identity_resolution, result["identity_resolution"])
+        time.sleep(request_delay)
+    return {
+        "status": "ok",
+        "writes_to_database": True,
+        "team_id": team_id,
+        "team_code": team_code.upper(),
+        "start_season_end_year": start_season_end_year,
+        "end_season_end_year": end_season_end_year,
+        "source_records": total_source_records,
+        "baseline_rows": total_baseline_rows,
+        "identity_resolution": aggregated_identity_resolution,
+        "seasons": seasons,
+    }
+
+
+def build_nba_roster_reference_rows(
+    *,
+    roster_payload: dict[str, object],
+    season: str,
+    team_id: int,
+    team_code: str,
+    identity_lookup: dict[str, list[tuple[str, str | None, str]]] | None = None,
+    fetched_at: str | None = None,
+) -> tuple[list[SourceRecordRow], list[RosterBaselinePlayerRow], dict[str, int]]:
+    roster_rows = extract_nba_dataset_rows(roster_payload)
+    fetched_at = fetched_at or utc_now_iso()
+    source_record_id = f"nba_stats:common_team_roster:{season}:{team_id}"
+    identity_lookup = identity_lookup or {}
+    identity_resolution: dict[str, int] = {}
+    serialized_rows: list[dict[str, object]] = []
+    baseline_rows: list[RosterBaselinePlayerRow] = []
+
+    for roster_order, row in enumerate(roster_rows, start=1):
+        normalized = normalize_common_team_roster_row(row)
+        resolved_player_id, resolved_player_ref, resolution_status = resolve_roster_reference_player_identity(
+            normalized.display_name,
+            identity_lookup,
+        )
+        merge_counter_values(identity_resolution, {resolution_status: 1})
+        serialized_row = dict(row)
+        serialized_row["resolved_player_id"] = resolved_player_id
+        serialized_row["identity_resolution_status"] = resolution_status
+        serialized_rows.append(serialized_row)
+        baseline_rows.append(
+            RosterBaselinePlayerRow(
+                season=normalized.season or season,
+                team_code=team_code.upper(),
+                player_id=resolved_player_id,
+                display_name=normalized.display_name,
+                source_record_id=source_record_id,
+                roster_order=roster_order,
+                nba_player_ref=resolved_player_ref,
+                birth_date=normalized.birth_date,
+                position_text=normalized.position_text,
+                years_experience=parse_nba_roster_experience(row.get("EXP")),
+            )
+        )
+
+    source_record = SourceRecordRow(
+        source_record_id=source_record_id,
+        source_system="nba_stats",
+        source_type="common_team_roster",
+        source_locator=f"stats/commonteamroster?Season={season}&TeamID={team_id}",
+        fetched_at=fetched_at,
+        raw_payload={
+            "team_code": team_code.upper(),
+            "team_id": team_id,
+            "season": season,
+            "identity_resolution_summary": identity_resolution,
+            "roster_rows": serialized_rows,
+            "raw_response": roster_payload,
+        },
+    )
+    return [source_record], baseline_rows, identity_resolution
+
+
+def build_roster_reference_identity_lookup(
+    database_url: str,
+) -> dict[str, list[tuple[str, str | None, str]]]:
+    players = load_players_from_database(database_url)
+    baseline_players = load_roster_baseline_players_from_database(database_url)
+    aliases = load_player_aliases_from_database(database_url)
+    return build_roster_reference_identity_lookup_from_rows(
+        players=players,
+        baseline_players=baseline_players,
+        aliases=aliases,
+    )
+
+
+def build_roster_reference_identity_lookup_from_rows(
+    *,
+    players: list[PlayerRow],
+    baseline_players: list[RosterBaselinePlayerRow],
+    aliases: list[PlayerAliasRow],
+) -> dict[str, list[tuple[str, str | None, str]]]:
+    entries_by_key: dict[str, list[tuple[str, str | None, str]]] = {}
+    player_ref_by_id: dict[str, str | None] = {}
+
+    for player in players:
+        player_ref_by_id[player.player_id] = player.nba_player_ref
+        append_roster_reference_identity(
+            entries_by_key,
+            display_name=player.display_name,
+            player_id=player.player_id,
+            player_ref=player.nba_player_ref,
+            resolution_source="matched_player",
+        )
+    for baseline in baseline_players:
+        player_ref_by_id.setdefault(baseline.player_id, baseline.nba_player_ref)
+        append_roster_reference_identity(
+            entries_by_key,
+            display_name=baseline.display_name,
+            player_id=baseline.player_id,
+            player_ref=baseline.nba_player_ref,
+            resolution_source="matched_baseline",
+        )
+    for alias in aliases:
+        append_roster_reference_alias(
+            entries_by_key,
+            alias=alias,
+            player_ref=player_ref_by_id.get(alias.player_id),
+        )
+    return entries_by_key
+
+
+def append_roster_reference_identity(
+    entries_by_key: dict[str, list[tuple[str, str | None, str]]],
+    *,
+    display_name: str,
+    player_id: str,
+    player_ref: str | None,
+    resolution_source: str,
+) -> None:
+    entry = (player_id, player_ref, resolution_source)
+    for key in iter_roster_reference_identity_keys(display_name):
+        bucket = entries_by_key.setdefault(key, [])
+        if entry not in bucket:
+            bucket.append(entry)
+
+
+def append_roster_reference_alias(
+    entries_by_key: dict[str, list[tuple[str, str | None, str]]],
+    *,
+    alias: PlayerAliasRow,
+    player_ref: str | None,
+) -> None:
+    entry = (alias.player_id, player_ref, "matched_alias")
+    for key in iter_roster_reference_identity_keys(alias.alias_name):
+        bucket = entries_by_key.setdefault(key, [])
+        if entry not in bucket:
+            bucket.append(entry)
+
+
+def iter_roster_reference_identity_keys(display_name: str) -> tuple[str, ...]:
+    base_key = normalize_player_alias_name(display_name)
+    no_apostrophes = re.sub(r"[’']", "", base_key)
+    compact = re.sub(r"[^a-z0-9]+", "", no_apostrophes)
+    keys = tuple(key for key in (base_key, no_apostrophes, compact) if key)
+    return tuple(dict.fromkeys(keys))
+
+
+def resolve_roster_reference_player_identity(
+    display_name: str,
+    identity_lookup: dict[str, list[tuple[str, str | None, str]]],
+) -> tuple[str, str | None, str]:
+    candidates_by_player_id: dict[str, tuple[str, str | None, str]] = {}
+    for key in iter_roster_reference_identity_keys(display_name):
+        for player_id, player_ref, resolution_source in identity_lookup.get(key, []):
+            existing = candidates_by_player_id.get(player_id)
+            if existing is None or existing[1] is None and player_ref is not None:
+                candidates_by_player_id[player_id] = (player_id, player_ref, resolution_source)
+    if len(candidates_by_player_id) == 1:
+        player_id, player_ref, resolution_source = next(iter(candidates_by_player_id.values()))
+        return player_id, player_ref, resolution_source
+    if len(candidates_by_player_id) > 1:
+        return f"player:{slugify_name(display_name)}", None, "generated_slug_ambiguous"
+    return f"player:{slugify_name(display_name)}", None, "generated_slug"
+
+
+def parse_nba_roster_experience(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.upper() == "R":
+        return 0
+    return int(text) if text.isdigit() else None
+
+
+def format_nba_season(season_end_year: int) -> str:
+    return f"{season_end_year - 1}-{str(season_end_year)[-2:]}"
+
+
+def merge_counter_values(target: dict[str, int], incoming: dict[str, object]) -> None:
+    for key, value in incoming.items():
+        if not key:
+            continue
+        target[str(key)] = target.get(str(key), 0) + int(value)
 
 
 def load_nba_reference(database_url: str, *, season: str, team_id: int) -> dict[str, object]:

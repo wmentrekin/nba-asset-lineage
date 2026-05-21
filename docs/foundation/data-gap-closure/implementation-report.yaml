@@ -6,78 +6,92 @@ owner_skill: work
 based_on: "docs/foundation/data-gap-closure/plan.yaml"
 
 summary:
-  scope_executed: "Executed the one-pass draft/pick closeout for the remaining `missing_required_evidence = 38` bucket by adding a deterministic `curated_fixture` draft-pick-detail source path, wiring preview/load CLI commands, extending draft-only audit reconciliation, and live-loading one corroboration-only draft source record with 20 source events."
-  outcome: "The live `missing_required_evidence` bucket fell from 38 to 0. Post-closeout live state is `meets_minimum=36`, `recognized_provider_not_loaded=368`, and `out_of_scope=3`. Canonical graph truth remained unchanged at 407 canonical events, 420 canonical members, 568 transitions, and checksum `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`."
+  scope_executed: "Executed the one-pass `recognized_provider_not_loaded` closeout by refining the source-policy/audit contract so minimum truthful corroboration is separate from supplemental corroboration depth. No database write was required."
+  outcome: "The live `recognized_provider_not_loaded` bucket fell from 368 to 0. Post-closeout live state is `meets_minimum=404`, `out_of_scope=3`, `bref_only=0`, and `missing_required_evidence=0`. Supplemental corroboration depth remains measurable through `events_with_missing_supplemental_roles=368` and role-level counts `official_confirmation=299`, `structured_player_movement=69`. Canonical graph truth remained unchanged at 407 canonical events, 420 canonical members, 568 transitions, and checksum `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`."
 
 task_batches_attempted:
   - "B1"
   - "B2"
   - "B3"
-  - "B4"
 task_batches_completed:
-  - "B1 curated draft-pick-detail preview/load path"
-  - "B2 draft-specific audit reconciliation"
-  - "B3 preview/dry-run"
-  - "B4 live execute and verification"
+  - "B1 minimum-versus-supplemental corroboration contract update"
+  - "B2 audit output and summary enrichment for supplemental gaps"
+  - "B3 local and live verification"
 
 changes:
   files:
     - "docs/foundation/data-gap-closure/status.yaml"
-    - "docs/foundation/data-gap-closure/requirements.yaml"
-    - "docs/foundation/data-gap-closure/plan.yaml"
     - "docs/foundation/data-gap-closure/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
   modules:
-    - "src/foundation/live_sources.py"
+    - "src/foundation/sources.py"
     - "src/foundation/audit.py"
-    - "src/redesign_cli.py"
-    - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_audit.py"
+    - "tests/foundation/test_sql_contracts.py"
   docs_updated:
-    - "Recorded the draft/pick closeout plan and final live state."
-    - "Recorded the generated `curated_fixture` draft-pick-detail source path and the final audit delta."
+    - "Recorded the new source policy version and the separation between minimum truth and supplemental corroboration depth."
+    - "Recorded the final live audit delta and the new supplemental-gap summary metrics."
 
 local_validation:
   checks_run:
-    - "./.venv/bin/python -m pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
-    - "./.venv/bin/python -m pytest"
-    - "./.venv/bin/python -m redesign_cli preview-curated-draft-pick-detail-sources --team-code MEM"
-    - "./.venv/bin/python -m redesign_cli load-curated-draft-pick-detail-sources --team-code MEM --dry-run"
-    - "./.venv/bin/python -m redesign_cli load-curated-draft-pick-detail-sources --team-code MEM --execute"
-    - "Read-only live audit summary before the draft closeout write"
-    - "Read-only live audit summary after the initial draft closeout write"
-    - "Read-only live audit summary after the final draft duplicate fix"
-    - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
-    - "./.venv/bin/python -m redesign_cli inspect-foundation-counts"
+    - "./.venv/bin/pytest tests/foundation/test_audit.py"
+    - "./.venv/bin/pytest"
   failures: []
   skipped: []
+
+live_validation:
+  checks_run:
+    - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+    - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+  results:
+    source_corroboration:
+      before:
+        recognized_provider_not_loaded: 368
+        meets_minimum: 36
+        bref_only: 0
+        missing_required_evidence: 0
+      after:
+        recognized_provider_not_loaded: 0
+        meets_minimum: 404
+        out_of_scope: 3
+        bref_only: 0
+        missing_required_evidence: 0
+        events_with_missing_supplemental_roles: 368
+        by_missing_supplemental_role:
+          official_confirmation: 299
+          structured_player_movement: 69
+    graph_baseline:
+      canonical_event: 407
+      canonical_event_member: 420
+      event_asset_transition: 568
+      graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
+  failures: []
 
 review_summary:
   status: manually_verified
   key_findings:
-    - "The live database now includes one generated `curated_fixture` draft-pick-detail source record and 20 corroboration-only draft source events."
-    - "Draft-only audit reconciliation now supports exact draft selection matches, safe `GG Jackson II` / `Gregory Jackson II` alias equivalence, same-day duplicate draft row reuse, and the 2025 nearby-day second-round duplicate case."
-    - "The closeout increased loaded source coverage to include `curated_fixture` in the live audit path."
-    - "The pass closed the required-role draft bucket without mutating canonical graph truth."
+    - "The old `recognized_provider_not_loaded` bucket was primarily semantic residue, not a missing-ingest surface."
+    - "The live team-official residue already reconciled cleanly to loaded official rows; it now counts as minimum truth while still exposing the missing structured movement depth."
+    - "The live NBA player movement residue now counts as minimum truth while still exposing missing official confirmation depth."
+    - "The draft `curated_fixture` residue now counts as minimum truth while still exposing missing official confirmation depth."
+    - "No basketball-reference-only event was promoted by the new contract."
 
 test_summary:
   status: full_passed
   checks_run:
-    - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_audit.py"
+    - "tests/foundation/test_sql_contracts.py"
     - "full pytest"
-    - "live preview/dry-run/execute for curated draft-pick-detail sources"
-    - "live audit summary"
+    - "live read-only audit"
     - "live graph baseline inspection"
   failures: []
   gaps: []
 
 open_issues:
-  - "`recognized_provider_not_loaded` is now the dominant live corroboration bucket at 368 events."
-  - "The draft closeout uses a generated `curated_fixture` source path derived from loaded draft_selection truth; it closes the required-role gap but does not solve deeper prior-owner pick lineage."
-  - "Two-way historical completeness, contract-semantics depth, roster checkpoint sourcing, and future-pick historical replay remain open structural gaps."
+  - "Supplemental corroboration depth is still incomplete for 368 events, but it is no longer blocking the minimum truthful graph contract."
+  - "Official roster checkpoints, daily roster state, two-way completeness, contract-semantics depth, NBA stats identity loading, future-pick replay, conditional pick branches, and prior-owner draft lineage remain structural gaps."
 
 handoff:
   current_state: completed
   next_owner: "orchestrator"
-  next_action: "Choose the next remaining live gap, with `recognized_provider_not_loaded` now the highest-volume target."
+  next_action: "Choose the next structural gap after the corroboration contract closeout, with supplemental-depth tracking now available through the audit summary instead of the old recognized-provider bucket."

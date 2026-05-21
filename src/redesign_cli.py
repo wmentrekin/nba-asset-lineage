@@ -50,11 +50,14 @@ from foundation.live_sources import (
     load_nba_player_movement,
     load_official_release_sources,
     load_nba_reference,
+    load_nba_roster_reference,
+    load_nba_roster_reference_span,
     preview_bref_draft_results,
     preview_bref_roster_baseline,
     preview_bref_source_events,
     preview_curated_draft_pick_detail_sources,
     preview_nba_reference,
+    preview_nba_roster_reference,
     preview_nba_player_movement,
     preview_official_release_sources,
 )
@@ -64,6 +67,10 @@ from foundation.pick_inventory import (
     load_pick_inventory_snapshots,
     preview_pick_inventory_obligations,
     preview_pick_inventory_snapshots,
+)
+from foundation.roster_validation import (
+    load_roster_snapshot_validation,
+    preview_roster_snapshot_validation,
 )
 from foundation.sources import get_default_source_plan
 from foundation.two_way_status import (
@@ -159,6 +166,16 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("preview-derived-foundation-entities", help="Build player, pick, and asset rows from the current foundation.source_event table without writing.")
     subparsers.add_parser("load-derived-foundation-entities", help="Build and load player, pick, and asset rows from the current foundation.source_event table.")
     subparsers.add_parser("load-roster-snapshots-from-baselines", help="Build approximate checkpoint roster snapshots from loaded roster baseline rows.")
+    preview_roster_validation_parser = subparsers.add_parser(
+        "preview-roster-snapshot-validation",
+        help="Read-only preview of official season-reference validation rows for roster checkpoints.",
+    )
+    preview_roster_validation_parser.add_argument("--team-code", default="MEM")
+    load_roster_validation_parser = subparsers.add_parser(
+        "load-roster-snapshot-validation",
+        help="Compute and write official season-reference validation rows for roster checkpoints.",
+    )
+    load_roster_validation_parser.add_argument("--team-code", default="MEM")
     subparsers.add_parser("preview-foundation-canonical", help="Build canonical events, members, and transitions from the current foundation tables without writing.")
     subparsers.add_parser("load-foundation-canonical", help="Build and load canonical events, members, and transitions from the current foundation tables.")
     export_graph_parser = subparsers.add_parser("export-foundation-graph", help="Build the first graph-ready export from the current foundation tables.")
@@ -219,6 +236,13 @@ def parse_args() -> argparse.Namespace:
     preview_nba_parser = subparsers.add_parser("preview-nba-reference", help="Fetch and normalize NBA stats player and roster reference data without writing to the database.")
     preview_nba_parser.add_argument("--season", required=True)
     preview_nba_parser.add_argument("--team-id", type=int, default=1610612763)
+    preview_nba_roster_parser = subparsers.add_parser(
+        "preview-nba-roster-reference",
+        help="Fetch and normalize official NBA roster reference rows for one season without writing to foundation.player.",
+    )
+    preview_nba_roster_parser.add_argument("--season", required=True)
+    preview_nba_roster_parser.add_argument("--team-id", type=int, default=1610612763)
+    preview_nba_roster_parser.add_argument("--team-code", default="MEM")
     preview_nba_player_movement_parser = subparsers.add_parser("preview-nba-player-movement", help="Read-only fixture/file or live preview of NBA.com player movement JSON rows.")
     preview_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
     preview_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
@@ -267,6 +291,22 @@ def parse_args() -> argparse.Namespace:
     load_nba_parser = subparsers.add_parser("load-nba-reference", help="Fetch and load NBA stats player and roster reference data into foundation.source_record and foundation.player.")
     load_nba_parser.add_argument("--season", required=True)
     load_nba_parser.add_argument("--team-id", type=int, default=1610612763)
+    load_nba_roster_parser = subparsers.add_parser(
+        "load-nba-roster-reference",
+        help="Fetch and load official NBA roster reference rows into foundation.source_record and foundation.roster_baseline_player only.",
+    )
+    load_nba_roster_parser.add_argument("--season", required=True)
+    load_nba_roster_parser.add_argument("--team-id", type=int, default=1610612763)
+    load_nba_roster_parser.add_argument("--team-code", default="MEM")
+    load_nba_roster_span_parser = subparsers.add_parser(
+        "load-nba-roster-reference-span",
+        help="Fetch and load official NBA roster reference rows for a season-end-year range.",
+    )
+    load_nba_roster_span_parser.add_argument("--team-id", type=int, default=1610612763)
+    load_nba_roster_span_parser.add_argument("--team-code", default="MEM")
+    load_nba_roster_span_parser.add_argument("--start-season-end-year", type=int, default=2017)
+    load_nba_roster_span_parser.add_argument("--end-season-end-year", type=int, default=2026)
+    load_nba_roster_span_parser.add_argument("--request-delay", type=float, default=0.8)
     subparsers.add_parser("inspect-foundation-graph-baseline", help="Read-only graph baseline counts and checksum for checkpoint review.")
     subparsers.add_parser("show-base-export", help="Print the current base export scaffold as JSON.")
     subparsers.add_parser("show-source-plan", help="Print the current reset-era source plan as JSON.")
@@ -430,6 +470,7 @@ def command_inspect_foundation_counts() -> dict[str, object]:
                 "roster_snapshot",
                 "roster_snapshot_player",
                 "roster_snapshot_pick",
+                "roster_snapshot_validation",
                 "draft_selection",
                 "draft_pick_resolution",
                 "pick_inventory_obligation",
@@ -457,6 +498,7 @@ def command_clear_foundation_data() -> dict[str, object]:
         "draft_lottery_result",
         "draft_pick_resolution",
         "draft_selection",
+        "roster_snapshot_validation",
         "roster_snapshot_pick",
         "roster_snapshot_player",
         "roster_snapshot",
@@ -615,6 +657,16 @@ def main() -> None:
     elif args.command == "load-roster-snapshots-from-baselines":
         counts = load_roster_snapshots_from_baselines(load_database_url())
         payload = {"status": "ok", **counts}
+    elif args.command == "preview-roster-snapshot-validation":
+        payload = preview_roster_snapshot_validation(
+            load_database_url(),
+            team_code=args.team_code,
+        )
+    elif args.command == "load-roster-snapshot-validation":
+        payload = load_roster_snapshot_validation(
+            load_database_url(),
+            team_code=args.team_code,
+        )
     elif args.command == "preview-foundation-canonical":
         bundle = derive_foundation_canonical_bundle_from_database(load_database_url())
         payload = {
@@ -719,8 +771,31 @@ def main() -> None:
             dry_run=args.dry_run,
             execute=args.execute,
         )
+    elif args.command == "preview-nba-roster-reference":
+        payload = preview_nba_roster_reference(
+            load_database_url(),
+            season=args.season,
+            team_id=args.team_id,
+            team_code=args.team_code,
+        )
     elif args.command == "load-nba-reference":
         payload = load_nba_reference(load_database_url(), season=args.season, team_id=args.team_id)
+    elif args.command == "load-nba-roster-reference":
+        payload = load_nba_roster_reference(
+            load_database_url(),
+            season=args.season,
+            team_id=args.team_id,
+            team_code=args.team_code,
+        )
+    elif args.command == "load-nba-roster-reference-span":
+        payload = load_nba_roster_reference_span(
+            load_database_url(),
+            team_id=args.team_id,
+            team_code=args.team_code,
+            start_season_end_year=args.start_season_end_year,
+            end_season_end_year=args.end_season_end_year,
+            request_delay=args.request_delay,
+        )
     elif args.command == "inspect-foundation-graph-baseline":
         counts = command_inspect_foundation_counts()["counts"]
         export = build_base_export_from_database(load_database_url())

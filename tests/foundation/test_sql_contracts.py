@@ -41,6 +41,10 @@ def test_source_policy_defines_first_pass_fact_taxonomy_and_roles() -> None:
 
     policy_by_fact_type = {row.fact_type: row for row in SOURCE_POLICY.first_pass_fact_types}
     assert policy_by_fact_type["transaction_chronology"].minimum_required_roles == ["chronology_spine"]
+    assert policy_by_fact_type["player_movement"].minimum_one_of_roles == [
+        "structured_player_movement",
+        "official_confirmation",
+    ]
     assert policy_by_fact_type["player_movement"].target_roles == [
         "structured_player_movement",
         "official_confirmation",
@@ -89,7 +93,9 @@ def test_source_policy_defines_corroboration_report_contract_without_schema() ->
         "loaded_source_types",
         "recognized_provider_roles",
         "required_source_roles",
+        "minimum_one_of_source_roles",
         "missing_roles",
+        "missing_supplemental_roles",
         "evidence_states",
         "corroboration_status",
         "conflict_status",
@@ -142,6 +148,36 @@ def test_context_bootstrap_sql_defines_snapshot_pick_projection_contract() -> No
     assert "holding_status in ('owned', 'owed_out', 'swap_right', 'encumbered', 'conditional')" in sql_text
     assert "roster_snapshot_pick_confidence_check" in sql_text
     assert "confidence in ('derived', 'curated', 'validated', 'uncertain')" in sql_text
+
+
+def test_context_bootstrap_sql_defines_roster_snapshot_validation_contract() -> None:
+    sql_text = Path("sql/0004_foundation_context_bootstrap.sql").read_text(encoding="utf-8")
+    assert "create table if not exists foundation.roster_snapshot_validation" in sql_text
+    assert "snapshot_id text primary key references foundation.roster_snapshot(snapshot_id) on delete cascade" in sql_text
+    assert "validation_scope text not null default 'season_reference'" in sql_text
+    assert "validation_status text not null" in sql_text
+    assert "reference_source_record_id text null references foundation.source_record(source_record_id) on delete set null" in sql_text
+    assert "snapshot_player_count integer not null default 0" in sql_text
+    assert "reference_player_count integer null" in sql_text
+    assert "matched_player_count integer not null default 0" in sql_text
+    assert "roster_snapshot_validation_scope_check" in sql_text
+    assert "validation_scope in ('season_reference')" in sql_text
+    assert "roster_snapshot_validation_status_check" in sql_text
+    assert "validation_status in ('source_missing', 'season_reference_backed', 'season_reference_incomplete')" in sql_text
+    assert "roster_snapshot_validation_source_state_check" in sql_text
+    assert "validation_status = 'source_missing'" in sql_text
+    assert "validation_status in ('season_reference_backed', 'season_reference_incomplete')" in sql_text
+    assert "reference_source_record_id is not null" in sql_text
+    assert "reference_player_count is not null" in sql_text
+    assert "roster_snapshot_validation_matched_player_count_check" in sql_text
+    assert "matched_player_count <= snapshot_player_count" in sql_text
+    assert "roster_snapshot_validation_match_state_check" in sql_text
+    assert "matched_player_count = snapshot_player_count" in sql_text
+    assert "matched_player_count < snapshot_player_count" in sql_text
+    assert "roster_snapshot_validation_status_idx" in sql_text
+    assert "on foundation.roster_snapshot_validation (validation_scope, validation_status)" in sql_text
+    assert "roster_snapshot_validation_source_record_idx" in sql_text
+    assert "on foundation.roster_snapshot_validation (reference_source_record_id)" in sql_text
 
 
 def test_pick_inventory_bootstrap_sql_defines_obligation_ledger_contract() -> None:

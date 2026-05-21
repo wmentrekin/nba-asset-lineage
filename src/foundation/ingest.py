@@ -134,6 +134,17 @@ class RosterSnapshotPickRow(BaseModel):
     notes: str | None = None
 
 
+class RosterSnapshotValidationRow(BaseModel):
+    snapshot_id: str
+    validation_scope: Literal["season_reference"] = "season_reference"
+    validation_status: Literal["source_missing", "season_reference_backed", "season_reference_incomplete"]
+    reference_source_record_id: str | None = None
+    snapshot_player_count: int = 0
+    reference_player_count: int | None = None
+    matched_player_count: int = 0
+    notes: str | None = None
+
+
 class PickInventoryObligationRow(BaseModel):
     obligation_id: str
     effective_date: str
@@ -1205,6 +1216,50 @@ def replace_roster_snapshot_picks(
             (snapshot_ids,),
         )
     upsert_roster_snapshot_picks(connection, rows)
+
+
+def upsert_roster_snapshot_validations(
+    connection: psycopg.Connection,
+    rows: list[RosterSnapshotValidationRow],
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute("select to_regclass('foundation.roster_snapshot_validation')")
+        if cursor.fetchone()[0] is None:
+            return
+        for row in rows:
+            cursor.execute(
+                """
+                insert into foundation.roster_snapshot_validation (
+                    snapshot_id,
+                    validation_scope,
+                    validation_status,
+                    reference_source_record_id,
+                    snapshot_player_count,
+                    reference_player_count,
+                    matched_player_count,
+                    notes
+                ) values (%s, %s, %s, %s, %s, %s, %s, %s)
+                on conflict (snapshot_id) do update
+                set validation_scope = excluded.validation_scope,
+                    validation_status = excluded.validation_status,
+                    reference_source_record_id = excluded.reference_source_record_id,
+                    snapshot_player_count = excluded.snapshot_player_count,
+                    reference_player_count = excluded.reference_player_count,
+                    matched_player_count = excluded.matched_player_count,
+                    notes = excluded.notes,
+                    updated_at = now()
+                """,
+                (
+                    row.snapshot_id,
+                    row.validation_scope,
+                    row.validation_status,
+                    row.reference_source_record_id,
+                    row.snapshot_player_count,
+                    row.reference_player_count,
+                    row.matched_player_count,
+                    row.notes,
+                ),
+            )
 
 
 def upsert_pick_inventory_obligations(connection: psycopg.Connection, rows: list[PickInventoryObligationRow]) -> None:

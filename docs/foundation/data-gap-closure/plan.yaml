@@ -5,124 +5,104 @@ status: completed
 owner_skill: work
 based_on: "docs/foundation/data-gap-closure/requirements.yaml"
 
-objective: "Close the remaining `missing_required_evidence = 38` draft/pick bucket through one bulk curated `secondary_pick_detail` load and one verification cycle."
+objective: "Close the remaining `recognized_provider_not_loaded = 368` bucket in one bounded pass by refining the corroboration contract so minimum truth and supplemental depth are not conflated."
 
 approach:
-  summary: "Treat the remaining `missing_required_evidence` bucket as one draft-only closeout. First add a small curated draft-pick-detail load path that emits `corroboration_only` `curated_fixture` source rows from the existing draft selection truth surface. Then extend audit reconciliation so exact same-day draft corroboration rows can satisfy duplicate canonical draft events for the same player/selection. Finish with one preview or dry-run, one live load, and one audit/graph verification cycle."
+  summary: "Treat this as a contract-and-audit closeout, not a new data-loading marathon. First revise the source-policy/audit model so fact types can express minimum truthful support separately from supplemental corroboration depth. Then update the event classification and summary output so already-loaded `nba_player_movement`, `team_official`, and `curated_fixture` evidence can satisfy the minimum contract where appropriate while any missing supplemental roles stay visible. Finish with one focused live audit and graph-baseline verification cycle."
   key_decisions:
-    - "Keep the existing `corroboration_only` path and do not alter canonical graph derivation."
-    - "Use `curated_fixture` as the `secondary_pick_detail` provider role for this pass."
-    - "Build the bulk payload around the unique Memphis draft selections behind the 38 canonical rows, not around each duplicate canonical event."
-    - "Treat promotion from `missing_required_evidence` to `recognized_provider_not_loaded` as acceptable unless an event already has official confirmation loaded."
+    - "Do not reclassify `basketball_reference`-only events as `meets_minimum`."
+    - "For `player_movement`, minimum truth is chronology spine plus at least one corroborating movement surface."
+    - "For `pick_right_detail`, minimum truth remains loaded `secondary_pick_detail`; official confirmation is supplemental."
+    - "Keep `planned_vs_loaded_rule` intact and continue to require an actual loaded matching source row before any provider role counts."
+    - "Prefer new audit fields/notes for supplemental-depth residue over leaving `recognized_provider_not_loaded` as the active gap bucket."
 
 contracts:
   interfaces:
-    - "Add a read-only preview and guarded load path for curated draft-pick-detail corroboration rows."
-    - "The new load path must write only `foundation.source_record` and `foundation.source_event` rows."
-    - "The final live path remains one combined guarded execute run."
-    - "`audit-foundation-data` remains the truth surface for bulk closure success."
+    - "Revise the active source-policy model in `src/foundation/sources.py` to encode minimum-support versus supplemental-support semantics."
+    - "Revise the corroboration report builder in `src/foundation/audit.py` so event classification uses the new contract."
+    - "If needed, extend event and summary output with explicit supplemental-depth fields without breaking the current audit readers."
   schemas:
     - "No SQL migrations."
-    - "No new database tables or columns."
-    - "Reuse `foundation.source_record` and `foundation.source_event` only."
+    - "No database writes are required unless verification reveals a truly unloaded blocker that contradicts discovery."
   config_changes:
-    - "Either introduce a new checked-in draft-pick-detail fixture or generate the payload directly from the existing draft selection tables with a clearly documented source basis."
-    - "Update active gap docs after aggregate load and audit."
+    - "Update the active docs to reflect the new minimum-versus-supplemental corroboration contract."
 
 execution_batches:
   - id: "B1"
-    goal: "Prepare the draft closeout load path."
+    goal: "Refine the policy model."
     tasks:
       - id: "T1"
-        title: "Add curated draft-pick-detail preview/load support"
-        objective: "Create the smallest checked-in path that can emit `corroboration_only` `curated_fixture` source rows for the Memphis draft selections behind the 38 missing-required canonical events."
+        title: "Encode minimum-support versus supplemental-support roles"
+        objective: "Adjust the fact-type policy surface so `player_movement` and `pick_right_detail` can express the truthful minimum without treating all recognized target roles as mandatory for `meets_minimum`."
         owned_scope:
-          - "src/foundation/"
-          - "src/redesign_cli.py"
-          - "tests/foundation/"
-        forbidden_scope:
-          - "SQL files"
-          - "frontend files"
-          - "canonical generation code outside draft-only audit reconciliation"
-        dependencies: []
-        parallelizable: false
-        expected_validation:
-          - ".venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py"
-          - "preview command for the curated draft-pick-detail payload"
-  - id: "B2"
-    goal: "Teach the audit to consume the new draft evidence correctly."
-    tasks:
-      - id: "T2"
-        title: "Add exact draft reconciliation support"
-        objective: "Extend audit reconciliation so exact same-day draft corroboration rows can satisfy the current canonical draft rows, including duplicate same-day rows for the same player/selection and the GG/Gregory alias case."
-        owned_scope:
+          - "src/foundation/sources.py"
           - "src/foundation/audit.py"
           - "tests/foundation/test_audit.py"
         forbidden_scope:
-          - "non-draft player-movement reconciliation logic"
+          - "SQL files"
+          - "frontend files"
+          - "database loaders unless later verification proves they are needed"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - ".venv/bin/pytest tests/foundation/test_audit.py"
+  - id: "B2"
+    goal: "Preserve visibility into deeper corroboration depth."
+    tasks:
+      - id: "T2"
+        title: "Expose supplemental residue without counting it as an open minimum-truth gap"
+        objective: "Keep missing official or structured corroboration visible in event-level notes and, if needed, explicit fields/summary counts after the main bucket closes."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "src/foundation/sources.py"
+          - "tests/foundation/test_audit.py"
+        forbidden_scope:
+          - "non-audit foundation subsystems"
         dependencies:
           - "B1"
         parallelizable: false
   - id: "B3"
-    goal: "Validate the full draft evidence payload before writing."
+    goal: "Verify against the live data surface."
     tasks:
       - id: "T3"
-        title: "Run one preview and dry-run"
-        objective: "Validate the draft evidence payload and fail fast on malformed rows, duplicate IDs, or obvious matching misses before any live load."
+        title: "Run the one-pass verification cycle"
+        objective: "Run the focused test suite, then rerun the live read-only audit and graph-baseline check to confirm the entire `recognized_provider_not_loaded` bucket is closed without graph mutation."
         owned_scope:
           - "docs/foundation/data-gap-closure/status.yaml"
+          - "docs/foundation/data-gap-closure/implementation-report.yaml"
+          - "docs/foundation/full-span-load-notes.md"
         forbidden_scope:
-          - "live DB writes"
+          - "destructive DB operations"
+          - "source-data curation unless a real blocker surfaces"
         dependencies:
           - "B1"
           - "B2"
         parallelizable: false
         expected_validation:
-          - "preview command"
-          - "dry-run command"
-          - "targeted diff of the 38 canonical draft events"
-  - id: "B4"
-    goal: "Execute and verify the closeout."
-    tasks:
-      - id: "T4"
-        title: "Run one live load, audit, and graph-baseline verification"
-        objective: "Write the draft corroboration payload once, verify graph invariance, and confirm the remaining `missing_required_evidence` residue is either zero or explicitly blocked."
-        owned_scope:
-          - "docs/foundation/data-gap-closure/implementation-report.yaml"
-          - "docs/foundation/data-gap-closure/status.yaml"
-          - "docs/foundation/full-span-load-notes.md"
-        forbidden_scope:
-          - "destructive DB operations"
-          - "canonical rebuild logic"
-          - "frontend rendering files"
-        dependencies:
-          - "B3"
-        parallelizable: false
-        expected_validation:
-          - "live draft-pick-detail execute command"
+          - ".venv/bin/pytest tests/foundation/test_audit.py"
+          - ".venv/bin/pytest"
           - ".venv/bin/python -m redesign_cli audit-foundation-data"
           - ".venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
-          - "post-load event-level diff for the 38 draft canonical IDs showing `missing_required_evidence=0` or an explicit blocked remainder"
 
 ordering_notes:
-  - "Do not broaden this into prior-ownership lineage or future-pick replay work inside the same pass."
-  - "Keep the closure surface draft-only and exact-match oriented."
-  - "If one or more draft rows still fail after the new load path, stop after the first verification loop and report the explicit blockers."
+  - "If the revised contract still leaves a residue bucket after the live audit, stop after the first verification loop and report the exact blockers rather than broadening silently."
+  - "Do not re-open official-source curation unless the live audit proves discovery was wrong and specific events still lack any loaded corroborating row."
 
 risks:
-  - "A generated `curated_fixture` payload could look self-referential if its source basis is not documented clearly enough."
-  - "Duplicate same-day draft canonical rows may require a narrow new reconciliation rule rather than the current unique-candidate rule."
-  - "The GG/Gregory Jackson alias mismatch can leave one selection unresolved if the matcher stays too literal."
-  - "If the finish line is silently reinterpreted from `missing_required_evidence` to `meets_minimum`, the scope expands materially."
+  - "A contract change that is too broad could accidentally promote future non-Memphis or insufficiently corroborated events."
+  - "If supplemental residue is only removed from the main status bucket and not surfaced elsewhere, the audit will become less useful."
+  - "Tests currently assert the stricter semantics in several places and will need deliberate, explicit updates."
+  - "Discovery could still be wrong for a small subset of the `69` team-official events if the matched official rows are too thin to count as truthful movement corroboration."
 
 open_questions:
-  - "Should the new load path be backed by a checked-in fixture file or by deterministic generation from the live draft-selection truth surface?"
+  - "Should the summary add a dedicated count for events that meet minimum but still lack supplemental corroboration?"
 
 review:
   status: approved
   loop_count: 1
   notes:
-    - "Planning basis is now narrower and cleaner than the earlier player-movement bulk pass: one fact type, one required role, one closure surface."
+    - "Discovery shows the live residue is mostly semantic, not raw-source scarcity."
+    - "Subagent consensus is split only on whether the team-official surface should be treated as a policy issue; the live audit evidence supports closing it through the revised minimum contract because matching official rows already load and reconcile cleanly."
 
 checkpoint:
   required_before_execution: true

@@ -121,13 +121,14 @@ CORROBORATION_REPORTING_UNIT = "canonical_event"
 CORROBORATION_DERIVATION_PATH = (
     "canonical_event -> canonical_event_member -> source_event -> source_record"
 )
-SOURCE_POLICY_VERSION = "source_policy_v1"
+SOURCE_POLICY_VERSION = "source_policy_v2"
 
 
 class FactTypePolicy(BaseModel):
     fact_type: FactType
     description: str
     minimum_required_roles: list[ProviderRole] = Field(default_factory=list)
+    minimum_one_of_roles: list[ProviderRole] = Field(default_factory=list)
     target_roles: list[ProviderRole] = Field(default_factory=list)
 
 
@@ -162,6 +163,7 @@ SOURCE_POLICY = SourcePolicy(
             fact_type="player_movement",
             description="Whether player movement details are corroborated by structured movement data or official text.",
             minimum_required_roles=["chronology_spine"],
+            minimum_one_of_roles=["structured_player_movement", "official_confirmation"],
             target_roles=["structured_player_movement", "official_confirmation"],
         ),
         FactTypePolicy(
@@ -237,7 +239,9 @@ CORROBORATION_REPORT_EVENT_FIELDS: tuple[str, ...] = (
     "loaded_source_types",
     "recognized_provider_roles",
     "required_source_roles",
+    "minimum_one_of_source_roles",
     "missing_roles",
+    "missing_supplemental_roles",
     "evidence_states",
     "corroboration_status",
     "conflict_status",

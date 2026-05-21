@@ -50,6 +50,7 @@ FOUNDATION_TABLES = (
     "roster_snapshot",
     "roster_snapshot_player",
     "roster_snapshot_pick",
+    "roster_snapshot_validation",
     "draft_selection",
     "draft_pick_resolution",
     "draft_lottery_result",
@@ -1086,6 +1087,12 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
             "contract_status": [],
             "date_aware_reconstruction": 0,
             "derived_from_roster_baseline": 0,
+            "validation_rows": 0,
+            "validation_by_status": [],
+            "season_reference_backed": 0,
+            "season_reference_incomplete": 0,
+            "source_missing": 0,
+            "validated_reference_sources": 0,
         }
 
     with connection.cursor() as cursor:
@@ -1147,6 +1154,38 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
             """
         )
         derived_count = int(cursor.fetchone()[0])
+        validation_rows = 0
+        validation_status_rows: list[tuple[object, ...]] = []
+        validated_reference_sources = 0
+        if table_exists(connection, "roster_snapshot_validation"):
+            cursor.execute("select count(*) from foundation.roster_snapshot_validation")
+            validation_rows = int(cursor.fetchone()[0])
+            cursor.execute(
+                """
+                select validation_status, count(*)
+                from foundation.roster_snapshot_validation
+                group by validation_status
+                order by validation_status
+                """
+            )
+            validation_status_rows = cursor.fetchall()
+            cursor.execute(
+                """
+                select count(distinct reference_source_record_id)
+                from foundation.roster_snapshot_validation
+                where reference_source_record_id is not null
+                """
+            )
+            validated_reference_sources = int(cursor.fetchone()[0])
+
+    validation_by_status = [
+        {"validation_status": str(row[0]), "count": int(row[1])}
+        for row in validation_status_rows
+    ]
+    validation_counts = {
+        str(row["validation_status"]): int(row["count"])
+        for row in validation_by_status
+    }
 
     return {
         "snapshots": snapshot_count,
@@ -1166,6 +1205,12 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
         ],
         "date_aware_reconstruction": date_aware_count,
         "derived_from_roster_baseline": derived_count,
+        "validation_rows": validation_rows,
+        "validation_by_status": validation_by_status,
+        "season_reference_backed": validation_counts.get("season_reference_backed", 0),
+        "season_reference_incomplete": validation_counts.get("season_reference_incomplete", 0),
+        "source_missing": validation_counts.get("source_missing", 0),
+        "validated_reference_sources": validated_reference_sources,
     }
 
 
@@ -1437,11 +1482,20 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         }
     )
     recognized_provider_roles = (
-        list(dict.fromkeys([*fact_policy.minimum_required_roles, *fact_policy.target_roles]))
+        list(
+            dict.fromkeys(
+                [
+                    *fact_policy.minimum_required_roles,
+                    *fact_policy.minimum_one_of_roles,
+                    *fact_policy.target_roles,
+                ]
+            )
+        )
         if fact_policy
         else []
     )
     required_source_roles = list(fact_policy.minimum_required_roles) if fact_policy else []
+    minimum_one_of_source_roles = list(fact_policy.minimum_one_of_roles) if fact_policy else []
     target_roles = list(fact_policy.target_roles) if fact_policy else []
     loaded_roles = roles_supported_by_source_systems(loaded_source_systems)
     missing_roles = [
@@ -1449,6 +1503,16 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         for role in required_source_roles
         if role not in loaded_roles
     ]
+    missing_minimum_one_of_roles = build_missing_minimum_one_of_roles(
+        minimum_one_of_roles=minimum_one_of_source_roles,
+        loaded_roles=loaded_roles,
+    )
+    missing_supplemental_roles = build_missing_supplemental_roles(
+        recognized_provider_roles=recognized_provider_roles,
+        loaded_roles=loaded_roles,
+        missing_roles=missing_roles,
+        missing_minimum_one_of_roles=missing_minimum_one_of_roles,
+    )
     evidence_states = build_evidence_states(
         recognized_provider_roles=recognized_provider_roles,
         required_source_roles=required_source_roles,
@@ -1458,19 +1522,19 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
     corroboration_status = classify_corroboration_status(
         fact_type=fact_type,
         missing_roles=missing_roles,
+        missing_minimum_one_of_roles=missing_minimum_one_of_roles,
         loaded_source_systems=loaded_source_systems,
         target_roles=target_roles,
-        loaded_roles=loaded_roles,
-        recognized_provider_roles=recognized_provider_roles,
     )
     conflict_status = str(row.get("_reconciled_conflict_status") or "not_evaluated")
     notes = build_source_corroboration_notes(
         corroboration_status=corroboration_status,
         conflict_status=conflict_status,
         missing_roles=missing_roles,
+        missing_minimum_one_of_roles=missing_minimum_one_of_roles,
+        missing_supplemental_roles=missing_supplemental_roles,
         loaded_source_systems=loaded_source_systems,
         target_roles=target_roles,
-        loaded_roles=loaded_roles,
         reconciliation_notes=[
             str(note)
             for note in row.get("_reconciliation_notes", [])
@@ -1487,7 +1551,9 @@ def build_source_corroboration_event(row: dict[str, object]) -> dict[str, object
         "loaded_source_types": loaded_source_types,
         "recognized_provider_roles": recognized_provider_roles,
         "required_source_roles": required_source_roles,
+        "minimum_one_of_source_roles": minimum_one_of_source_roles,
         "missing_roles": missing_roles,
+        "missing_supplemental_roles": missing_supplemental_roles,
         "evidence_states": evidence_states,
         "corroboration_status": corroboration_status,
         "conflict_status": conflict_status,
@@ -1577,6 +1643,31 @@ def source_systems_for_roles(roles: list[str]) -> set[str]:
     return systems
 
 
+def build_missing_minimum_one_of_roles(
+    *,
+    minimum_one_of_roles: list[str],
+    loaded_roles: set[str],
+) -> list[str]:
+    if minimum_one_of_roles and not any(role in loaded_roles for role in minimum_one_of_roles):
+        return list(minimum_one_of_roles)
+    return []
+
+
+def build_missing_supplemental_roles(
+    *,
+    recognized_provider_roles: list[str],
+    loaded_roles: set[str],
+    missing_roles: list[str],
+    missing_minimum_one_of_roles: list[str],
+) -> list[str]:
+    blocked_roles = set(missing_roles).union(missing_minimum_one_of_roles)
+    return [
+        role
+        for role in recognized_provider_roles
+        if role not in loaded_roles and role not in blocked_roles
+    ]
+
+
 def build_evidence_states(
     *,
     recognized_provider_roles: list[str],
@@ -1608,26 +1699,25 @@ def classify_corroboration_status(
     *,
     fact_type: str,
     missing_roles: list[str],
+    missing_minimum_one_of_roles: list[str],
     loaded_source_systems: list[str],
     target_roles: list[str],
-    loaded_roles: set[str],
-    recognized_provider_roles: list[str],
 ) -> str:
     if fact_type not in {policy.fact_type for policy in SOURCE_POLICY.first_pass_fact_types}:
         return "out_of_scope"
-    if missing_roles:
-        return "missing_required_evidence"
     non_bref_target_systems = {
         system
         for system in source_systems_for_roles(target_roles)
         if system != "basketball_reference"
     }
-    if set(loaded_source_systems) == {"basketball_reference"} and not set(loaded_source_systems).intersection(
-        non_bref_target_systems
+    if (
+        fact_type == "player_movement"
+        and set(loaded_source_systems) == {"basketball_reference"}
+        and not set(loaded_source_systems).intersection(non_bref_target_systems)
     ):
         return "bref_only"
-    if any(role not in loaded_roles for role in recognized_provider_roles):
-        return "recognized_provider_not_loaded"
+    if missing_roles or missing_minimum_one_of_roles:
+        return "missing_required_evidence"
     return "meets_minimum"
 
 
@@ -1636,24 +1726,29 @@ def build_source_corroboration_notes(
     corroboration_status: str,
     conflict_status: str,
     missing_roles: list[str],
+    missing_minimum_one_of_roles: list[str],
+    missing_supplemental_roles: list[str],
     loaded_source_systems: list[str],
     target_roles: list[str],
-    loaded_roles: set[str],
     reconciliation_notes: list[str],
 ) -> list[str]:
     notes: list[str] = list(reconciliation_notes)
     if missing_roles:
         notes.append(f"Missing required source roles: {', '.join(missing_roles)}.")
+    if missing_minimum_one_of_roles:
+        notes.append(
+            "Missing at least one minimum corroborating provider role from: "
+            f"{', '.join(missing_minimum_one_of_roles)}."
+        )
     if corroboration_status == "bref_only":
         notes.append(
             "Loaded evidence for this canonical event is Basketball-Reference only; target non-BRef providers are recognized but not loaded for the event."
         )
-    elif corroboration_status == "recognized_provider_not_loaded":
-        unloaded_targets = [role for role in target_roles if role not in loaded_roles]
-        if unloaded_targets:
-            notes.append(
-                f"Recognized target provider roles are not loaded for this event: {', '.join(unloaded_targets)}."
-            )
+    if missing_supplemental_roles:
+        notes.append(
+            "Supplemental corroborating provider roles are not loaded for this event: "
+            f"{', '.join(missing_supplemental_roles)}."
+        )
     if conflict_status == "not_evaluated" and "structured_player_movement" in target_roles:
         notes.append(
             "No confident audit-time reconciliation to corroboration-only corroborating source rows was found for this canonical event."
@@ -1667,11 +1762,22 @@ def build_source_corroboration_notes(
 def build_source_corroboration_summary(events: list[dict[str, object]]) -> dict[str, object]:
     by_corroboration_status: dict[str, int] = {}
     by_conflict_status: dict[str, int] = {}
+    by_missing_supplemental_role: dict[str, int] = {}
+    events_with_missing_supplemental_roles = 0
     for event in events:
         corroboration_status = str(event.get("corroboration_status"))
         by_corroboration_status[corroboration_status] = by_corroboration_status.get(corroboration_status, 0) + 1
         conflict_status = str(event.get("conflict_status"))
         by_conflict_status[conflict_status] = by_conflict_status.get(conflict_status, 0) + 1
+        missing_supplemental_roles = [
+            str(role)
+            for role in event.get("missing_supplemental_roles", [])
+            if role
+        ]
+        if missing_supplemental_roles:
+            events_with_missing_supplemental_roles += 1
+        for role in missing_supplemental_roles:
+            by_missing_supplemental_role[role] = by_missing_supplemental_role.get(role, 0) + 1
 
     return {
         "reporting_unit": CORROBORATION_REPORTING_UNIT,
@@ -1683,6 +1789,8 @@ def build_source_corroboration_summary(events: list[dict[str, object]]) -> dict[
         "total_events": len(events),
         "by_corroboration_status": dict(sorted(by_corroboration_status.items())),
         "by_conflict_status": dict(sorted(by_conflict_status.items())),
+        "events_with_missing_supplemental_roles": events_with_missing_supplemental_roles,
+        "by_missing_supplemental_role": dict(sorted(by_missing_supplemental_role.items())),
         "bref_only_events": by_corroboration_status.get("bref_only", 0),
         "missing_required_events": by_corroboration_status.get("missing_required_evidence", 0),
         "planned_vs_loaded_rule": SOURCE_POLICY.planned_vs_loaded_rule,
@@ -1812,6 +1920,24 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Roster checkpoint snapshots are approximate.",
                 "Some checkpoint rows still use baseline-only roster references instead of date-aware transaction reconstruction.",
                 "Rebuild roster checkpoints with the date-aware transaction projection.",
+            )
+        )
+    if int(snapshots.get("snapshots", 0)) > 0 and int(snapshots.get("validation_rows", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Roster checkpoint snapshots are not yet validated against official season roster references.",
+                "The snapshot layer is still reconstruction-only because foundation.roster_snapshot_validation has no rows.",
+                "Load nba_stats CommonTeamRoster source records for the active Memphis span and run load-roster-snapshot-validation.",
+            )
+        )
+    elif int(snapshots.get("source_missing", 0)) > 0:
+        gaps.append(
+            build_gap(
+                "medium",
+                "Some roster checkpoint snapshots still lack a loaded official season roster reference.",
+                f"{snapshots.get('source_missing', 0)} snapshot validation rows are in source_missing state.",
+                "Load the missing nba_stats CommonTeamRoster seasons and rerun load-roster-snapshot-validation.",
             )
         )
     if int(snapshots.get("pick_rows", 0)) == 0:

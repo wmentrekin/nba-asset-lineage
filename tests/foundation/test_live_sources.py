@@ -4,7 +4,13 @@ from pathlib import Path
 import pytest
 
 from foundation import live_sources
-from foundation.ingest import SourceEventRow, filter_canonical_source_events
+from foundation.ingest import (
+    PlayerAliasRow,
+    PlayerRow,
+    RosterBaselinePlayerRow,
+    SourceEventRow,
+    filter_canonical_source_events,
+)
 from foundation.live_sources import (
     BREF_SIGN_AND_TRADE_CANONICAL_EXCLUSION_REASON,
     CURATED_DRAFT_PICK_DETAIL_CANONICAL_EXCLUSION_REASON,
@@ -12,6 +18,7 @@ from foundation.live_sources import (
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     build_curated_draft_pick_detail_source_rows,
+    build_nba_roster_reference_rows,
     build_official_release_fixture_bundle,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
@@ -1004,6 +1011,138 @@ def test_build_bref_roster_rows_builds_players_and_baseline_rows() -> None:
     assert players[0].display_name == "Desmond Bane"
     assert baseline_rows[0].display_name == "Desmond Bane"
     assert baseline_rows[0].season == "2023-24"
+
+
+def test_build_nba_roster_reference_rows_resolves_repo_local_ids_without_writing_nba_ids() -> None:
+    payload = {
+        "resultSets": [
+            {
+                "headers": ["TeamID", "SEASON", "PLAYER", "POSITION", "BIRTH_DATE", "PLAYER_ID", "EXP"],
+                "rowSet": [
+                    [1610612763, "2023-24", "Ja Morant", "G", "AUG 10, 1999", 1629630, "5"],
+                    [1610612763, "2023-24", "GG Jackson II", "F", "DEC 17, 2004", 1641713, "R"],
+                    [1610612763, "2023-24", "New Exhibit 10", "G", None, 1999999, "0"],
+                ],
+            }
+        ]
+    }
+    identity_lookup = live_sources.build_roster_reference_identity_lookup_from_rows(
+        players=[
+            PlayerRow(
+                player_id="player:ja-morant",
+                display_name="Ja Morant",
+                nba_player_ref="moranja01",
+            )
+        ],
+        baseline_players=[
+            RosterBaselinePlayerRow(
+                season="2023-24",
+                team_code="MEM",
+                player_id="player:gregory-jackson-ii",
+                display_name="Gregory Jackson II",
+                source_record_id="bref:mem:2024:roster",
+                roster_order=12,
+                nba_player_ref="jacksgg01",
+            )
+        ],
+        aliases=[
+            PlayerAliasRow(
+                alias_id="alias:gg-jackson-ii",
+                player_id="player:gregory-jackson-ii",
+                source_system="manual",
+                alias_name="GG Jackson II",
+                normalized_alias_name="gg jackson ii",
+                is_manual=True,
+            )
+        ],
+    )
+
+    source_records, baseline_rows, identity_resolution = build_nba_roster_reference_rows(
+        roster_payload=payload,
+        season="2023-24",
+        team_id=1610612763,
+        team_code="MEM",
+        identity_lookup=identity_lookup,
+        fetched_at="2026-05-21T00:00:00+00:00",
+    )
+
+    assert len(source_records) == 1
+    assert [row.player_id for row in baseline_rows] == [
+        "player:ja-morant",
+        "player:gregory-jackson-ii",
+        "player:new-exhibit-10",
+    ]
+    assert [row.nba_player_ref for row in baseline_rows] == ["moranja01", "jacksgg01", None]
+    assert [row.years_experience for row in baseline_rows] == [5, 0, 0]
+    assert identity_resolution == {
+        "matched_player": 1,
+        "matched_alias": 1,
+        "generated_slug": 1,
+    }
+    assert source_records[0].raw_payload["identity_resolution_summary"] == identity_resolution
+    assert source_records[0].raw_payload["roster_rows"][0]["PLAYER_ID"] == 1629630
+    assert source_records[0].raw_payload["roster_rows"][0]["resolved_player_id"] == "player:ja-morant"
+
+
+def test_load_nba_roster_reference_writes_source_records_and_roster_baselines_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "resultSets": [
+            {
+                "headers": ["TeamID", "SEASON", "PLAYER", "POSITION", "BIRTH_DATE", "PLAYER_ID", "EXP"],
+                "rowSet": [
+                    [1610612763, "2023-24", "Ja Morant", "G", "AUG 10, 1999", 1629630, "5"],
+                    [1610612763, "2023-24", "Marcus Smart", "G", "MAR 06, 1994", 203935, "10"],
+                ],
+            }
+        ]
+    }
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "fetch_nba_stats_json", lambda *args, **kwargs: payload)
+    monkeypatch.setattr(
+        live_sources,
+        "load_players_from_database",
+        lambda database_url: [
+            PlayerRow(player_id="player:ja-morant", display_name="Ja Morant", nba_player_ref="moranja01"),
+            PlayerRow(player_id="player:marcus-smart", display_name="Marcus Smart", nba_player_ref="smartma01"),
+        ],
+    )
+    monkeypatch.setattr(live_sources, "load_roster_baseline_players_from_database", lambda database_url: [])
+    monkeypatch.setattr(live_sources, "load_player_aliases_from_database", lambda database_url: [])
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+    monkeypatch.setattr(
+        live_sources,
+        "upsert_roster_baseline_players",
+        lambda connection, rows: calls.append(f"baseline:{len(rows)}"),
+    )
+
+    def fail_upsert_players(*args: object, **kwargs: object) -> None:
+        raise AssertionError("upsert_players should not be called by load_nba_roster_reference")
+
+    monkeypatch.setattr(live_sources, "upsert_players", fail_upsert_players)
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = live_sources.load_nba_roster_reference(
+        "postgresql://example",
+        season="2023-24",
+        team_id=1610612763,
+        team_code="MEM",
+    )
+
+    assert calls == ["records:1", "baseline:2", "commit"]
+    assert result["source_records"] == 1
+    assert result["baseline_rows"] == 2
+    assert result["identity_resolution"] == {"matched_player": 2}
 
 
 def test_extract_bref_draft_rows_from_minimal_html() -> None:
