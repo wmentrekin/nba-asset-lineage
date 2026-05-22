@@ -17,8 +17,10 @@ from foundation.live_sources import (
     NBA_PLAYER_MOVEMENT_CANONICAL_EXCLUSION_REASON,
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
+    DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
     build_curated_draft_pick_detail_source_rows,
     build_nba_roster_reference_rows,
+    build_official_roster_reference_source_rows,
     build_official_release_fixture_bundle,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
@@ -33,6 +35,7 @@ from foundation.live_sources import (
     extract_nba_dataset_rows,
     extract_nba_player_movement_rows,
     load_curated_draft_pick_detail_sources,
+    preview_official_roster_reference_fixture,
     preview_official_release_sources,
     preview_nba_player_movement,
 )
@@ -1082,6 +1085,198 @@ def test_build_nba_roster_reference_rows_resolves_repo_local_ids_without_writing
     assert source_records[0].raw_payload["identity_resolution_summary"] == identity_resolution
     assert source_records[0].raw_payload["roster_rows"][0]["PLAYER_ID"] == 1629630
     assert source_records[0].raw_payload["roster_rows"][0]["resolved_player_id"] == "player:ja-morant"
+
+
+def test_build_official_roster_reference_source_rows_emits_validator_contract() -> None:
+    fixture_payload = {
+        "team_code": "MEM",
+        "team_id": 1610612763,
+        "records": [
+            {
+                "season": "2023-24",
+                "source_locator": "fixture://official-roster-reference/memphis/2023-24",
+                "roster_rows": [
+                    {
+                        "TeamID": 1610612763,
+                        "SEASON": "2023-24",
+                        "PLAYER": "Ja Morant",
+                        "POSITION": "G",
+                        "BIRTH_DATE": "AUG 10, 1999",
+                        "PLAYER_ID": 1629630,
+                        "EXP": "5",
+                    },
+                    {
+                        "TeamID": 1610612763,
+                        "SEASON": "2023-24",
+                        "PLAYER": "GG Jackson II",
+                        "POSITION": "F",
+                        "BIRTH_DATE": "DEC 17, 2004",
+                        "PLAYER_ID": 1641713,
+                        "EXP": "R",
+                    },
+                ],
+            }
+        ],
+    }
+    identity_lookup = live_sources.build_roster_reference_identity_lookup_from_rows(
+        players=[
+            PlayerRow(
+                player_id="player:ja-morant",
+                display_name="Ja Morant",
+                nba_player_ref="moranja01",
+            )
+        ],
+        baseline_players=[
+            RosterBaselinePlayerRow(
+                season="2023-24",
+                team_code="MEM",
+                player_id="player:gregory-jackson-ii",
+                display_name="Gregory Jackson II",
+                source_record_id="bref:mem:2024:roster",
+                roster_order=12,
+                nba_player_ref="jacksgg01",
+            )
+        ],
+        aliases=[
+            PlayerAliasRow(
+                alias_id="alias:gg-jackson-ii",
+                player_id="player:gregory-jackson-ii",
+                source_system="manual",
+                alias_name="GG Jackson II",
+                normalized_alias_name="gg jackson ii",
+                is_manual=True,
+            )
+        ],
+    )
+
+    source_records, baseline_rows, identity_resolution = build_official_roster_reference_source_rows(
+        fixture_payload,
+        fixture_path=Path("tests/foundation/fixtures/official_roster_reference_memphis_sample.json"),
+        identity_lookup=identity_lookup,
+        fetched_at="2026-05-21T00:00:00+00:00",
+    )
+
+    assert len(source_records) == 1
+    assert len(baseline_rows) == 2
+    assert source_records[0].source_system == "curated_fixture"
+    assert source_records[0].source_type == "official_roster_reference"
+    assert source_records[0].source_record_id == "curated_fixture:official_roster_reference:mem:2023-24"
+    assert source_records[0].source_locator == "fixture://official-roster-reference/memphis/2023-24"
+    assert source_records[0].raw_payload["team_code"] == "MEM"
+    assert source_records[0].raw_payload["season"] == "2023-24"
+    assert source_records[0].raw_payload["fixture_origin"] == "checked_in_official_roster_reference"
+    assert source_records[0].raw_payload["roster_rows"][0]["resolved_player_id"] == "player:ja-morant"
+    assert source_records[0].raw_payload["roster_rows"][1]["resolved_player_id"] == "player:gregory-jackson-ii"
+    assert identity_resolution == {"matched_alias": 1, "matched_player": 1}
+
+
+def test_preview_official_roster_reference_fixture_is_checked_in_and_schema_free() -> None:
+    preview = preview_official_roster_reference_fixture(
+        fixture_path=Path("tests/foundation/fixtures/official_roster_reference_memphis_sample.json"),
+    )
+
+    assert preview["status"] == "ok"
+    assert preview["fixture_only"] is True
+    assert preview["writes_to_database"] is False
+    assert preview["source_system"] == "curated_fixture"
+    assert preview["source_type"] == "official_roster_reference"
+    assert preview["fixture_path"] == "tests/foundation/fixtures/official_roster_reference_memphis_sample.json"
+    assert preview["source_records"] == 2
+    assert preview["baseline_rows"] == 4
+    assert preview["source_record_ids"] == [
+        "curated_fixture:official_roster_reference:mem:2023-24",
+        "curated_fixture:official_roster_reference:mem:2024-25",
+    ]
+
+
+def test_load_official_roster_reference_fixture_execute_writes_source_records_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_payload = {
+        "team_code": "MEM",
+        "team_id": 1610612763,
+        "records": [
+            {
+                "season": "2023-24",
+                "roster_rows": [
+                    {
+                        "TeamID": 1610612763,
+                        "SEASON": "2023-24",
+                        "PLAYER": "Ja Morant",
+                        "POSITION": "G",
+                        "BIRTH_DATE": "AUG 10, 1999",
+                        "PLAYER_ID": 1629630,
+                        "EXP": "5",
+                    }
+                ],
+            }
+        ],
+    }
+    source_records = [
+        live_sources.SourceRecordRow(
+            source_record_id="curated_fixture:official_roster_reference:mem:2023-24",
+            source_system="curated_fixture",
+            source_type="official_roster_reference",
+            source_locator="fixture://official-roster-reference/memphis/2023-24",
+            fetched_at="2026-05-21T00:00:00+00:00",
+            raw_payload={
+                "team_code": "MEM",
+                "season": "2023-24",
+                "roster_rows": [{"PLAYER": "Ja Morant", "resolved_player_id": "player:ja-morant"}],
+            },
+        )
+    ]
+    baseline_rows = [
+        RosterBaselinePlayerRow(
+            season="2023-24",
+            team_code="MEM",
+            player_id="player:ja-morant",
+            display_name="Ja Morant",
+            source_record_id="curated_fixture:official_roster_reference:mem:2023-24",
+            roster_order=1,
+            nba_player_ref="moranja01",
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "read_official_roster_reference_fixture", lambda path: fixture_payload)
+    monkeypatch.setattr(live_sources, "build_roster_reference_identity_lookup", lambda database_url: {})
+    monkeypatch.setattr(
+        live_sources,
+        "build_official_roster_reference_source_rows",
+        lambda *args, **kwargs: (source_records, baseline_rows, {"matched_player": 1}),
+    )
+    monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
+
+    def fail_upsert_roster_baseline_players(*args: object, **kwargs: object) -> None:
+        raise AssertionError("upsert_roster_baseline_players should not be called by load_official_roster_reference_fixture")
+
+    monkeypatch.setattr(live_sources, "upsert_roster_baseline_players", fail_upsert_roster_baseline_players)
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = live_sources.load_official_roster_reference_fixture(
+        "postgresql://example",
+        fixture_path=Path("fixture.json"),
+        execute=True,
+        dry_run=False,
+    )
+
+    assert calls == ["records:1", "commit"]
+    assert result["dry_run"] is False
+    assert result["writes_to_database"] is True
+    assert result["source_records"] == 1
+    assert result["baseline_rows"] == 1
+    assert result["identity_resolution"] == {"matched_player": 1}
 
 
 def test_load_nba_roster_reference_writes_source_records_and_roster_baselines_only(monkeypatch: pytest.MonkeyPatch) -> None:

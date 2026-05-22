@@ -89,6 +89,21 @@ RECOGNIZED_SOURCE_SYSTEMS: tuple[SourceSystem, ...] = (
     "curated_fixture",
 )
 
+OFFICIAL_ROSTER_REFERENCE_SOURCE_SYSTEMS: tuple[SourceSystem, ...] = (
+    "nba_stats",
+    "nba_official",
+    "team_official",
+    "curated_fixture",
+)
+
+OFFICIAL_ROSTER_REFERENCE_SOURCE_TYPES: tuple[str, ...] = (
+    "common_team_roster",
+    "official_roster_reference",
+    "roster_reference",
+    "team_roster",
+    "team_roster_page",
+)
+
 ALLOWED_EVIDENCE_STATES: tuple[EvidenceState, ...] = (
     "recognized_provider",
     "loaded_evidence",
@@ -247,6 +262,30 @@ CORROBORATION_REPORT_EVENT_FIELDS: tuple[str, ...] = (
     "conflict_status",
     "notes",
 )
+
+
+def payload_matches_roster_reference_contract(raw_payload: object) -> bool:
+    if not isinstance(raw_payload, dict):
+        return False
+    team_code = str(raw_payload.get("team_code") or "").strip()
+    season = str(raw_payload.get("season") or "").strip()
+    roster_rows = raw_payload.get("roster_rows")
+    return bool(team_code and season and isinstance(roster_rows, list))
+
+
+def is_official_roster_reference_source(
+    *,
+    source_system: object,
+    source_type: object,
+    raw_payload: object | None = None,
+) -> bool:
+    normalized_system = str(source_system or "").strip()
+    if normalized_system not in OFFICIAL_ROSTER_REFERENCE_SOURCE_SYSTEMS:
+        return False
+    normalized_type = str(source_type or "").strip()
+    if normalized_type in OFFICIAL_ROSTER_REFERENCE_SOURCE_TYPES:
+        return True
+    return payload_matches_roster_reference_contract(raw_payload)
 
 
 class SourceDefinition(BaseModel):

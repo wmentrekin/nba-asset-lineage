@@ -131,19 +131,27 @@ official occupancy.
 Current live roster-checkpoint validation state after the new pass:
 
 - `roster_snapshot_validation`: `40`
-- validation status counts: `source_missing=40`
-- `validated_reference_sources=0`
+- validation status counts: `season_reference_backed=1`,
+  `season_reference_incomplete=39`, `source_missing=0`
+- `validated_reference_sources=10`
 - live graph checksum still
   `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
 
-The blocker is upstream source availability from this environment:
+The missing-source blocker is now closed through a checked-in official fixture:
 
-- `preview-nba-roster-reference --season 2023-24 --team-code MEM` timed out
-  while calling `stats.nba.com`
-- no `nba_stats` `common_team_roster` source records were loaded
-- the live audit now surfaces the checkpoint gap explicitly as
-  `source_missing=40` instead of leaving the checkpoint layer implicitly
-  reconstruction-only
+- fixture path:
+  [`configs/data/memphis_official_roster_reference_sources_v1.json`](../../configs/data/memphis_official_roster_reference_sources_v1.json)
+- loaded `10` `curated_fixture` `official_roster_reference` source records
+- reran `load-roster-snapshot-validation --team-code MEM`
+- the live audit now surfaces checkpoint residue as `season_reference_incomplete`
+  rather than `source_missing`
+
+Residual limitation:
+
+- most loaded references are official opening-night or opening-week sources, so
+  they do not capture every later-season roster addition
+- the current closeout proves season-reference backing only; it does not create
+  a full-season official membership history
 
 Official-release preview and guarded load:
 

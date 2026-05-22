@@ -282,6 +282,62 @@ def test_build_known_gaps_flags_missing_official_roster_checkpoint_validation() 
     assert "Roster checkpoint snapshots are not yet validated against official season roster references" in gap_text
 
 
+def test_build_known_gaps_accepts_official_fixture_roster_reference_coverage() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "event_span_currentness": {
+                "status": "verified_quiet_interval",
+                "evidence": "quiet",
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-04-10",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "curated_fixture",
+                    "source_type": "official_roster_reference",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+                "unknown_owner_rows": 0,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "lottery_results": 4,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Official roster reference data is not present in the loaded source records" not in gap_text
+
+
 def test_build_source_coverage_report_flags_missing_corrob_source() -> None:
     report = build_source_coverage_report(
         [

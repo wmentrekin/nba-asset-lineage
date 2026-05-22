@@ -12,6 +12,7 @@ from foundation.ingest import (
     normalize_player_alias_name,
     upsert_roster_snapshot_validations,
 )
+from foundation.sources import is_official_roster_reference_source
 
 
 def preview_roster_snapshot_validation(
@@ -91,7 +92,7 @@ def build_roster_snapshot_validation_rows_from_inputs(
                     reference_player_count=None,
                     matched_player_count=0,
                     notes=(
-                        "No loaded NBA Stats CommonTeamRoster source record exists for "
+                        "No loaded official roster reference source record exists for "
                         f"{team_code} {season}."
                     ),
                 )
@@ -241,18 +242,22 @@ def load_roster_reference_by_season(
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            select source_record_id, raw_payload
+            select source_record_id, source_system, source_type, raw_payload
             from foundation.source_record
-            where source_system = 'nba_stats'
-              and source_type = 'common_team_roster'
             order by source_record_id
             """
         )
         rows = cursor.fetchall()
 
     references: dict[tuple[str, str], dict[str, object]] = {}
-    for source_record_id, raw_payload in rows:
+    for source_record_id, source_system, source_type, raw_payload in rows:
         payload = coerce_payload(raw_payload)
+        if not is_official_roster_reference_source(
+            source_system=source_system,
+            source_type=source_type,
+            raw_payload=payload,
+        ):
+            continue
         payload_team_code = str(payload.get("team_code") or "").upper()
         season = str(payload.get("season") or "")
         if payload_team_code != team_code.upper() or not season:
@@ -296,7 +301,7 @@ def build_roster_snapshot_validation_note(
     unmatched_names: list[str],
 ) -> str:
     base_note = (
-        "Season-scoped NBA Stats CommonTeamRoster reference matched "
+        "Season-scoped official roster reference matched "
         f"{matched_player_count} of {snapshot_player_count} snapshot players "
         f"against {reference_player_count} official roster rows."
     )

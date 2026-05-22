@@ -1,45 +1,35 @@
 artifact: implementation_report
 feature: "foundation/official-roster-checkpoints"
 mode: "bounded-feature"
-status: completed_with_blocker
+status: completed
 owner_skill: work
 based_on: "docs/foundation/official-roster-checkpoints/plan.yaml"
 
 summary:
-  scope_executed: "Added the durable roster checkpoint validation surface, the identity-safe NBA Stats roster-reference loader, the checkpoint validation command, and audit visibility for official season-reference backing."
-  outcome: "The validation architecture is live and the sidecar rows are now persisted in Supabase, but the official-source closeout is blocked because live `stats.nba.com` `CommonTeamRoster` requests timed out from this environment. The live DB now has 40 `foundation.roster_snapshot_validation` rows, all currently `source_missing`."
-
-task_batches_attempted:
-  - id: "B1"
-    result: "completed"
-    notes:
-      - "Added `foundation.roster_snapshot_validation` sidecar contract in `sql/0004_foundation_context_bootstrap.sql`."
-  - id: "B2"
-    result: "completed_with_live_source_blocker"
-    notes:
-      - "Added `preview-nba-roster-reference`, `load-nba-roster-reference`, and `load-nba-roster-reference-span`."
-      - "The loader writes `foundation.source_record` plus `foundation.roster_baseline_player` only, never `foundation.player`."
-      - "Live `CommonTeamRoster` preview timed out."
-  - id: "B3"
-    result: "completed"
-    notes:
-      - "Added `preview-roster-snapshot-validation` and `load-roster-snapshot-validation`."
-      - "Audit snapshot metrics now surface `validation_rows`, `validation_by_status`, and source-missing/backed/incomplete counts."
-  - id: "B4"
-    result: "completed_with_blocker"
-    notes:
-      - "Bootstrapped the context SQL live."
-      - "Wrote 40 live validation rows."
-      - "Official season reference remains unloaded because the NBA Stats source timed out."
+  scope_executed: "Generalized official roster-reference handling, added the checked-in fixture load path, populated Memphis season-reference sources for 2016-17 through 2025-26, and reran checkpoint validation plus the live audit."
+  outcome: "The checkpoint gap is materially closed at the agreed truthful finish line: the live DB now has 10 official roster-reference source records, 40 validation rows, and `source_missing=0`."
 
 task_batches_completed:
-  - "B1"
-  - "B3"
+  - id: "B1"
+    notes:
+      - "Broadened validator and audit handling from `nba_stats/common_team_roster` only to normalized official roster-reference records."
+  - id: "B2"
+    notes:
+      - "Added `preview-official-roster-reference-fixture` and `load-official-roster-reference-fixture`."
+  - id: "B3"
+    notes:
+      - "Added `configs/data/memphis_official_roster_reference_sources_v1.json` with 10 season records backed by official citations."
+      - "Used parallel source lookup to assemble exact player-name lists from official PDFs, team articles, and official game-book sources."
+  - id: "B4"
+    notes:
+      - "Loaded 10 official roster-reference source records into Supabase."
+      - "Reran `load-roster-snapshot-validation --team-code MEM`."
+      - "Verified live audit output and stable graph checksum."
 
 changes:
   files:
-    - "sql/0004_foundation_context_bootstrap.sql"
-    - "src/foundation/ingest.py"
+    - "configs/data/memphis_official_roster_reference_sources_v1.json"
+    - "src/foundation/sources.py"
     - "src/foundation/live_sources.py"
     - "src/foundation/roster_validation.py"
     - "src/foundation/audit.py"
@@ -47,53 +37,50 @@ changes:
     - "tests/foundation/test_live_sources.py"
     - "tests/foundation/test_roster_validation.py"
     - "tests/foundation/test_audit.py"
-    - "tests/foundation/test_sql_contracts.py"
-  modules:
-    - "foundation.roster_validation"
-    - "foundation.live_sources"
-    - "foundation.audit"
-    - "foundation.ingest"
-    - "redesign_cli"
-  docs_updated:
     - "docs/foundation/official-roster-checkpoints/status.yaml"
+    - "docs/foundation/official-roster-checkpoints/requirements.yaml"
+    - "docs/foundation/official-roster-checkpoints/plan.yaml"
     - "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
 
 local_validation:
   checks_run:
-    - "./.venv/bin/python -m py_compile src/foundation/ingest.py src/foundation/roster_validation.py src/foundation/audit.py src/redesign_cli.py tests/foundation/test_audit.py tests/foundation/test_roster_validation.py tests/foundation/test_live_sources.py tests/foundation/test_sql_contracts.py"
-    - "./.venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_audit.py tests/foundation/test_roster_validation.py tests/foundation/test_sql_contracts.py"
+    - "./.venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_roster_validation.py tests/foundation/test_audit.py"
     - "./.venv/bin/pytest"
-  failures: []
-  skipped: []
+  results:
+    focused_tests: "78 passed"
+    full_pytest: "194 passed"
+
+live_verification:
+  commands:
+    - "./.venv/bin/python -m redesign_cli preview-official-roster-reference-fixture"
+    - "./.venv/bin/python -m redesign_cli load-official-roster-reference-fixture --execute"
+    - "./.venv/bin/python -m redesign_cli load-roster-snapshot-validation --team-code MEM"
+    - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+    - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+  results:
+    source_records_loaded: 10
+    source_record_total: 677
+    roster_snapshot_validation_rows: 40
+    validation_status:
+      season_reference_backed: 1
+      season_reference_incomplete: 39
+      source_missing: 0
+    validated_reference_sources: 10
+    graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
 
 review_summary:
   status: completed
   key_findings:
-    - "The loader path stayed identity-safe by avoiding writes to `foundation.player`."
-    - "The validation sidecar keeps checkpoint provenance honest instead of rewriting `foundation.roster_snapshot.source_record_id`."
-    - "The remaining blocker is upstream source availability from this environment, not repo architecture."
-
-test_summary:
-  status: passed_with_live_source_blocker
-  checks_run:
-    - "Focused tests: 83 passed"
-    - "Full pytest: 189 passed"
-    - "Live `bootstrap-foundation-context`"
-    - "Live `load-roster-snapshot-validation --team-code MEM`"
-    - "Live read-only `audit-foundation-data`"
-    - "Live read-only `inspect-foundation-graph-baseline`"
-  failures:
-    - "Live `preview-nba-roster-reference --season 2023-24 --team-code MEM` timed out while calling `stats.nba.com`."
-  gaps:
-    - "No live official roster reference source records were loaded, so all 40 validation rows remain `source_missing`."
+    - "The fixture path stayed honest by using `curated_fixture` rather than pretending to be live NBA Stats."
+    - "Checkpoint provenance stayed honest because the pass updated the validation sidecar, not `foundation.roster_snapshot.source_record_id`."
+    - "The remaining checkpoint residue is no longer a missing-source problem; it is a season-membership-depth limitation."
 
 open_issues:
-  - "Live `stats.nba.com` `CommonTeamRoster` fetches timed out from this environment."
-  - "The live audit still reports `NBA stats reference data is not present in the loaded source records.`"
-  - "Roster checkpoint validation is now explicit, but not yet source-backed."
+  - "39 checkpoint validations remain `season_reference_incomplete` because opening-night or opening-week official sources do not include every later-season roster addition."
+  - "If future work wants higher match rates, it should load broader official season-membership references rather than widen the current fixture beyond the cited source."
 
 handoff:
-  current_state: blocked_on_source_load
+  current_state: "completed"
   next_owner: "orchestrator"
-  next_action: "Choose the next truthful official roster reference fallback: fix NBA Stats connectivity, or load a checked-in official roster-reference fixture from NBA/team official sources and rerun `load-roster-snapshot-validation`."
+  next_action: "Leave this closed unless a later pass explicitly targets reducing `season_reference_incomplete`."

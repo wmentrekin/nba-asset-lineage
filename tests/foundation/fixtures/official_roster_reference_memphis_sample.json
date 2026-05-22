@@ -1,0 +1,57 @@
+{
+  "fixture_version": 1,
+  "team_code": "MEM",
+  "team_id": 1610612763,
+  "records": [
+    {
+      "season": "2023-24",
+      "source_locator": "fixture://official-roster-reference/memphis/2023-24",
+      "source_note": "Checked-in Memphis official roster reference sample for validator-contract tests.",
+      "roster_rows": [
+        {
+          "TeamID": 1610612763,
+          "SEASON": "2023-24",
+          "PLAYER": "Ja Morant",
+          "POSITION": "G",
+          "BIRTH_DATE": "AUG 10, 1999",
+          "PLAYER_ID": 1629630,
+          "EXP": "5"
+        },
+        {
+          "TeamID": 1610612763,
+          "SEASON": "2023-24",
+          "PLAYER": "GG Jackson II",
+          "POSITION": "F",
+          "BIRTH_DATE": "DEC 17, 2004",
+          "PLAYER_ID": 1641713,
+          "EXP": "R"
+        }
+      ]
+    },
+    {
+      "season": "2024-25",
+      "source_locator": "fixture://official-roster-reference/memphis/2024-25",
+      "source_note": "Second checked-in season to exercise multi-record preview/load behavior.",
+      "roster_rows": [
+        {
+          "TeamID": 1610612763,
+          "SEASON": "2024-25",
+          "PLAYER": "Jaren Jackson Jr.",
+          "POSITION": "F-C",
+          "BIRTH_DATE": "SEP 15, 1999",
+          "PLAYER_ID": 1628991,
+          "EXP": "6"
+        },
+        {
+          "TeamID": 1610612763,
+          "SEASON": "2024-25",
+          "PLAYER": "Scotty Pippen Jr.",
+          "POSITION": "G",
+          "BIRTH_DATE": "NOV 10, 2000",
+          "PLAYER_ID": 1630590,
+          "EXP": "2"
+        }
+      ]
+    }
+  ]
+}

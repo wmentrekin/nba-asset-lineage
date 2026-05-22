@@ -17,6 +17,7 @@ from foundation.sources import (
     CORROBORATION_REPORT_EVENT_FIELDS,
     CORROBORATION_REPORT_OUTPUT_KEY,
     CORROBORATION_REPORTING_UNIT,
+    is_official_roster_reference_source,
     SOURCE_POLICY,
     SOURCE_POLICY_VERSION,
 )
@@ -1895,13 +1896,20 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                     str(gap.get("next_action")),
                 )
             )
-    if not any(row.get("source_system") == "nba_stats" for row in source_coverage if isinstance(row, dict)):
+    if not any(
+        is_official_roster_reference_source(
+            source_system=row.get("source_system"),
+            source_type=row.get("source_type"),
+        )
+        for row in source_coverage
+        if isinstance(row, dict)
+    ):
         gaps.append(
             build_gap(
                 "low",
-                "NBA stats reference data is not present in the loaded source records.",
-                "The current full-span load can run from Basketball-Reference alone.",
-                "Load NBA stats reference data when stronger player IDs or roster endpoint comparisons are needed.",
+                "Official roster reference data is not present in the loaded source records.",
+                "The current full-span load can run from Basketball-Reference alone, but roster validation remains dependent on normalized official season references.",
+                "Load normalized official roster reference rows when stronger player IDs or roster checkpoint validation are needed.",
             )
         )
     if int(snapshots.get("snapshots", 0)) == 0:
@@ -1928,7 +1936,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "medium",
                 "Roster checkpoint snapshots are not yet validated against official season roster references.",
                 "The snapshot layer is still reconstruction-only because foundation.roster_snapshot_validation has no rows.",
-                "Load nba_stats CommonTeamRoster source records for the active Memphis span and run load-roster-snapshot-validation.",
+                "Load normalized official roster reference source records for the active Memphis span and run load-roster-snapshot-validation.",
             )
         )
     elif int(snapshots.get("source_missing", 0)) > 0:
@@ -1937,7 +1945,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "medium",
                 "Some roster checkpoint snapshots still lack a loaded official season roster reference.",
                 f"{snapshots.get('source_missing', 0)} snapshot validation rows are in source_missing state.",
-                "Load the missing nba_stats CommonTeamRoster seasons and rerun load-roster-snapshot-validation.",
+                "Load the missing normalized official roster reference seasons and rerun load-roster-snapshot-validation.",
             )
         )
     if int(snapshots.get("pick_rows", 0)) == 0:

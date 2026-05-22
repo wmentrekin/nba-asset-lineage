@@ -83,6 +83,9 @@ NBA_PLAYER_MOVEMENT_TRANSACTION_TYPE_MAP = {
 DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH = Path("tests/foundation/fixtures/nba_player_movement_sample.json")
 DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH = Path("configs/data/memphis_official_release_sources_seed_v1.json")
 DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR = Path("configs/data/memphis_official_release_fragments")
+DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH = Path(
+    "configs/data/memphis_official_roster_reference_sources_v1.json"
+)
 DEFAULT_MEMPHIS_TEAM_ID = 1610612763
 
 
@@ -899,6 +902,15 @@ def load_curated_draft_pick_detail_sources(
 
 def read_nba_player_movement_fixture(path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH) -> object:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_official_roster_reference_fixture(
+    path: Path = DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Official roster reference fixture must be a JSON object.")
+    return payload
 
 
 def fetch_nba_player_movement_json(*, endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL) -> tuple[object, dict[str, str | None]]:
@@ -1953,6 +1965,43 @@ def load_nba_roster_reference_span(
     }
 
 
+def build_nba_roster_reference_fixture_payload(
+    *,
+    season: str,
+    team_id: int,
+    roster_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    required_headers = ("TeamID", "SEASON", "PLAYER", "POSITION", "BIRTH_DATE", "PLAYER_ID", "EXP")
+    headers = list(required_headers)
+    for row in roster_rows:
+        for key in row:
+            if key not in headers:
+                headers.append(key)
+
+    row_set: list[list[object]] = []
+    for row_index, row in enumerate(roster_rows, start=1):
+        if not isinstance(row, dict):
+            raise ValueError(f"Official roster fixture row {row_index} must be an object.")
+        if string_or_none(row.get("PLAYER")) is None:
+            raise ValueError(f"Official roster fixture row {row_index} must include PLAYER.")
+        if row.get("PLAYER_ID") is None:
+            raise ValueError(f"Official roster fixture row {row_index} must include PLAYER_ID.")
+        normalized_row = dict(row)
+        normalized_row.setdefault("TeamID", team_id)
+        normalized_row.setdefault("SEASON", season)
+        row_set.append([normalized_row.get(header) for header in headers])
+
+    return {
+        "resultSets": [
+            {
+                "name": "CommonTeamRoster",
+                "headers": headers,
+                "rowSet": row_set,
+            }
+        ]
+    }
+
+
 def build_nba_roster_reference_rows(
     *,
     roster_payload: dict[str, object],
@@ -2012,6 +2061,168 @@ def build_nba_roster_reference_rows(
         },
     )
     return [source_record], baseline_rows, identity_resolution
+
+
+def build_official_roster_reference_source_rows(
+    fixture_payload: dict[str, object],
+    *,
+    fixture_path: Path = DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+    identity_lookup: dict[str, list[tuple[str, str | None, str]]] | None = None,
+    fetched_at: str | None = None,
+) -> tuple[list[SourceRecordRow], list[RosterBaselinePlayerRow], dict[str, int]]:
+    records = fixture_payload.get("records")
+    if not isinstance(records, list):
+        raise ValueError("Official roster reference fixture must include a records list.")
+
+    default_team_code = string_or_none(fixture_payload.get("team_code")) or DEFAULT_TEAM_CODE
+    default_team_id = parse_int(fixture_payload.get("team_id")) or DEFAULT_MEMPHIS_TEAM_ID
+    identity_lookup = identity_lookup or {}
+    fetched_at = fetched_at or utc_now_iso()
+
+    source_records: list[SourceRecordRow] = []
+    baseline_rows: list[RosterBaselinePlayerRow] = []
+    identity_resolution: dict[str, int] = {}
+    seen_source_record_ids: set[str] = set()
+
+    for record_index, record in enumerate(records, start=1):
+        if not isinstance(record, dict):
+            raise ValueError(f"Official roster reference record {record_index} must be an object.")
+        season = string_or_none(record.get("season"))
+        if season is None:
+            raise ValueError(f"Official roster reference record {record_index} must include season.")
+        team_code = (string_or_none(record.get("team_code")) or default_team_code).upper()
+        team_id = parse_int(record.get("team_id")) or default_team_id
+        roster_rows = record.get("roster_rows")
+        if not isinstance(roster_rows, list):
+            raise ValueError(f"Official roster reference record {record_index} must include a roster_rows list.")
+        if any(not isinstance(row, dict) for row in roster_rows):
+            raise ValueError(f"Official roster reference record {record_index} roster_rows must contain only objects.")
+
+        roster_payload = build_nba_roster_reference_fixture_payload(
+            season=season,
+            team_id=team_id,
+            roster_rows=roster_rows,
+        )
+        record_source_records, record_baseline_rows, record_identity_resolution = build_nba_roster_reference_rows(
+            roster_payload=roster_payload,
+            season=season,
+            team_id=team_id,
+            team_code=team_code,
+            identity_lookup=identity_lookup,
+            fetched_at=fetched_at,
+        )
+        source_record = record_source_records[0]
+        explicit_source_record_id = string_or_none(record.get("source_record_id"))
+        if explicit_source_record_id and explicit_source_record_id != source_record.source_record_id:
+            raise ValueError(
+                "Official roster reference record "
+                f"{record_index} source_record_id {explicit_source_record_id!r} does not match "
+                f"the normalized id {source_record.source_record_id!r}."
+            )
+        if source_record.source_record_id in seen_source_record_ids:
+            raise ValueError(f"Duplicate official roster reference source_record_id: {source_record.source_record_id}")
+        seen_source_record_ids.add(source_record.source_record_id)
+
+        source_locator = string_or_none(record.get("source_locator")) or (
+            f"fixture:{fixture_path.as_posix()}#season={season}"
+        )
+        source_record = source_record.model_copy(
+            update={
+                "source_record_id": string_or_none(record.get("source_record_id"))
+                or f"curated_fixture:official_roster_reference:{team_code.lower()}:{season}",
+                "source_system": string_or_none(record.get("source_system")) or "curated_fixture",
+                "source_type": string_or_none(record.get("source_type")) or "official_roster_reference",
+                "source_locator": source_locator,
+                "raw_payload": {
+                    **source_record.raw_payload,
+                    "fixture_origin": "checked_in_official_roster_reference",
+                    "fixture_path": fixture_path.as_posix(),
+                    "fixture_record_index": record_index,
+                    "source_note": string_or_none(record.get("source_note")),
+                    "citations": record.get("citations", []),
+                    "fixture_source_payload": record,
+                },
+            }
+        )
+        source_records.append(source_record)
+        baseline_rows.extend(record_baseline_rows)
+        merge_counter_values(identity_resolution, record_identity_resolution)
+
+    return source_records, baseline_rows, identity_resolution
+
+
+def preview_official_roster_reference_fixture(
+    database_url: str | None = None,
+    *,
+    fixture_path: Path = DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+) -> dict[str, object]:
+    fixture_payload = read_official_roster_reference_fixture(fixture_path)
+    identity_lookup = build_roster_reference_identity_lookup(database_url) if database_url else {}
+    source_records, baseline_rows, identity_resolution = build_official_roster_reference_source_rows(
+        fixture_payload,
+        fixture_path=fixture_path,
+        identity_lookup=identity_lookup,
+    )
+    return {
+        "status": "ok",
+        "fixture_only": True,
+        "writes_to_database": False,
+        "fixture_path": fixture_path.as_posix(),
+        "source_system": "curated_fixture",
+        "source_type": "official_roster_reference",
+        "source_records": len(source_records),
+        "baseline_rows": len(baseline_rows),
+        "identity_resolution": identity_resolution,
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "first_source_record": source_records[0].model_dump(mode="json") if source_records else None,
+        "first_baseline_row": baseline_rows[0].model_dump(mode="json") if baseline_rows else None,
+    }
+
+
+def load_official_roster_reference_fixture(
+    database_url: str | None = None,
+    *,
+    fixture_path: Path = DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if not execute:
+        return {
+            **preview_official_roster_reference_fixture(
+                database_url,
+                fixture_path=fixture_path,
+            ),
+            "dry_run": True,
+            "writes_to_database": False,
+        }
+    if not database_url:
+        raise ValueError("database_url is required when execute=True")
+
+    fixture_payload = read_official_roster_reference_fixture(fixture_path)
+    identity_lookup = build_roster_reference_identity_lookup(database_url)
+    source_records, baseline_rows, identity_resolution = build_official_roster_reference_source_rows(
+        fixture_payload,
+        fixture_path=fixture_path,
+        identity_lookup=identity_lookup,
+    )
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        connection.commit()
+    return {
+        "status": "ok",
+        "fixture_only": True,
+        "dry_run": False,
+        "writes_to_database": True,
+        "fixture_path": fixture_path.as_posix(),
+        "source_system": "curated_fixture",
+        "source_type": "official_roster_reference",
+        "source_records": len(source_records),
+        "baseline_rows": len(baseline_rows),
+        "identity_resolution": identity_resolution,
+        "source_record_ids": [row.source_record_id for row in source_records],
+    }
 
 
 def build_roster_reference_identity_lookup(
