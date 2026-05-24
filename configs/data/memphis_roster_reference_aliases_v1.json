@@ -1,0 +1,60 @@
+{
+  "fixture_version": 1,
+  "aliases": [
+    {
+      "alias_name": "Wade Baldwin IV",
+      "player_id": "player:wade-baldwin",
+      "notes": "Official roster-reference alias for Memphis checkpoint reconciliation."
+    },
+    {
+      "alias_name": "James Ennis",
+      "player_id": "player:james-ennis-iii",
+      "notes": "Maps official short-form roster references to the checkpoint-side James Ennis III identity."
+    },
+    {
+      "alias_name": "Vincent Hunter",
+      "player_id": "player:vince-hunter",
+      "notes": "Maps official full first-name roster references to the checkpoint-side Vince Hunter identity."
+    },
+    {
+      "alias_name": "Marko Guduric",
+      "player_id": "player:marko-guduri",
+      "notes": "Maps accentless official roster references to the checkpoint-side accented Marko Guduric identity."
+    },
+    {
+      "alias_name": "Xavier Tillman",
+      "player_id": "player:xavier-tillman-sr",
+      "notes": "Maps official no-suffix roster references to the checkpoint-side Xavier Tillman Sr. identity."
+    },
+    {
+      "alias_name": "GG Jackson",
+      "player_id": "player:gg-jackson-ii",
+      "notes": "Maps official short-form roster references to the checkpoint-side GG Jackson II identity."
+    },
+    {
+      "alias_name": "GG Jackson",
+      "player_id": "player:gregory-jackson-ii",
+      "notes": "Maps official short-form roster references to the alternate checkpoint-side Gregory Jackson II identity."
+    },
+    {
+      "alias_name": "Maozinha Pereira",
+      "player_id": "player:m-ozinha-pereira",
+      "notes": "Maps accentless official roster references to the checkpoint-side accented Maozinha Pereira identity."
+    },
+    {
+      "alias_name": "Jahmai Mashack",
+      "player_id": "player:jahmai-mashack-tw",
+      "notes": "Strips the two-way suffix from the checkpoint-side Jahmai Mashack (TW) identity."
+    },
+    {
+      "alias_name": "Javon Small",
+      "player_id": "player:javon-small-tw",
+      "notes": "Strips the two-way suffix from the checkpoint-side Javon Small (TW) identity."
+    },
+    {
+      "alias_name": "Rayan Rupert",
+      "player_id": "player:rayan-rupert-tw",
+      "notes": "Strips the two-way suffix from the checkpoint-side Rayan Rupert (TW) identity."
+    }
+  ]
+}

@@ -1,79 +1,88 @@
 artifact: requirements
 feature: "foundation/official-roster-checkpoints"
 mode: "bounded-feature"
-status: completed
+status: draft
 owner_skill: work
 
 summary:
-  problem: "The roster-checkpoint layer originally had 40 Memphis `foundation.roster_snapshot_validation` rows and all 40 were `source_missing` because no loaded official season roster-reference source records existed for the validator to consume."
-  motivation: "Roster checkpoints are part of the base graph export, so the source-backing status for those checkpoints needs to be explicit and truthful."
-  requested_outcome: "Get the checkpoint layer out of `source_missing` with a truthful official season-reference surface and explicit validation metadata, without pretending the snapshots are exact archived point-in-time official rosters."
-  achieved_outcome: "Loaded 10 official roster-reference source records through a checked-in normalized fixture, reran validation, and moved the 40 checkpoint rows to `season_reference_backed=1`, `season_reference_incomplete=39`, `source_missing=0`."
+  problem: "After closing `source_missing`, the Memphis checkpoint layer still has `season_reference_incomplete=39`. Discovery shows this residue is a mix of incomplete season-membership source depth and alias/name-form drift."
+  motivation: "Roster checkpoints are part of the base graph export. Leaving most rows `season_reference_incomplete` makes the roster-state truth surface weaker than it needs to be before later frontend and lineage work."
+  requested_outcome: "Close the roster-checkpoint depth gap in one bounded pass by driving `season_reference_incomplete` to zero if truthful, without misrepresenting the checkpoint layer as exact day-of-checkpoint official roster truth."
 
 goals:
-  - "Load official season roster-reference source records for the full Memphis checkpoint span."
-  - "Keep the current date-aware event-derived checkpoint builder."
-  - "Make checkpoint validation explicit in the live audit."
-  - "Keep the graph export coherent while improving the truth surface behind roster checkpoints."
+  - "Replace the opening-night/opening-week-heavy season references with broader official season-membership composites for Memphis 2016-17 through 2025-26."
+  - "Close name-form drift that should be resolvable through manual alias coverage rather than new source rows."
+  - "Keep `source_missing=0` while reducing or eliminating `season_reference_incomplete`."
+  - "Finish with live validation and audit output that show whether the checkpoint depth gap is truly closed."
+  - "Maintain an explicit evidence ledger for every residual incomplete case before composite fixture edits are treated as ready."
 
 non_goals:
   - "Do not claim exact day-of-checkpoint official occupancy."
   - "Do not broaden this pass into daily roster state generation."
-  - "Do not broaden this pass into full two-way completeness, contract semantics, or frontend rendering changes."
+  - "Do not broaden this pass into full two-way product completeness, contract semantics, or frontend rendering changes."
+  - "Do not weaken the validator by silently merging arbitrary same-season source rows without explicit design."
   - "Do not perform destructive database operations."
 
 constraints:
   technical:
+    - "The current validator retains one roster reference per `(team_code, season)`, so multi-source evidence must be materialized into one loaded season record."
     - "All live writes must go through checked-in Python/CLI commands."
-    - "The roster-reference fallback must normalize into the existing `team_code` + `season` + `roster_rows` contract."
-    - "The graph-facing checkpoint schema should remain unchanged."
+    - "The roster-reference composite must still normalize into the existing `team_code` + `season` + `roster_rows` payload contract."
+    - "Alias changes should use the existing `foundation.player_alias` mechanics through one explicit checked-in write surface, not ad hoc validation exceptions."
   product:
-    - "Truthfulness matters more than cosmetically maximizing match counts."
+    - "Truthfulness matters more than cosmetically forcing match counts."
+    - "Season-membership truth is sufficient for this pass; exact point-in-time official status is not required."
     - "Memphis-only scope remains the target."
   process:
-    - "Use `$work` orchestration and parallel source lookup where helpful."
-    - "Keep the official-roster-checkpoint docs current."
+    - "Use `$work` orchestration and keep the checkpoint docs current."
+    - "Use parallel subagents for source research and repo-local constraint checks."
 
 assumptions:
-  - "The truthful finish line for this pass is season-scoped official validation, not a new exact historical roster loader."
-  - "Direct live `stats.nba.com` `CommonTeamRoster` access is not reliable enough from this environment to be the only closeout path."
+  - "Full closure is feasible without changing the validator model if each season is represented by one broader season-membership composite row."
+  - "Official NBA gamebooks/game notes plus official Grizzlies/NBA transaction releases can support broader season-membership truth."
+  - "A real subset of the residue is alias-only and should be closable without adding new season-membership rows."
 
 repo_context:
   relevant_paths:
-    - "src/foundation/live_sources.py"
     - "src/foundation/roster_validation.py"
-    - "src/foundation/audit.py"
+    - "src/foundation/live_sources.py"
+    - "src/foundation/sources.py"
+    - "src/foundation/ingest.py"
     - "src/redesign_cli.py"
     - "configs/data/memphis_official_roster_reference_sources_v1.json"
+    - "docs/foundation/official-roster-checkpoints/status.yaml"
     - "docs/foundation/full-span-load-notes.md"
+  systems_in_scope:
+    - "official roster-reference fixture loading"
+    - "player alias loading / manual alias overrides"
+    - "roster snapshot validation"
+    - "live audit reporting"
+  prior_artifacts:
+    - "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
 
 research:
   repo_findings:
-    - "The validator now accepts normalized official roster-reference source records from an allowlist instead of only `nba_stats/common_team_roster`."
-    - "The checked-in fixture loader writes `foundation.source_record` rows only; it does not mutate graph-facing checkpoint rows directly."
-    - "Checkpoint validation reads stored `raw_payload.roster_rows` from loaded source records and reports `season_reference_backed`, `season_reference_incomplete`, or `source_missing`."
+    - "The validator decides `season_reference_backed` solely by whether every snapshot player matches the season reference by `player_id` or normalized name/alias keys."
+    - "The validator keeps only one `(team_code, season)` reference entry; multiple same-season source records are not merged."
+    - "The official roster-reference fixture loader already accepts arbitrary per-season `roster_rows` lists, so a broader season-membership composite fits the current model."
+    - "Current alias mechanics are narrow: `normalize_player_alias_name()` does not handle suffix stripping, diacritic folding, or nickname-to-formal-name pairs by itself."
+    - "There is no clean dedicated alias-load CLI surface today."
   platform_findings:
-    - "Direct live `stats.nba.com` `CommonTeamRoster` fetches timed out repeatedly from this environment."
-    - "Official fallback sources that were stable enough for this pass included NBA PR opening-night PDFs, official Grizzlies articles, and official NBA game-book PDFs."
+    - "For 2016-17 through 2020-21, official NBA gamebooks on `statsdmz.nba.com` look like the strongest broad official source family, with official transaction releases as fallback for signed-but-never-dressed players."
+    - "For 2021-22 through 2025-26, official Grizzlies game notes plus team transaction/news releases look like the strongest broad official source family."
+    - "Some edge cases may still depend on transaction-level official evidence rather than roster snapshots if a player never appears in a gamebook/game-notes context."
+    - "The live mismatch inventory shows alias/name-form drift in examples like `James Ennis` vs `James Ennis III`, `Wade Baldwin` vs `Wade Baldwin IV`, `Jonas Valančiūnas` vs `Jonas Valanciunas`, `Xavier Tillman` vs `Xavier Tillman Sr.`, `GG Jackson` vs `GG Jackson II`, and `(TW)` suffix forms."
 
 acceptance_criteria:
-  - "The checkpoint layer is no longer `source_missing`."
-  - "The audit reports checkpoint validation state explicitly."
-  - "The implementation does not mislabel event-derived checkpoints as exact point-in-time official rosters."
+  - "`season_reference_incomplete` is reduced to zero, or any surviving rows are explicitly documented as truthful blockers with season-specific evidence."
+  - "`source_missing` stays at zero."
+  - "The implementation uses official evidence only and does not relabel checkpoints as exact point-in-time official rosters."
   - "Relevant tests pass and the graph checksum remains stable."
-
-results:
-  local_validation:
-    focused_tests: "78 passed"
-    full_pytest: "194 passed"
-  live_verification:
-    source_records_loaded: 10
-    snapshot_validations: 40
-    validation_status:
-      season_reference_backed: 1
-      season_reference_incomplete: 39
-      source_missing: 0
-    graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
+  - "The live audit clearly reflects the new checkpoint-depth state."
+  - "A season-by-season evidence ledger exists that classifies every residual case as `alias_only`, `composite_source_backed`, or `truthful_blocker`."
 
 open_questions:
-  - "If future work wants higher checkpoint match rates, should the next pass load broader official season-membership surfaces instead of mainly opening-night references?"
+  - "Do any seasons still have signed-but-never-dressed Memphis players whose official transaction evidence is preserved but whose roster snapshot evidence is not?"
+
+ready_for_planning: true
+planning_blockers: []

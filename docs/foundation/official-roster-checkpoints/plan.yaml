@@ -1,69 +1,131 @@
 artifact: plan
 feature: "foundation/official-roster-checkpoints"
 mode: "bounded-feature"
-status: completed
+status: draft
 owner_skill: work
 based_on: "docs/foundation/official-roster-checkpoints/requirements.yaml"
 
-objective: "Get the Memphis roster checkpoint layer out of `source_missing` with a truthful official season-reference backing."
+objective: "Close the remaining roster-checkpoint depth gap by combining broader official season-membership composites with targeted alias cleanup."
 
 approach:
-  summary: "Keep the current event-derived checkpoint builder, broaden the validator to accept normalized official roster-reference records, add a checked-in official fixture loader, populate the Memphis 2016-17 through 2025-26 span, and rerun validation plus audit."
+  summary: "Do not change the validator model. Instead, first build an explicit residue evidence ledger, then rebuild each Memphis season reference as one broader official composite row that unions the relevant official season-membership evidence for that season, add manual aliases through one small checked-in alias write surface, reload the updated roster-reference surface, and rerun checkpoint validation and the live audit."
   key_decisions:
-    - "Use a normalized `curated_fixture` fallback because live `stats.nba.com` was not a reliable execution path from this environment."
-    - "Preserve the existing `team_code` + `season` + `roster_rows` contract."
-    - "Use official opening-night / opening-week references when no broader stable official season-membership surface was available."
-    - "Treat `season_reference_incomplete` as an honest residual state rather than inflating the fixture beyond what the cited source supports."
+    - "Keep one composite reference row per season because the current validator does not merge multiple same-season rows."
+    - "Treat official NBA gamebooks/game notes as the broad roster-membership spine and official team/NBA transaction releases as fallback evidence for short-stay or signed-but-never-dressed players."
+    - "Handle name-form drift through explicit alias coverage rather than by loosening the validator."
+    - "Keep the truthful finish line unchanged: season-membership backing, not exact checkpoint-day official occupancy."
+    - "Do not allow fixture edits to proceed without a residue evidence ledger that names the backing source family for each non-alias case."
+
+contracts:
+  interfaces:
+    - "Reuse the existing official roster-reference preview/load commands."
+    - "Add a small checked-in alias-load helper that writes manual `foundation.player_alias` rows deterministically."
+    - "Keep `load-roster-snapshot-validation` and `audit-foundation-data` as the verification surface."
+  schemas:
+    - "Do not change `foundation.roster_snapshot` or `foundation.roster_snapshot_validation` semantics."
+    - "Do not change the roster-reference payload contract beyond broader `roster_rows` content."
+  config_changes:
+    - "Broaden `configs/data/memphis_official_roster_reference_sources_v1.json` from opening-night/opening-week references to season-membership composites."
+    - "Add `configs/data/memphis_roster_reference_aliases_v1.json` as the checked-in alias seed for the checkpoint-depth pass."
+    - "Add a small evidence ledger under `docs/foundation/official-roster-checkpoints/` before fixture edits are treated as ready."
 
 execution_batches:
   - id: "B1"
-    goal: "Generalize the official roster-reference contract."
-    result: "completed"
-    notes:
-      - "Broadened validator and audit handling from `nba_stats`-only to a normalized official roster-reference allowlist."
+    goal: "Classify and prepare the residue."
+    tasks:
+      - id: "T1"
+        title: "Build the season-by-season residue evidence ledger"
+        objective: "Turn the live `season_reference_incomplete` output into an explicit ledger that classifies each residual case as `alias_only`, `composite_source_backed`, or `truthful_blocker`, with the intended official source family named for every non-alias case."
+        owned_scope:
+          - "docs/foundation/official-roster-checkpoints/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies: []
+        parallelizable: true
+        expected_validation:
+          - "Read-only mismatch summary by season"
+          - "Durable residue evidence ledger"
   - id: "B2"
-    goal: "Add the official-derived fixture load path."
-    result: "completed"
-    notes:
-      - "Added preview/load commands for a checked-in official roster-reference fixture."
+    goal: "Broaden season-membership source rows."
+    tasks:
+      - id: "T2"
+        title: "Expand the official roster-reference fixture to season-membership composites"
+        objective: "Replace opening-night/opening-week-only rows with one broader official composite per season using the evidence ledger to union official gamebooks/game notes and official transaction releases where needed."
+        owned_scope:
+          - "configs/data/memphis_official_roster_reference_sources_v1.json"
+          - "docs/foundation/official-roster-checkpoints/"
+        forbidden_scope:
+          - "canonical graph logic"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "fixture preview shows broadened season records"
+          - "Every added player-season membership has a source family recorded in the ledger"
   - id: "B3"
-    goal: "Load official season membership for the Memphis span."
-    result: "completed"
-    notes:
-      - "Built `configs/data/memphis_official_roster_reference_sources_v1.json` with 10 season records."
-      - "Used parallel season-source lookup to collect exact official roster names and citations."
+    goal: "Close alias-driven residue."
+    tasks:
+      - id: "T3"
+        title: "Add narrow manual alias coverage for roster-reference reconciliation"
+        objective: "Close the known name-form drift cases through one checked-in alias fixture/helper without weakening validation semantics."
+        owned_scope:
+          - "src/foundation/ingest.py"
+          - "src/redesign_cli.py"
+          - "configs/data/"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "Focused alias/roster-validation tests"
+          - "Deterministic alias preview/load path"
   - id: "B4"
-    goal: "Execute and verify the full pass."
-    result: "completed"
-    notes:
-      - "Loaded 10 source records into Supabase."
-      - "Refreshed 40 roster snapshot validation rows."
-      - "Confirmed `source_missing=0` and stable graph checksum."
+    goal: "Execute and verify the closeout."
+    tasks:
+      - id: "T4"
+        title: "Load the broadened roster-reference and alias surfaces, then rerun validation"
+        objective: "Write the updated roster-reference and alias data, rerun checkpoint validation, and verify whether `season_reference_incomplete` is closed or reduced to truthful blockers only."
+        owned_scope:
+          - "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
+          - "docs/foundation/official-roster-checkpoints/status.yaml"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "destructive DB operations"
+        dependencies:
+          - "B2"
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "./.venv/bin/python -m redesign_cli preview-official-roster-reference-fixture"
+          - "./.venv/bin/python -m redesign_cli preview-roster-reference-aliases"
+          - "./.venv/bin/python -m redesign_cli load-roster-snapshot-validation --team-code MEM"
+          - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+          - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
 
-validation:
-  local:
-    - "./.venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_roster_validation.py tests/foundation/test_audit.py"
-    - "./.venv/bin/pytest"
-  live:
-    - "./.venv/bin/python -m redesign_cli preview-official-roster-reference-fixture"
-    - "./.venv/bin/python -m redesign_cli load-official-roster-reference-fixture --execute"
-    - "./.venv/bin/python -m redesign_cli load-roster-snapshot-validation --team-code MEM"
-    - "./.venv/bin/python -m redesign_cli audit-foundation-data"
-    - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+ordering_notes:
+  - "Do not reopen the old live `stats.nba.com` dependency question for this pass."
+  - "Use the committed alias helper/fixture path rather than a broad foundation rebuild."
+  - "If a season still has truthful blockers after the broadened composite and alias pass, document them explicitly instead of forcing a zero count."
 
-results:
-  source_records_loaded: 10
-  reference_source_records: 10
-  validation_status:
-    season_reference_backed: 1
-    season_reference_incomplete: 39
-    source_missing: 0
-  graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
+risks:
+  - "Some short-stay or signed-but-never-dressed players may require transaction-level official evidence that is not discoverable for every season."
+  - "The new alias helper must stay narrow and deterministic so it does not become a general identity-management subsystem."
+  - "Two-way `(TW)` suffix cases may still reflect a deeper source-depth gap if the player is absent from the broader official composite."
 
-residual_risks:
-  - "Opening-night and opening-week sources do not capture every later-season roster addition, so most checkpoint rows remain `season_reference_incomplete`."
-  - "This pass closes the missing-source gap, not the broader season-membership-depth gap."
+open_questions:
+  - "Can all remaining short-stay players be backed by preserved official transaction evidence, or will a small truthful blocker set remain?"
+
+review:
+  status: in_progress
+  loop_count: 0
+  notes:
+    - "Reviewer warned against overstating the current finish line and against relabeling checkpoints as exact point-in-time official rosters."
+    - "Repo research confirmed the model does not need to change if each season is represented by one broader composite row."
+    - "Second review required a residue evidence ledger and a committed alias write surface before execution is approved."
 
 checkpoint:
   required_before_execution: true
-  status: completed
+  status: pending

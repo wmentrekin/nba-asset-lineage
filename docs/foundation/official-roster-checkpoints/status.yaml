@@ -1,15 +1,15 @@
 artifact: status
 feature: "foundation/official-roster-checkpoints"
 mode: "bounded-feature"
-stage: "completed"
+stage: "planning"
 owner_skill: work
 
-objective: "Get the 40 Memphis roster checkpoint validation rows out of `source_missing` with a truthful official season-reference surface."
+objective: "Close the remaining roster-checkpoint depth gap by reducing or eliminating `season_reference_incomplete=39` without weakening the truthful season-reference contract."
 
 summary:
-  current_focus: "Feature closeout complete. The checkpoint layer is no longer blocked on missing official season references."
-  last_completed: "Loaded 10 curated official roster-reference source records, reran `load-roster-snapshot-validation`, and verified the live audit plus stable graph checksum."
-  current_blocker: ""
+  current_focus: "Pre-execution planning is complete after tightening the plan with an explicit residue evidence ledger and a committed alias write surface."
+  last_completed: "Plan review confirmed the direction is sound after requiring a per-case evidence ledger and a narrow checked-in alias helper."
+  current_blocker: "Execution has not started. User checkpoint is required."
 
 artifacts:
   requirements: "docs/foundation/official-roster-checkpoints/requirements.yaml"
@@ -20,52 +20,73 @@ agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "completed"
-    stage: "verification"
-    task: "Close the checkpoint `source_missing` gap with a truthful official-reference fallback."
-    last_update: "Completed with 10 checked-in official roster-reference records and 40 refreshed validation rows."
+    status: "active"
+    stage: "planning"
+    task: "Collapse discovery into a bounded execution plan and stop at the pre-execution checkpoint."
+    last_update: "Integrated the final review changes and prepared the checkpoint decision."
     blocker: ""
-  - id: "season-source-shards"
-    role: "parallel explorers"
+  - id: "019e5121-01e2-72d3-aa2e-51df3ebabe46"
+    role: "repo-researcher"
     model_guidance: "medium"
     status: "completed"
     stage: "discovery"
-    task: "Find official Memphis season-roster sources and exact roster names for 2016-17 through 2025-26."
-    last_update: "Returned season-sharded official PDFs, team articles, and game-book references used to populate the checked-in fixture."
+    task: "Inspect validator/fixture constraints for full checkpoint-depth closure."
+    last_update: "Confirmed full closure is possible with one broader season-membership composite per season; multiple same-season records will not merge."
+    blocker: ""
+  - id: "019e5121-1ffb-7163-9f69-010121512343"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Find broader official season-membership source families for 2016-17 through 2020-21."
+    last_update: "Official NBA gamebooks look like the strongest broad source family, with transaction releases as fallback for signed-but-never-dressed edge cases."
+    blocker: ""
+  - id: "019e5121-3fb1-7752-b5d4-6c481db5990e"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Find broader official season-membership source families for 2021-22 through 2025-26."
+    last_update: "Official Grizzlies game notes plus team transaction/news releases look like the strongest broad source family for recent seasons."
+    blocker: ""
+  - id: "019e5121-5966-7a83-a2c1-6e54bdf3a6ba"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Critique the closeout strategy and reject unsafe finish lines."
+    last_update: "Warned against overstating the existing finish line and reinforced that season-membership truth must remain explicit."
+    blocker: ""
+  - id: "019e5123-727f-7471-bfa7-b473c8319b03"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Classify residue that is likely alias-only versus true season-membership depth."
+    last_update: "Confirmed a substantial subset of the residue is name-form drift that should be closable with manual aliases."
     blocker: ""
 
 results:
-  fixture_path: "configs/data/memphis_official_roster_reference_sources_v1.json"
-  source_records_loaded: 10
-  reference_source_records: 10
-  snapshot_validations: 40
-  validation_status:
+  current_validation_status:
     season_reference_backed: 1
     season_reference_incomplete: 39
     source_missing: 0
-  graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
-
-decisions:
-  - "Use a normalized `curated_fixture` roster-reference fallback instead of continuing to chase live `stats.nba.com` reachability."
-  - "Keep the current event-derived checkpoint builder; only the season-reference backing surface changed."
-  - "Prefer exact official opening-night or opening-week sources when a broader official season-membership surface was not available."
-  - "Keep validation language honest: this pass proves season-reference backing, not exact day-of-checkpoint official occupancy."
-
-residual_limitations:
-  - "39 of 40 checkpoint validations remain `season_reference_incomplete` because the loaded references are mainly opening-night or opening-week sources and do not include every later-season roster addition."
-  - "The current fixture clears the `source_missing` gap but is not a day-by-day or full-season-membership roster history."
+  key_residue_classes:
+    - "alias/name-form drift"
+    - "late-season additions absent from opening-night/week references"
+    - "two-way suffix and short-stay edge cases"
 
 loops:
   planning_review:
-    count: 2
+    count: 0
     max: 2
   execution_verification:
-    count: 2
+    count: 0
     max: 2
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: completed
+  pre_execution_status: pending
   options:
     - proceed
     - revise_plan
@@ -74,6 +95,12 @@ checkpoint:
 
 blockers: []
 
-next_action: "Optional follow-on only: if needed, widen season-membership coverage beyond opening-night references to reduce `season_reference_incomplete`."
+decisions:
+  - "Treat this as a new bounded-feature pass layered on top of the prior checkpoint source-missing closeout."
+  - "Do not change the validator finish line: it remains season-membership backing, not exact day-of-checkpoint official occupancy."
+  - "Use one broadened composite roster-reference row per season rather than multiple same-season rows, because the current validator keeps only one reference per `(team_code, season)`."
+  - "Plan for a combined source-composite and alias-cleanup pass instead of treating the residue as source-only."
+
+next_action: "Freeze the new requirements and plan for the depth-closeout pass, then stop at the pre-execution checkpoint."
 next_recommended_command: "$work"
-user_input_needed: false
+user_input_needed: true

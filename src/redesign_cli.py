@@ -42,6 +42,7 @@ from foundation.live_sources import (
     DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+    DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
     load_bref_draft_results,
     load_bref_draft_results_span,
     load_bref_roster_baseline,
@@ -51,6 +52,7 @@ from foundation.live_sources import (
     load_nba_player_movement,
     load_official_release_sources,
     load_official_roster_reference_fixture,
+    load_roster_reference_aliases,
     load_nba_reference,
     load_nba_roster_reference,
     load_nba_roster_reference_span,
@@ -63,6 +65,7 @@ from foundation.live_sources import (
     preview_nba_player_movement,
     preview_official_release_sources,
     preview_official_roster_reference_fixture,
+    preview_roster_reference_aliases,
 )
 from foundation.pick_inventory import (
     DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
@@ -299,6 +302,14 @@ def parse_args() -> argparse.Namespace:
         "--fixture-path",
         default=str(DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH),
     )
+    preview_roster_reference_alias_parser = subparsers.add_parser(
+        "preview-roster-reference-aliases",
+        help="Read-only preview of checked-in manual aliases for roster-reference reconciliation.",
+    )
+    preview_roster_reference_alias_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH),
+    )
     load_official_roster_reference_parser = subparsers.add_parser(
         "load-official-roster-reference-fixture",
         help="Build checked-in official roster-reference source_record rows and write them only with --execute.",
@@ -309,6 +320,16 @@ def parse_args() -> argparse.Namespace:
     )
     load_official_roster_reference_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
     load_official_roster_reference_parser.add_argument("--execute", action="store_true", help="Write foundation.source_record rows after preview review.")
+    load_roster_reference_alias_parser = subparsers.add_parser(
+        "load-roster-reference-aliases",
+        help="Load checked-in manual aliases for roster-reference reconciliation.",
+    )
+    load_roster_reference_alias_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH),
+    )
+    load_roster_reference_alias_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
+    load_roster_reference_alias_parser.add_argument("--execute", action="store_true", help="Write foundation.player_alias rows after preview review.")
     load_nba_parser = subparsers.add_parser("load-nba-reference", help="Fetch and load NBA stats player and roster reference data into foundation.source_record and foundation.player.")
     load_nba_parser.add_argument("--season", required=True)
     load_nba_parser.add_argument("--team-id", type=int, default=1610612763)
@@ -797,8 +818,20 @@ def main() -> None:
             load_database_url(),
             fixture_path=Path(args.fixture_path),
         )
+    elif args.command == "preview-roster-reference-aliases":
+        payload = preview_roster_reference_aliases(
+            load_database_url(),
+            fixture_path=Path(args.fixture_path),
+        )
     elif args.command == "load-official-roster-reference-fixture":
         payload = load_official_roster_reference_fixture(
+            load_database_url(),
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+            execute=args.execute,
+        )
+    elif args.command == "load-roster-reference-aliases":
+        payload = load_roster_reference_aliases(
             load_database_url(),
             fixture_path=Path(args.fixture_path),
             dry_run=args.dry_run,

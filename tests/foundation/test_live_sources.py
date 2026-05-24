@@ -18,9 +18,11 @@ from foundation.live_sources import (
     DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
     DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
     DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH,
+    DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
     build_curated_draft_pick_detail_source_rows,
     build_nba_roster_reference_rows,
     build_official_roster_reference_source_rows,
+    build_roster_reference_alias_rows,
     build_official_release_fixture_bundle,
     build_nba_player_movement_source_rows,
     build_nba_player_movement_preview_rows,
@@ -35,9 +37,12 @@ from foundation.live_sources import (
     extract_nba_dataset_rows,
     extract_nba_player_movement_rows,
     load_curated_draft_pick_detail_sources,
+    load_roster_reference_aliases,
     preview_official_roster_reference_fixture,
     preview_official_release_sources,
     preview_nba_player_movement,
+    preview_roster_reference_aliases,
+    resolve_roster_reference_player_identity,
 )
 from foundation.sources import RECOGNIZED_SOURCE_SYSTEMS
 
@@ -1277,6 +1282,156 @@ def test_load_official_roster_reference_fixture_execute_writes_source_records_on
     assert result["source_records"] == 1
     assert result["baseline_rows"] == 1
     assert result["identity_resolution"] == {"matched_player": 1}
+
+
+def test_resolve_roster_reference_player_identity_prefers_exact_player_over_alias_candidates() -> None:
+    lookup = live_sources.build_roster_reference_identity_lookup_from_rows(
+        players=[
+            PlayerRow(
+                player_id="player:gg-jackson",
+                display_name="GG Jackson",
+                nba_player_ref="jacksgg01",
+            )
+        ],
+        baseline_players=[],
+        aliases=[
+            PlayerAliasRow(
+                alias_id="alias:gg-jackson-ii",
+                player_id="player:gg-jackson-ii",
+                source_system="manual",
+                alias_name="GG Jackson",
+                normalized_alias_name="gg jackson",
+                is_manual=True,
+            )
+        ],
+    )
+
+    player_id, _player_ref, resolution_source = resolve_roster_reference_player_identity("GG Jackson", lookup)
+
+    assert player_id == "player:gg-jackson"
+    assert resolution_source == "matched_player"
+
+
+def test_build_roster_reference_alias_rows_marks_invalid_targets() -> None:
+    fixture_payload = {
+        "fixture_version": 1,
+        "aliases": [
+            {
+                "alias_name": "Jahmai Mashack",
+                "player_id": "player:jahmai-mashack-tw",
+            },
+            {
+                "alias_name": "Unknown Player",
+                "player_id": "player:missing",
+            },
+        ],
+    }
+
+    alias_rows, preview_rows = build_roster_reference_alias_rows(
+        fixture_payload,
+        valid_player_ids={"player:jahmai-mashack-tw"},
+    )
+
+    assert len(alias_rows) == 2
+    assert preview_rows[0]["is_valid_target"] is True
+    assert preview_rows[1]["is_valid_target"] is False
+
+
+def test_preview_roster_reference_aliases_reports_checked_in_fixture_and_invalid_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_payload = {
+        "fixture_version": 1,
+        "aliases": [
+            {
+                "alias_name": "Jahmai Mashack",
+                "player_id": "player:jahmai-mashack-tw",
+            }
+        ],
+    }
+    monkeypatch.setattr(live_sources, "read_roster_reference_alias_fixture", lambda path: fixture_payload)
+    monkeypatch.setattr(live_sources, "collect_roster_reference_alias_target_ids", lambda database_url: {"player:jahmai-mashack-tw"})
+
+    preview = preview_roster_reference_aliases(
+        "postgresql://example",
+        fixture_path=DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
+    )
+
+    assert preview["status"] == "ok"
+    assert preview["fixture_only"] is True
+    assert preview["writes_to_database"] is False
+    assert preview["fixture_path"] == str(DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH)
+    assert preview["alias_rows"] == 1
+    assert preview["invalid_targets"] == 0
+
+
+def test_load_roster_reference_aliases_execute_writes_manual_alias_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture_payload = {
+        "fixture_version": 1,
+        "aliases": [
+            {
+                "alias_name": "Jahmai Mashack",
+                "player_id": "player:jahmai-mashack-tw",
+            }
+        ],
+    }
+    alias_rows = [
+        PlayerAliasRow(
+            alias_id="alias:roster-reference:jahmai-mashack:player-jahmai-mashack-tw",
+            player_id="player:jahmai-mashack-tw",
+            source_system="manual",
+            alias_name="Jahmai Mashack",
+            normalized_alias_name="jahmai mashack",
+            is_manual=True,
+            notes="Manual roster-reference reconciliation alias.",
+        )
+    ]
+    calls: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def commit(self) -> None:
+            calls.append("commit")
+
+    monkeypatch.setattr(live_sources, "read_roster_reference_alias_fixture", lambda path: fixture_payload)
+    monkeypatch.setattr(live_sources, "collect_roster_reference_alias_target_ids", lambda database_url: {"player:jahmai-mashack-tw"})
+    monkeypatch.setattr(
+        live_sources,
+        "build_roster_reference_alias_rows",
+        lambda *args, **kwargs: (
+            alias_rows,
+            [
+                {
+                    "alias_id": alias_rows[0].alias_id,
+                    "alias_name": alias_rows[0].alias_name,
+                    "player_id": alias_rows[0].player_id,
+                    "normalized_alias_name": alias_rows[0].normalized_alias_name,
+                    "is_valid_target": True,
+                }
+            ],
+        ),
+    )
+    monkeypatch.setattr(live_sources, "upsert_player_aliases", lambda connection, rows: calls.append(f"aliases:{len(rows)}"))
+    monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
+
+    result = load_roster_reference_aliases(
+        "postgresql://example",
+        fixture_path=DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
+        execute=True,
+        dry_run=False,
+    )
+
+    assert calls == ["aliases:1", "commit"]
+    assert result["dry_run"] is False
+    assert result["writes_to_database"] is True
+    assert result["alias_rows"] == 1
 
 
 def test_load_nba_roster_reference_writes_source_records_and_roster_baselines_only(monkeypatch: pytest.MonkeyPatch) -> None:

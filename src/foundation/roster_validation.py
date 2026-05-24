@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from collections import defaultdict
 
 import psycopg
@@ -289,8 +290,10 @@ def load_roster_reference_by_season(
 def build_identity_keys(display_name: str) -> set[str]:
     base_key = normalize_player_alias_name(display_name)
     no_apostrophes = re.sub(r"[’']", "", base_key)
+    ascii_folded = unicodedata.normalize("NFKD", no_apostrophes).encode("ascii", "ignore").decode("ascii")
     compact = re.sub(r"[^a-z0-9]+", "", no_apostrophes)
-    return {key for key in (base_key, no_apostrophes, compact) if key}
+    ascii_compact = re.sub(r"[^a-z0-9]+", "", ascii_folded)
+    return {key for key in (base_key, no_apostrophes, ascii_folded, compact, ascii_compact) if key}
 
 
 def build_roster_snapshot_validation_note(

@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import time
+import unicodedata
 from datetime import datetime, timezone
 from html import unescape
 from pathlib import Path
@@ -25,6 +26,7 @@ from foundation.ingest import (
     load_players_from_database,
     load_roster_baseline_players_from_database,
     normalize_player_alias_name,
+    upsert_player_aliases,
     upsert_draft_selections,
     upsert_roster_baseline_players,
 )
@@ -85,6 +87,9 @@ DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH = Path("configs/data/memphis_official_rele
 DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR = Path("configs/data/memphis_official_release_fragments")
 DEFAULT_OFFICIAL_ROSTER_REFERENCE_FIXTURE_PATH = Path(
     "configs/data/memphis_official_roster_reference_sources_v1.json"
+)
+DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH = Path(
+    "configs/data/memphis_roster_reference_aliases_v1.json"
 )
 DEFAULT_MEMPHIS_TEAM_ID = 1610612763
 
@@ -2225,6 +2230,140 @@ def load_official_roster_reference_fixture(
     }
 
 
+def read_roster_reference_alias_fixture(
+    path: Path = DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
+) -> dict[str, object]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Roster reference alias fixture must be a JSON object.")
+    aliases = payload.get("aliases")
+    if not isinstance(aliases, list):
+        raise ValueError("Roster reference alias fixture must include an aliases list.")
+    return payload
+
+
+def build_roster_reference_alias_rows(
+    fixture_payload: dict[str, object],
+    *,
+    valid_player_ids: set[str] | None = None,
+) -> tuple[list[PlayerAliasRow], list[dict[str, object]]]:
+    aliases = fixture_payload.get("aliases")
+    if not isinstance(aliases, list):
+        raise ValueError("Roster reference alias fixture must include an aliases list.")
+
+    rows: list[PlayerAliasRow] = []
+    preview_rows: list[dict[str, object]] = []
+    seen_alias_ids: set[str] = set()
+    valid_player_ids = valid_player_ids or set()
+
+    for alias_index, alias_entry in enumerate(aliases, start=1):
+        if not isinstance(alias_entry, dict):
+            raise ValueError(f"Roster reference alias entry {alias_index} must be an object.")
+        alias_name = string_or_none(alias_entry.get("alias_name"))
+        player_id = string_or_none(alias_entry.get("player_id"))
+        if alias_name is None or player_id is None:
+            raise ValueError(f"Roster reference alias entry {alias_index} must include alias_name and player_id.")
+        alias_id = string_or_none(alias_entry.get("alias_id")) or f"alias:roster-reference:{slugify_name(alias_name)}:{slugify_name(player_id)}"
+        if alias_id in seen_alias_ids:
+            raise ValueError(f"Duplicate roster reference alias_id: {alias_id}")
+        seen_alias_ids.add(alias_id)
+        notes = string_or_none(alias_entry.get("notes")) or "Manual roster-reference reconciliation alias."
+        row = PlayerAliasRow(
+            alias_id=alias_id,
+            player_id=player_id,
+            source_system="manual",
+            alias_name=alias_name,
+            normalized_alias_name=normalize_player_alias_name(alias_name),
+            is_manual=True,
+            notes=notes,
+        )
+        rows.append(row)
+        preview_rows.append(
+            {
+                "alias_id": row.alias_id,
+                "alias_name": row.alias_name,
+                "player_id": row.player_id,
+                "normalized_alias_name": row.normalized_alias_name,
+                "is_valid_target": not valid_player_ids or row.player_id in valid_player_ids,
+            }
+        )
+    return rows, preview_rows
+
+
+def collect_roster_reference_alias_target_ids(database_url: str) -> set[str]:
+    valid_player_ids = {row.player_id for row in load_players_from_database(database_url)}
+    valid_player_ids.update(row.player_id for row in load_roster_baseline_players_from_database(database_url))
+    return valid_player_ids
+
+
+def preview_roster_reference_aliases(
+    database_url: str | None = None,
+    *,
+    fixture_path: Path = DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
+) -> dict[str, object]:
+    fixture_payload = read_roster_reference_alias_fixture(fixture_path)
+    valid_player_ids = collect_roster_reference_alias_target_ids(database_url) if database_url else set()
+    alias_rows, preview_rows = build_roster_reference_alias_rows(
+        fixture_payload,
+        valid_player_ids=valid_player_ids,
+    )
+    invalid_targets = [row for row in preview_rows if not row["is_valid_target"]]
+    return {
+        "status": "ok",
+        "fixture_only": True,
+        "writes_to_database": False,
+        "fixture_path": fixture_path.as_posix(),
+        "alias_rows": len(alias_rows),
+        "invalid_targets": len(invalid_targets),
+        "first_alias": alias_rows[0].model_dump(mode="json") if alias_rows else None,
+        "preview_rows": preview_rows,
+    }
+
+
+def load_roster_reference_aliases(
+    database_url: str | None = None,
+    *,
+    fixture_path: Path = DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if not execute:
+        return {
+            **preview_roster_reference_aliases(
+                database_url,
+                fixture_path=fixture_path,
+            ),
+            "dry_run": True,
+            "writes_to_database": False,
+        }
+    if not database_url:
+        raise ValueError("database_url is required when execute=True")
+
+    fixture_payload = read_roster_reference_alias_fixture(fixture_path)
+    valid_player_ids = collect_roster_reference_alias_target_ids(database_url)
+    alias_rows, preview_rows = build_roster_reference_alias_rows(
+        fixture_payload,
+        valid_player_ids=valid_player_ids,
+    )
+    invalid_targets = [row for row in preview_rows if not row["is_valid_target"]]
+    if invalid_targets:
+        invalid_player_ids = ", ".join(sorted({str(row["player_id"]) for row in invalid_targets}))
+        raise ValueError(f"Roster reference alias fixture contains unknown player_id targets: {invalid_player_ids}")
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        upsert_player_aliases(connection, alias_rows)
+        connection.commit()
+    return {
+        "status": "ok",
+        "fixture_only": True,
+        "dry_run": False,
+        "writes_to_database": True,
+        "fixture_path": fixture_path.as_posix(),
+        "alias_rows": len(alias_rows),
+    }
+
+
 def build_roster_reference_identity_lookup(
     database_url: str,
 ) -> dict[str, list[tuple[str, str | None, str]]]:
@@ -2305,9 +2444,25 @@ def append_roster_reference_alias(
 def iter_roster_reference_identity_keys(display_name: str) -> tuple[str, ...]:
     base_key = normalize_player_alias_name(display_name)
     no_apostrophes = re.sub(r"[’']", "", base_key)
+    ascii_folded = unicodedata.normalize("NFKD", no_apostrophes).encode("ascii", "ignore").decode("ascii")
     compact = re.sub(r"[^a-z0-9]+", "", no_apostrophes)
-    keys = tuple(key for key in (base_key, no_apostrophes, compact) if key)
+    ascii_compact = re.sub(r"[^a-z0-9]+", "", ascii_folded)
+    keys = tuple(key for key in (base_key, no_apostrophes, ascii_folded, compact, ascii_compact) if key)
     return tuple(dict.fromkeys(keys))
+
+
+def roster_reference_resolution_priority(resolution_source: str) -> int:
+    if resolution_source == "matched_player":
+        return 0
+    if resolution_source == "matched_baseline":
+        return 1
+    if resolution_source == "matched_alias":
+        return 2
+    if resolution_source == "generated_slug_ambiguous":
+        return 4
+    if resolution_source == "generated_slug":
+        return 5
+    return 3
 
 
 def resolve_roster_reference_player_identity(
@@ -2318,11 +2473,29 @@ def resolve_roster_reference_player_identity(
     for key in iter_roster_reference_identity_keys(display_name):
         for player_id, player_ref, resolution_source in identity_lookup.get(key, []):
             existing = candidates_by_player_id.get(player_id)
-            if existing is None or existing[1] is None and player_ref is not None:
+            if (
+                existing is None
+                or roster_reference_resolution_priority(resolution_source)
+                < roster_reference_resolution_priority(existing[2])
+                or (
+                    roster_reference_resolution_priority(resolution_source)
+                    == roster_reference_resolution_priority(existing[2])
+                    and existing[1] is None
+                    and player_ref is not None
+                )
+            ):
                 candidates_by_player_id[player_id] = (player_id, player_ref, resolution_source)
-    if len(candidates_by_player_id) == 1:
-        player_id, player_ref, resolution_source = next(iter(candidates_by_player_id.values()))
-        return player_id, player_ref, resolution_source
+    if candidates_by_player_id:
+        candidates = list(candidates_by_player_id.values())
+        best_priority = min(roster_reference_resolution_priority(candidate[2]) for candidate in candidates)
+        best_candidates = [
+            candidate
+            for candidate in candidates
+            if roster_reference_resolution_priority(candidate[2]) == best_priority
+        ]
+        if len(best_candidates) == 1:
+            player_id, player_ref, resolution_source = best_candidates[0]
+            return player_id, player_ref, resolution_source
     if len(candidates_by_player_id) > 1:
         return f"player:{slugify_name(display_name)}", None, "generated_slug_ambiguous"
     return f"player:{slugify_name(display_name)}", None, "generated_slug"
