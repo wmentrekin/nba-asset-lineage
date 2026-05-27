@@ -1,29 +1,30 @@
 artifact: status
 feature: "foundation/official-roster-checkpoints"
 mode: "bounded-feature"
-stage: "planning"
+stage: "completed"
 owner_skill: work
 
 objective: "Close the remaining roster-checkpoint depth gap by reducing or eliminating `season_reference_incomplete=39` without weakening the truthful season-reference contract."
 
 summary:
-  current_focus: "Pre-execution planning is complete after tightening the plan with an explicit residue evidence ledger and a committed alias write surface."
-  last_completed: "Plan review confirmed the direction is sound after requiring a per-case evidence ledger and a narrow checked-in alias helper."
-  current_blocker: "Execution has not started. User checkpoint is required."
+  current_focus: "The checkpoint-depth closeout is complete."
+  last_completed: "Broadened each Memphis season reference into a checked-in season-membership composite, loaded it, reran validation, and confirmed all 40 checkpoint rows are now `season_reference_backed`."
+  current_blocker: ""
 
 artifacts:
   requirements: "docs/foundation/official-roster-checkpoints/requirements.yaml"
   plan: "docs/foundation/official-roster-checkpoints/plan.yaml"
   implementation_report: "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
+  residue_evidence_ledger: "docs/foundation/official-roster-checkpoints/residue-evidence-ledger.yaml"
 
 agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
-    stage: "planning"
-    task: "Collapse discovery into a bounded execution plan and stop at the pre-execution checkpoint."
-    last_update: "Integrated the final review changes and prepared the checkpoint decision."
+    status: "completed"
+    stage: "verification"
+    task: "Coordinate the composite closeout, live reload, and verification."
+    last_update: "Verified `season_reference_backed=40`, `season_reference_incomplete=0`, and stable graph checksum."
     blocker: ""
   - id: "019e5121-01e2-72d3-aa2e-51df3ebabe46"
     role: "repo-researcher"
@@ -39,7 +40,7 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Find broader official season-membership source families for 2016-17 through 2020-21."
-    last_update: "Official NBA gamebooks look like the strongest broad source family, with transaction releases as fallback for signed-but-never-dressed edge cases."
+    last_update: "Official NBA gamebooks looked like the strongest broad source family, with transaction releases as fallback for signed-but-never-dressed edge cases."
     blocker: ""
   - id: "019e5121-3fb1-7752-b5d4-6c481db5990e"
     role: "platform-researcher"
@@ -47,7 +48,7 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Find broader official season-membership source families for 2021-22 through 2025-26."
-    last_update: "Official Grizzlies game notes plus team transaction/news releases look like the strongest broad source family for recent seasons."
+    last_update: "Official Grizzlies game notes plus team transaction/news releases looked like the strongest broad source family for recent seasons."
     blocker: ""
   - id: "019e5121-5966-7a83-a2c1-6e54bdf3a6ba"
     role: "reviewer"
@@ -55,7 +56,7 @@ agents:
     status: "completed"
     stage: "planning"
     task: "Critique the closeout strategy and reject unsafe finish lines."
-    last_update: "Warned against overstating the existing finish line and reinforced that season-membership truth must remain explicit."
+    last_update: "Required the evidence ledger and kept the finish line at season-membership backing rather than exact day-of-checkpoint occupancy."
     blocker: ""
   - id: "019e5123-727f-7471-bfa7-b473c8319b03"
     role: "repo-researcher"
@@ -63,30 +64,31 @@ agents:
     status: "completed"
     stage: "discovery"
     task: "Classify residue that is likely alias-only versus true season-membership depth."
-    last_update: "Confirmed a substantial subset of the residue is name-form drift that should be closable with manual aliases."
+    last_update: "Confirmed the residue was a mix of name-form drift and late-season additions, with no truthful blockers."
     blocker: ""
 
 results:
   current_validation_status:
-    season_reference_backed: 1
-    season_reference_incomplete: 39
+    season_reference_backed: 40
+    season_reference_incomplete: 0
     source_missing: 0
   key_residue_classes:
     - "alias/name-form drift"
     - "late-season additions absent from opening-night/week references"
     - "two-way suffix and short-stay edge cases"
+  closeout_note: "The broader checked-in season composites were sufficient to close the gap without changing validator semantics."
 
 loops:
   planning_review:
-    count: 0
+    count: 1
     max: 2
   execution_verification:
-    count: 0
+    count: 1
     max: 2
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: pending
+  pre_execution_status: completed
   options:
     - proceed
     - revise_plan
@@ -96,11 +98,11 @@ checkpoint:
 blockers: []
 
 decisions:
-  - "Treat this as a new bounded-feature pass layered on top of the prior checkpoint source-missing closeout."
-  - "Do not change the validator finish line: it remains season-membership backing, not exact day-of-checkpoint official occupancy."
-  - "Use one broadened composite roster-reference row per season rather than multiple same-season rows, because the current validator keeps only one reference per `(team_code, season)`."
-  - "Plan for a combined source-composite and alias-cleanup pass instead of treating the residue as source-only."
+  - "Keep one broadened composite roster-reference row per season because the validator still retains one reference per `(team_code, season)`."
+  - "Preserve the truthful finish line: season-membership backing, not exact day-of-checkpoint official occupancy."
+  - "Use the residue evidence ledger to justify broadening the checked-in composite rather than loosening the validator."
+  - "Leave the narrow roster-reference alias helper in place as future support, but do not require an alias live load when the broadened composites already close the gap."
 
-next_action: "Freeze the new requirements and plan for the depth-closeout pass, then stop at the pre-execution checkpoint."
+next_action: "Move to the next remaining structural data gap outside official roster-checkpoint depth."
 next_recommended_command: "$work"
-user_input_needed: true
+user_input_needed: false

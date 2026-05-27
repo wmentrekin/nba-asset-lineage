@@ -5,6 +5,9 @@ from foundation.export import build_draft_resolution_export_items
 from foundation.export import build_empty_base_export
 from foundation.export import draft_resolution_event_date
 from foundation.models import BaseGraphExport
+from foundation.models import DailyRosterState
+from foundation.models import DailyRosterStatePlayer
+from foundation.models import DraftPriorOwnerLineage
 from foundation.models import FuturePickSnapshot
 from foundation.models import PlayerAsset
 from foundation.models import RosterSnapshot
@@ -21,6 +24,8 @@ def test_build_empty_base_export_has_reset_defaults() -> None:
     assert export.pick_assets == []
     assert export.transitions == []
     assert export.roster_snapshots == []
+    assert export.daily_roster_states == []
+    assert export.draft_prior_owner_lineages == []
 
 
 def test_player_asset_contract_supports_roster_baseline_metadata() -> None:
@@ -72,6 +77,62 @@ def test_draft_resolution_event_date_handles_two_night_drafts() -> None:
 def test_draft_resolution_event_date_requires_known_draft_date() -> None:
     with pytest.raises(ValueError, match="Missing draft event date"):
         draft_resolution_event_date(2030, 1)
+
+
+def test_daily_roster_state_contract_preserves_depth_and_two_way_metadata() -> None:
+    state = DailyRosterState(
+        state_id="roster-state-day:mem:2024-02-10",
+        as_of_date="2024-02-10",
+        season="2023-24",
+        roster_asset_ids=["asset:player:desmond-bane"],
+        two_way_asset_ids=["asset:player:gg-jackson-ii"],
+        player_states=[
+            DailyRosterStatePlayer(
+                asset_id="asset:player:desmond-bane",
+                player_id="player:desmond-bane",
+                depth_order=2,
+            ),
+            DailyRosterStatePlayer(
+                asset_id="asset:player:gg-jackson-ii",
+                player_id="player:gg-jackson-ii",
+                roster_status="two_way",
+                depth_order=16,
+                is_two_way=True,
+                is_standard_contract=False,
+            ),
+        ],
+    )
+
+    payload = state.model_dump(mode="json")
+
+    assert payload["player_states"][1]["roster_status"] == "two_way"
+    assert payload["player_states"][1]["depth_order"] == 16
+    assert payload["two_way_asset_ids"] == ["asset:player:gg-jackson-ii"]
+
+
+def test_draft_prior_owner_lineage_contract_preserves_pick_origin_metadata() -> None:
+    lineage = DraftPriorOwnerLineage(
+        draft_selection_id="draft:2024:39",
+        pick_id="pick:inventory:mem:2024:r2:tor",
+        pick_asset_id="asset:pick:inventory:mem:2024:r2:tor",
+        player_id="player:jaylen-wells",
+        player_asset_id="asset:player:jaylen-wells",
+        draft_year=2024,
+        round_number=2,
+        pick_overall=39,
+        owner_team_code="MEM",
+        original_team_code="TOR",
+        source_obligation_id="obligation:2024-r2-tor",
+        resolution_kind="inventory_exact_pick",
+        confidence="high",
+        notes="Selected using Toronto's second-round pick.",
+    )
+
+    payload = lineage.model_dump(mode="json")
+
+    assert payload["original_team_code"] == "TOR"
+    assert payload["source_obligation_id"] == "obligation:2024-r2-tor"
+    assert payload["resolution_kind"] == "inventory_exact_pick"
 
 
 def test_build_draft_resolution_export_items_emits_pick_to_player_transition() -> None:

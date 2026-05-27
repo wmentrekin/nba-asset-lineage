@@ -52,8 +52,11 @@ FOUNDATION_TABLES = (
     "roster_snapshot_player",
     "roster_snapshot_pick",
     "roster_snapshot_validation",
+    "daily_roster_state",
+    "daily_roster_state_player",
     "draft_selection",
     "draft_pick_resolution",
+    "draft_prior_owner_lineage",
     "draft_lottery_result",
     "canonical_event",
     "canonical_event_member",
@@ -110,6 +113,7 @@ def audit_foundation_data(
             CORROBORATION_REPORT_OUTPUT_KEY: source_corroboration_report,
             "aliases": fetch_alias_metrics(connection),
             "snapshots": fetch_snapshot_metrics(connection),
+            "daily_roster_state": fetch_daily_roster_state_metrics(connection),
             "pick_inventory": pick_inventory,
             "pick_inventory_fixture_gap_report": build_pick_inventory_fixture_gap_report(
                 pick_obligation_fixture_path
@@ -1215,6 +1219,98 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
     }
 
 
+def fetch_daily_roster_state_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    expected_span_start = "2016-07-01"
+    expected_span_end = "2026-06-30"
+    expected_days = (date.fromisoformat(expected_span_end) - date.fromisoformat(expected_span_start)).days + 1
+    if not table_exists(connection, "daily_roster_state"):
+        return {
+            "days": 0,
+            "player_rows": 0,
+            "span_start": None,
+            "span_end": None,
+            "expected_span_start": expected_span_start,
+            "expected_span_end": expected_span_end,
+            "expected_days": expected_days,
+            "internal_missing_days": expected_days,
+            "coverage_complete": False,
+            "by_season": [],
+        }
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select count(*),
+                   min(state_date)::text,
+                   max(state_date)::text,
+                   count(distinct state_date)
+            from foundation.daily_roster_state
+            where team_code = 'MEM'
+            """
+        )
+        count_row = cursor.fetchone()
+        cursor.execute(
+            """
+            select count(*)
+            from foundation.daily_roster_state_player rsdp
+            join foundation.daily_roster_state rsd
+              on rsd.roster_state_id = rsdp.roster_state_id
+            where rsd.team_code = 'MEM'
+            """
+        )
+        player_rows = int(cursor.fetchone()[0])
+        cursor.execute(
+            """
+            select season, count(*)
+            from foundation.daily_roster_state
+            where team_code = 'MEM'
+            group by season
+            order by season
+            """
+        )
+        season_rows = cursor.fetchall()
+        cursor.execute(
+            """
+            with expected_days as (
+                select gs::date as as_of_date
+                from generate_series(%s::date, %s::date, interval '1 day') as gs
+            )
+            select count(*)
+            from expected_days ed
+            left join foundation.daily_roster_state rsd
+              on rsd.team_code = 'MEM'
+             and rsd.state_date = ed.as_of_date
+            where rsd.roster_state_id is null
+            """,
+            (expected_span_start, expected_span_end),
+        )
+        internal_missing_days = int(cursor.fetchone()[0])
+
+    days = int(count_row[0])
+    span_start = str(count_row[1]) if count_row[1] is not None else None
+    span_end = str(count_row[2]) if count_row[2] is not None else None
+    distinct_days = int(count_row[3])
+    coverage_complete = (
+        days == distinct_days
+        and days == expected_days
+        and span_start == expected_span_start
+        and span_end == expected_span_end
+        and internal_missing_days == 0
+    )
+    return {
+        "days": days,
+        "player_rows": player_rows,
+        "span_start": span_start,
+        "span_end": span_end,
+        "expected_span_start": expected_span_start,
+        "expected_span_end": expected_span_end,
+        "expected_days": expected_days,
+        "internal_missing_days": internal_missing_days,
+        "coverage_complete": coverage_complete,
+        "by_season": [{"season": str(row[0]), "days": int(row[1])} for row in season_rows],
+    }
+
+
 def fetch_pick_inventory_metrics(connection: psycopg.Connection) -> dict[str, object]:
     if not table_exists(connection, "pick_inventory_obligation"):
         return {
@@ -1339,6 +1435,10 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
             "selections": 0,
             "unlinked_pick_rows": 0,
             "resolved_pick_rows": 0,
+            "prior_owner_lineage_rows": 0,
+            "selections_missing_prior_owner": 0,
+            "prior_owner_with_obligation_rows": 0,
+            "prior_owner_team_default_fallback_rows": 0,
             "unlinked_source_event_rows": 0,
             "lottery_results": lottery_results,
             "lottery_results_with_owner_original": lottery_results_with_owner_original,
@@ -1353,6 +1453,22 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
         if table_exists(connection, "draft_pick_resolution"):
             cursor.execute("select count(*) from foundation.draft_pick_resolution")
             resolved_pick_rows = int(cursor.fetchone()[0])
+        prior_owner_lineage_rows = 0
+        prior_owner_with_obligation_rows = 0
+        prior_owner_team_default_fallback_rows = 0
+        if table_exists(connection, "draft_prior_owner_lineage"):
+            cursor.execute("select count(*) from foundation.draft_prior_owner_lineage")
+            prior_owner_lineage_rows = int(cursor.fetchone()[0])
+            cursor.execute(
+                """
+                select count(*) filter (where source_obligation_id is not null),
+                       count(*) filter (where resolution_kind = 'team_default_fallback')
+                from foundation.draft_prior_owner_lineage
+                """
+            )
+            lineage_counts = cursor.fetchone()
+            prior_owner_with_obligation_rows = int(lineage_counts[0])
+            prior_owner_team_default_fallback_rows = int(lineage_counts[1])
         cursor.execute("select count(*) from foundation.draft_selection where source_event_id is null")
         unlinked_source_event_rows = int(cursor.fetchone()[0])
         cursor.execute(
@@ -1368,6 +1484,10 @@ def fetch_draft_metrics(connection: psycopg.Connection) -> dict[str, object]:
         "selections": selections,
         "unlinked_pick_rows": unlinked_pick_rows,
         "resolved_pick_rows": resolved_pick_rows,
+        "prior_owner_lineage_rows": prior_owner_lineage_rows,
+        "selections_missing_prior_owner": max(selections - prior_owner_lineage_rows, 0),
+        "prior_owner_with_obligation_rows": prior_owner_with_obligation_rows,
+        "prior_owner_team_default_fallback_rows": prior_owner_team_default_fallback_rows,
         "unlinked_source_event_rows": unlinked_source_event_rows,
         "lottery_results": lottery_results,
         "lottery_results_with_owner_original": lottery_results_with_owner_original,
@@ -1840,18 +1960,26 @@ def build_pick_inventory_fixture_gap_report(fixture_path: Path) -> dict[str, obj
 def build_draft_lineage_limitations(report: dict[str, object]) -> list[dict[str, str]]:
     draft = dict(report.get("draft", {}))
     if int(draft.get("selections", 0)) == 0:
-        evidence = "No draft_selection rows are loaded, so draft lineage cannot be evaluated."
-    else:
-        evidence = (
-            f"{draft.get('resolved_pick_rows', 0)} of {draft.get('selections', 0)} draft selections have "
-            "selected-slot resolution rows; this does not reconstruct every prior ownership branch."
-        )
+        return [
+            build_gap(
+                "low",
+                "Draft-night pick ownership lineage cannot be evaluated because no draft selections are loaded.",
+                "No draft_selection rows are loaded.",
+                "Load Memphis draft selections before evaluating prior-owner draft lineage.",
+            )
+        ]
+    if int(draft.get("prior_owner_lineage_rows", 0)) >= int(draft.get("selections", 0)):
+        return []
+    evidence = (
+        f"{draft.get('prior_owner_lineage_rows', 0)} of {draft.get('selections', 0)} draft selections have "
+        "prior-owner lineage rows."
+    )
     return [
         build_gap(
-            "low",
-            "Draft-night pick ownership lineage remains deferred.",
+            "medium",
+            "Draft-night pick ownership lineage remains incomplete.",
             evidence,
-            "Keep draft_pick_resolution scoped to selected-player continuity until a separate prior-owner pick lineage table is designed.",
+            "Load draft_prior_owner_lineage rows for every Memphis draft selection before treating draft provenance as prior-owner-complete.",
         )
     ]
 
@@ -1863,6 +1991,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
     source_coverage = list(report.get("source_coverage", []))
     source_coverage_report = dict(report.get("source_coverage_report", {}))
     snapshots = dict(report.get("snapshots", {}))
+    daily_roster_state = dict(report.get("daily_roster_state", {}))
     pick_inventory = dict(report.get("pick_inventory", {}))
     pick_inventory_fixture = dict(report.get("pick_inventory_fixture_gap_report", {}))
     draft = dict(report.get("draft", {}))
@@ -1946,6 +2075,28 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Some roster checkpoint snapshots still lack a loaded official season roster reference.",
                 f"{snapshots.get('source_missing', 0)} snapshot validation rows are in source_missing state.",
                 "Load the missing normalized official roster reference seasons and rerun load-roster-snapshot-validation.",
+            )
+        )
+    if int(daily_roster_state.get("days", 0)) == 0:
+        gaps.append(
+            build_gap(
+                "high",
+                "Daily roster state is not generated.",
+                "foundation.daily_roster_state has no loaded Memphis rows.",
+                "Load the additive daily roster state projection before treating roster occupancy as date-exact between checkpoints.",
+            )
+        )
+    elif not bool(daily_roster_state.get("coverage_complete")):
+        gaps.append(
+            build_gap(
+                "medium",
+                "Daily roster state coverage is incomplete.",
+                (
+                    f"{daily_roster_state.get('days', 0)} loaded days from "
+                    f"{daily_roster_state.get('span_start')} to {daily_roster_state.get('span_end')} with "
+                    f"{daily_roster_state.get('internal_missing_days', 0)} missing requested-span dates."
+                ),
+                "Reload daily roster state so the Memphis span is continuously covered from 2016-07-01 through 2026-06-30.",
             )
         )
     if int(snapshots.get("pick_rows", 0)) == 0:
@@ -2043,6 +2194,18 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Draft selections have pick links but not full resolution provenance.",
                 f"{draft.get('resolved_pick_rows')} of {draft.get('selections')} draft selections have draft_pick_resolution rows.",
                 "Backfill draft_pick_resolution provenance for every linked draft selection.",
+            )
+        )
+    if int(draft.get("selections", 0)) > 0 and int(draft.get("prior_owner_lineage_rows", 0)) < int(draft.get("selections", 0)):
+        gaps.append(
+            build_gap(
+                "medium",
+                "Draft-night prior-owner lineage is not loaded for every selection.",
+                (
+                    f"{draft.get('prior_owner_lineage_rows', 0)} of {draft.get('selections', 0)} Memphis draft selections "
+                    "have prior-owner lineage rows."
+                ),
+                "Load draft prior-owner lineage rows for every Memphis draft selection.",
             )
         )
     if int(draft.get("selections", 0)) > 0 and int(draft.get("unlinked_source_event_rows", 0)) > 0:

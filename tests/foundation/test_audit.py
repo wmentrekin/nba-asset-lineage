@@ -1497,20 +1497,18 @@ def test_build_known_gaps_surfaces_pick_inventory_reporting_details() -> None:
     assert "Future pick obligation fixture includes non-loadable fallback documentation rows" in gap_text
 
 
-def test_build_draft_lineage_limitations_always_preserves_deferred_scope() -> None:
+def test_build_draft_lineage_limitations_clears_once_prior_owner_rows_cover_all_selections() -> None:
     limitations = build_draft_lineage_limitations(
         {
             "draft": {
                 "selections": 20,
                 "resolved_pick_rows": 20,
+                "prior_owner_lineage_rows": 20,
             }
         }
     )
 
-    assert len(limitations) == 1
-    assert limitations[0]["severity"] == "low"
-    assert limitations[0]["gap"] == "Draft-night pick ownership lineage remains deferred."
-    assert "does not reconstruct every prior ownership branch" in limitations[0]["evidence"]
+    assert limitations == []
 
 
 def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
@@ -1550,6 +1548,13 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
                     }
                 ],
             },
+            "daily_roster_state": {
+                "days": 3653,
+                "span_start": "2016-07-01",
+                "span_end": "2026-06-30",
+                "internal_missing_days": 0,
+                "coverage_complete": True,
+            },
             "pick_inventory": {
                 "obligations": 20,
                 "uncertain_rows": 0,
@@ -1559,6 +1564,7 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
                 "selections": 20,
                 "unlinked_pick_rows": 0,
                 "resolved_pick_rows": 20,
+                "prior_owner_lineage_rows": 20,
                 "lottery_results": 5,
             },
         }

@@ -1,0 +1,150 @@
+artifact: residue_evidence_ledger
+feature: "foundation/official-roster-checkpoints"
+generated_at: "2026-05-27"
+purpose: "Classify the pre-closeout `season_reference_incomplete` residue that remained after the initial source-missing pass."
+
+classification_definitions:
+  alias_only: "The player was already represented by the season source family, but the checkpoint layer used a different display-name, suffix, or two-way form."
+  composite_source_backed: "The player was a real Memphis season member who was absent from the opening-night or opening-week reference and therefore had to be added to the broader season-membership composite."
+  truthful_blocker: "A player-season membership that still lacks enough preserved official evidence to load truthfully."
+
+season_source_families:
+  "2016-17": "Official NBA opening-day rosters and gamebooks, plus official transaction releases for late-season or short-stay additions."
+  "2017-18": "Official NBA opening-day rosters and gamebooks, plus official transaction releases for late-season or short-stay additions."
+  "2018-19": "Official NBA team rosters and gamebooks, plus official transaction releases for deadline and short-stay additions."
+  "2019-20": "Official NBA gamebooks/game notes, plus official transaction releases for deadline and short-stay additions."
+  "2020-21": "Official NBA gamebooks/game notes, plus official transaction releases for late-season or short-stay additions."
+  "2021-22": "Official Grizzlies/NBA game notes or gamebooks, plus official team transaction releases for late-season or short-stay additions."
+  "2022-23": "Official Grizzlies/NBA game notes or gamebooks, plus official team transaction releases for deadline and late-season additions."
+  "2023-24": "Official Grizzlies/NBA game notes or gamebooks, plus official team transaction releases for late-season and hardship additions."
+  "2024-25": "Official Grizzlies/NBA game notes or gamebooks, plus official team transaction releases for deadline and late-season additions."
+  "2025-26": "Official Grizzlies/NBA game notes or gamebooks, plus official team transaction releases for two-way, deadline, and late-season additions."
+
+seasons:
+  "2016-17":
+    alias_only:
+      - "Wade Baldwin"
+      - "James Ennis III"
+    composite_source_backed:
+      - "Toney Douglas"
+      - "Wayne Selden"
+      - "Dillon Brooks"
+      - "Ivan Rabb"
+      - "Chris Crawford"
+      - "D.J. Stephens"
+    truthful_blockers: []
+  "2017-18":
+    alias_only:
+      - "James Ennis III"
+      - "Vince Hunter"
+    composite_source_backed:
+      - "Myke Henry"
+      - "Brice Johnson"
+      - "MarShon Brooks"
+      - "Xavier Rathan-Mayes"
+      - "Jeremy Morgan"
+    truthful_blockers: []
+  "2018-19":
+    alias_only: []
+    composite_source_backed:
+      - "Avery Bradley"
+      - "Bruno Caboclo"
+      - "Tyler Dorsey"
+      - "Justin Holiday"
+      - "C.J. Miles"
+      - "Joakim Noah"
+      - "Jonas Valančiūnas"
+      - "Julian Washburn"
+      - "Delon Wright"
+      - "Tyler Harvey"
+      - "Tyler Zeller"
+      - "Brandon Goodwin"
+      - "Doral Moore"
+    truthful_blockers: []
+  "2019-20":
+    alias_only: []
+    composite_source_backed:
+      - "Jordan Bell"
+      - "Gorgui Dieng"
+      - "Justise Winslow"
+      - "Satnam Singh"
+      - "Anthony Tolliver"
+      - "Jarrod Uthoff"
+      - "Jontay Porter"
+      - "Matt Mooney"
+    truthful_blockers: []
+  "2020-21":
+    alias_only:
+      - "Xavier Tillman Sr."
+    composite_source_backed:
+      - "Tim Frazier"
+      - "Robert Woodard II"
+    truthful_blockers: []
+  "2021-22":
+    alias_only:
+      - "Xavier Tillman Sr."
+    composite_source_backed:
+      - "Shaq Buchanan"
+      - "DaQuan Jeffries"
+      - "Dakota Mathias"
+      - "Xavier Sneed"
+      - "Tyrell Terry"
+      - "Jon Teske"
+    truthful_blockers: []
+  "2022-23":
+    alias_only:
+      - "Xavier Tillman Sr."
+      - "GG Jackson II"
+      - "Gregory Jackson II"
+    composite_source_backed:
+      - "Luke Kennard"
+      - "Jacob Gilyard"
+    truthful_blockers: []
+  "2023-24":
+    alias_only:
+      - "GG Jackson II"
+      - "Mãozinha Pereira"
+      - "Xavier Tillman Sr."
+    composite_source_backed:
+      - "Tosan Evbuomwan"
+      - "Jordan Goodwin"
+      - "Shaquille Harrison"
+      - "Matthew Hurt"
+      - "Trey Jemison"
+      - "Jaylen Nowell"
+      - "Scotty Pippen Jr."
+      - "Timmy Allen"
+      - "Wenyen Gabriel"
+      - "DeJon Jarreau"
+    truthful_blockers: []
+  "2024-25":
+    alias_only:
+      - "GG Jackson II"
+    composite_source_backed:
+      - "Marvin Bagley III"
+      - "Zyon Pullin"
+      - "Johnny Davis"
+      - "Lamar Stevens"
+      - "Cedric Coward"
+    truthful_blockers: []
+  "2025-26":
+    alias_only:
+      - "GG Jackson II"
+      - "Javon Small (TW)"
+      - "Jahmai Mashack (TW)"
+      - "Rayan Rupert (TW)"
+      - "Jahmai Mashack"
+    composite_source_backed:
+      - "Taylor Hendricks"
+      - "Walter Clayton"
+      - "Brandon Clarke"
+      - "Charles Bassey"
+      - "Taj Gibson"
+      - "Braxton Key"
+    truthful_blockers: []
+
+summary:
+  alias_only_count: 20
+  composite_source_backed_count: 61
+  truthful_blocker_count: 0
+  expected_finish_line: "Rebuild each season as a broader official season-membership composite, then rerun checkpoint validation. No truthful blockers were identified in the pre-closeout residue."

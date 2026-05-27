@@ -16,12 +16,22 @@ from foundation.canonical import (
     derive_foundation_canonical_bundle_from_database,
     load_foundation_canonical_bundle,
 )
+from foundation.daily_roster_state import (
+    DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH as DEFAULT_DAILY_ROSTER_TWO_WAY_FIXTURE_PATH,
+    load_daily_roster_state,
+    preview_daily_roster_state,
+)
 from foundation.draft_resolution import (
     DEFAULT_CURATED_DRAFT_PICK_RESOLUTION_PATH,
     bootstrap_foundation_draft_pick_resolution_schema,
     load_curated_draft_pick_resolution,
     preview_curated_draft_pick_resolution,
     preview_draft_pick_resolution,
+)
+from foundation.draft_prior_owner import (
+    DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH,
+    load_draft_prior_owner_lineage,
+    preview_draft_prior_owner_lineage,
 )
 from foundation.draft_lottery_results import (
     DEFAULT_DRAFT_LOTTERY_RESULTS_FIXTURE_PATH,
@@ -169,9 +179,36 @@ def parse_args() -> argparse.Namespace:
     bootstrap_draft_resolution_parser.add_argument("--sql-path", default="sql/0005_foundation_draft_pick_resolution_bootstrap.sql")
     bootstrap_pick_inventory_parser = subparsers.add_parser("bootstrap-foundation-pick-inventory", help="Apply reset-era pick inventory obligation bootstrap SQL.")
     bootstrap_pick_inventory_parser.add_argument("--sql-path", default="sql/0006_foundation_pick_inventory_bootstrap.sql")
+    bootstrap_daily_and_prior_owner_parser = subparsers.add_parser(
+        "bootstrap-foundation-daily-roster-and-prior-owner",
+        help="Apply reset-era daily roster state and draft prior-owner lineage bootstrap SQL.",
+    )
+    bootstrap_daily_and_prior_owner_parser.add_argument(
+        "--sql-path",
+        default="sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql",
+    )
     subparsers.add_parser("preview-derived-foundation-entities", help="Build player, pick, and asset rows from the current foundation.source_event table without writing.")
     subparsers.add_parser("load-derived-foundation-entities", help="Build and load player, pick, and asset rows from the current foundation.source_event table.")
     subparsers.add_parser("load-roster-snapshots-from-baselines", help="Build approximate checkpoint roster snapshots from loaded roster baseline rows.")
+    preview_daily_roster_state_parser = subparsers.add_parser(
+        "preview-daily-roster-state",
+        help="Read-only preview of additive daily Memphis roster occupancy derived from baselines, source events, and two-way intervals.",
+    )
+    preview_daily_roster_state_parser.add_argument("--team-code", default="MEM")
+    preview_daily_roster_state_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_DAILY_ROSTER_TWO_WAY_FIXTURE_PATH),
+    )
+    load_daily_roster_state_parser = subparsers.add_parser(
+        "load-daily-roster-state",
+        help="Guarded load of additive daily Memphis roster occupancy rows.",
+    )
+    load_daily_roster_state_parser.add_argument("--team-code", default="MEM")
+    load_daily_roster_state_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_DAILY_ROSTER_TWO_WAY_FIXTURE_PATH),
+    )
+    load_daily_roster_state_parser.add_argument("--dry-run", action="store_true")
     preview_roster_validation_parser = subparsers.add_parser(
         "preview-roster-snapshot-validation",
         help="Read-only preview of official season-reference validation rows for roster checkpoints.",
@@ -182,6 +219,25 @@ def parse_args() -> argparse.Namespace:
         help="Compute and write official season-reference validation rows for roster checkpoints.",
     )
     load_roster_validation_parser.add_argument("--team-code", default="MEM")
+    draft_prior_owner_preview_parser = subparsers.add_parser(
+        "preview-draft-prior-owner-lineage",
+        help="Read-only preview of additive prior-owner draft lineage rows for Memphis selections.",
+    )
+    draft_prior_owner_preview_parser.add_argument("--team-code", default="MEM")
+    draft_prior_owner_preview_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH),
+    )
+    draft_prior_owner_load_parser = subparsers.add_parser(
+        "load-draft-prior-owner-lineage",
+        help="Guarded load of additive prior-owner draft lineage rows for Memphis selections.",
+    )
+    draft_prior_owner_load_parser.add_argument("--team-code", default="MEM")
+    draft_prior_owner_load_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH),
+    )
+    draft_prior_owner_load_parser.add_argument("--dry-run", action="store_true")
     subparsers.add_parser("preview-foundation-canonical", help="Build canonical events, members, and transitions from the current foundation tables without writing.")
     subparsers.add_parser("load-foundation-canonical", help="Build and load canonical events, members, and transitions from the current foundation tables.")
     export_graph_parser = subparsers.add_parser("export-foundation-graph", help="Build the first graph-ready export from the current foundation tables.")
@@ -682,6 +738,9 @@ def main() -> None:
     elif args.command == "bootstrap-foundation-pick-inventory":
         bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
         payload = {"status": "ok", "sql_path": args.sql_path}
+    elif args.command == "bootstrap-foundation-daily-roster-and-prior-owner":
+        bootstrap_foundation_ingest_schema(load_database_url(), sql_path=Path(args.sql_path))
+        payload = {"status": "ok", "sql_path": args.sql_path}
     elif args.command == "preview-derived-foundation-entities":
         derived = derive_foundation_entities_from_database(load_database_url())
         payload = {
@@ -699,6 +758,19 @@ def main() -> None:
     elif args.command == "load-roster-snapshots-from-baselines":
         counts = load_roster_snapshots_from_baselines(load_database_url())
         payload = {"status": "ok", **counts}
+    elif args.command == "preview-daily-roster-state":
+        payload = preview_daily_roster_state(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
+    elif args.command == "load-daily-roster-state":
+        payload = load_daily_roster_state(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
     elif args.command == "preview-roster-snapshot-validation":
         payload = preview_roster_snapshot_validation(
             load_database_url(),
@@ -709,6 +781,19 @@ def main() -> None:
             load_database_url(),
             team_code=args.team_code,
         )
+    elif args.command == "preview-draft-prior-owner-lineage":
+        payload = preview_draft_prior_owner_lineage(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
+    elif args.command == "load-draft-prior-owner-lineage":
+        payload = load_draft_prior_owner_lineage(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+            dry_run=args.dry_run,
+        ).model_dump(mode="json")
     elif args.command == "preview-foundation-canonical":
         bundle = derive_foundation_canonical_bundle_from_database(load_database_url())
         payload = {
@@ -739,6 +824,8 @@ def main() -> None:
                 "pick_assets": len(export.pick_assets),
                 "transitions": len(export.transitions),
                 "roster_snapshots": len(export.roster_snapshots),
+                "daily_roster_states": len(export.daily_roster_states),
+                "draft_prior_owner_lineages": len(export.draft_prior_owner_lineages),
             }
     elif args.command == "preview-bref-source-events":
         payload = preview_bref_source_events(team_code=args.team_code, season_end_year=args.season_end_year)

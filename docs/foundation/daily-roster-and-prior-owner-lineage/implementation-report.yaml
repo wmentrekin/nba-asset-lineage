@@ -1,0 +1,70 @@
+artifact: implementation_report
+feature: "foundation/daily-roster-and-prior-owner-lineage"
+status: complete
+owner_skill: work
+
+summary:
+  objective: "Close daily roster state generation and draft-night prior-owner lineage with additive, graph-safe foundation surfaces."
+  outcome: "Complete. Both gaps are closed in the live audit."
+
+implementation:
+  schema:
+    - "Added `foundation.daily_roster_state` and `foundation.daily_roster_state_player`."
+    - "Added `foundation.draft_prior_owner_lineage`."
+  code:
+    - "Added `src/foundation/daily_roster_state.py`."
+    - "Added `src/foundation/draft_prior_owner.py`."
+    - "Extended `src/foundation/models.py`, `src/foundation/export.py`, `src/foundation/audit.py`, and `src/redesign_cli.py`."
+    - "Added `sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql`."
+    - "Added `configs/data/memphis_draft_prior_owner_overrides_2016_2025.json` for the ambiguous draft-night residue."
+  derivation_contract:
+    - "Daily roster rows are checkpoint-anchored on validated season snapshots and carry forward between anchors."
+    - "Daily roster output is bounded to the graph-facing 18-player slot surface."
+    - "Draft prior-owner lineage resolves from pre-draft inventory first and uses curated overrides only where inventory truth was insufficient."
+
+live_results:
+  daily_roster_state:
+    rows: 3652
+    player_rows: 61979
+    coverage_start: "2016-07-01"
+    coverage_end: "2026-06-30"
+    coverage_complete: true
+    max_player_count: 18
+    max_two_way_count: 3
+  draft_prior_owner_lineage:
+    rows: 20
+    selections: 20
+    selections_missing_prior_owner: 0
+    curated_override_rows: 8
+    team_default_fallback_rows: 12
+  audit:
+    closed_gaps:
+      - "daily roster state generation"
+      - "draft-night prior ownership lineage"
+    remaining_low_priority_gaps:
+      - "supplemental corroboration depth"
+      - "two-way historical completeness"
+      - "contract semantics depth"
+      - "conditional future-pick branch modeling"
+      - "draft lottery contextual-only usage"
+
+validation:
+  local:
+    - "Focused tests: 73 passed"
+    - "Full test suite: 215 passed"
+  live:
+    - "bootstrap-foundation-daily-roster-and-prior-owner"
+    - "preview-daily-roster-state"
+    - "load-daily-roster-state"
+    - "preview-draft-prior-owner-lineage"
+    - "load-draft-prior-owner-lineage"
+    - "audit-foundation-data"
+    - "inspect-foundation-graph-baseline"
+
+graph_contract:
+  canonical_counts:
+    canonical_event: 407
+    canonical_event_member: 420
+    event_asset_transition: 568
+  export_checksum_sha256: "edf5b4a2825b42ec4db14ac08c906cdda5280e5e8cc4935a37d1644ac59ff409"
+  note: "The export checksum changed because the graph export now carries the new additive surfaces. Canonical event and transition truth did not change."

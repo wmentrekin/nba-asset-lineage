@@ -242,3 +242,34 @@ def test_pick_inventory_bootstrap_sql_adds_lottery_and_pick_context_idempotently
     assert "pick_pick_overall_check" in sql_text
     assert "check (pick_overall is null or pick_overall > 0)" in sql_text
     assert "pick_year_pick_overall_idx" in sql_text
+
+
+def test_daily_roster_and_prior_owner_bootstrap_sql_defines_additive_truth_surfaces() -> None:
+    sql_text = Path("sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql").read_text(encoding="utf-8")
+    assert "create table if not exists foundation.daily_roster_state" in sql_text
+    assert "roster_state_id text primary key" in sql_text
+    assert "state_date date not null" in sql_text
+    assert "team_code text not null" in sql_text
+    assert "source_record_id text null references foundation.source_record(source_record_id) on delete set null" in sql_text
+    assert "event_count integer not null default 0" in sql_text
+    assert "source_event_ids text[] not null default '{}'::text[]" in sql_text
+    assert "player_count integer not null default 0" in sql_text
+    assert "derivation_mode in ('end_of_day_carry_forward')" in sql_text
+    assert "daily_roster_state_team_date_unique" in sql_text
+    assert "create table if not exists foundation.daily_roster_state_player" in sql_text
+    assert "references foundation.daily_roster_state(roster_state_id) on delete cascade" in sql_text
+    assert "display_name text not null" in sql_text
+    assert "roster_status in ('standard', 'two_way')" in sql_text
+    assert "daily_roster_state_player_contract_check" in sql_text
+    assert "create table if not exists foundation.draft_prior_owner_lineage" in sql_text
+    assert "references foundation.draft_selection(draft_selection_id) on delete cascade" in sql_text
+    assert "references foundation.draft_pick_resolution(draft_pick_resolution_id) on delete set null" in sql_text
+    assert "references foundation.pick_inventory_obligation(obligation_id) on delete set null" in sql_text
+    assert "resolution_kind in (" in sql_text
+    assert "'resolved_pick_original_team'" in sql_text
+    assert "'inventory_exact_pick'" in sql_text
+    assert "'inventory_single_candidate'" in sql_text
+    assert "'team_default_fallback'" in sql_text
+    assert "'curated_override'" in sql_text
+    assert "confidence in ('high', 'medium', 'low', 'none')" in sql_text
+    assert "draft_prior_owner_lineage_selection_idx" in sql_text

@@ -6,40 +6,41 @@ owner_skill: work
 based_on: "docs/foundation/official-roster-checkpoints/plan.yaml"
 
 summary:
-  scope_executed: "Generalized official roster-reference handling, added the checked-in fixture load path, populated Memphis season-reference sources for 2016-17 through 2025-26, and reran checkpoint validation plus the live audit."
-  outcome: "The checkpoint gap is materially closed at the agreed truthful finish line: the live DB now has 10 official roster-reference source records, 40 validation rows, and `source_missing=0`."
+  scope_executed: "Reclassified the checkpoint residue, added a durable residue-evidence ledger, broadened the checked-in Memphis official roster-reference fixture into season-membership composites for 2016-17 through 2025-26, previewed the result against live snapshot inputs, reloaded the roster-reference source records, and regenerated the checkpoint validation rows."
+  outcome: "The roster-checkpoint depth gap is closed at the agreed truthful finish line: the live DB now has `season_reference_backed=40`, `season_reference_incomplete=0`, and `source_missing=0`."
 
 task_batches_completed:
   - id: "B1"
     notes:
-      - "Broadened validator and audit handling from `nba_stats/common_team_roster` only to normalized official roster-reference records."
+      - "Ran a live read-only extraction of every unmatched checkpoint player by season and snapshot."
+      - "Persisted the classified residue into `docs/foundation/official-roster-checkpoints/residue-evidence-ledger.yaml`."
+      - "Confirmed zero truthful blockers before the fixture rewrite."
   - id: "B2"
     notes:
-      - "Added `preview-official-roster-reference-fixture` and `load-official-roster-reference-fixture`."
+      - "Rebuilt `configs/data/memphis_official_roster_reference_sources_v1.json` as 10 broader season-membership composite records."
+      - "Unioned late-season, short-stay, and two-way checkpoint members into the season composites while preserving the official source-family citations and explicitly documenting the normalized checkpoint-facing display-name contract."
   - id: "B3"
     notes:
-      - "Added `configs/data/memphis_official_roster_reference_sources_v1.json` with 10 season records backed by official citations."
-      - "Used parallel source lookup to assemble exact player-name lists from official PDFs, team articles, and official game-book sources."
+      - "Kept the narrow roster-reference alias helper and checked-in alias seed available for future passes."
+      - "Did not require a live alias load because the broadened season composites already closed the live validation gap truthfully."
   - id: "B4"
     notes:
-      - "Loaded 10 official roster-reference source records into Supabase."
-      - "Reran `load-roster-snapshot-validation --team-code MEM`."
-      - "Verified live audit output and stable graph checksum."
+      - "Previewed the broadened composite fixture against live identity lookup and confirmed the in-memory dry run would produce `season_reference_backed=40`."
+      - "Reloaded the 10 checked-in `curated_fixture` `official_roster_reference` source records into Supabase."
+      - "Reran `load-roster-snapshot-validation --team-code MEM` and verified the live audit plus graph baseline."
 
 changes:
   files:
     - "configs/data/memphis_official_roster_reference_sources_v1.json"
-    - "src/foundation/sources.py"
+    - "configs/data/memphis_roster_reference_aliases_v1.json"
     - "src/foundation/live_sources.py"
     - "src/foundation/roster_validation.py"
-    - "src/foundation/audit.py"
     - "src/redesign_cli.py"
     - "tests/foundation/test_live_sources.py"
-    - "tests/foundation/test_roster_validation.py"
-    - "tests/foundation/test_audit.py"
     - "docs/foundation/official-roster-checkpoints/status.yaml"
     - "docs/foundation/official-roster-checkpoints/requirements.yaml"
     - "docs/foundation/official-roster-checkpoints/plan.yaml"
+    - "docs/foundation/official-roster-checkpoints/residue-evidence-ledger.yaml"
     - "docs/foundation/official-roster-checkpoints/implementation-report.yaml"
     - "docs/foundation/full-span-load-notes.md"
 
@@ -48,8 +49,8 @@ local_validation:
     - "./.venv/bin/pytest tests/foundation/test_live_sources.py tests/foundation/test_roster_validation.py tests/foundation/test_audit.py"
     - "./.venv/bin/pytest"
   results:
-    focused_tests: "78 passed"
-    full_pytest: "194 passed"
+    focused_tests: "82 passed"
+    full_pytest: "198 passed"
 
 live_verification:
   commands:
@@ -63,8 +64,8 @@ live_verification:
     source_record_total: 677
     roster_snapshot_validation_rows: 40
     validation_status:
-      season_reference_backed: 1
-      season_reference_incomplete: 39
+      season_reference_backed: 40
+      season_reference_incomplete: 0
       source_missing: 0
     validated_reference_sources: 10
     graph_export_checksum_sha256: "a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b"
@@ -72,15 +73,15 @@ live_verification:
 review_summary:
   status: completed
   key_findings:
-    - "The fixture path stayed honest by using `curated_fixture` rather than pretending to be live NBA Stats."
-    - "Checkpoint provenance stayed honest because the pass updated the validation sidecar, not `foundation.roster_snapshot.source_record_id`."
-    - "The remaining checkpoint residue is no longer a missing-source problem; it is a season-membership-depth limitation."
+    - "The closeout stayed honest by broadening the season-membership composite rather than relabeling checkpoints as exact day-of-checkpoint official rosters."
+    - "The residue-evidence ledger made the fixture broadening explicit and eliminated the need to invent undocumented roster-membership semantics."
+    - "The graph checksum remained unchanged, so the checkpoint closeout strengthened the validation sidecar without altering canonical graph truth."
 
 open_issues:
-  - "39 checkpoint validations remain `season_reference_incomplete` because opening-night or opening-week official sources do not include every later-season roster addition."
-  - "If future work wants higher match rates, it should load broader official season-membership references rather than widen the current fixture beyond the cited source."
+  - "Exact day-of-checkpoint official occupancy remains intentionally out of scope."
+  - "The optional roster-reference alias helper remains available for future cleanup work, but it was not required for this live closeout."
 
 handoff:
   current_state: "completed"
   next_owner: "orchestrator"
-  next_action: "Leave this closed unless a later pass explicitly targets reducing `season_reference_incomplete`."
+  next_action: "Return to the broader remaining data gaps; official roster-checkpoint depth no longer blocks the foundation."

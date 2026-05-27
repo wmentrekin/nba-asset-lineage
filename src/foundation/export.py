@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from foundation.models import BaseGraphExport
 from foundation.models import AssetTransition, PickAsset, PlayerAsset, TransactionEvent
 from foundation.models import FuturePickSnapshot
+from foundation.models import DailyRosterState, DailyRosterStatePlayer, DraftPriorOwnerLineage
 from foundation.models import RosterSnapshot
 from foundation.models import draft_event_date
 
@@ -185,6 +186,63 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
                 )
                 snapshot_pick_rows = cursor.fetchall()
 
+            daily_state_rows: list[tuple[object, ...]] = []
+            daily_state_player_rows: list[tuple[object, ...]] = []
+            cursor.execute("select to_regclass('foundation.daily_roster_state')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    """
+                    select roster_state_id, state_date::text, season
+                    from foundation.daily_roster_state
+                    where team_code = 'MEM'
+                    order by state_date, roster_state_id
+                    """
+                )
+                daily_state_rows = cursor.fetchall()
+                cursor.execute(
+                    """
+                    select rsd.roster_state_id,
+                           rsdp.player_id,
+                           rsdp.asset_id,
+                           rsdp.roster_status,
+                           rsdp.roster_order,
+                           rsdp.is_two_way,
+                           rsdp.is_standard_contract
+                    from foundation.daily_roster_state_player rsdp
+                    join foundation.daily_roster_state rsd
+                      on rsd.roster_state_id = rsdp.roster_state_id
+                    where rsd.team_code = 'MEM'
+                    order by rsd.state_date, rsd.roster_state_id, rsdp.roster_order nulls last, rsdp.player_id
+                    """
+                )
+                daily_state_player_rows = cursor.fetchall()
+
+            draft_prior_owner_rows: list[tuple[object, ...]] = []
+            cursor.execute("select to_regclass('foundation.draft_prior_owner_lineage')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    """
+                    select draft_selection_id,
+                           pick_id,
+                           pick_asset_id,
+                           player_id,
+                           player_asset_id,
+                           draft_year,
+                           round_number,
+                           pick_overall,
+                           owner_team_code,
+                           original_team_code,
+                           source_obligation_id,
+                           resolution_kind,
+                           confidence,
+                           notes
+                    from foundation.draft_prior_owner_lineage
+                    where team_code = 'MEM'
+                    order by draft_year, round_number, pick_overall, draft_selection_id
+                    """
+                )
+                draft_prior_owner_rows = cursor.fetchall()
+
     export = build_empty_base_export()
     if event_rows:
         export.span_start = str(event_rows[0][2])
@@ -269,6 +327,54 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
             future_picks=pick_assets_by_snapshot.get(str(row[0]), []),
         )
         for row in snapshot_rows
+    ]
+    player_states_by_day: dict[str, list[DailyRosterStatePlayer]] = {}
+    roster_asset_ids_by_day: dict[str, list[str]] = {}
+    two_way_asset_ids_by_day: dict[str, list[str]] = {}
+    for state_id, player_id, asset_id, roster_status, depth_order, is_two_way, is_standard_contract in daily_state_player_rows:
+        if asset_id is None:
+            continue
+        state_key = str(state_id)
+        player_state = DailyRosterStatePlayer(
+            asset_id=str(asset_id),
+            player_id=str(player_id),
+            roster_status=str(roster_status),  # type: ignore[arg-type]
+            depth_order=int(depth_order) if depth_order is not None else None,
+            is_two_way=bool(is_two_way),
+            is_standard_contract=bool(is_standard_contract),
+        )
+        player_states_by_day.setdefault(state_key, []).append(player_state)
+        target = two_way_asset_ids_by_day if bool(is_two_way) else roster_asset_ids_by_day
+        target.setdefault(state_key, []).append(str(asset_id))
+    export.daily_roster_states = [
+        DailyRosterState(
+            state_id=str(row[0]),
+            as_of_date=str(row[1]),
+            season=str(row[2]),
+            roster_asset_ids=roster_asset_ids_by_day.get(str(row[0]), []),
+            two_way_asset_ids=two_way_asset_ids_by_day.get(str(row[0]), []),
+            player_states=player_states_by_day.get(str(row[0]), []),
+        )
+        for row in daily_state_rows
+    ]
+    export.draft_prior_owner_lineages = [
+        DraftPriorOwnerLineage(
+            draft_selection_id=str(row[0]),
+            pick_id=str(row[1]),
+            pick_asset_id=str(row[2]),
+            player_id=str(row[3]),
+            player_asset_id=str(row[4]) if row[4] is not None else None,
+            draft_year=int(row[5]),
+            round_number=int(row[6]),
+            pick_overall=int(row[7]),
+            owner_team_code=str(row[8]),
+            original_team_code=str(row[9]),
+            source_obligation_id=str(row[10]) if row[10] is not None else None,
+            resolution_kind=str(row[11]),
+            confidence=str(row[12]),
+            notes=str(row[13]) if row[13] is not None else None,
+        )
+        for row in draft_prior_owner_rows
     ]
     return export
 

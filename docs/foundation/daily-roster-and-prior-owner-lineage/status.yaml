@@ -1,0 +1,76 @@
+artifact: status
+feature: "foundation/daily-roster-and-prior-owner-lineage"
+mode: "large-initiative"
+stage: "completed"
+owner_skill: work
+
+objective: "Define and execute a coordinated initiative that fully closes daily roster state generation and draft-night prior ownership lineage without regressing the current graph-truth contract."
+
+summary:
+  current_focus: "The initiative is complete: the live foundation now carries a full-span daily roster-state surface plus a resolved prior-owner lineage surface for every Memphis draft selection."
+  last_completed: "Bootstrapped the additive tables, loaded 3,652 daily roster-state rows and 20 draft prior-owner lineage rows, then verified the live audit no longer reports either gap."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/foundation/daily-roster-and-prior-owner-lineage/requirements.yaml"
+  plan: "docs/foundation/daily-roster-and-prior-owner-lineage/plan.yaml"
+  implementation_report: "docs/foundation/daily-roster-and-prior-owner-lineage/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "verification"
+    task: "Integrate the additive surfaces, load them into Supabase, verify the live audit, and close the initiative."
+    last_update: "Verified full daily coverage from 2016-07-01 through 2026-06-30 and prior-owner coverage for all 20 Memphis draft selections."
+    blocker: ""
+  - id: "019e6acd-9662-7ee3-ac69-02cb67040a40"
+    role: "worker"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement the additive daily roster-state derivation and test surface."
+    last_update: "Delivered the initial daily roster-state module and focused tests used in the final checkpoint-anchored implementation."
+    blocker: ""
+  - id: "019e6acd-afb9-7d30-8696-9cef5c26a28e"
+    role: "worker"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement the additive draft prior-owner lineage bridge and test surface."
+    last_update: "Delivered the prior-owner bridge module and focused tests used in the final override-backed lineage load."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 1
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: completed
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+
+decisions:
+  - "Treat this as one combined initiative because daily roster state and prior-owner draft lineage both feed the same graph-truth layer."
+  - "Do not treat the current four seasonal checkpoints as a substitute for daily roster truth."
+  - "Do not treat selected-player draft-slot resolution as a substitute for prior-owner pick lineage."
+  - "Promote the work from bounded-feature to large-initiative because both gaps are structural and cross schema, export, audit, and verification layers."
+  - "Keep the two goals under one umbrella, but split execution planning into separate batches for daily roster state and prior-owner draft lineage."
+  - "Anchor daily roster-state derivation on the validated checkpoint snapshots instead of season-membership baselines."
+  - "Bound the daily export to the graph-facing 18-player slot surface when interval residue would otherwise exceed roster capacity."
+  - "Allow a tiny checked-in override fixture for the minority of draft selections where pre-draft inventory alone could not identify the original team truthfully."
+
+next_action: "None. This initiative is complete."
+next_recommended_command: "$work"
+user_input_needed: false

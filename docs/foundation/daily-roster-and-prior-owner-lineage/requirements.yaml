@@ -1,0 +1,95 @@
+artifact: requirements
+feature: "foundation/daily-roster-and-prior-owner-lineage"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+
+summary:
+  problem: "The live foundation now has validated checkpoint snapshots and selected-player draft-slot resolution, but it still lacks true daily roster state and draft-night prior-owner pick lineage."
+  motivation: "Both gaps weaken the graph-truth layer directly. Checkpoint-only roster state cannot support exact day-to-day continuity, and slot-only draft resolution cannot show which pre-draft pick right became a drafted player."
+  requested_outcome: "Close both gaps under one coordinated initiative by adding a durable daily roster-state surface and a durable draft-night prior-owner lineage bridge, then expose both through the graph-ready export without weakening the existing canonical contract."
+
+goals:
+  - "Add a durable daily Memphis roster-state layer that records graph-facing end-of-day player membership for each covered date."
+  - "Preserve checkpoint `roster_snapshot` behavior while making daily state independently queryable and exportable."
+  - "Add a durable draft-night bridge that links pre-draft pick ownership to the selected slot/player outcome."
+  - "Keep current `draft_pick_resolution` scoped to selected-player continuity instead of overloading it with prior-owner lineage semantics."
+  - "Expose the new daily roster-state and prior-owner lineage surfaces in the graph-ready export with stable validation."
+
+non_goals:
+  - "Do not broaden this pass into narrative, chaptering, or frontend interaction work."
+  - "Do not reopen the supplemental corroboration-depth backlog."
+  - "Do not attempt a full conditional future-pick branch solver in the same pass."
+  - "Do not relabel checkpoint snapshots as daily state."
+  - "Do not weaken the current canonical event or transition truth model."
+
+constraints:
+  technical:
+    - "All live writes must go through checked-in Python/CLI commands."
+    - "The current `roster_snapshot` contract is checkpoint-only and should remain backward-compatible."
+    - "The current `draft_pick_resolution` contract is slot-based and should remain backward-compatible."
+    - "New schema should be additive unless an existing contract is clearly wrong."
+  product:
+    - "Daily roster state must be truthful date-by-date within the graph-facing 18-player slot surface, not just interpolated presentation metadata."
+    - "Prior-owner draft lineage must answer which pre-draft pick right became the drafted player, not just which slot was used."
+    - "Memphis-only scope remains the target."
+  process:
+    - "Use `$work` orchestration with concurrent subagent discovery."
+    - "Stop for an execution checkpoint before any schema or DB write work starts."
+
+assumptions:
+  - "Daily roster state can be derived from the existing source-event chronology plus current checkpoint and two-way enrichment layers if the truth contract is explicitly defined as end-of-day occupancy after known roster events on that date."
+  - "Prior-owner draft lineage can be closed for the actual Memphis draft selections without solving every hypothetical conditional branch."
+  - "The smallest safe contract is additive: new daily-state and draft-bridge surfaces rather than mutation of the current checkpoint and slot-resolution tables."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/ingest.py"
+    - "src/foundation/export.py"
+    - "src/foundation/models.py"
+    - "src/foundation/draft_resolution.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "sql/0005_foundation_draft_pick_resolution_bootstrap.sql"
+    - "sql/0006_foundation_pick_inventory_bootstrap.sql"
+    - "docs/foundation/README.md"
+    - "docs/foundation/data-foundation.md"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/full-span-load-notes.md"
+  systems_in_scope:
+    - "roster snapshot generation"
+    - "daily roster-state derivation"
+    - "draft pick resolution"
+    - "pick inventory obligation lineage"
+    - "graph-ready export"
+    - "foundation audit"
+  prior_artifacts:
+    - "docs/foundation/official-roster-checkpoints/*"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+
+research:
+  repo_findings:
+    - "Current roster snapshots are only four seasonal checkpoints built by `build_roster_snapshots_from_baselines()` from baseline rows plus membership events."
+    - "Current export emits `roster_snapshots`, but not daily roster state."
+    - "Current `draft_pick_resolution` resolves selected-player continuity through slot picks and `pick_to_player` transitions only."
+    - "Current pick inventory surfaces owner/original-team semantics on obligations and snapshot picks, but not on a draft-night bridge from prior owner to selected slot."
+    - "Current docs are slightly drifted: some active docs still describe `roster_snapshots` as future/empty despite live population."
+  platform_findings:
+    - "No extra external source research was required for planning; the current blocker is internal contract definition, not provider discovery."
+
+acceptance_criteria:
+  - "A live read-only audit can truthfully report that daily roster state is present for the covered span rather than only seasonal checkpoints."
+  - "The graph/export surface can expose daily roster state without changing the meaning of the existing checkpoint `roster_snapshots`."
+  - "Each Memphis draft selection can be traced through a durable prior-owner bridge rather than only a slot-based `pick_to_player` transition."
+  - "Current checkpoint validation and current draft-slot resolution continue to work."
+  - "Relevant tests pass and the graph contract remains coherent."
+  - "Active docs are updated to reflect the new daily-state and draft-lineage surfaces."
+  - "The live audit no longer reports daily roster state generation or draft-night prior-owner lineage as remaining gaps."
+
+open_questions:
+  - "Can the prior-owner draft bridge be fully derived from obligation rows plus own-pick baseline, or will a tiny curated bridge fixture still be needed for a minority of selections?"
+
+ready_for_planning: false
+planning_blockers: []

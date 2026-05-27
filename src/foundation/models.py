@@ -105,6 +105,41 @@ class RosterSnapshot(BaseModel):
     future_picks: list[FuturePickSnapshot] = Field(default_factory=list)
 
 
+class DailyRosterStatePlayer(BaseModel):
+    asset_id: str
+    player_id: str
+    roster_status: Literal["standard", "two_way", "non_roster"] = "standard"
+    depth_order: int | None = None
+    is_two_way: bool = False
+    is_standard_contract: bool = True
+
+
+class DailyRosterState(BaseModel):
+    state_id: str
+    as_of_date: str
+    season: str | None = None
+    roster_asset_ids: list[str] = Field(default_factory=list)
+    two_way_asset_ids: list[str] = Field(default_factory=list)
+    player_states: list[DailyRosterStatePlayer] = Field(default_factory=list)
+
+
+class DraftPriorOwnerLineage(BaseModel):
+    draft_selection_id: str
+    pick_id: str
+    pick_asset_id: str
+    player_id: str
+    player_asset_id: str | None = None
+    draft_year: int
+    round_number: int
+    pick_overall: int
+    owner_team_code: str
+    original_team_code: str
+    source_obligation_id: str | None = None
+    resolution_kind: str
+    confidence: str
+    notes: str | None = None
+
+
 class BaseGraphExport(BaseModel):
     franchise: str
     span_start: str
@@ -114,3 +149,5 @@ class BaseGraphExport(BaseModel):
     pick_assets: list[PickAsset] = Field(default_factory=list)
     transitions: list[AssetTransition] = Field(default_factory=list)
     roster_snapshots: list[RosterSnapshot] = Field(default_factory=list)
+    daily_roster_states: list[DailyRosterState] = Field(default_factory=list)
+    draft_prior_owner_lineages: list[DraftPriorOwnerLineage] = Field(default_factory=list)

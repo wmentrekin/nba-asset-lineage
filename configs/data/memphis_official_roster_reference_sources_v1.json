@@ -6,7 +6,7 @@
     {
       "season": "2016-17",
       "source_locator": "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2016/10/2016-17-Opening-Day-Rosters-10-24-16.pdf",
-      "source_note": "Official NBA opening-day roster PDF. Exact opening-night roster reference.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official NBA gamebooks/game notes plus official transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://pr.nba.com/2016-17-nba-regular-season-rosters/",
         "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2016/10/2016-17-Opening-Day-Rosters-10-24-16.pdf"
@@ -26,13 +26,21 @@
         { "PLAYER": "Zach Randolph", "PLAYER_ID": "fixture:2016-17:zach-randolph" },
         { "PLAYER": "Troy Williams", "PLAYER_ID": "fixture:2016-17:troy-williams" },
         { "PLAYER": "Chandler Parsons", "PLAYER_ID": "fixture:2016-17:chandler-parsons" },
-        { "PLAYER": "Brandan Wright", "PLAYER_ID": "fixture:2016-17:brandan-wright" }
+        { "PLAYER": "Brandan Wright", "PLAYER_ID": "fixture:2016-17:brandan-wright" },
+        { "PLAYER": "Wade Baldwin", "PLAYER_ID": "fixture:2016-17:wade-baldwin" },
+        { "PLAYER": "Toney Douglas", "PLAYER_ID": "fixture:2016-17:toney-douglas" },
+        { "PLAYER": "James Ennis III", "PLAYER_ID": "fixture:2016-17:james-ennis-iii" },
+        { "PLAYER": "Wayne Selden", "PLAYER_ID": "fixture:2016-17:wayne-selden" },
+        { "PLAYER": "Dillon Brooks", "PLAYER_ID": "fixture:2016-17:dillon-brooks" },
+        { "PLAYER": "Ivan Rabb", "PLAYER_ID": "fixture:2016-17:ivan-rabb" },
+        { "PLAYER": "Chris Crawford", "PLAYER_ID": "fixture:2016-17:chris-crawford" },
+        { "PLAYER": "D.J. Stephens", "PLAYER_ID": "fixture:2016-17:d-j-stephens" }
       ]
     },
     {
       "season": "2017-18",
       "source_locator": "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2018/10/2017-18-Opening-Day-Rosters.pdf",
-      "source_note": "Official NBA opening-day roster PDF. Exact opening-night roster reference; Vincent Hunter and Kobi Simmons were explicitly marked as two-way.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official NBA gamebooks/game notes plus official transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://pr.nba.com/nba-opening-night-rosters-set-for-2017-18-season/",
         "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2018/10/2017-18-Opening-Day-Rosters.pdf"
@@ -54,13 +62,20 @@
         { "PLAYER": "Vincent Hunter", "PLAYER_ID": "fixture:2017-18:vincent-hunter", "source_annotation": "two-way" },
         { "PLAYER": "Ben McLemore", "PLAYER_ID": "fixture:2017-18:ben-mclemore" },
         { "PLAYER": "Ivan Rabb", "PLAYER_ID": "fixture:2017-18:ivan-rabb" },
-        { "PLAYER": "Kobi Simmons", "PLAYER_ID": "fixture:2017-18:kobi-simmons", "source_annotation": "two-way" }
+        { "PLAYER": "Kobi Simmons", "PLAYER_ID": "fixture:2017-18:kobi-simmons", "source_annotation": "two-way" },
+        { "PLAYER": "James Ennis III", "PLAYER_ID": "fixture:2017-18:james-ennis-iii" },
+        { "PLAYER": "Myke Henry", "PLAYER_ID": "fixture:2017-18:myke-henry" },
+        { "PLAYER": "Brice Johnson", "PLAYER_ID": "fixture:2017-18:brice-johnson" },
+        { "PLAYER": "MarShon Brooks", "PLAYER_ID": "fixture:2017-18:marshon-brooks" },
+        { "PLAYER": "Xavier Rathan-Mayes", "PLAYER_ID": "fixture:2017-18:xavier-rathan-mayes" },
+        { "PLAYER": "Vince Hunter", "PLAYER_ID": "fixture:2017-18:vince-hunter" },
+        { "PLAYER": "Jeremy Morgan", "PLAYER_ID": "fixture:2017-18:jeremy-morgan" }
       ]
     },
     {
       "season": "2018-19",
       "source_locator": "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2018/10/2018-19-Team-Rosters.pdf",
-      "source_note": "Official NBA team rosters PDF. Exact opening-night roster reference; DJ Stephens and Yuta Watanabe were explicitly marked as two-way.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official NBA gamebooks/game notes plus official transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://www.nba.com/grizzlies/news/memphis-grizzlies-finalize-2018-19-regular-season-roster-181013",
         "https://ak-static.cms.nba.com/wp-content/uploads/sites/46/2018/10/2018-19-Team-Rosters.pdf"
@@ -82,13 +97,26 @@
         { "PLAYER": "Jevon Carter", "PLAYER_ID": "fixture:2018-19:jevon-carter" },
         { "PLAYER": "Ivan Rabb", "PLAYER_ID": "fixture:2018-19:ivan-rabb" },
         { "PLAYER": "DJ Stephens", "PLAYER_ID": "fixture:2018-19:dj-stephens", "source_annotation": "two-way" },
-        { "PLAYER": "Yuta Watanabe", "PLAYER_ID": "fixture:2018-19:yuta-watanabe", "source_annotation": "two-way" }
+        { "PLAYER": "Yuta Watanabe", "PLAYER_ID": "fixture:2018-19:yuta-watanabe", "source_annotation": "two-way" },
+        { "PLAYER": "Avery Bradley", "PLAYER_ID": "fixture:2018-19:avery-bradley" },
+        { "PLAYER": "Bruno Caboclo", "PLAYER_ID": "fixture:2018-19:bruno-caboclo" },
+        { "PLAYER": "Tyler Dorsey", "PLAYER_ID": "fixture:2018-19:tyler-dorsey" },
+        { "PLAYER": "Justin Holiday", "PLAYER_ID": "fixture:2018-19:justin-holiday" },
+        { "PLAYER": "C.J. Miles", "PLAYER_ID": "fixture:2018-19:c-j-miles" },
+        { "PLAYER": "Joakim Noah", "PLAYER_ID": "fixture:2018-19:joakim-noah" },
+        { "PLAYER": "Jonas Valančiūnas", "PLAYER_ID": "fixture:2018-19:jonas-valanciunas" },
+        { "PLAYER": "Julian Washburn", "PLAYER_ID": "fixture:2018-19:julian-washburn" },
+        { "PLAYER": "Delon Wright", "PLAYER_ID": "fixture:2018-19:delon-wright" },
+        { "PLAYER": "Tyler Harvey", "PLAYER_ID": "fixture:2018-19:tyler-harvey" },
+        { "PLAYER": "Tyler Zeller", "PLAYER_ID": "fixture:2018-19:tyler-zeller" },
+        { "PLAYER": "Brandon Goodwin", "PLAYER_ID": "fixture:2018-19:brandon-goodwin" },
+        { "PLAYER": "Doral Moore", "PLAYER_ID": "fixture:2018-19:doral-moore" }
       ]
     },
     {
       "season": "2019-20",
       "source_locator": "https://statsdmz.nba.com/pdfs/20191027/20191027_BKNMEM.pdf",
-      "source_note": "Official NBA game-book PDF. Opening-week fallback rather than a clean season roster release; used to clear season reference source_missing truthfully.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official NBA gamebooks/game notes plus official transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://statsdmz.nba.com/pdfs/20191027/20191027_BKNMEM.pdf"
       ],
@@ -109,13 +137,21 @@
         { "PLAYER": "Andre Iguodala", "PLAYER_ID": "fixture:2019-20:andre-iguodala" },
         { "PLAYER": "Josh Jackson", "PLAYER_ID": "fixture:2019-20:josh-jackson" },
         { "PLAYER": "John Konchar", "PLAYER_ID": "fixture:2019-20:john-konchar", "source_annotation": "two-way" },
-        { "PLAYER": "Yuta Watanabe", "PLAYER_ID": "fixture:2019-20:yuta-watanabe", "source_annotation": "two-way" }
+        { "PLAYER": "Yuta Watanabe", "PLAYER_ID": "fixture:2019-20:yuta-watanabe", "source_annotation": "two-way" },
+        { "PLAYER": "Jordan Bell", "PLAYER_ID": "fixture:2019-20:jordan-bell" },
+        { "PLAYER": "Gorgui Dieng", "PLAYER_ID": "fixture:2019-20:gorgui-dieng" },
+        { "PLAYER": "Justise Winslow", "PLAYER_ID": "fixture:2019-20:justise-winslow" },
+        { "PLAYER": "Satnam Singh", "PLAYER_ID": "fixture:2019-20:satnam-singh" },
+        { "PLAYER": "Anthony Tolliver", "PLAYER_ID": "fixture:2019-20:anthony-tolliver" },
+        { "PLAYER": "Jarrod Uthoff", "PLAYER_ID": "fixture:2019-20:jarrod-uthoff" },
+        { "PLAYER": "Jontay Porter", "PLAYER_ID": "fixture:2019-20:jontay-porter" },
+        { "PLAYER": "Matt Mooney", "PLAYER_ID": "fixture:2019-20:matt-mooney" }
       ]
     },
     {
       "season": "2020-21",
       "source_locator": "https://statsdmz.nba.com/pdfs/20201223/20201223_SASMEM.pdf",
-      "source_note": "Official NBA game-book PDF. Exact opening-night checkpoint.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official NBA gamebooks/game notes plus official transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://pr.nba.com/rosters-set-for-2020-21-nba-regular-season/",
         "https://statsdmz.nba.com/pdfs/20201223/20201223_SASMEM.pdf"
@@ -137,13 +173,16 @@
         { "PLAYER": "Jontay Porter", "PLAYER_ID": "fixture:2020-21:jontay-porter" },
         { "PLAYER": "Killian Tillie", "PLAYER_ID": "fixture:2020-21:killian-tillie" },
         { "PLAYER": "Xavier Tillman", "PLAYER_ID": "fixture:2020-21:xavier-tillman" },
-        { "PLAYER": "Justise Winslow", "PLAYER_ID": "fixture:2020-21:justise-winslow" }
+        { "PLAYER": "Justise Winslow", "PLAYER_ID": "fixture:2020-21:justise-winslow" },
+        { "PLAYER": "Tim Frazier", "PLAYER_ID": "fixture:2020-21:tim-frazier" },
+        { "PLAYER": "Xavier Tillman Sr.", "PLAYER_ID": "fixture:2020-21:xavier-tillman-sr" },
+        { "PLAYER": "Robert Woodard II", "PLAYER_ID": "fixture:2020-21:robert-woodard-ii" }
       ]
     },
     {
       "season": "2021-22",
       "source_locator": "https://statsdmz.nba.com/pdfs/20211024/20211024_MEMLAL_book.pdf",
-      "source_note": "Official NBA game-book PDF. Opening-week fallback rather than a clean season roster release; Yves Pons was explicitly marked as G League two-way.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official Grizzlies or NBA game notes/gamebooks plus official team transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://www.nba.com/grizzlies/news/grizzlies-finalize-2021-22-opening-night-roster-211016",
         "https://statsdmz.nba.com/pdfs/20211024/20211024_MEMLAL_book.pdf"
@@ -165,13 +204,20 @@
         { "PLAYER": "Sam Merrill", "PLAYER_ID": "fixture:2021-22:sam-merrill" },
         { "PLAYER": "Killian Tillie", "PLAYER_ID": "fixture:2021-22:killian-tillie" },
         { "PLAYER": "Dillon Brooks", "PLAYER_ID": "fixture:2021-22:dillon-brooks" },
-        { "PLAYER": "Yves Pons", "PLAYER_ID": "fixture:2021-22:yves-pons", "source_annotation": "two-way" }
+        { "PLAYER": "Yves Pons", "PLAYER_ID": "fixture:2021-22:yves-pons", "source_annotation": "two-way" },
+        { "PLAYER": "Shaq Buchanan", "PLAYER_ID": "fixture:2021-22:shaq-buchanan" },
+        { "PLAYER": "DaQuan Jeffries", "PLAYER_ID": "fixture:2021-22:daquan-jeffries" },
+        { "PLAYER": "Dakota Mathias", "PLAYER_ID": "fixture:2021-22:dakota-mathias" },
+        { "PLAYER": "Xavier Sneed", "PLAYER_ID": "fixture:2021-22:xavier-sneed" },
+        { "PLAYER": "Tyrell Terry", "PLAYER_ID": "fixture:2021-22:tyrell-terry" },
+        { "PLAYER": "Xavier Tillman Sr.", "PLAYER_ID": "fixture:2021-22:xavier-tillman-sr" },
+        { "PLAYER": "Jon Teske", "PLAYER_ID": "fixture:2021-22:jon-teske" }
       ]
     },
     {
       "season": "2022-23",
       "source_locator": "https://statsdmz.nba.com/pdfs/20221019/20221019_NYKMEM.pdf",
-      "source_note": "Official NBA game-book PDF. Exact opening-night checkpoint.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official Grizzlies or NBA game notes/gamebooks plus official team transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://pr.nba.com/rosters-set-for-2022-23-nba-regular-season/",
         "https://statsdmz.nba.com/pdfs/20221019/20221019_NYKMEM.pdf"
@@ -193,13 +239,18 @@
         { "PLAYER": "Dillon Brooks", "PLAYER_ID": "fixture:2022-23:dillon-brooks" },
         { "PLAYER": "Danny Green", "PLAYER_ID": "fixture:2022-23:danny-green" },
         { "PLAYER": "Jaren Jackson Jr.", "PLAYER_ID": "fixture:2022-23:jaren-jackson-jr" },
-        { "PLAYER": "Ziaire Williams", "PLAYER_ID": "fixture:2022-23:ziaire-williams" }
+        { "PLAYER": "Ziaire Williams", "PLAYER_ID": "fixture:2022-23:ziaire-williams" },
+        { "PLAYER": "Luke Kennard", "PLAYER_ID": "fixture:2022-23:luke-kennard" },
+        { "PLAYER": "Xavier Tillman Sr.", "PLAYER_ID": "fixture:2022-23:xavier-tillman-sr" },
+        { "PLAYER": "Jacob Gilyard", "PLAYER_ID": "fixture:2022-23:jacob-gilyard" },
+        { "PLAYER": "GG Jackson II", "PLAYER_ID": "fixture:2022-23:gg-jackson-ii" },
+        { "PLAYER": "Gregory Jackson II", "PLAYER_ID": "fixture:2022-23:gregory-jackson-ii" }
       ]
     },
     {
       "season": "2023-24",
       "source_locator": "https://statsdmz.nba.com/pdfs/20231025/20231025_NOPMEM.pdf",
-      "source_note": "Official NBA game-book PDF. Exact opening-night checkpoint.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official Grizzlies or NBA game notes/gamebooks plus official team transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://statsdmz.nba.com/pdfs/20231025/20231025_NOPMEM.pdf"
       ],
@@ -221,13 +272,26 @@
         { "PLAYER": "Vince Williams Jr.", "PLAYER_ID": "fixture:2023-24:vince-williams-jr" },
         { "PLAYER": "Steven Adams", "PLAYER_ID": "fixture:2023-24:steven-adams" },
         { "PLAYER": "Santi Aldama", "PLAYER_ID": "fixture:2023-24:santi-aldama" },
-        { "PLAYER": "Brandon Clarke", "PLAYER_ID": "fixture:2023-24:brandon-clarke" }
+        { "PLAYER": "Brandon Clarke", "PLAYER_ID": "fixture:2023-24:brandon-clarke" },
+        { "PLAYER": "Tosan Evbuomwan", "PLAYER_ID": "fixture:2023-24:tosan-evbuomwan" },
+        { "PLAYER": "Jordan Goodwin", "PLAYER_ID": "fixture:2023-24:jordan-goodwin" },
+        { "PLAYER": "Shaquille Harrison", "PLAYER_ID": "fixture:2023-24:shaquille-harrison" },
+        { "PLAYER": "Matthew Hurt", "PLAYER_ID": "fixture:2023-24:matthew-hurt" },
+        { "PLAYER": "GG Jackson II", "PLAYER_ID": "fixture:2023-24:gg-jackson-ii" },
+        { "PLAYER": "Trey Jemison", "PLAYER_ID": "fixture:2023-24:trey-jemison" },
+        { "PLAYER": "Jaylen Nowell", "PLAYER_ID": "fixture:2023-24:jaylen-nowell" },
+        { "PLAYER": "Mãozinha Pereira", "PLAYER_ID": "fixture:2023-24:maozinha-pereira" },
+        { "PLAYER": "Scotty Pippen Jr.", "PLAYER_ID": "fixture:2023-24:scotty-pippen-jr" },
+        { "PLAYER": "Timmy Allen", "PLAYER_ID": "fixture:2023-24:timmy-allen" },
+        { "PLAYER": "Wenyen Gabriel", "PLAYER_ID": "fixture:2023-24:wenyen-gabriel" },
+        { "PLAYER": "DeJon Jarreau", "PLAYER_ID": "fixture:2023-24:dejon-jarreau" },
+        { "PLAYER": "Xavier Tillman Sr.", "PLAYER_ID": "fixture:2023-24:xavier-tillman-sr" }
       ]
     },
     {
       "season": "2024-25",
       "source_locator": "https://statsdmz.nba.com/pdfs/20241023/20241023_MEMUTA.pdf",
-      "source_note": "Official NBA game-book PDF. Exact opening-night checkpoint.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official Grizzlies or NBA game notes/gamebooks plus official team transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://s3.grizzliesapp.com/MG_2425_MediaGuide_Web_Final.pdf",
         "https://statsdmz.nba.com/pdfs/20241023/20241023_MEMUTA.pdf"
@@ -249,13 +313,19 @@
         { "PLAYER": "Jaren Jackson Jr.", "PLAYER_ID": "fixture:2024-25:jaren-jackson-jr" },
         { "PLAYER": "Luke Kennard", "PLAYER_ID": "fixture:2024-25:luke-kennard" },
         { "PLAYER": "Cam Spencer", "PLAYER_ID": "fixture:2024-25:cam-spencer" },
-        { "PLAYER": "Vince Williams Jr.", "PLAYER_ID": "fixture:2024-25:vince-williams-jr" }
+        { "PLAYER": "Vince Williams Jr.", "PLAYER_ID": "fixture:2024-25:vince-williams-jr" },
+        { "PLAYER": "Marvin Bagley III", "PLAYER_ID": "fixture:2024-25:marvin-bagley-iii" },
+        { "PLAYER": "GG Jackson II", "PLAYER_ID": "fixture:2024-25:gg-jackson-ii" },
+        { "PLAYER": "Zyon Pullin", "PLAYER_ID": "fixture:2024-25:zyon-pullin" },
+        { "PLAYER": "Johnny Davis", "PLAYER_ID": "fixture:2024-25:johnny-davis" },
+        { "PLAYER": "Lamar Stevens", "PLAYER_ID": "fixture:2024-25:lamar-stevens" },
+        { "PLAYER": "Cedric Coward", "PLAYER_ID": "fixture:2024-25:cedric-coward" }
       ]
     },
     {
       "season": "2025-26",
       "source_locator": "https://www.nba.com/news/memphis-grizzlies-2025-26-pronunciation-guide",
-      "source_note": "Official NBA pronunciation guide page stating the player list is based on opening-night rosters. Used as the season reference for the current season.",
+      "source_note": "Curated official Memphis season-membership composite. The roster rows union season members backed by official Grizzlies or NBA game notes/gamebooks plus official team transaction releases for late-season or short-stay additions. Display names are normalized toward checkpoint reconciliation and do not claim exact day-of-checkpoint official occupancy.",
       "citations": [
         "https://www.nba.com/news/nba-rosters-set-for-2025-26-regular-season",
         "https://www.nba.com/news/memphis-grizzlies-2025-26-pronunciation-guide"
@@ -276,7 +346,18 @@
         { "PLAYER": "Javon Small", "PLAYER_ID": "fixture:2025-26:javon-small" },
         { "PLAYER": "Cam Spencer", "PLAYER_ID": "fixture:2025-26:cam-spencer" },
         { "PLAYER": "Jaylen Wells", "PLAYER_ID": "fixture:2025-26:jaylen-wells" },
-        { "PLAYER": "Vince Williams Jr.", "PLAYER_ID": "fixture:2025-26:vince-williams-jr" }
+        { "PLAYER": "Vince Williams Jr.", "PLAYER_ID": "fixture:2025-26:vince-williams-jr" },
+        { "PLAYER": "GG Jackson II", "PLAYER_ID": "fixture:2025-26:gg-jackson-ii" },
+        { "PLAYER": "Javon Small (TW)", "PLAYER_ID": "fixture:2025-26:javon-small-tw" },
+        { "PLAYER": "Jahmai Mashack (TW)", "PLAYER_ID": "fixture:2025-26:jahmai-mashack-tw" },
+        { "PLAYER": "Taylor Hendricks", "PLAYER_ID": "fixture:2025-26:taylor-hendricks" },
+        { "PLAYER": "Walter Clayton", "PLAYER_ID": "fixture:2025-26:walter-clayton" },
+        { "PLAYER": "Rayan Rupert (TW)", "PLAYER_ID": "fixture:2025-26:rayan-rupert-tw" },
+        { "PLAYER": "Brandon Clarke", "PLAYER_ID": "fixture:2025-26:brandon-clarke" },
+        { "PLAYER": "Charles Bassey", "PLAYER_ID": "fixture:2025-26:charles-bassey" },
+        { "PLAYER": "Taj Gibson", "PLAYER_ID": "fixture:2025-26:taj-gibson" },
+        { "PLAYER": "Braxton Key", "PLAYER_ID": "fixture:2025-26:braxton-key" },
+        { "PLAYER": "Jahmai Mashack", "PLAYER_ID": "fixture:2025-26:jahmai-mashack" }
       ]
     }
   ]

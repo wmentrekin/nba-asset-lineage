@@ -1,0 +1,160 @@
+artifact: plan
+feature: "foundation/daily-roster-and-prior-owner-lineage"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+based_on: "docs/foundation/daily-roster-and-prior-owner-lineage/requirements.yaml"
+
+objective: "Close daily roster state generation and draft-night prior-owner lineage with additive, graph-safe foundation surfaces."
+
+approach:
+  summary: "Keep checkpoint snapshots and slot-resolution behavior intact. Add one daily roster-state layer derived from end-of-day chronology, add one prior-owner draft bridge derived from pre-draft pick ownership facts, then expose both through the export and audit surfaces in separate execution batches."
+  key_decisions:
+    - "Prefer additive tables/contracts over mutating `roster_snapshot` or `draft_pick_resolution` semantics."
+    - "Keep checkpoint `roster_snapshots` as bounded season checkpoints even after daily state exists."
+    - "Keep `draft_pick_resolution` focused on pick-to-player continuity and add a separate prior-owner bridge."
+    - "Use current pick-inventory/obligation semantics as the ownership source for draft-night lineage where possible."
+    - "Define daily roster truth as end-of-day Memphis roster occupancy after all known moves on a calendar date; non-event days carry the prior day forward."
+    - "Expose daily roster state through a new export surface rather than changing the meaning of `roster_snapshots`."
+
+contracts:
+  interfaces:
+    - "Add preview/load commands for the daily roster-state layer."
+    - "Add preview/load commands for the prior-owner draft-lineage bridge."
+    - "Extend `audit-foundation-data` to report the new surfaces."
+    - "Extend `export-foundation-graph` to expose the new surfaces."
+  schemas:
+    - "Add a daily roster-state storage surface rather than overloading checkpoint `roster_snapshot` rows."
+    - "Add a durable draft-night prior-owner bridge surface rather than overloading `draft_pick_resolution`."
+  config_changes:
+    - "Potentially add checked-in curated support files only if a small bridge fixture is needed for unresolved draft-night ownership cases."
+
+execution_batches:
+  - id: "B1"
+    goal: "Freeze the initiative contract."
+    tasks:
+      - id: "T1"
+        title: "Define exact daily-state and prior-owner bridge schema/contracts"
+        objective: "Turn discovery into exact schema, CLI, audit, validation, and export contracts with no ambiguous surface overlap."
+        owned_scope:
+          - "docs/foundation/daily-roster-and-prior-owner-lineage/"
+          - "sql/"
+          - "src/foundation/models.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "Reviewer signoff on surface boundaries and finish-line metrics"
+  - id: "B2"
+    goal: "Implement daily roster state."
+    tasks:
+      - id: "T2"
+        title: "Add and populate daily roster-state storage"
+        objective: "Create the additive daily roster-state surface and derive end-of-day occupancy from existing chronology plus current roster/two-way truth."
+        owned_scope:
+          - "sql/"
+          - "src/foundation/ingest.py"
+          - "src/foundation/roster_validation.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "draft lineage files"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "Focused roster-state tests"
+          - "Dry-run/live preview for daily state"
+          - "Measured daily-row coverage over the requested span"
+  - id: "B3"
+    goal: "Implement prior-owner draft lineage."
+    tasks:
+      - id: "T3"
+        title: "Add and populate prior-owner draft-lineage storage"
+        objective: "Create the additive draft-night bridge from pre-draft ownership to selected slot/player continuity."
+        owned_scope:
+          - "sql/"
+          - "src/foundation/draft_resolution.py"
+          - "src/foundation/pick_inventory.py"
+          - "src/redesign_cli.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "daily roster-state files"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "Focused draft-lineage tests"
+          - "Dry-run/live preview for prior-owner bridge"
+          - "Resolved-bridge coverage for all Memphis draft selections"
+  - id: "B4"
+    goal: "Expose and verify the new graph-truth surfaces."
+    tasks:
+      - id: "T4"
+        title: "Extend export/audit and verify end-to-end"
+        objective: "Wire the new surfaces into audit/export, run verification, and confirm the old checkpoint and slot-resolution contracts remain stable."
+        owned_scope:
+          - "src/foundation/export.py"
+          - "src/foundation/audit.py"
+          - "docs/foundation/daily-roster-and-prior-owner-lineage/implementation-report.yaml"
+          - "docs/foundation/daily-roster-and-prior-owner-lineage/status.yaml"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/README.md"
+          - "docs/foundation/data-foundation.md"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B2"
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "live preview/load commands for both new surfaces"
+          - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+          - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+  - id: "B5"
+    goal: "Rebaseline and close the initiative."
+    tasks:
+      - id: "T5"
+        title: "Rebaseline counts/docs and close the remaining audit gaps"
+        objective: "Update the audit docs and initiative report so the remaining gaps list no longer includes daily roster state or prior-owner draft lineage."
+        owned_scope:
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/README.md"
+          - "docs/foundation/data-foundation.md"
+          - "docs/foundation/daily-roster-and-prior-owner-lineage/implementation-report.yaml"
+          - "docs/foundation/daily-roster-and-prior-owner-lineage/status.yaml"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B4"
+        parallelizable: false
+        expected_validation:
+          - "Docs reflect new authoritative surfaces"
+
+ordering_notes:
+  - "Do not begin execution until the initiative contract and finish-line metrics are explicitly approved."
+  - "Prefer export additions over in-place contract mutation when the current frontend shape can be preserved."
+  - "Keep the daily roster-state and draft-bridge write scopes separable enough for parallel workers."
+
+risks:
+  - "Daily roster truth may expose gaps in transaction chronology or two-way interval coverage that current checkpoints hide."
+  - "Prior-owner draft lineage may still hit unresolved conditional-branch cases for a minority of picks."
+  - "Overlapping schema edits across daily-state and draft-bridge work could cause merge friction if the write scopes are not kept disjoint."
+  - "This initiative will likely change export counts and may legitimately change the graph checksum once new surfaces are exported."
+
+open_questions:
+  - "Whether any Memphis draft selections still need a tiny curated bridge fixture after obligation-derived lineage is attempted."
+
+review:
+  status: complete
+  loop_count: 1
+  notes:
+    - "Discovery promoted the work from bounded-feature to large-initiative."
+    - "Reviewer required separate execution planning for the roster-state and draft-lineage domains."
+    - "Execution completed with additive tables, live loads, audit verification, and graph-baseline confirmation."
+
+checkpoint:
+  required_before_execution: true
+  status: complete

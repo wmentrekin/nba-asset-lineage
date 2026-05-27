@@ -12,19 +12,22 @@ Last verified live load scope:
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments plus the latest corroboration closeout work:
 
-- `source_record`: 667
+- `source_record`: 677
 - `source_event`: 1019
 - `player`: 229
 - `player_alias`: 1
-- `pick`: 128
-- `asset`: 357
+- `pick`: 137
+- `asset`: 366
 - `roster_baseline_player`: 222
 - `roster_snapshot`: 40
 - `roster_snapshot_player`: 636
 - `roster_snapshot_pick`: 980
 - `roster_snapshot_validation`: 40
+- `daily_roster_state`: 3652
+- `daily_roster_state_player`: 61979
 - `draft_selection`: 20
 - `draft_pick_resolution`: 20
+- `draft_prior_owner_lineage`: 20
 - `draft_lottery_result`: 5
 - `canonical_event`: 407
 - `canonical_event_member`: 420
@@ -34,7 +37,7 @@ Current graph export counts:
 
 - `events`: 407
 - `player_assets`: 229
-- `pick_assets`: 128
+- `pick_assets`: 137
 - `transitions`: 588
 - `roster_snapshots`: 40
 
@@ -95,10 +98,10 @@ The current live baseline after the latest BRef corroboration rebuild is:
 
 - canonical counts `canonical_event=407`, `canonical_event_member=420`,
   `event_asset_transition=568`
-- graph export counts `events=407`, `player_assets=229`, `pick_assets=128`,
+- graph export counts `events=407`, `player_assets=229`, `pick_assets=137`,
   `transitions=588`, `roster_snapshots=40`
 - graph export checksum
-  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+  `edf5b4a2825b42ec4db14ac08c906cdda5280e5e8cc4935a37d1644ac59ff409`
 
 The live audit now reports loaded source systems `basketball_reference`,
 `curated_fixture`, `nba_official`, `nba_player_movement`, and `team_official`,
@@ -128,30 +131,34 @@ truthful by design:
 This validates season membership only. It does not claim exact day-of-checkpoint
 official occupancy.
 
-Current live roster-checkpoint validation state after the new pass:
+Current live roster-checkpoint validation state after the composite closeout:
 
 - `roster_snapshot_validation`: `40`
-- validation status counts: `season_reference_backed=1`,
-  `season_reference_incomplete=39`, `source_missing=0`
+- validation status counts: `season_reference_backed=40`,
+  `season_reference_incomplete=0`, `source_missing=0`
 - `validated_reference_sources=10`
 - live graph checksum still
-  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+  `edf5b4a2825b42ec4db14ac08c906cdda5280e5e8cc4935a37d1644ac59ff409`
 
-The missing-source blocker is now closed through a checked-in official fixture:
+The checkpoint-depth closeout now uses a broader checked-in official season
+composite fixture:
 
 - fixture path:
   [`configs/data/memphis_official_roster_reference_sources_v1.json`](../../configs/data/memphis_official_roster_reference_sources_v1.json)
+- residue ledger:
+  [`docs/foundation/official-roster-checkpoints/residue-evidence-ledger.yaml`](official-roster-checkpoints/residue-evidence-ledger.yaml)
 - loaded `10` `curated_fixture` `official_roster_reference` source records
 - reran `load-roster-snapshot-validation --team-code MEM`
-- the live audit now surfaces checkpoint residue as `season_reference_incomplete`
-  rather than `source_missing`
+- the live audit now reports full season-reference backing across all 40
+  checkpoints
+- the fixture rows are explicitly season-membership composites normalized toward
+  checkpoint reconciliation; they do not claim exact day-of-checkpoint official
+  occupancy
 
 Residual limitation:
 
-- most loaded references are official opening-night or opening-week sources, so
-  they do not capture every later-season roster addition
 - the current closeout proves season-reference backing only; it does not create
-  a full-season official membership history
+  exact day-of-checkpoint official occupancy truth
 
 Official-release preview and guarded load:
 
@@ -189,8 +196,9 @@ Current corroboration summary after the recognized-provider contract closeout:
 - `by_missing_supplemental_role`: `official_confirmation=299`,
   `structured_player_movement=69`
 - canonical/graph truth remains unchanged at `canonical_event=407`,
-  `canonical_event_member=420`, `event_asset_transition=568`, graph checksum
-  `a9748140971aa69146311c9cd9d2b9ee7ec9d4f1319a0d8262d94d66390a3f8b`
+  `canonical_event_member=420`, `event_asset_transition=568`, while the graph
+  export checksum now reflects the additive surfaces at
+  `edf5b4a2825b42ec4db14ac08c906cdda5280e5e8cc4935a37d1644ac59ff409`
 
 The recognized-provider closeout did not add new source rows. It changed the
 audit contract so minimum truthful corroboration is separate from supplemental
@@ -213,6 +221,40 @@ The final recent 2023 unresolved `bref_only` residue is now closed:
 The October 16 curated transaction-cluster row also truthfully carries the
 paired `Mychal Mulder` waiver event even though it was not one of the four
 required closeout targets.
+
+Daily roster state and draft prior-owner lineage commands:
+
+```bash
+.venv/bin/python -m redesign_cli bootstrap-foundation-daily-roster-and-prior-owner
+.venv/bin/python -m redesign_cli preview-daily-roster-state
+.venv/bin/python -m redesign_cli load-daily-roster-state --dry-run
+.venv/bin/python -m redesign_cli load-daily-roster-state
+.venv/bin/python -m redesign_cli preview-draft-prior-owner-lineage
+.venv/bin/python -m redesign_cli load-draft-prior-owner-lineage --dry-run
+.venv/bin/python -m redesign_cli load-draft-prior-owner-lineage
+```
+
+Current live results after the closeout:
+
+- `daily_roster_state=3652`
+- `daily_roster_state_player=61979`
+- daily coverage span `2016-07-01` through `2026-06-30`
+- daily coverage complete with `internal_missing_days=0`
+- graph-facing daily player surface capped at `18` with up to `3` two-way rows
+- `draft_prior_owner_lineage=20`
+- `draft.selections_missing_prior_owner=0`
+- the live audit no longer reports daily roster state generation or draft-night
+  prior ownership lineage as open gaps
+
+Implementation notes:
+
+- daily roster rows are anchored on the validated quarterly checkpoint
+  snapshots and carry forward between anchors using loaded same-day events
+- the daily surface is intentionally bounded to the graph-facing 18-player slot
+  surface because full fringe contract semantics remain a separate backlog item
+- draft prior-owner lineage resolves from pre-draft inventory where possible
+  and uses a tiny checked-in override fixture only for the minority of
+  ambiguous same-round Memphis selections
 
 Locator choices used for the closeout:
 
