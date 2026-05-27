@@ -1,0 +1,52 @@
+artifact: status
+feature: "foundation/two-way-and-contract-semantics-closeout"
+mode: "bounded-feature"
+stage: "discovery"
+owner_skill: work
+
+objective: "Define a realistic closeout plan for the remaining two-way historical completeness and contract-semantics depth gaps, with an emphasis on concurrency for the next execution pass."
+
+summary:
+  current_focus: "Inspect the current two-way and contract-semantics data surfaces, identify the true residue, and determine whether both gaps can be closed in one coordinated pass."
+  last_completed: "Committed and pushed the completed daily roster state and draft prior-owner lineage closeout to main."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/foundation/two-way-and-contract-semantics-closeout/requirements.yaml"
+  plan: "docs/foundation/two-way-and-contract-semantics-closeout/plan.yaml"
+  implementation_report: "docs/foundation/two-way-and-contract-semantics-closeout/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "discovery"
+    task: "Stand up the new work slice, coordinate discovery, and prepare the planning checkpoint."
+    last_update: "Created the feature status artifact and started discovery on the two remaining structural gap buckets."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: pending
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Start this planning slice in bounded-feature mode and promote only if the discovery evidence shows the gap closure requires a broader initiative."
+
+next_action: "Spawn parallel discovery agents on the two-way and contract-semantics gaps, then synthesize requirements and a plan."
+next_recommended_command: "$work"
+user_input_needed: false
