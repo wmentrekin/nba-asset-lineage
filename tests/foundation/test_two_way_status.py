@@ -42,6 +42,7 @@ def make_row(
     end_date: date | None = date(2024, 2, 1),
     confidence: str = "high",
     loadable: bool = True,
+    notes: str | None = None,
 ) -> TwoWayStatusFixtureRow:
     return TwoWayStatusFixtureRow(
         status_id=status_id,
@@ -53,6 +54,7 @@ def make_row(
         source_urls=["https://example.test/source"],
         confidence=confidence,  # type: ignore[arg-type]
         loadable=loadable,
+        notes=notes,
     )
 
 
@@ -181,7 +183,14 @@ def test_preview_reports_non_matching_interval_as_warning_not_blocker() -> None:
         fixture_path=Path("fixture.json"),
         team_code="MEM",
         players=[TwoWayPlayerIdentity(player_id="player:test-player", display_name="Test Player")],
-        snapshot_players=[],
+        snapshot_players=[
+            TwoWaySnapshotPlayer(
+                snapshot_id="snapshot:matching-window-other-player",
+                snapshot_date=date(2024, 1, 15),
+                team_code="MEM",
+                player_id="player:someone-else",
+            )
+        ],
     )
 
     assert report.blocked_rows == 0
@@ -371,3 +380,60 @@ def test_default_seed_fixture_contract_loads() -> None:
     assert fixture.coverage_start == date(2017, 7, 1)
     assert len(fixture.rows) > 0
     assert all(row.confidence == "high" for row in fixture.rows if row.loadable)
+
+
+def test_preview_surfaces_non_loadable_fixture_notes_as_known_limitations() -> None:
+    report = build_two_way_status_preview(
+        fixture=make_fixture(
+            [
+                make_row(
+                    status_id="unresolved-row",
+                    loadable=False,
+                    confidence="medium",
+                    notes="keep this interval non-loadable until an official end boundary is curated",
+                )
+            ]
+        ),
+        fixture_path=Path("fixture.json"),
+        team_code="MEM",
+        players=[TwoWayPlayerIdentity(player_id="player:test-player", display_name="Test Player")],
+        snapshot_players=[],
+    )
+
+    assert any("unresolved-row" in limitation for limitation in report.known_limitations)
+
+
+def test_preview_does_not_warn_when_no_checkpoint_falls_inside_interval() -> None:
+    report = build_two_way_status_preview(
+        fixture=make_fixture(
+            [
+                make_row(
+                    status_id="between-checkpoints",
+                    player_name="D.J. Stephens",
+                    player_id="player:d-j-stephens",
+                    start_date=date(2018, 10, 8),
+                    end_date=date(2018, 12, 30),
+                )
+            ]
+        ),
+        fixture_path=Path("fixture.json"),
+        team_code="MEM",
+        players=[TwoWayPlayerIdentity(player_id="player:d-j-stephens", display_name="D.J. Stephens")],
+        snapshot_players=[
+            TwoWaySnapshotPlayer(
+                snapshot_id="snapshot:mem:2018-19:season_opening",
+                snapshot_date=date(2018, 10, 1),
+                team_code="MEM",
+                player_id="player:someone-else",
+            ),
+            TwoWaySnapshotPlayer(
+                snapshot_id="snapshot:mem:2018-19:post_deadline",
+                snapshot_date=date(2019, 2, 15),
+                team_code="MEM",
+                player_id="player:someone-else",
+            ),
+        ],
+    )
+
+    assert report.blocked_rows == 0
+    assert report.warning_rows == 0

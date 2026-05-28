@@ -8,6 +8,7 @@ from foundation.ingest import (
     build_roster_snapshots_from_baselines,
     derive_foundation_entities_from_source_events,
     project_active_roster_players,
+    summarize_contract_semantic_payloads,
     upsert_draft_selections,
 )
 
@@ -74,6 +75,77 @@ def test_source_events_are_wired_to_workbench_payloads() -> None:
     assert trade_events
     assert any("player_names_in" in row.normalized_payload for row in trade_events)
     assert any("pick_details_in" in row.normalized_payload for row in trade_events)
+
+
+def test_summarize_contract_semantic_payloads_reports_structured_rows_and_out_of_scope_classes() -> None:
+    source_events = [
+        SourceEventRow(
+            source_event_id="event:signing",
+            source_record_id="record:signing",
+            event_date="2026-04-10",
+            event_type="signing",
+            label="Memphis signs Tyler Burton to a 10-day contract",
+            team_scope="MEM",
+            normalized_payload={
+                "player_names_in": ["Tyler Burton"],
+                "player_names_out": [],
+                "contract_action": "signing",
+                "contract_kind": "ten_day",
+                "contract_detail_status": "explicit",
+                "contract_term_text": "10-day contract",
+                "contract_semantic_source_field": "raw_note",
+            },
+        ),
+        SourceEventRow(
+            source_event_id="event:waiver",
+            source_record_id="record:waiver",
+            event_date="2026-04-10",
+            event_type="waiver",
+            label="Memphis waives Test Player",
+            team_scope="MEM",
+            normalized_payload={
+                "player_names_in": [],
+                "player_names_out": ["Test Player"],
+            },
+        ),
+    ]
+
+    summary = summarize_contract_semantic_payloads(source_events)
+
+    assert summary["structured_event_ids"] == ["event:signing"]
+    assert summary["missing_structured_event_ids"] == []
+    assert summary["explicit_detail_count"] == 1
+    assert summary["implicit_only_count"] == 0
+    assert summary["out_of_scope_event_types"] == ["waiver"]
+    assert "rows remain chronology-only for contract semantics" in summary["note"].lower()
+
+
+def test_summarize_contract_semantic_payloads_accepts_implicit_only_rows() -> None:
+    source_events = [
+        SourceEventRow(
+            source_event_id="event:re-signing",
+            source_record_id="record:re-signing",
+            event_date="2026-04-10",
+            event_type="re_signing",
+            label="Memphis re-signs Test Player",
+            team_scope="MEM",
+            normalized_payload={
+                "player_names_in": ["Test Player"],
+                "player_names_out": [],
+                "contract_action": "re_signing",
+                "contract_kind": "unspecified",
+                "contract_detail_status": "implicit_only",
+                "contract_semantic_source_field": "source_excerpt",
+            },
+        )
+    ]
+
+    summary = summarize_contract_semantic_payloads(source_events)
+
+    assert summary["structured_event_ids"] == ["event:re-signing"]
+    assert summary["missing_structured_event_ids"] == []
+    assert summary["explicit_detail_count"] == 0
+    assert summary["implicit_only_count"] == 1
 
 
 def test_assets_point_to_exactly_one_entity_type() -> None:

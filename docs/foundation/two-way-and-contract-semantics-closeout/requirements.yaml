@@ -1,0 +1,96 @@
+artifact: requirements
+feature: "foundation/two-way-and-contract-semantics-closeout"
+mode: "large-initiative"
+status: completed
+owner_skill: work
+
+summary:
+  problem: "The live foundation still treats two-way history as a seed-only enrichment and still lacks a first-class contract-semantics closure surface beyond basic signing/waiver normalization."
+  motivation: "These are now the highest-value remaining structural roster-truth gaps after the daily roster state and prior-owner lineage closeout."
+  requested_outcome: "Plan a coordinated pass that fully closes two-way historical completeness and contract-semantics depth without weakening the smaller graph-facing canonical event contract."
+
+goals:
+  - "Expand Memphis two-way history from seed coverage to complete, source-backed interval coverage for the in-scope span."
+  - "Remove the audit caveat that two-way coverage is only seed-loaded."
+  - "Define and load structured contract-semantic metadata for in-scope contract actions such as two-way signings, two-way conversions, 10-days, Exhibit 10 signings, extensions, and re-signings."
+  - "Expose a durable closure condition for contract semantics in audit and read-only inspection surfaces instead of leaving it as a narrative backlog note."
+  - "Keep the graph-facing canonical event set stable at trade, draft, signing, and waiver."
+
+non_goals:
+  - "Do not reopen supplemental corroboration-depth work in this pass."
+  - "Do not broaden into frontend rendering, scrollytelling, or narrative schema."
+  - "Do not attempt a general conditional-branch solver for future picks."
+  - "Do not change the canonical event taxonomy unless a specific source-truth failure forces it."
+
+constraints:
+  technical:
+    - "All live writes must go through checked-in Python/CLI commands."
+    - "Two-way enrichment currently mutates `foundation.roster_snapshot_player`; any completion plan must preserve downstream daily-roster-state rebuildability."
+    - "The current daily roster state is graph-facing and capped to 18 player slots; contract-semantics enrichment must not silently break that surface."
+    - "The current inclusive `source_event.event_type` set already includes `re_signing`, `extension`, `conversion`, and `release`; richer semantics should build on that instead of inventing a separate chronology table."
+  product:
+    - "Two-way history should be complete across the Memphis-only in-scope span, not just recent seasons."
+    - "Contract semantics should be source-backed and queryable, not hidden only in free-text source excerpts."
+    - "The graph-facing base output still only requires the 10-year asset evolution graph, so added contract semantics should remain additive and not force richer editorial rendering."
+  process:
+    - "Use `$work` orchestration with concurrent subagents for discovery and later execution slices."
+    - "Stop for the required pre-execution checkpoint after drafting the implementation plan."
+
+assumptions:
+  - "Two-way completion is primarily a source-backed fixture expansion and audit wording change, not a new schema invention."
+  - "Contract-semantics closure likely requires a new structured metadata contract in `normalized_payload` and corresponding audit/read-back exposure."
+  - "Parallel source-authoring and parser/model work can happen concurrently, but final audit/CLI integration should remain serial."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/two_way_status.py"
+    - "src/foundation/daily_roster_state.py"
+    - "src/foundation/live_sources.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/audit.py"
+    - "src/foundation/export.py"
+    - "src/foundation/models.py"
+    - "src/foundation/sources.py"
+    - "src/redesign_cli.py"
+    - "configs/data/memphis_two_way_status_2017_2026.json"
+    - "configs/data/memphis_roster_reference_aliases_v1.json"
+    - "configs/data/memphis_official_release_sources_seed_v1.json"
+    - "configs/data/memphis_official_release_fragments/"
+    - "docs/foundation/full-span-load-notes.md"
+  systems_in_scope:
+    - "two-way interval fixture coverage"
+    - "roster snapshot two-way enrichment"
+    - "daily roster-state contract-status propagation"
+    - "official release and NBA movement parsing"
+    - "audit closure conditions for two-way and contract semantics"
+  prior_artifacts:
+    - "docs/foundation/daily-roster-and-prior-owner-lineage/*"
+    - "docs/foundation/official-roster-checkpoints/*"
+
+research:
+  repo_findings:
+    - "The current two-way fixture has 9 rows, 8 loadable high-confidence rows, coverage starts at 2017-07-01, but actual encoded rows begin in 2020 and only seasons 2022-23 through 2024-25 currently surface nonzero two-way snapshot rows."
+    - "The audit currently hardcodes a low-severity gap whenever any two-way rows exist: 'Two-way roster status is seed-loaded, not complete historical coverage.'"
+    - "The current live source layer contains inclusive `conversion: 9` and `extension: 1` events, but richer contract terms like 10-day and Exhibit 10 still mostly live in `raw_note` / excerpt text rather than structured metadata."
+    - "Canonicalization intentionally folds `re_signing`, `extension`, `conversion`, `10_day`, `two_way`, and related variants into graph-facing `signing`, so closure must happen additively rather than by widening canonical event types."
+    - "Daily roster state already preserves `roster_status`, `is_two_way`, and `is_standard_contract`, so the contract-semantics pass can reuse that export surface once the upstream metadata is richer."
+  platform_findings:
+    - "Official Memphis/NBA/G League releases remain the strongest primary source family for two-way boundaries and contract-action wording."
+    - "Spotrac looks useful as an enrichment source for contract terms, but not as the primary chronology source."
+
+acceptance_criteria:
+  - "A live audit no longer reports two-way history as seed-loaded or incomplete for the in-scope Memphis span."
+  - "The two-way fixture or its successor source surface has source-backed start/end coverage for every Memphis two-way interval in scope."
+  - "A live read-back surface built from loaded `foundation.source_event.normalized_payload` proves that every in-scope contract-action row has the agreed structured contract-semantic fields populated."
+  - "Structured contract-semantic metadata exists for the agreed in-scope action classes and is surfaced through audit/read-only inspection, not just free-text notes."
+  - "Daily roster-state rebuilds preserve correct contract-status propagation after the new metadata is loaded."
+  - "The canonical graph-facing event taxonomy remains stable and the graph contract stays coherent."
+  - "Relevant tests and live read-only verification pass."
+  - "The execution plan pins exact pass/fail predicates for both gap closures instead of relying on narrative interpretation."
+
+open_questions:
+  - "Whether hardship deals should be modeled as a first-class contract subtype in this pass or only if a Memphis source-backed example exists in scope."
+  - "Whether contract semantics closure should be represented entirely in `normalized_payload` or promoted to a dedicated additive table."
+
+ready_for_planning: true
+planning_blockers: []

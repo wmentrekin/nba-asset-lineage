@@ -3,7 +3,7 @@
   "team_code": "MEM",
   "coverage_start": "2017-07-01",
   "coverage_end": null,
-  "coverage_statement": "Curated high-confidence Memphis two-way contract intervals found during the reset-era seed pass. This fixture is intentionally not complete historical coverage.",
+  "coverage_statement": "Curated Memphis two-way contract intervals for the reset-era in-scope span. Every currently checked-in row is now loadable and source-backed either by official Memphis/NBA/G League releases or by the fixture rubric's corroborated secondary-source fallback when an official end boundary is not available.",
   "source_set": [
     {
       "label": "Official Memphis Grizzlies, NBA, and NBA G League releases",
@@ -32,6 +32,94 @@
   },
   "rows": [
     {
+      "status_id": "mem-two-way-2017-kobi-simmons",
+      "player_name": "Kobi Simmons",
+      "player_id": "player:kobi-simmons",
+      "team_code": "MEM",
+      "start_date": "2017-07-01",
+      "end_date": "2018-08-28",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/memphis-grizzlies-waive-kobi-simmons-180828"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies waiver release says Simmons signed a two-way contract on 2017-07-01 and was waived on 2018-08-28."
+    },
+    {
+      "status_id": "mem-two-way-2017-vince-hunter",
+      "player_name": "Vince Hunter",
+      "player_id": "player:vince-hunter",
+      "team_code": "MEM",
+      "start_date": "2017-09-11",
+      "end_date": "2018-01-13",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-sign-vince-hunter-170911",
+        "https://www.nba.com/grizzlies/news/sign-myke-henry-to-way-contract-180113"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies releases say Hunter signed on 2017-09-11 and was waived when Myke Henry was signed to a two-way contract on 2018-01-13."
+    },
+    {
+      "status_id": "mem-two-way-2018-dj-stephens",
+      "player_name": "D.J. Stephens",
+      "player_id": "player:d-j-stephens",
+      "team_code": "MEM",
+      "start_date": "2018-10-08",
+      "end_date": "2018-12-30",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/memphis-grizzlies-waive-dj-stephens-181230",
+        "https://www.nba.com/grizzlies/news/memphis-grizzlies-finalize-2018-19-regular-season-roster-181013"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies waiver release says Stephens signed a two-way contract on 2018-10-08 and was waived on 2018-12-30; the 2018-19 roster release confirms he was on the two-way roster that season."
+    },
+    {
+      "status_id": "mem-two-way-2018-yuta-watanabe",
+      "player_name": "Yuta Watanabe",
+      "player_id": "player:yuta-watanabe",
+      "team_code": "MEM",
+      "start_date": "2018-07-21",
+      "end_date": "2020-12-20",
+      "source_urls": [
+        "https://www.nba.com/news/memphis-grizzlies-sign-yuta-watanabe-two-way-deal-waive-myke-henry",
+        "https://www.nba.com/raptors/raptors-sign-watson-watanabe"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official NBA and Raptors releases bound Watanabe's Memphis two-way window from the 2018 signing to the later Raptors two-way signing that describes him as having spent 2018-20 with Memphis as a two-way player."
+    },
+    {
+      "status_id": "mem-two-way-2019-john-konchar",
+      "player_name": "John Konchar",
+      "player_id": "player:john-konchar",
+      "team_code": "MEM",
+      "start_date": "2019-07-07",
+      "end_date": "2020-11-22",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-re-sign-john-konchar-to-multi-year-contract-201122"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies re-sign release says Konchar originally signed a two-way contract on 2019-07-07 and re-signed to a multi-year contract on 2020-11-22."
+    },
+    {
+      "status_id": "mem-two-way-2021-yves-pons",
+      "player_name": "Yves Pons",
+      "player_id": "player:yves-pons",
+      "team_code": "MEM",
+      "start_date": "2021-10-19",
+      "end_date": "2022-07-01",
+      "source_urls": [
+        "https://www.nba.com/news/nba-rosters-feature-109-international-player?stream=top",
+        "https://www.nba.com/news/nba-player-movement-2022?deviceType=ios_nba-app&webview=true"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "The official opening-night roster release identifies Pons as a Memphis two-way player, and the 2022 player-movement summary lists him as unrestricted in the offseason."
+    },
+    {
       "status_id": "mem-two-way-2020-killian-tillie",
       "player_name": "Killian Tillie",
       "player_id": "player:killian-tillie",
@@ -40,11 +128,12 @@
       "end_date": "2022-01-01",
       "source_urls": [
         "https://www.nba.com/grizzlies/news/grizzlies-sign-killian-tillie-to-two-way-contract-210812",
-        "https://www.espn.com/nba/story/_/id/32975168/memphis-grizzlies-sign-forward-killian-tillie-new-2-year-4-million-deal"
+        "https://www.espn.com/nba/story/_/id/32975168/memphis-grizzlies-sign-forward-killian-tillie-new-2-year-4-million-deal",
+        "https://basketball.realgm.com/wiretap/265296/Grizzlies-Sign-Killian-Tillie-To-Standard-Contract%3B-Sign-Tyrell-Terry-To-Two-Way-Contract"
       ],
-      "confidence": "medium",
-      "loadable": false,
-      "notes": "Official 2021 re-signing release states Tillie signed his first Grizzlies two-way contract on 2020-11-24. ESPN reports conversion to a regular deal on 2022-01-01; keep non-loadable until a second corroborating or official end source is curated."
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies re-signing release states Tillie signed his first Grizzlies two-way contract on 2020-11-24. ESPN and RealGM independently report that Memphis converted him to a standard deal on 2022-01-01, which closes the interval under the fixture's corroborated-secondary-source rule."
     },
     {
       "status_id": "mem-two-way-2022-kenneth-lofton-jr",
@@ -165,6 +254,65 @@
       "confidence": "high",
       "loadable": true,
       "notes": "Official releases state Memphis signed Huff to a two-way contract on 2024-07-24 and to a multi-year contract on 2024-10-28."
+    },
+    {
+      "status_id": "mem-two-way-2025-olivier-maxence-prosper",
+      "player_name": "Olivier-Maxence Prosper",
+      "player_id": "player:olivier-maxence-prosper",
+      "team_code": "MEM",
+      "start_date": "2025-09-04",
+      "end_date": "2026-03-04",
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-sign-olivier-maxence-prosper-to-two-way-contract",
+        "https://www.nba.com/news/grizzlies-sign-forward-olivier-maxence-prosper-to-multi-year-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies and NBA releases say Memphis signed Prosper to a two-way contract on 2025-09-04 and to a multi-year contract on 2026-03-04."
+    },
+    {
+      "status_id": "mem-two-way-2025-javon-small",
+      "player_name": "Javon Small",
+      "player_id": "player:javon-small-tw",
+      "team_code": "MEM",
+      "start_date": "2025-07-10",
+      "end_date": null,
+      "source_urls": [
+        "https://www.nba.com/grizzlies/news/grizzlies-sign-javon-small-to-two-way-contract",
+        "https://gleague.nba.com/news/grizzlies-sign-javon-small-to-two-way-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official Grizzlies and G League releases say Memphis signed Small to a two-way contract on 2025-07-10."
+    },
+    {
+      "status_id": "mem-two-way-2025-jahmai-mashack",
+      "player_name": "Jahmai Mashack",
+      "player_id": "player:jahmai-mashack-tw",
+      "team_code": "MEM",
+      "start_date": "2025-11-18",
+      "end_date": null,
+      "source_urls": [
+        "https://gleague.nba.com/news/grizzlies-sign-jahmai-mashack-to-two-way-contract"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official G League release says Memphis signed Mashack to a two-way contract on 2025-11-18."
+    },
+    {
+      "status_id": "mem-two-way-2026-rayan-rupert",
+      "player_name": "Rayan Rupert",
+      "player_id": "player:rayan-rupert-tw",
+      "team_code": "MEM",
+      "start_date": "2026-03-04",
+      "end_date": null,
+      "source_urls": [
+        "https://www.nba.com/gamenotes/grizzlies.pdf?tid=1709547154678",
+        "https://www.nba.com/player/1641712/rayan-rupert/profile"
+      ],
+      "confidence": "high",
+      "loadable": true,
+      "notes": "Official game notes and NBA player page say Rupert signed a two-way contract with Memphis on 2026-03-04 after a 10-day stint."
     }
   ]
 }

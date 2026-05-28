@@ -203,12 +203,7 @@ def build_two_way_status_preview(
         projected_two_way_rows=len(build_unique_snapshot_player_pairs(rows)),
         rows=rows,
         warnings=global_warnings,
-        known_limitations=[
-            "seed_v1 is a curated high-confidence interval fixture, not complete historical two-way coverage.",
-            "The loader never creates players, aliases, roster snapshots, or snapshot-player rows.",
-            "Rows without matching snapshot-player records are warnings because roster checkpoints may be capped or absent.",
-            "Run this enrichment after load-roster-snapshots-from-baselines because that command rebuilds snapshot-player rows as standard.",
-        ],
+        known_limitations=build_two_way_known_limitations(rows),
     )
 
 
@@ -255,6 +250,28 @@ def build_unique_snapshot_player_pairs(rows: list[TwoWayStatusPreviewRow]) -> li
     return pairs
 
 
+def build_two_way_known_limitations(rows: list[TwoWayStatusPreviewRow]) -> list[str]:
+    unresolved_rows = [
+        row
+        for row in rows
+        if not row.loadable or row.confidence != "high"
+    ]
+    limitations = [
+        (
+            "seed_v1 is a curated source-backed Memphis two-way interval fixture for the in-scope span."
+            if not unresolved_rows
+            else "seed_v1 remains a curated Memphis two-way interval fixture with unresolved rows still blocking complete historical coverage."
+        ),
+        "The loader never creates players, aliases, roster snapshots, or snapshot-player rows.",
+        "Rows without matching snapshot-player records are warnings because roster checkpoints may be capped or absent.",
+        "Run this enrichment after load-roster-snapshots-from-baselines because that command rebuilds snapshot-player rows as standard.",
+    ]
+    for row in unresolved_rows:
+        if row.notes:
+            limitations.append(f"{row.status_id}: {row.notes}")
+    return limitations
+
+
 def build_two_way_status_preview_row(
     row: TwoWayStatusFixtureRow,
     *,
@@ -280,8 +297,14 @@ def build_two_way_status_preview_row(
             and snapshot.player_id == resolved_player.player_id
         ]
 
+    interval_has_checkpoint = any(
+        interval_matches_snapshot(row, snapshot)
+        and snapshot.team_code.upper() == expected_team_code.upper()
+        for snapshot in snapshot_players
+    )
+
     warnings: list[str] = []
-    if row.loadable and row.confidence == "high" and not issues and not matched_snapshot_ids:
+    if row.loadable and row.confidence == "high" and not issues and interval_has_checkpoint and not matched_snapshot_ids:
         warnings.append(f"{row.status_id}: no matching snapshot-player rows found for the interval")
 
     ready_for_load = row.loadable and row.confidence == "high" and not issues

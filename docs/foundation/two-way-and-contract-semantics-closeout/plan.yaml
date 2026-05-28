@@ -1,0 +1,183 @@
+artifact: plan
+feature: "foundation/two-way-and-contract-semantics-closeout"
+mode: "large-initiative"
+status: completed
+owner_skill: work
+based_on: "docs/foundation/two-way-and-contract-semantics-closeout/requirements.yaml"
+
+objective: "Close two-way historical completeness and contract-semantics depth with additive, source-backed foundation surfaces and explicit audit closure conditions."
+
+approach:
+  summary: "Split the initiative into parallel source/data slices and a final shared integration slice. Two-way closure is primarily historical interval completion plus audit closure logic. Contract-semantics closure is a richer metadata contract across official-release and player-movement surfaces, then export/audit propagation."
+  key_decisions:
+    - "Promote this work to large-initiative because it spans source coverage, parser/model changes, audit contract changes, rebuild sequencing, and live verification."
+    - "Keep graph-facing canonical event types unchanged; treat richer contract semantics as additive metadata."
+    - "Treat two-way historical completeness as a complete-coverage requirement, not just a nonzero-snapshot requirement."
+    - "Do not let the parallel implementation slices edit audit/CLI/docs until the shared integration batch."
+    - "Use the existing daily roster-state surface as the downstream verification target for contract-status propagation."
+
+contracts:
+  interfaces:
+    - "Retain `preview-two-way-status` / `load-two-way-status` as the main two-way load surface."
+    - "Retain `preview-daily-roster-state` / `load-daily-roster-state` as the downstream contract-status verification surface."
+    - "Add or extend a read-only inspection surface that summarizes loaded contract-semantic fields from `foundation.source_event.normalized_payload`."
+    - "Extend `audit-foundation-data` so both gaps have explicit closure predicates."
+  schemas:
+    - "Prefer additive structured contract-semantic fields on `source_event.normalized_payload` first."
+    - "If additive payload fields prove insufficient during planning review, escalate to a dedicated additive contract-actions table instead of mutating canonical tables."
+    - "Keep two-way interval storage in the checked-in fixture unless discovery during execution proves a different durable storage surface is necessary."
+  config_changes:
+    - "Expand `configs/data/memphis_two_way_status_2017_2026.json`."
+    - "Expand or shard-source official-release fragments for contract-semantics coverage."
+    - "Potentially update roster-reference aliases only if name-form gaps block interval application."
+  closure_predicates:
+    - "Two-way closure passes only if `preview-two-way-status` and `load-two-way-status --dry-run` both return `blocked_rows=0` and `warning_rows=0`, the live load applies all projected rows, and `audit-foundation-data` reports a dedicated complete-coverage predicate with no remaining two-way gap in `known_gaps`."
+    - "Contract-semantics closure passes only if a read-only summary built from loaded `foundation.source_event.normalized_payload` shows zero missing required structured fields for every agreed in-scope contract-action row, and `audit-foundation-data` reports a dedicated contract-semantics coverage predicate with no remaining contract-semantics gap in `known_gaps`."
+    - "Downstream propagation passes only if `preview-daily-roster-state` and `load-daily-roster-state --dry-run` both return `blocked_rows=0` and `warning_rows=0`, while preserving the expected `roster_status`, `is_two_way`, and `is_standard_contract` splits."
+
+execution_batches:
+  - id: "B1"
+    goal: "Freeze the closure contract."
+    tasks:
+      - id: "T1"
+        title: "Define exact closure predicates for two-way and contract semantics"
+        objective: "Turn the current backlog language into explicit audit-time success conditions and finalize whether payload-only contract semantics are sufficient."
+        owned_scope:
+          - "docs/foundation/two-way-and-contract-semantics-closeout/"
+          - "src/foundation/audit.py"
+          - "src/foundation/sources.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "Reviewer signoff on closure conditions"
+          - "Exact pass/fail predicates pinned for both gap closures"
+  - id: "B2"
+    goal: "Complete two-way historical coverage."
+    tasks:
+      - id: "T2"
+        title: "Expand the two-way interval fixture and loader verification"
+        objective: "Fill the missing Memphis two-way intervals, resolve identity/name issues, and make the audit eligible to treat coverage as complete."
+        owned_scope:
+          - "configs/data/memphis_two_way_status_2017_2026.json"
+          - "configs/data/memphis_roster_reference_aliases_v1.json"
+          - "src/foundation/two_way_status.py"
+          - "tests/foundation/test_two_way_status.py"
+        forbidden_scope:
+          - "contract semantic parser files"
+          - "audit/CLI/docs except test scaffolding"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "preview-two-way-status"
+          - "load-two-way-status --dry-run"
+          - "focused two-way tests"
+          - "A defined audit predicate for complete two-way historical coverage"
+  - id: "B3"
+    goal: "Add structured contract-semantic metadata."
+    tasks:
+      - id: "T3"
+        title: "Parse, load, and preserve contract-action detail from loaded sources"
+        objective: "Extract structured contract-semantic fields for in-scope action classes from official releases and NBA player movement data, load them into the live source layer, and prove they remain queryable after insertion."
+        owned_scope:
+          - "src/foundation/live_sources.py"
+          - "src/foundation/ingest.py"
+          - "src/foundation/sources.py"
+          - "configs/data/memphis_official_release_sources_seed_v1.json"
+          - "configs/data/memphis_official_release_fragments/"
+          - "tests/foundation/test_live_sources.py"
+          - "tests/foundation/test_ingest.py"
+        forbidden_scope:
+          - "two-way fixture files"
+          - "audit/CLI/docs except test scaffolding"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "preview-official-release-sources --fetch-live"
+          - "preview-nba-player-movement --live"
+          - "load-official-release-sources --execute"
+          - "load-nba-player-movement --live --execute"
+          - "Read-back summary from loaded `foundation.source_event.normalized_payload` proves the structured fields survived insertion"
+          - "focused live-source / ingest tests"
+  - id: "B4"
+    goal: "Propagate contract status into graph-ready surfaces."
+    tasks:
+      - id: "T4"
+        title: "Wire richer contract semantics through daily roster state and export"
+        objective: "Ensure the new metadata truthfully reaches the daily roster-state and export surfaces without changing the graph-facing event taxonomy."
+        owned_scope:
+          - "src/foundation/daily_roster_state.py"
+          - "src/foundation/models.py"
+          - "src/foundation/export.py"
+          - "tests/foundation/test_daily_roster_state.py"
+          - "tests/foundation/test_export.py"
+        forbidden_scope:
+          - "two-way fixture files"
+          - "audit/CLI/docs"
+        dependencies:
+          - "B2"
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - "preview-daily-roster-state"
+          - "load-daily-roster-state --dry-run"
+          - "focused daily-roster/export tests"
+  - id: "B5"
+    goal: "Integrate, verify, and close the initiative."
+    tasks:
+      - id: "T5"
+        title: "Finalize audit/CLI/docs and run live verification"
+        objective: "Integrate the new closure rules, run the live loads in sequence, verify the audit, and rebaseline the docs."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "src/redesign_cli.py"
+          - "docs/foundation/two-way-and-contract-semantics-closeout/implementation-report.yaml"
+          - "docs/foundation/two-way-and-contract-semantics-closeout/status.yaml"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/README.md"
+          - "docs/foundation/data-foundation.md"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B2"
+          - "B3"
+          - "B4"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "load-two-way-status"
+          - "load-daily-roster-state"
+          - "Audit reports explicit two-way and contract-semantics closure predicates as satisfied"
+          - "audit-foundation-data"
+          - "inspect-foundation-graph-baseline"
+
+ordering_notes:
+  - "Do not begin execution until the closure predicates and finish line are explicitly approved."
+  - "Run the two-way coverage batch and contract-semantic parsing batch in parallel, but keep their write scopes disjoint."
+  - "Do not claim full contract-semantics closure until the audit/read-back surface has an explicit predicate for it."
+  - "Final live verification must remain serial because daily roster-state reload depends on the newly loaded two-way and contract-semantic truth."
+
+risks:
+  - "The current two-way fixture likely lacks full historical evidence for pre-2020 or 2025-26 intervals, so source collection may dominate the pass."
+  - "Contract semantics is currently a model gap as much as a source gap; payload-only metadata may prove too weak during implementation."
+  - "Hardship and Exhibit 10 semantics may require source-specific parsing rules that are not yet represented anywhere in the repo."
+  - "Audit wording currently assumes any nonzero two-way rows are still seed-only, so data updates alone will not close the two-way gap."
+
+open_questions:
+  - "Whether a dedicated contract-actions table is necessary if payload-only structured fields are too brittle."
+  - "Whether hardship should be in-scope for closure only when a source-backed Memphis example exists."
+
+review:
+  status: completed
+  loop_count: 1
+  notes:
+    - "Discovery evidence promoted the work from bounded-feature to large-initiative."
+    - "Two-way closure looks like a source-backed interval-completion problem; contract semantics looks like a source-plus-model problem."
+    - "Execution closed both targeted gaps without changing the canonical event taxonomy."
+
+checkpoint:
+  required_before_execution: true
+  status: completed

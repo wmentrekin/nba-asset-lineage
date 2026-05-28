@@ -326,6 +326,35 @@ def test_build_nba_player_movement_source_rows_falls_back_to_slug_name() -> None
     assert rows[0]["normalized_payload"]["player_direction"] == "in"
 
 
+def test_build_nba_player_movement_source_rows_extracts_contract_semantics_from_description() -> None:
+    payload = {
+        "transactions": [
+            {
+                "TRANSACTION_DATE": "2026-04-10T00:00:00",
+                "TRANSACTION_TYPE": "Signing",
+                "TRANSACTION_DESCRIPTION": "Memphis Grizzlies signed Tyler Burton to a 10-Day Contract.",
+                "TEAM_ID": 1610612763.0,
+                "TEAM_SLUG": "grizzlies",
+                "PLAYER_ID": 1631246.0,
+                "PLAYER_SLUG": "tyler-burton",
+                "PLAYER_NAME": "Tyler Burton",
+                "GroupSort": "Signing 1148495",
+                "Additional_Sort": 0.0,
+            }
+        ]
+    }
+
+    rows = build_nba_player_movement_preview_rows(payload, source_locator="fixture://nba-player-movement")
+
+    assert len(rows) == 1
+    contract_payload = rows[0]["normalized_payload"]
+    assert contract_payload["contract_action"] == "signing"
+    assert contract_payload["contract_kind"] == "ten_day"
+    assert contract_payload["contract_detail_status"] == "explicit"
+    assert contract_payload["contract_term_text"] == "10-day contract"
+    assert contract_payload["contract_semantic_source_field"] == "transaction_description"
+
+
 def test_load_nba_player_movement_dry_run_does_not_connect(monkeypatch: pytest.MonkeyPatch) -> None:
     preview = {
         "status": "ok",
@@ -505,6 +534,79 @@ def test_build_official_release_source_rows_from_fixture_payload() -> None:
     assert source_events[0].normalized_payload["source_system"] == "nba_official"
     assert source_events[0].normalized_payload["player_names_in"] == ["Marvin Bagley III", "Johnny Davis"]
     assert source_events[0].normalized_payload["player_names_out"] == ["Marcus Smart"]
+
+
+def test_build_official_release_source_rows_extracts_contract_semantics_from_fixture_text() -> None:
+    payload = {
+        "articles": [
+            {
+                "source_record_id": "team_official:2025-07-06:signing-10-day",
+                "source_system": "team_official",
+                "source_type": "press_release_article",
+                "source_locator": "https://www.nba.com/grizzlies/news/signing-10-day",
+                "source_title": "Grizzlies sign Tyler Burton to 10-day contract",
+                "source_excerpt": "The Memphis Grizzlies announced the team signed forward Tyler Burton to a 10-day contract.",
+                "events": [
+                    {
+                        "event_date": "2025-07-06",
+                        "event_type": "signing",
+                        "label": "Memphis signs Tyler Burton",
+                        "player_names_in": ["Tyler Burton"],
+                        "player_names_out": [],
+                        "raw_note": "The Memphis Grizzlies today announced the team signed forward Tyler Burton to a 10-day contract.",
+                    }
+                ],
+            }
+        ]
+    }
+
+    _source_records, source_events = build_official_release_source_rows(
+        payload,
+        fetched_at="2026-05-17T00:00:00+00:00",
+    )
+
+    contract_payload = source_events[0].normalized_payload
+    assert contract_payload["contract_action"] == "signing"
+    assert contract_payload["contract_kind"] == "ten_day"
+    assert contract_payload["contract_detail_status"] == "explicit"
+    assert contract_payload["contract_term_text"] == "10-day contract"
+    assert contract_payload["contract_semantic_source_field"] == "source_excerpt"
+
+
+def test_build_official_release_source_rows_falls_back_to_implicit_contract_semantics() -> None:
+    payload = {
+        "articles": [
+            {
+                "source_record_id": "team_official:2025-07-06:re-signing-implicit",
+                "source_system": "team_official",
+                "source_type": "press_release_article",
+                "source_locator": "https://www.nba.com/grizzlies/news/re-signing-implicit",
+                "source_title": "Grizzlies re-sign Test Player",
+                "source_excerpt": "The Memphis Grizzlies announced the team re-signed Test Player.",
+                "events": [
+                    {
+                        "event_date": "2025-07-06",
+                        "event_type": "re_signing",
+                        "label": "Memphis re-signs Test Player",
+                        "player_names_in": ["Test Player"],
+                        "player_names_out": [],
+                        "raw_note": "The Memphis Grizzlies today announced the team re-signed Test Player.",
+                    }
+                ],
+            }
+        ]
+    }
+
+    _source_records, source_events = build_official_release_source_rows(
+        payload,
+        fetched_at="2026-05-17T00:00:00+00:00",
+    )
+
+    contract_payload = source_events[0].normalized_payload
+    assert contract_payload["contract_action"] == "re_signing"
+    assert contract_payload["contract_kind"] == "unspecified"
+    assert contract_payload["contract_detail_status"] == "implicit_only"
+    assert contract_payload["contract_semantic_source_field"] == "source_excerpt"
 
 
 def test_preview_official_release_sources_is_fixture_only_and_schema_free(tmp_path: Path) -> None:

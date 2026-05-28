@@ -1,0 +1,124 @@
+artifact: implementation_report
+feature: "foundation/two-way-and-contract-semantics-closeout"
+mode: "large-initiative"
+status: completed
+owner_skill: work
+based_on: "docs/foundation/two-way-and-contract-semantics-closeout/plan.yaml"
+
+summary:
+  scope_executed: "Completed the parallel closeout for Memphis two-way historical coverage and structured contract semantics, then reran the downstream daily-roster-state load and live audit."
+  outcome: "Both targeted gaps are closed. The live audit now reports `two_way_status.status=complete_historical_coverage` and `contract_semantics.status=complete`, with no remaining two-way or contract-semantics gap in `known_gaps`."
+
+task_batches_completed:
+  - id: "B1"
+    notes:
+      - "Pinned exact closure predicates for both gap families."
+      - "Added a read-only contract-semantics inspection surface to make live DB read-back part of the finish line."
+  - id: "B2"
+    notes:
+      - "Expanded `memphis_two_way_status_2017_2026.json` to 19 source-backed Memphis two-way intervals."
+      - "Resolved the remaining non-loadable interval by documenting the corroborated-secondary-source rule for the Killian Tillie boundary."
+      - "Corrected the D.J. Stephens player identifier and tightened preview warning logic so intervals without checkpoint dates are not mislabeled as live residue."
+  - id: "B3"
+    notes:
+      - "Added additive structured contract-semantic fields on `source_event.normalized_payload`."
+      - "Extended NBA player movement and official-release loaders so in-scope contract-action rows preserve structured contract metadata on write."
+      - "Added a read-only CLI surface for verifying the persisted normalized payload shape."
+  - id: "B4"
+    notes:
+      - "Reloaded two-way status into snapshot-player rows."
+      - "Reloaded daily roster state so the graph-facing contract-status propagation matched the new upstream truth."
+      - "Reloaded official-release and NBA player movement source rows so live source_event payloads reflected the new structured contract fields."
+  - id: "B5"
+    notes:
+      - "Extended the audit with complete two-way and contract-semantics predicates."
+      - "Verified the live audit, the read-only contract-semantics inspection surface, and the graph baseline after the live writes."
+
+changes:
+  files:
+    - "configs/data/memphis_two_way_status_2017_2026.json"
+    - "src/foundation/sources.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/live_sources.py"
+    - "src/foundation/two_way_status.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "tests/foundation/test_ingest.py"
+    - "tests/foundation/test_live_sources.py"
+    - "tests/foundation/test_two_way_status.py"
+    - "tests/foundation/test_audit.py"
+    - "docs/foundation/two-way-and-contract-semantics-closeout/status.yaml"
+    - "docs/foundation/two-way-and-contract-semantics-closeout/requirements.yaml"
+    - "docs/foundation/two-way-and-contract-semantics-closeout/plan.yaml"
+    - "docs/foundation/two-way-and-contract-semantics-closeout/implementation-report.yaml"
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "configs/data/README.md"
+
+local_validation:
+  checks_run:
+    - "python -m compileall src/foundation tests/foundation src/redesign_cli.py"
+    - "./.venv/bin/pytest tests/foundation/test_ingest.py tests/foundation/test_live_sources.py tests/foundation/test_two_way_status.py tests/foundation/test_audit.py"
+    - "./.venv/bin/pytest"
+  results:
+    compileall: "passed"
+    focused_tests: "114 passed"
+    full_pytest: "223 passed"
+
+live_verification:
+  commands:
+    - "./.venv/bin/python -m redesign_cli preview-two-way-status --team-code MEM"
+    - "./.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM --dry-run"
+    - "./.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM"
+    - "./.venv/bin/python -m redesign_cli load-daily-roster-state --team-code MEM --dry-run"
+    - "./.venv/bin/python -m redesign_cli load-daily-roster-state --team-code MEM"
+    - "./.venv/bin/python -m redesign_cli inspect-contract-semantics"
+    - "./.venv/bin/python -m redesign_cli load-nba-player-movement --live --dry-run"
+    - "./.venv/bin/python -m redesign_cli load-official-release-sources --dry-run"
+    - "./.venv/bin/python -m redesign_cli load-nba-player-movement --live --execute"
+    - "./.venv/bin/python -m redesign_cli load-official-release-sources --execute"
+    - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+    - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+  results:
+    two_way_status:
+      status: "complete_historical_coverage"
+      fixture_rows: 19
+      loadable_fixture_rows: 19
+      non_loadable_fixture_rows: 0
+      loaded_two_way_rows: 48
+    contract_semantics:
+      status: "complete"
+      candidate_event_count: 267
+      structured_event_count: 267
+      missing_required_field_count: 0
+      explicit_detail_count: 112
+      implicit_only_count: 155
+    daily_roster_state:
+      rows: 3652
+      player_rows: 61979
+      blocked_rows: 0
+      warning_rows: 0
+    foundation_totals:
+      source_record: 677
+      source_event: 1019
+      canonical_event: 407
+      canonical_event_member: 420
+      event_asset_transition: 568
+    graph_export_checksum_sha256: "cbc6fc7ff7b7b941cc0d623b8e0052d79796581e2cc66ddcaf34b95e085ec094"
+
+review_summary:
+  status: completed
+  key_findings:
+    - "The closeout stayed additive. Canonical event taxonomy did not change."
+    - "Two-way completeness now depends on source-backed interval coverage plus zero blocked/warning rows in the live preview/load contract."
+    - "Contract-semantics closure is now measurable through a live DB read-back surface instead of narrative assertions."
+    - "The graph export checksum changed because additive two-way and daily-roster-state surfaces changed; canonical event and transition truth remained stable."
+
+open_issues:
+  - "Supplemental corroboration depth remains on the backburner and is intentionally not reopened by this pass."
+  - "Conditional future-pick branch modeling and draft lottery contextual-only usage remain separate follow-on gaps."
+
+handoff:
+  current_state: "completed"
+  next_owner: "orchestrator"
+  next_action: "Return to the remaining structural foundation gaps."

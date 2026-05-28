@@ -33,11 +33,13 @@ Current active bundles:
     should not be written until the projection semantics are stable
   - not yet a complete 2016-2026 historical obligation ledger
 - `memphis_two_way_status_2017_2026.json`
-  - `seed_v1` curated high-confidence Memphis two-way contract intervals
+  - curated source-backed Memphis two-way contract intervals across the
+    in-scope span
   - used by `preview-two-way-status` and guarded `load-two-way-status`
   - updates existing `roster_snapshot_player` rows only; it does not create
     players, aliases, snapshots, or snapshot-player rows
-  - not complete historical two-way coverage
+  - currently closes the Memphis two-way historical coverage gap in the live
+    audit
 - `memphis_draft_lottery_results_2016_2026.json`
   - `seed_v1` curated high-confidence Memphis-perspective draft lottery
     outcomes for 2018, 2019, 2020, 2024, and 2026

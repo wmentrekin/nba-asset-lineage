@@ -13,6 +13,9 @@ from foundation.ingest import normalize_player_alias_name
 from foundation.pick_inventory import DEFAULT_FUTURE_PICK_OBLIGATION_PATH
 from foundation.pick_inventory import load_pick_inventory_fixture
 from foundation.sources import (
+    CONTRACT_SEMANTIC_LIMITATION_NOTE,
+    CONTRACT_SEMANTIC_REQUIRED_FIELDS,
+    CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES,
     CORROBORATION_DERIVATION_PATH,
     CORROBORATION_REPORT_EVENT_FIELDS,
     CORROBORATION_REPORT_OUTPUT_KEY,
@@ -21,6 +24,7 @@ from foundation.sources import (
     SOURCE_POLICY,
     SOURCE_POLICY_VERSION,
 )
+from foundation.two_way_status import DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH, load_two_way_status_fixture
 
 
 CURRENTNESS_VERIFIED_THROUGH = "2026-05-14"
@@ -37,6 +41,7 @@ CORROBORATING_SOURCE_SYSTEMS = (
     "team_official",
     "curated_fixture",
 )
+CONTRACT_SEMANTIC_SOURCE_SYSTEMS = CORROBORATING_SOURCE_SYSTEMS
 
 
 FOUNDATION_TABLES = (
@@ -92,6 +97,7 @@ def audit_foundation_data(
     database_url: str,
     *,
     pick_obligation_fixture_path: Path = DEFAULT_FUTURE_PICK_OBLIGATION_PATH,
+    two_way_fixture_path: Path = DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
 ) -> dict[str, object]:
     with psycopg.connect(database_url, connect_timeout=10) as connection:
         counts = count_foundation_tables(connection)
@@ -102,6 +108,7 @@ def audit_foundation_data(
             fetch_source_corroboration_events(connection)
         )
         pick_inventory = fetch_pick_inventory_metrics(connection)
+        snapshot_metrics = fetch_snapshot_metrics(connection)
         report: dict[str, object] = {
             "status": "ok",
             "counts": counts,
@@ -112,7 +119,12 @@ def audit_foundation_data(
             "source_coverage_report": build_source_coverage_report(source_coverage),
             CORROBORATION_REPORT_OUTPUT_KEY: source_corroboration_report,
             "aliases": fetch_alias_metrics(connection),
-            "snapshots": fetch_snapshot_metrics(connection),
+            "snapshots": snapshot_metrics,
+            "two_way_status": build_two_way_status_metrics(
+                snapshot_metrics,
+                fixture_path=two_way_fixture_path,
+            ),
+            "contract_semantics": fetch_contract_semantics_metrics(connection),
             "daily_roster_state": fetch_daily_roster_state_metrics(connection),
             "pick_inventory": pick_inventory,
             "pick_inventory_fixture_gap_report": build_pick_inventory_fixture_gap_report(
@@ -1219,6 +1231,153 @@ def fetch_snapshot_metrics(connection: psycopg.Connection) -> dict[str, object]:
     }
 
 
+def build_two_way_status_metrics(
+    snapshots: dict[str, object],
+    *,
+    fixture_path: Path = DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
+) -> dict[str, object]:
+    contract_rows = list(snapshots.get("contract_status", []))
+    loaded_two_way_rows = sum(
+        int(row.get("two_way_rows", 0))
+        for row in contract_rows
+        if isinstance(row, dict)
+    )
+    try:
+        fixture = load_two_way_status_fixture(fixture_path)
+    except Exception as exc:  # pragma: no cover - defensive guard for local fixture issues
+        return {
+            "status": "fixture_unreadable",
+            "loaded_two_way_rows": loaded_two_way_rows,
+            "fixture_path": str(fixture_path),
+            "error": str(exc),
+        }
+
+    non_loadable_rows = [
+        row
+        for row in fixture.rows
+        if not row.loadable or row.confidence != "high"
+    ]
+    status = (
+        "not_populated"
+        if loaded_two_way_rows == 0
+        else "fixture_incomplete"
+        if non_loadable_rows
+        else "complete_historical_coverage"
+    )
+    return {
+        "status": status,
+        "fixture_id": fixture.fixture_id,
+        "fixture_path": str(fixture_path),
+        "coverage_start": fixture.coverage_start.isoformat(),
+        "coverage_end": fixture.coverage_end.isoformat() if fixture.coverage_end is not None else None,
+        "fixture_rows": len(fixture.rows),
+        "loadable_fixture_rows": sum(1 for row in fixture.rows if row.loadable and row.confidence == "high"),
+        "non_loadable_fixture_rows": len(non_loadable_rows),
+        "non_loadable_status_ids": [row.status_id for row in non_loadable_rows],
+        "loaded_two_way_rows": loaded_two_way_rows,
+    }
+
+
+def fetch_contract_semantics_metrics(connection: psycopg.Connection) -> dict[str, object]:
+    required_tables = ("source_event", "source_record")
+    if not all(table_exists(connection, table_name) for table_name in required_tables):
+        return {
+            "status": "not_loaded",
+            "candidate_event_count": 0,
+            "structured_event_count": 0,
+            "missing_required_field_count": 0,
+            "explicit_detail_count": 0,
+            "implicit_only_count": 0,
+            "by_event_type": [],
+            "by_source_system": [],
+            "sample_missing_rows": [],
+            "note": CONTRACT_SEMANTIC_LIMITATION_NOTE,
+        }
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            select se.source_event_id,
+                   se.event_type,
+                   se.label,
+                   se.normalized_payload,
+                   sr.source_system
+            from foundation.source_event se
+            join foundation.source_record sr
+              on sr.source_record_id = se.source_record_id
+            where se.team_scope = 'MEM'
+            order by se.event_date, se.source_event_id
+            """
+        )
+        rows = cursor.fetchall()
+
+    candidate_event_count = 0
+    structured_event_count = 0
+    explicit_detail_count = 0
+    implicit_only_count = 0
+    by_event_type: defaultdict[str, int] = defaultdict(int)
+    by_source_system: defaultdict[str, int] = defaultdict(int)
+    sample_missing_rows: list[dict[str, object]] = []
+
+    for source_event_id, event_type, label, normalized_payload, source_system in rows:
+        event_type_text = str(event_type)
+        source_system_text = str(source_system)
+        if source_system_text not in CONTRACT_SEMANTIC_SOURCE_SYSTEMS:
+            continue
+        if event_type_text not in CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES:
+            continue
+
+        payload = dict(normalized_payload) if isinstance(normalized_payload, dict) else {}
+        candidate_event_count += 1
+        by_event_type[event_type_text] += 1
+        by_source_system[source_system_text] += 1
+        missing_required_fields = [
+            field_name
+            for field_name in CONTRACT_SEMANTIC_REQUIRED_FIELDS
+            if not payload.get(field_name)
+        ]
+        if missing_required_fields:
+            sample_missing_rows.append(
+                {
+                    "source_event_id": str(source_event_id),
+                    "event_type": event_type_text,
+                    "source_system": source_system_text,
+                    "missing_required_fields": missing_required_fields,
+                    "label": str(label),
+                }
+            )
+            continue
+
+        structured_event_count += 1
+        detail_status = str(payload.get("contract_detail_status") or "")
+        if detail_status == "explicit":
+            explicit_detail_count += 1
+        elif detail_status == "implicit_only":
+            implicit_only_count += 1
+
+    status = "not_loaded"
+    if candidate_event_count > 0:
+        status = "complete" if not sample_missing_rows else "incomplete"
+    return {
+        "status": status,
+        "candidate_event_count": candidate_event_count,
+        "structured_event_count": structured_event_count,
+        "missing_required_field_count": len(sample_missing_rows),
+        "explicit_detail_count": explicit_detail_count,
+        "implicit_only_count": implicit_only_count,
+        "by_event_type": [
+            {"event_type": event_type, "count": count}
+            for event_type, count in sorted(by_event_type.items())
+        ],
+        "by_source_system": [
+            {"source_system": source_system, "count": count}
+            for source_system, count in sorted(by_source_system.items())
+        ],
+        "sample_missing_rows": sample_missing_rows[:25],
+        "note": CONTRACT_SEMANTIC_LIMITATION_NOTE,
+    }
+
+
 def fetch_daily_roster_state_metrics(connection: psycopg.Connection) -> dict[str, object]:
     expected_span_start = "2016-07-01"
     expected_span_end = "2026-06-30"
@@ -1991,6 +2150,8 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
     source_coverage = list(report.get("source_coverage", []))
     source_coverage_report = dict(report.get("source_coverage_report", {}))
     snapshots = dict(report.get("snapshots", {}))
+    two_way_status = dict(report.get("two_way_status", {}))
+    contract_semantics = dict(report.get("contract_semantics", {}))
     daily_roster_state = dict(report.get("daily_roster_state", {}))
     pick_inventory = dict(report.get("pick_inventory", {}))
     pick_inventory_fixture = dict(report.get("pick_inventory_fixture_gap_report", {}))
@@ -2160,7 +2321,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
         isinstance(row, dict) and int(row.get("two_way_rows", 0)) > 0
         for row in list(snapshots.get("contract_status", []))
     )
-    if not has_two_way_rows:
+    if not two_way_status and not has_two_way_rows:
         gaps.append(
             build_gap(
                 "medium",
@@ -2169,13 +2330,65 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Run the seed_v1 two-way status enrichment after roster snapshots are rebuilt.",
             )
         )
-    else:
+    elif not two_way_status and has_two_way_rows:
         gaps.append(
             build_gap(
                 "low",
                 "Two-way roster status is seed-loaded, not complete historical coverage.",
                 "Nonzero two-way snapshot rows prove only the curated high-confidence intervals currently loaded.",
                 "Keep using preview-two-way-status/load-two-way-status after roster rebuilds and expand the fixture only with source-backed intervals.",
+            )
+        )
+    elif str(two_way_status.get("status") or "") == "not_populated":
+        gaps.append(
+            build_gap(
+                "medium",
+                "Two-way roster status is not populated.",
+                "Snapshot player rows currently do not prove two-way versus standard slots.",
+                "Run the seed_v1 two-way status enrichment after roster snapshots are rebuilt.",
+            )
+        )
+    elif str(two_way_status.get("status") or "") == "fixture_incomplete":
+        gaps.append(
+            build_gap(
+                "low",
+                "Two-way roster status fixture still has unresolved historical intervals.",
+                (
+                    f"{two_way_status.get('non_loadable_fixture_rows', 0)} fixture rows remain non-loadable: "
+                    f"{', '.join(str(item) for item in two_way_status.get('non_loadable_status_ids', []))}."
+                ),
+                "Resolve the remaining non-loadable two-way fixture rows, then rerun preview-two-way-status/load-two-way-status.",
+            )
+        )
+    elif str(two_way_status.get("status") or "") == "fixture_unreadable":
+        gaps.append(
+            build_gap(
+                "medium",
+                "Two-way roster status fixture could not be read during audit.",
+                str(two_way_status.get("error", "Unknown fixture read error.")),
+                "Repair the checked-in two-way fixture file before relying on audit closure for two-way history.",
+            )
+        )
+    if str(contract_semantics.get("status") or "") == "incomplete":
+        gaps.append(
+            build_gap(
+                "low",
+                "Structured contract-semantics coverage is incomplete.",
+                (
+                    f"{contract_semantics.get('missing_required_field_count', 0)} of "
+                    f"{contract_semantics.get('candidate_event_count', 0)} in-scope source-event rows are still missing "
+                    "required contract semantic fields."
+                ),
+                "Reload the contract-bearing corroboration sources after updating the extractor so every in-scope row has a structured contract semantic payload.",
+            )
+        )
+    elif str(contract_semantics.get("status") or "") == "not_loaded":
+        gaps.append(
+            build_gap(
+                "low",
+                "Structured contract-semantics coverage is not loaded.",
+                "No in-scope corroborating source-event rows were available for contract-semantic inspection.",
+                "Load official release or NBA player-movement corroboration rows before using contract semantics as a structured read-back surface.",
             )
         )
     if int(draft.get("selections", 0)) > 0 and int(draft.get("unlinked_pick_rows", 0)) > 0:

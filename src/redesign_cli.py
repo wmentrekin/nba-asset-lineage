@@ -116,6 +116,10 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("inspect-foundation-counts", help="Inspect row counts for active foundation tables.")
     audit_parser = subparsers.add_parser("audit-foundation-data", help="Run a read-only audit of loaded foundation data coverage and known gaps.")
     audit_parser.add_argument("--pick-obligation-fixture-path", default=str(DEFAULT_FUTURE_PICK_OBLIGATION_PATH))
+    subparsers.add_parser(
+        "inspect-contract-semantics",
+        help="Read-only summary of structured contract-semantic payload coverage from loaded source events.",
+    )
     draft_resolution_parser = subparsers.add_parser("preview-draft-pick-resolution", help="Read-only preview of draft_selection to pick asset resolution candidates.")
     draft_resolution_parser.add_argument("--team-code", default="MEM")
     curated_draft_resolution_parser = subparsers.add_parser("preview-curated-draft-pick-resolution", help="Read-only preview of curated draft slot resolutions against live draft_selection rows.")
@@ -648,6 +652,9 @@ def main() -> None:
             load_database_url(),
             pick_obligation_fixture_path=Path(args.pick_obligation_fixture_path),
         )
+    elif args.command == "inspect-contract-semantics":
+        payload = dict(audit_foundation_data(load_database_url()).get("contract_semantics", {}))
+        payload["writes_to_database"] = False
     elif args.command == "preview-draft-pick-resolution":
         payload = preview_draft_pick_resolution(load_database_url(), team_code=args.team_code).model_dump(mode="json")
     elif args.command == "preview-curated-draft-pick-resolution":
@@ -1048,7 +1055,6 @@ def main() -> None:
                 "roster_snapshots": len(export.roster_snapshots),
             },
             "known_gaps": [
-                "Two-way status uses seed_v1 curated intervals and does not prove complete historical coverage.",
                 "Future pick inventory snapshots are not populated yet.",
                 "Draft lottery results remain contextual and are not loaded by this command yet.",
             ],

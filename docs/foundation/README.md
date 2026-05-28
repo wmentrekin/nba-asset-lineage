@@ -105,9 +105,9 @@ The repo now has:
 - NBA stats reference loading uses JSON endpoints.
 - Roster checkpoint rows are capped, date-aware reconstructions from
   Basketball-Reference season roster pages plus loaded transaction events.
-- Two-way versus standard contract status is represented in the schema and can
-  be seed-loaded from curated high-confidence intervals, but nonzero two-way
-  rows do not prove complete historical two-way coverage.
+- Two-way versus standard contract status is represented in the schema and now
+  has complete source-backed Memphis interval coverage across the in-scope span
+  through the checked-in fixture plus guarded loader.
 - Draft selections are linked to curated Memphis draft-slot pick assets and now
   export as pick-to-player graph transitions.
 - Draft lottery results are contextual for now and are not required for or

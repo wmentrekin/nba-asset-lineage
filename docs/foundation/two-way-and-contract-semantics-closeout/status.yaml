@@ -1,15 +1,15 @@
 artifact: status
 feature: "foundation/two-way-and-contract-semantics-closeout"
-mode: "bounded-feature"
-stage: "discovery"
+mode: "large-initiative"
+stage: "completed"
 owner_skill: work
 
-objective: "Define a realistic closeout plan for the remaining two-way historical completeness and contract-semantics depth gaps, with an emphasis on concurrency for the next execution pass."
+objective: "Close the remaining two-way historical completeness and contract-semantics depth gaps with source-backed additive surfaces and explicit audit closure predicates."
 
 summary:
-  current_focus: "Inspect the current two-way and contract-semantics data surfaces, identify the true residue, and determine whether both gaps can be closed in one coordinated pass."
-  last_completed: "Committed and pushed the completed daily roster state and draft prior-owner lineage closeout to main."
-  current_blocker: ""
+  current_focus: "Completed the parallel implementation slices, live reloads, and audit closeout for two-way coverage and contract semantics."
+  last_completed: "The live audit now reports `two_way_status.status=complete_historical_coverage` and `contract_semantics.status=complete`."
+  current_blocker: "none"
 
 artifacts:
   requirements: "docs/foundation/two-way-and-contract-semantics-closeout/requirements.yaml"
@@ -20,23 +20,55 @@ agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
-    stage: "discovery"
-    task: "Stand up the new work slice, coordinate discovery, and prepare the planning checkpoint."
-    last_update: "Created the feature status artifact and started discovery on the two remaining structural gap buckets."
+    status: "completed"
+    stage: "verification"
+    task: "Integrated the parallel implementation slices, ran the live write path, and closed the audit/documentation loop."
+    last_update: "Verified the live closeout and synced the active docs."
+    blocker: ""
+  - id: "019e6f6a-26bf-7d51-8918-14ebaffa5a52"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Expanded the two-way interval fixture and loader behavior."
+    last_update: "Closed the two-way fixture residue so all 19 fixture rows are loadable and live coverage reaches `complete_historical_coverage`."
+    blocker: ""
+  - id: "019e6f6a-3fc1-7e72-9d15-653ec485bd33"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Add structured contract-semantic extraction and read-back coverage."
+    last_update: "Structured contract-semantic fields now survive live source loads and the read-only inspection surface reports `missing_required_field_count=0`."
+    blocker: ""
+  - id: "019e6f6a-66c9-7620-9e0f-3f35510b36e1"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Verify shared audit/CLI closure conditions and downstream roster propagation."
+    last_update: "Confirmed the live audit dropped both gaps and the daily roster reload preserved the expected contract-status propagation."
+    blocker: ""
+  - id: "019e6f75-0100-7520-b8d2-66c206b7fecf"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Review the closeout against the approved execution predicates."
+    last_update: "The approved finish line is satisfied: two-way coverage is complete, contract semantics are structured, and canonical graph truth stayed stable."
     blocker: ""
 
 loops:
   planning_review:
-    count: 0
+    count: 1
     max: 2
   execution_verification:
-    count: 0
+    count: 1
     max: 2
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: pending
+  pre_execution_status: completed
   options:
     - proceed
     - revise_plan
@@ -46,7 +78,10 @@ checkpoint:
 blockers: []
 decisions:
   - "Start this planning slice in bounded-feature mode and promote only if the discovery evidence shows the gap closure requires a broader initiative."
+  - "Promote the slice to large-initiative because the remaining work spans source authoring, parser/model changes, audit closure logic, and serial live verification."
+  - "Treat two-way completeness and contract semantics as separate execution batches that can run concurrently until the shared integration phase."
+  - "Keep the graph-facing canonical event taxonomy unchanged and close the gaps additively through fixture completeness, normalized payload fields, and audit/read-back surfaces."
 
-next_action: "Spawn parallel discovery agents on the two-way and contract-semantics gaps, then synthesize requirements and a plan."
+next_action: "Return to the remaining structural foundation gaps."
 next_recommended_command: "$work"
 user_input_needed: false

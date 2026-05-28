@@ -32,6 +32,7 @@ from foundation.ingest import (
 )
 from foundation.models import draft_event_date
 from foundation.prototypes import normalize_common_all_players_row, normalize_common_team_roster_row
+from foundation.sources import extract_contract_semantic_fields
 from foundation.workbench import normalize_bref_transaction_block
 
 
@@ -1236,6 +1237,12 @@ def build_nba_player_movement_preview_rows(
             "additional_sort": fields["additional_sort"],
             "raw_row": row,
         }
+        contract_semantics = extract_contract_semantic_fields(
+            event_type=fields["normalized_event_type"],
+            text_candidates=[("transaction_description", transaction_description)],
+        )
+        if contract_semantics:
+            normalized_payload.update(contract_semantics)
         preview_rows.append(
             {
                 "date": event_date,
@@ -1371,6 +1378,10 @@ def build_nba_player_movement_source_rows(
             description=description,
             team_identifiers=fields["team_identifiers"],
         )
+        contract_semantics = extract_contract_semantic_fields(
+            event_type=normalized_event_type,
+            text_candidates=[("transaction_description", description)],
+        )
         source_events.append(
             SourceEventRow(
                 source_event_id=f"nba_player_movement:{row_digest}",
@@ -1402,6 +1413,8 @@ def build_nba_player_movement_source_rows(
                 },
             )
         )
+        if contract_semantics:
+            source_events[-1].normalized_payload.update(contract_semantics)
     return [source_record], source_events
 
 
@@ -1694,6 +1707,13 @@ def build_official_release_source_rows(
             pick_details_out = event.get("pick_details_out", [])
             if not isinstance(pick_details_in, list) or not isinstance(pick_details_out, list):
                 raise ValueError(f"Official release event {source_event_id} pick detail fields must be lists.")
+            contract_semantics = extract_contract_semantic_fields(
+                event_type=event_type,
+                text_candidates=[
+                    ("source_excerpt", article_metadata.get("article_text_excerpt")),
+                    ("raw_note", string_or_none(event.get("raw_note"))),
+                ],
+            )
             source_events.append(
                 SourceEventRow(
                     source_event_id=source_event_id,
@@ -1727,6 +1747,8 @@ def build_official_release_source_rows(
                     },
                 )
             )
+            if contract_semantics:
+                source_events[-1].normalized_payload.update(contract_semantics)
 
     return source_records, source_events
 

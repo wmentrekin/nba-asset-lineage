@@ -1,0 +1,69 @@
+artifact: status
+feature: "foundation/pick-branch-and-lottery-closeout"
+mode: "bounded-feature"
+stage: "discovery"
+owner_skill: work
+
+objective: "Close the remaining conditional future-pick branch modeling gap and the draft-lottery integration gap with the smallest truthful reset-era changes."
+
+summary:
+  current_focus: "Determine whether the two remaining gaps are real data/model blockers or stale open-gap classifications that can be closed additively."
+  last_completed: "Two-way historical coverage and contract-semantics depth were closed in the previous pass."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/foundation/pick-branch-and-lottery-closeout/requirements.yaml"
+  plan: "docs/foundation/pick-branch-and-lottery-closeout/plan.yaml"
+  implementation_report: "docs/foundation/pick-branch-and-lottery-closeout/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "discovery"
+    task: "Classify the remaining two gaps, keep the user updated, and prepare the execution checkpoint."
+    last_update: "Loaded the work-skill contract, active foundation docs, and the current pick/lottery code paths."
+    blocker: ""
+  - id: "019e6fab-e716-7d23-85c1-213880d817d7"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "running"
+    stage: "discovery"
+    task: "Inspect the exact non-loadable future-pick fallback rows and propose the smallest truthful closeout path."
+    last_update: "Explorer launched for the pick-branch residue."
+    blocker: ""
+  - id: "019e6fab-fe43-7d10-9d26-5d796a226288"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "running"
+    stage: "discovery"
+    task: "Inspect the current draft-lottery integration gap and propose the smallest truthful closeout path."
+    last_update: "Explorer launched for the lottery integration residue."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: pending
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Treat this as a bounded-feature closeout pass unless discovery shows that one of the two gaps requires a larger architectural expansion."
+  - "Use parallel repo-researcher lanes for pick-branch closure and lottery closure before drafting the execution checkpoint."
+
+next_action: "Integrate the explorer findings into a requirements doc and draft the execution plan."
+next_recommended_command: "$work"
+user_input_needed: false

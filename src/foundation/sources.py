@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -262,6 +263,180 @@ CORROBORATION_REPORT_EVENT_FIELDS: tuple[str, ...] = (
     "conflict_status",
     "notes",
 )
+
+CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES: tuple[str, ...] = (
+    "signing",
+    "re_signing",
+    "extension",
+    "conversion",
+)
+
+CONTRACT_SEMANTIC_OUT_OF_SCOPE_EVENT_TYPES: tuple[str, ...] = (
+    "trade",
+    "waiver",
+    "draft",
+    "release",
+)
+
+CONTRACT_SEMANTIC_LIMITATION_NOTE = (
+    "In-scope contract-action rows are always structured. Explicit contract language is preserved when the source "
+    "states it directly; otherwise the payload records an implicit-only, unspecified contract detail state. Trade, "
+    "waiver, draft, and release rows remain chronology-only for contract semantics unless the source text states a "
+    "contract term directly."
+)
+
+CONTRACT_SEMANTIC_PAYLOAD_FIELDS: tuple[str, ...] = (
+    "contract_action",
+    "contract_kind",
+    "contract_detail_status",
+    "contract_term_text",
+    "contract_term_sequence",
+    "contract_from_kind",
+    "contract_to_kind",
+    "contract_semantic_source_field",
+)
+
+CONTRACT_SEMANTIC_REQUIRED_FIELDS: tuple[str, ...] = (
+    "contract_action",
+    "contract_kind",
+    "contract_detail_status",
+    "contract_semantic_source_field",
+)
+
+
+def _collapse_contract_text(value: object | None) -> str:
+    return re.sub(r"\s+", " ", str(value or "")).strip()
+
+
+def _build_contract_semantic_payload(
+    *,
+    contract_action: str,
+    contract_kind: str | None = None,
+    contract_detail_status: str | None = None,
+    contract_term_text: str | None = None,
+    contract_term_sequence: str | None = None,
+    contract_from_kind: str | None = None,
+    contract_to_kind: str | None = None,
+    contract_semantic_source_field: str | None = None,
+) -> dict[str, object]:
+    payload: dict[str, object] = {"contract_action": contract_action}
+    if contract_kind:
+        payload["contract_kind"] = contract_kind
+    if contract_detail_status:
+        payload["contract_detail_status"] = contract_detail_status
+    if contract_term_text:
+        payload["contract_term_text"] = contract_term_text
+    if contract_term_sequence:
+        payload["contract_term_sequence"] = contract_term_sequence
+    if contract_from_kind:
+        payload["contract_from_kind"] = contract_from_kind
+    if contract_to_kind:
+        payload["contract_to_kind"] = contract_to_kind
+    if contract_semantic_source_field:
+        payload["contract_semantic_source_field"] = contract_semantic_source_field
+    return payload
+
+
+def extract_contract_semantic_fields(
+    *,
+    event_type: object,
+    text_candidates: list[tuple[str, object | None]],
+) -> dict[str, object] | None:
+    normalized_event_type = str(event_type or "").strip()
+    if normalized_event_type not in CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES:
+        return None
+
+    for source_field, raw_text in text_candidates:
+        text = _collapse_contract_text(raw_text)
+        if not text:
+            continue
+        lowered = text.lower()
+
+        if normalized_event_type == "conversion":
+            if "regular contract" in lowered or "standard contract" in lowered:
+                payload = _build_contract_semantic_payload(
+                    contract_action="conversion",
+                    contract_kind="standard",
+                    contract_detail_status="explicit",
+                    contract_term_text="regular contract",
+                    contract_from_kind="two_way" if "two-way contract" in lowered or "two way contract" in lowered else None,
+                    contract_to_kind="standard",
+                    contract_semantic_source_field=source_field,
+                )
+                return payload
+            return _build_contract_semantic_payload(
+                contract_action="conversion",
+                contract_kind="unspecified",
+                contract_detail_status="implicit_only",
+                contract_semantic_source_field=source_field,
+            )
+
+        if "second 10-day contract" in lowered or "second 10-day contracts" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="ten_day",
+                contract_detail_status="explicit",
+                contract_term_text="second 10-day contract",
+                contract_term_sequence="second",
+                contract_semantic_source_field=source_field,
+            )
+        if "10-day contract" in lowered or "10-day contracts" in lowered or "10 day contract" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="ten_day",
+                contract_detail_status="explicit",
+                contract_term_text="10-day contract",
+                contract_semantic_source_field=source_field,
+            )
+        if "two-way contract" in lowered or "two-way contracts" in lowered or "two way contract" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="two_way",
+                contract_detail_status="explicit",
+                contract_term_text="two-way contract",
+                contract_semantic_source_field=source_field,
+            )
+        if "multi-year contract" in lowered or "multi-year contracts" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="multi_year",
+                contract_detail_status="explicit",
+                contract_term_text="multi-year contract",
+                contract_semantic_source_field=source_field,
+            )
+        if "rest of season" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="rest_of_season",
+                contract_detail_status="explicit",
+                contract_term_text="rest of season",
+                contract_semantic_source_field=source_field,
+            )
+        if "exhibit 10" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="exhibit_10",
+                contract_detail_status="explicit",
+                contract_term_text="Exhibit 10 deal",
+                contract_semantic_source_field=source_field,
+            )
+        if "regular contract" in lowered or "standard contract" in lowered:
+            return _build_contract_semantic_payload(
+                contract_action=normalized_event_type,
+                contract_kind="standard",
+                contract_detail_status="explicit",
+                contract_term_text="regular contract",
+                contract_semantic_source_field=source_field,
+            )
+
+        return _build_contract_semantic_payload(
+            contract_action=normalized_event_type,
+            contract_kind="unspecified",
+            contract_detail_status="implicit_only",
+            contract_semantic_source_field=source_field,
+        )
+
+    return None
 
 
 def payload_matches_roster_reference_contract(raw_payload: object) -> bool:

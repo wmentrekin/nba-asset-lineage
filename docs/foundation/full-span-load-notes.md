@@ -94,14 +94,15 @@ As of 2026-05-17, the live NBA.com preview/dry-run checkpoint reported:
 
 The earlier dry-run graph baseline remained unchanged at that checkpoint, which
 is why the NBA.com load could be approved safely before any BRef repair pass.
-The current live baseline after the latest BRef corroboration rebuild is:
+The current live baseline after the latest two-way and contract-semantics
+closeout is:
 
 - canonical counts `canonical_event=407`, `canonical_event_member=420`,
   `event_asset_transition=568`
 - graph export counts `events=407`, `player_assets=229`, `pick_assets=137`,
   `transitions=588`, `roster_snapshots=40`
 - graph export checksum
-  `edf5b4a2825b42ec4db14ac08c906cdda5280e5e8cc4935a37d1644ac59ff409`
+  `cbc6fc7ff7b7b941cc0d623b8e0052d79796581e2cc66ddcaf34b95e085ec094`
 
 The live audit now reports loaded source systems `basketball_reference`,
 `curated_fixture`, `nba_official`, `nba_player_movement`, and `team_official`,
@@ -221,6 +222,44 @@ The final recent 2023 unresolved `bref_only` residue is now closed:
 The October 16 curated transaction-cluster row also truthfully carries the
 paired `Mychal Mulder` waiver event even though it was not one of the four
 required closeout targets.
+
+Two-way and contract-semantics closeout commands:
+
+```bash
+.venv/bin/python -m redesign_cli preview-two-way-status --team-code MEM
+.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM --dry-run
+.venv/bin/python -m redesign_cli load-two-way-status --team-code MEM
+.venv/bin/python -m redesign_cli inspect-contract-semantics
+```
+
+Current live closeout results:
+
+- `two_way_status.status=complete_historical_coverage`
+- two-way fixture rows `=19`
+- loadable two-way fixture rows `=19`
+- non-loadable two-way fixture rows `=0`
+- loaded two-way snapshot-player rows `=48`
+- `contract_semantics.status=complete`
+- contract-semantic candidate events `=267`
+- structured contract-semantic events `=267`
+- missing required structured contract-semantic fields `=0`
+- explicit contract-detail rows `=112`
+- implicit-only contract-detail rows `=155`
+
+The current closeout still keeps richer contract semantics additive:
+
+- graph-facing canonical event types remain `trade`, `draft`, `signing`,
+  and `waiver`
+- structured contract semantics live on loaded
+  `foundation.source_event.normalized_payload`
+- daily roster state now reflects the reloaded contract-status truth surface
+  after the two-way refresh
+
+Current live audit known gaps after the closeout:
+
+- conditional future-pick branch modeling still has non-loadable fallback rows
+- draft lottery results remain contextual metadata and are not consumed by the
+  base graph export
 
 Daily roster state and draft prior-owner lineage commands:
 

@@ -1573,6 +1573,151 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
     assert len(gaps) == 2
     assert gaps[0]["severity"] == "low"
     assert "seed-loaded" in gaps[0]["gap"]
+
+
+def test_build_known_gaps_clears_two_way_gap_once_fixture_is_complete() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "event_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-06-30",
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-06-30",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "nba_stats",
+                    "source_type": "common_team_roster",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "two_way_status": {
+                "status": "complete_historical_coverage",
+                "fixture_rows": 17,
+                "loadable_fixture_rows": 17,
+                "non_loadable_fixture_rows": 0,
+                "loaded_two_way_rows": 20,
+            },
+            "daily_roster_state": {
+                "days": 3653,
+                "span_start": "2016-07-01",
+                "span_end": "2026-06-30",
+                "internal_missing_days": 0,
+                "coverage_complete": True,
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "prior_owner_lineage_rows": 20,
+                "lottery_results": 5,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Two-way roster status" not in gap_text
+
+
+def test_build_known_gaps_flags_incomplete_contract_semantics() -> None:
+    gaps = build_known_gaps(
+        {
+            "counts": {
+                "canonical_event": 10,
+                "event_asset_transition": 20,
+            },
+            "event_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-06-30",
+            },
+            "graph_export_span": {
+                "start_date": "2016-07-01",
+                "end_date": "2026-06-30",
+            },
+            "source_coverage": [
+                {
+                    "source_system": "nba_stats",
+                    "source_type": "common_team_roster",
+                    "records": 10,
+                }
+            ],
+            "snapshots": {
+                "snapshots": 40,
+                "pick_rows": 40,
+                "date_aware_reconstruction": 40,
+                "derived_from_roster_baseline": 0,
+                "validation_rows": 40,
+                "source_missing": 0,
+                "contract_status": [
+                    {
+                        "roster_status": "two_way",
+                        "rows": 20,
+                        "two_way_rows": 20,
+                    }
+                ],
+            },
+            "two_way_status": {
+                "status": "complete_historical_coverage",
+                "fixture_rows": 17,
+                "loadable_fixture_rows": 17,
+                "non_loadable_fixture_rows": 0,
+                "loaded_two_way_rows": 20,
+            },
+            "contract_semantics": {
+                "status": "incomplete",
+                "candidate_event_count": 20,
+                "missing_required_field_count": 3,
+            },
+            "daily_roster_state": {
+                "days": 3653,
+                "span_start": "2016-07-01",
+                "span_end": "2026-06-30",
+                "internal_missing_days": 0,
+                "coverage_complete": True,
+            },
+            "pick_inventory": {
+                "obligations": 20,
+                "uncertain_rows": 0,
+                "documented_only_rows": 0,
+            },
+            "draft": {
+                "selections": 20,
+                "unlinked_pick_rows": 0,
+                "resolved_pick_rows": 20,
+                "prior_owner_lineage_rows": 20,
+                "lottery_results": 5,
+            },
+        }
+    )
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Structured contract-semantics coverage is incomplete" in gap_text
     assert gaps[1]["severity"] == "low"
     assert "Draft lottery results are seed-loaded contextual metadata" in gaps[1]["gap"]
 

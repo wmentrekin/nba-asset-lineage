@@ -10,6 +10,13 @@ import psycopg
 from pydantic import BaseModel
 
 from foundation.workbench import WorkbenchSampleBundle, WorkbenchSourceEvent, load_sample_fixture, run_sample_workbench
+from foundation.sources import (
+    CONTRACT_SEMANTIC_LIMITATION_NOTE,
+    CONTRACT_SEMANTIC_OUT_OF_SCOPE_EVENT_TYPES,
+    CONTRACT_SEMANTIC_PAYLOAD_FIELDS,
+    CONTRACT_SEMANTIC_REQUIRED_FIELDS,
+    CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES,
+)
 
 
 SOURCE_EVENT_TYPES = (
@@ -283,6 +290,54 @@ def filter_canonical_source_events(source_events: list[SourceEventRow]) -> list[
         for source_event in source_events
         if not is_corroboration_only_source_event(source_event) and not has_canonical_exclusion_reason(source_event)
     ]
+
+
+def summarize_contract_semantic_payloads(source_events: list[SourceEventRow]) -> dict[str, object]:
+    structured_events: list[dict[str, object]] = []
+    missing_structured_event_ids: list[str] = []
+    out_of_scope_event_types: set[str] = set()
+    explicit_detail_count = 0
+    implicit_only_count = 0
+
+    for source_event in source_events:
+        payload = source_event.normalized_payload
+        contract_fields = {
+            field_name: payload[field_name]
+            for field_name in CONTRACT_SEMANTIC_PAYLOAD_FIELDS
+            if field_name in payload
+        }
+        if source_event.event_type in CONTRACT_SEMANTIC_SUPPORTED_EVENT_TYPES:
+            has_required_fields = all(field_name in contract_fields for field_name in CONTRACT_SEMANTIC_REQUIRED_FIELDS)
+            if has_required_fields:
+                detail_status = str(contract_fields.get("contract_detail_status") or "")
+                if detail_status == "explicit":
+                    explicit_detail_count += 1
+                elif detail_status == "implicit_only":
+                    implicit_only_count += 1
+                structured_events.append(
+                    {
+                        "source_event_id": source_event.source_event_id,
+                        "event_type": source_event.event_type,
+                        **contract_fields,
+                    }
+                )
+            else:
+                missing_structured_event_ids.append(source_event.source_event_id)
+            continue
+        if source_event.event_type in CONTRACT_SEMANTIC_OUT_OF_SCOPE_EVENT_TYPES:
+            out_of_scope_event_types.add(source_event.event_type)
+
+    return {
+        "structured_event_count": len(structured_events),
+        "structured_event_ids": [row["source_event_id"] for row in structured_events],
+        "structured_events": structured_events,
+        "missing_structured_event_count": len(missing_structured_event_ids),
+        "missing_structured_event_ids": missing_structured_event_ids,
+        "explicit_detail_count": explicit_detail_count,
+        "implicit_only_count": implicit_only_count,
+        "out_of_scope_event_types": sorted(out_of_scope_event_types),
+        "note": CONTRACT_SEMANTIC_LIMITATION_NOTE,
+    }
 
 
 def load_source_events_from_database(database_url: str) -> list[SourceEventRow]:
