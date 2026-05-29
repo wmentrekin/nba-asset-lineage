@@ -27,7 +27,7 @@ from foundation.sources import (
 from foundation.two_way_status import DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH, load_two_way_status_fixture
 
 
-CURRENTNESS_VERIFIED_THROUGH = "2026-05-14"
+CURRENTNESS_VERIFIED_THROUGH = "2026-05-29"
 CURRENTNESS_LAST_VERIFIED_EVENT_DATE = "2026-04-10"
 CURRENTNESS_SOURCE_BASIS = (
     "Basketball-Reference Memphis transactions page",

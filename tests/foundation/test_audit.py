@@ -167,7 +167,7 @@ def test_build_event_span_currentness_reports_verified_quiet_interval() -> None:
     assert currentness["status"] == "verified_quiet_interval"
     assert currentness["loaded_event_end_date"] == "2026-04-10"
     assert currentness["last_verified_event_date"] == "2026-04-10"
-    assert currentness["verified_through"] == "2026-05-14"
+    assert currentness["verified_through"] == "2026-05-29"
     assert currentness["source_basis"]
 
 

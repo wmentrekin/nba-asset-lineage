@@ -7,7 +7,16 @@ Last verified live load scope:
 - draft years: 2016 through 2025
 - source span in export: 2016-06-23 through 2026-04-10
 - currentness source review: no later public Memphis roster event verified
-  through 2026-05-14
+  through 2026-05-29
+
+Latest currentness refresh:
+
+- reran live NBA.com player-movement review on 2026-05-29
+- live endpoint metadata reported `Last-Modified: Fri, 29 May 2026 20:34:14 GMT`
+- Memphis-filtered date range still ended on `2026-04-10`
+- Basketball-Reference `2025-26 MEM transactions` and CBS Memphis transactions
+  remained aligned with `2026-04-10` as the latest public Memphis roster event
+- no post-`2026-04-10` Memphis roster transaction was found to load
 
 Current live `foundation` counts after the full-span rebuild plus contextual
 seed enrichments plus the latest corroboration closeout work:
