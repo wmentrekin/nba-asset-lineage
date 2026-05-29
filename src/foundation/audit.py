@@ -138,6 +138,7 @@ def audit_foundation_data(
             },
         }
     report["draft_lineage_limitations"] = build_draft_lineage_limitations(report)
+    report["documented_limitations"] = build_documented_limitations(report)
     report["known_gaps"] = build_known_gaps(report)
     return report
 
@@ -2143,6 +2144,45 @@ def build_draft_lineage_limitations(report: dict[str, object]) -> list[dict[str,
     ]
 
 
+def build_documented_limitations(report: dict[str, object]) -> list[dict[str, str]]:
+    pick_inventory_fixture = dict(report.get("pick_inventory_fixture_gap_report", {}))
+    draft = dict(report.get("draft", {}))
+
+    limitations: list[dict[str, str]] = []
+    if int(pick_inventory_fixture.get("non_loadable_rows", 0)) > 0:
+        limitations.append(
+            {
+                "severity": "low",
+                "limitation": "Future pick obligation fixture retains non-loadable fallback documentation rows.",
+                "evidence": (
+                    f"{pick_inventory_fixture.get('non_loadable_rows')} fixture rows remain non-loadable and "
+                    "excluded from DB loads and snapshot projection."
+                ),
+                "context": (
+                    "These source-backed fallback rows document conditional branch outcomes, but the base graph "
+                    "does not project them until conditional branch semantics can prevent simultaneous "
+                    "primary/fallback ownership."
+                ),
+            }
+        )
+    if int(draft.get("lottery_results", 0)) > 0:
+        limitations.append(
+            {
+                "severity": "low",
+                "limitation": "Draft lottery results are loaded as contextual metadata only.",
+                "evidence": (
+                    f"{draft.get('lottery_results')} rows are loaded; "
+                    f"{draft.get('lottery_results_with_owner_original', 0)} carry explicit owner/original-team semantics."
+                ),
+                "context": (
+                    "These rows stay outside the base graph export and remain available only for draft-context "
+                    "annotation or audit visibility."
+                ),
+            }
+        )
+    return limitations
+
+
 def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
     counts = dict(report.get("counts", {}))
     event_span_currentness = dict(report.get("event_span_currentness", {}))
@@ -2308,15 +2348,6 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Update the fixture only when the owner is source-backed; keep unknown rows visible in audit output until then.",
             )
         )
-    if int(pick_inventory_fixture.get("non_loadable_rows", 0)) > 0:
-        gaps.append(
-            build_gap(
-                "low",
-                "Future pick obligation fixture includes non-loadable fallback documentation rows.",
-                f"{pick_inventory_fixture.get('non_loadable_rows')} fixture rows are non-loadable and excluded from projection.",
-                "Model conditional branch semantics before making fallback rows projectable graph assets.",
-            )
-        )
     has_two_way_rows = any(
         isinstance(row, dict) and int(row.get("two_way_rows", 0)) > 0
         for row in list(snapshots.get("contract_status", []))
@@ -2437,18 +2468,6 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Draft lottery results are not loaded.",
                 "This is contextual and not required for the base graph, but the table is empty.",
                 "Run the seed_v1 draft lottery result preview/load only when contextual lottery annotations are needed.",
-            )
-        )
-    else:
-        gaps.append(
-            build_gap(
-                "low",
-                "Draft lottery results are seed-loaded contextual metadata.",
-                (
-                    f"{draft.get('lottery_results')} rows are loaded; "
-                    f"{draft.get('lottery_results_with_owner_original', 0)} carry explicit owner/original-team semantics."
-                ),
-                "Expand contextual lottery rows only when they are needed for annotations; the base graph export still does not consume them.",
             )
         )
     if int(counts.get("canonical_event", 0)) == 0 or int(counts.get("event_asset_transition", 0)) == 0:

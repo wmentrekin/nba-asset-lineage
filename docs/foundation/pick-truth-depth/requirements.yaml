@@ -1,0 +1,108 @@
+artifact: requirements
+feature: "foundation/pick-truth-depth"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "The foundation now meets minimum graph truth, but the pick layer is still only a source-backed current-state-focused ledger rather than a full realized historical replay of Memphis-visible pick state."
+  motivation: "The eventual visual will be much more sensitive to flattened or incomplete pick truth than to supplemental corroboration depth. The next highest-value data work is to make the pick layer historically trustworthy enough for the visual without expanding into a full hypothetical branch engine."
+  requested_outcome: "Unify future-pick ledger depth, draft prior-owner truth, fallback branch handling, and lottery context into one durable pick-truth contract that is complete for realized Memphis-visible states across the reset span."
+
+goals:
+  - "Backfill the pick obligation ledger so Memphis-visible historical checkpoint state is source-backed and replayable across the reset span."
+  - "Preserve truthful draft-night prior-owner lineage while reducing avoidable reliance on thin override rows."
+  - "Keep conditional fallback branches explicitly documented and linked into the broader pick-truth contract without projecting mutually exclusive outcomes as simultaneously true."
+  - "Keep draft lottery context attached to pick truth as contextual metadata rather than forcing it into the base graph export."
+  - "Define what 'pick complete enough for the visual' means in durable repo artifacts."
+
+non_goals:
+  - "Do not build a full hypothetical conditional-branch engine for every possible future outcome."
+  - "Do not add lottery events, nodes, or strands to the base graph export in this pass."
+  - "Do not weaken the current minimum graph-truth contract."
+  - "Do not reopen unrelated corroboration-depth work."
+
+constraints:
+  technical:
+    - "All live writes must go through checked-in Python/CLI commands."
+    - "The base graph export should remain valid throughout the pass."
+    - "Fallback rows must remain non-projectable until exclusivity semantics exist."
+    - "Current roster snapshot pick projection must stay truthful for realized states even if deeper branch semantics remain deferred."
+    - "The work must respect the current active reset track and not depend on legacy architecture."
+  product:
+    - "The right finish line is not a full hypothetical branch engine. It is realized historical replay for Memphis-visible state."
+    - "Lottery should remain contextual unless the product scope later expands into richer annotation."
+    - "Composite pick rights cannot be allowed to look cleaner than they really are if that would make the eventual visual false."
+  process:
+    - "Use `$work` with concurrent discovery and later execution slices."
+    - "Stop for the execution checkpoint before implementation begins."
+    - "Keep the orchestrator context thin and preserve durable repo-local artifacts."
+
+assumptions:
+  - "A truthful intermediate finish line exists between the current seed ledger and a full branch engine."
+  - "The best near-term finish line is realized historical replay for Memphis-visible states from 2016-present."
+  - "Some additive model work for composite obligations is likely needed even if fallback branches remain non-loadable."
+  - "Lottery context should remain adjacent to pick truth, not promoted into base graph truth."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/draft_prior_owner.py"
+    - "src/foundation/export.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+    - "configs/data/memphis_draft_prior_owner_overrides_2016_2025.json"
+    - "configs/data/memphis_draft_lottery_results_2016_2026.json"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/ingest-tables.md"
+    - "docs/foundation/README.md"
+  systems_in_scope:
+    - "pick_inventory_obligation source depth"
+    - "composite and conditional pick-right modeling"
+    - "roster_snapshot_pick projection truth"
+    - "draft_prior_owner_lineage replay support"
+    - "lottery context relationship to pick truth"
+    - "pick-facing audit and export semantics"
+  prior_artifacts:
+    - "docs/foundation/pick-branch-and-lottery-closeout/*"
+    - "docs/foundation/daily-roster-and-prior-owner-lineage/*"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+
+research:
+  repo_findings:
+    - "The current obligation fixture is explicitly current and near-future oriented, not a full dated replay ledger."
+    - "The visible fallback rows are only the symptom; the deeper issue is that composite rights are flattened into a single `original_team_code` plus prose fields."
+    - "The projection model is intentionally simple and cannot safely represent mutually exclusive branch outcomes."
+    - "Draft prior-owner lineage is complete for actual Memphis selections, but not a substitute for a full historical pick replay contract."
+    - "Lottery rows are already loaded and validated as contextual metadata and should remain adjacent to pick truth rather than becoming base graph events."
+    - "The audit being green on minimum truth can mask substantial pick-replay incompleteness for the eventual visual."
+    - "The current export surfaces `future_picks` from `roster_snapshot_pick` and draft-night provenance from `draft_prior_owner_lineage`, so any stronger pick finish line must prove both checkpoint replay and pre-draft replay rather than only broad current-state sufficiency."
+  platform_findings: []
+
+finish_line_options:
+  - "Option 1: visual-safe minimum replay"
+  - "Option 2: realized-history complete replay"
+  - "Option 3: full hypothetical branch engine"
+
+recommended_finish_line: "Option 1.5: realized historical replay for Memphis-visible states, not a full hypothetical branch engine."
+
+acceptance_criteria:
+  - "The repo has an explicit durable contract for what counts as complete pick truth for the visual."
+  - "The obligation ledger is broadened enough that Memphis-visible historical snapshot state and pre-draft prior-owner truth no longer depend on a current-state-oriented seed alone."
+  - "Every Memphis-visible checkpoint date and every Memphis draft-selection date from 2016-present is replayable from the loaded ledger and prior-owner surfaces through a read-only proof surface, not inferred only from present-day inventory."
+  - "Composite obligations are no longer silently flattened beyond what the chosen finish line allows; either additive semantics are introduced or the residual limitation is made explicit."
+  - "Acceptable curated override reliance for draft prior-owner lineage is explicit and bounded; if overrides remain, the repo states exactly why they are still required."
+  - "Fallback rows remain non-loadable unless exclusivity semantics are implemented."
+  - "Fallback branches remain excluded from live projection/export while still visible as documented limitations rather than being silently hidden."
+  - "Lottery context remains contextual and correctly tied to the pick-truth system without entering the base graph export."
+  - "Relevant pick, draft-prior-owner, audit, and export validations pass."
+  - "Active docs clearly distinguish what is complete, what remains contextual, and what is still deferred."
+
+open_questions:
+  - "How much additive model structure is necessary for composite rights before the visual can truthfully consume them?"
+  - "Whether the next pass should target only realized historical replay first, with composite semantics widened only where the current flattening would make a future strand false."
+
+ready_for_planning: true
+planning_blockers: []

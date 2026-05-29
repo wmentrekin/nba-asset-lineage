@@ -1,0 +1,69 @@
+artifact: implementation_report
+feature: "foundation/pick-truth-depth"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+based_on: "docs/foundation/pick-truth-depth/plan.yaml"
+
+summary:
+  scope_executed: "Closed the pick-truth backlog for the reset-era graph contract by broadening the obligation ledger, adding bounded composite-right structure, wiring a replay-proof surface, and syncing the live DB through the checked-in CLI."
+  outcome: "Complete for the reset-era finish line. Memphis-visible pick replay is now loaded and verified for checkpoint inventory plus draft-selection prior-owner truth, while fallback branches remain documented-only and draft lottery remains contextual-only."
+
+changes:
+  files:
+    - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+    - "sql/0006_foundation_pick_inventory_bootstrap.sql"
+    - "src/foundation/models.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/draft_prior_owner.py"
+    - "src/redesign_cli.py"
+    - "docs/foundation/README.md"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/pick-truth-depth/status.yaml"
+    - "tests/foundation/test_draft_prior_owner.py"
+    - "tests/foundation/test_pick_inventory.py"
+    - "tests/foundation/test_export.py"
+    - "tests/foundation/test_models.py"
+    - "tests/foundation/test_sql_contracts.py"
+  surfaces:
+    - "26-row Memphis pick obligation ledger with 8 historical selection-day replay rows and 2 documented-only fallback rows"
+    - "derived composite-right structure for the pick/export surfaces without making fallback branches projectable"
+    - "`preview-draft-prior-owner-replay-proof` as the DB-backed proof summary for replay coverage and bounded override reliance"
+    - "selection-day prior-owner inventory projection within `foundation.draft_prior_owner`"
+
+implementation:
+  contracts:
+    - "The obligation fixture now covers the current forward-looking ledger plus bounded historical selection-day replay rows for Memphis draft-night provenance."
+    - "Derived composite-right metadata now carries the minimum machine-readable structure needed to keep the visual/export surfaces from silently flattening known realized swap and protected-conveyance families."
+    - "Prior-owner inventory resolution uses selection-day draft coverage for the relevant draft year and round, so same-day effective obligations can change control before fallback or override logic runs."
+    - "The replay proof surface summarizes coverage as `complete`, `partial`, or `blocked`, lists blocked selection ids, and keeps both selection-day and day-before pre-draft snapshot ids visible."
+    - "Remaining curated overrides are enumerated explicitly with source locator and notes when the checked-in override fixture still supplies the closure."
+    - "Fallback rows remain non-loadable and excluded from live projection/export, while lottery rows remain contextual-only."
+  truthfulness_notes:
+    - "Selection-day control can differ from day-before pre-draft state when an obligation becomes effective on the draft date, so those surfaces stay distinct in both the proof output and the docs."
+    - "The closeout finish line is realized Memphis-visible replay, not a full hypothetical branch engine; the two documented fallback rows remain intentionally non-projectable."
+    - "The remaining 8 curated prior-owner overrides are treated as bounded residue rather than as open gaps because all 20 Memphis draft selections now resolve and the residue is explicit."
+  live_writes:
+    - "Applied `bootstrap-foundation-pick-inventory` against Supabase."
+    - "Loaded `26` pick inventory obligations into `foundation.pick_inventory_obligation`."
+    - "Refreshed `20` `draft_prior_owner_lineage` rows after the obligation load."
+
+validation:
+  local:
+    - "Ran `./.venv/bin/pytest tests/foundation/test_pick_inventory.py tests/foundation/test_export.py tests/foundation/test_draft_prior_owner.py tests/foundation/test_sql_contracts.py tests/foundation/test_models.py`"
+  results:
+    focused_pytest: "57 passed"
+    live_bootstrap: "ok"
+    live_obligation_load: "26 obligations_written, 25 picks_upserted, 25 assets_upserted"
+    live_prior_owner_load: "20 lineages_upserted"
+    live_obligation_preview: "existing_matching_rows=26"
+    live_replay_proof: "replay_coverage.status=complete, override_reliance.status=bounded, remaining_rows=8"
+    live_snapshot_preview: "snapshots=40, obligations=26, projected_rows=980"
+    live_audit: "known_gaps=[], pick_inventory.obligations=26, draft.selections_missing_prior_owner=0"
+    live_graph_baseline: "canonical counts unchanged at 407 / 420 / 568; graph export checksum now 1e0fa53e6a037aecc3d843f23f23a7fc60fdc2598f929993d02f269723a5b1c5"
+
+remaining_limitations:
+  - "Two future-pick fallback rows remain documented-only and intentionally non-loadable until branch exclusivity semantics exist."
+  - "Draft lottery stays contextual-only and is still excluded from the base graph export."
+  - "Eight draft-night prior-owner rows still rely on explicit curated overrides for ambiguous same-round Memphis selections."

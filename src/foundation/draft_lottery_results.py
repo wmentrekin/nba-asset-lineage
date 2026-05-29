@@ -141,8 +141,8 @@ def validate_draft_lottery_results_fixture(fixture: DraftLotteryFixture, *, team
             issues.append(f"{row.lottery_result_id}: draft_year is outside fixture coverage")
         if row_team_code != fixture.team_code.upper():
             issues.append(f"{row.lottery_result_id}: row team_code {row.team_code} does not match fixture team {fixture.team_code}")
-    if row.loadable:
-        issues.extend(validate_loadable_fixture_row(row))
+        if row.loadable:
+            issues.extend(validate_loadable_fixture_row(row))
     return issues
 
 

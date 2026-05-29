@@ -19,6 +19,9 @@ create table if not exists foundation.pick_inventory_obligation (
     swap_text text null,
     condition_text text null,
     notes text null,
+    composite_family_id text null,
+    composite_kind text null,
+    composite_payload jsonb null,
     loadable boolean not null default true,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
@@ -43,6 +46,20 @@ create table if not exists foundation.pick_inventory_obligation (
     ),
     constraint pick_inventory_obligation_confidence_check check (
         confidence in ('derived', 'curated', 'validated', 'uncertain')
+    ),
+    constraint pick_inventory_obligation_composite_kind_check check (
+        composite_kind is null
+        or composite_kind in (
+            'protected_conveyance',
+            'most_favorable_set',
+            'realized_swap_path',
+            'protected_swap_right',
+            'tiered_swap_ladder'
+        )
+    ),
+    constraint pick_inventory_obligation_composite_payload_check check (
+        composite_payload is null
+        or jsonb_typeof(composite_payload) = 'object'
     ),
     constraint pick_inventory_obligation_sources_check check (
         cardinality(source_urls) > 0
@@ -110,6 +127,15 @@ alter table foundation.pick_inventory_obligation
 
 alter table foundation.pick_inventory_obligation
     add column if not exists notes text;
+
+alter table foundation.pick_inventory_obligation
+    add column if not exists composite_family_id text;
+
+alter table foundation.pick_inventory_obligation
+    add column if not exists composite_kind text;
+
+alter table foundation.pick_inventory_obligation
+    add column if not exists composite_payload jsonb;
 
 alter table foundation.pick_inventory_obligation
     add column if not exists loadable boolean not null default true;
@@ -270,6 +296,45 @@ begin
     if not exists (
         select 1
         from pg_constraint
+        where conname = 'pick_inventory_obligation_composite_kind_check'
+          and conrelid = 'foundation.pick_inventory_obligation'::regclass
+    ) then
+        alter table foundation.pick_inventory_obligation
+            add constraint pick_inventory_obligation_composite_kind_check
+            check (
+                composite_kind is null
+                or composite_kind in (
+                    'protected_conveyance',
+                    'most_favorable_set',
+                    'realized_swap_path',
+                    'protected_swap_right',
+                    'tiered_swap_ladder'
+                )
+            )
+            not valid;
+    end if;
+end $$;
+
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_constraint
+        where conname = 'pick_inventory_obligation_composite_payload_check'
+          and conrelid = 'foundation.pick_inventory_obligation'::regclass
+    ) then
+        alter table foundation.pick_inventory_obligation
+            add constraint pick_inventory_obligation_composite_payload_check
+            check (composite_payload is null or jsonb_typeof(composite_payload) = 'object')
+            not valid;
+    end if;
+end $$;
+
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_constraint
         where conname = 'pick_inventory_obligation_sources_check'
           and conrelid = 'foundation.pick_inventory_obligation'::regclass
     ) then
@@ -360,6 +425,10 @@ on foundation.pick_inventory_obligation (source_event_id);
 
 create index if not exists pick_inventory_obligation_canonical_event_idx
 on foundation.pick_inventory_obligation (canonical_event_id);
+
+create index if not exists pick_inventory_obligation_composite_family_idx
+on foundation.pick_inventory_obligation (composite_family_id)
+where composite_family_id is not null;
 
 create index if not exists roster_snapshot_pick_source_obligation_idx
 on foundation.roster_snapshot_pick (source_obligation_id);

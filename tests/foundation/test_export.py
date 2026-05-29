@@ -9,6 +9,7 @@ from foundation.models import DailyRosterState
 from foundation.models import DailyRosterStatePlayer
 from foundation.models import DraftPriorOwnerLineage
 from foundation.models import FuturePickSnapshot
+from foundation.models import PickAsset
 from foundation.models import PlayerAsset
 from foundation.models import RosterSnapshot
 
@@ -65,6 +66,50 @@ def test_roster_snapshot_contract_preserves_future_pick_metadata_and_asset_ids()
     assert payload["future_pick_asset_ids"] == ["asset:pick:inventory:mem:2028:r1:orl"]
     assert payload["future_picks"][0]["holding_status"] == "owned"
     assert payload["future_picks"][0]["source_obligation_id"] == "obligation:ready"
+
+
+def test_roster_snapshot_contract_exposes_composite_right_metadata_for_known_pick_families() -> None:
+    snapshot = RosterSnapshot(
+        snapshot_id="snapshot:mem:2026-27:post_deadline",
+        as_of_date="2027-02-10",
+        snapshot_kind="post_deadline",
+        season="2026-27",
+        future_pick_asset_ids=["asset:pick:inventory:mem:2027:r1:lal"],
+        future_picks=[
+            FuturePickSnapshot(
+                asset_id="asset:pick:inventory:mem:2027:r1:lal",
+                pick_id="pick:inventory:mem:2027:r1:lal",
+                holding_status="owned",
+                source_obligation_id="mem-pick-obligation:2026-02-03:lal-2027-r1-to-mem",
+                confidence="validated",
+            )
+        ],
+    )
+
+    payload = snapshot.model_dump(mode="json")
+    composite_right = payload["future_picks"][0]["composite_right"]
+
+    assert composite_right["family_kind"] == "protected_conveyance"
+    assert composite_right["selection_rule"] == "conveys_if_unprotected"
+    assert composite_right["protected_pick_start"] == 1
+    assert composite_right["protected_pick_end"] == 4
+    assert composite_right["fallback_branches"][0]["projectable"] is False
+
+
+def test_pick_asset_contract_exposes_tiered_swap_metadata_for_known_slots() -> None:
+    asset = PickAsset(
+        asset_id="asset:pick:inventory:mem:2030:r1:phx",
+        original_team="PHX",
+        draft_year=2030,
+        round_number=1,
+        swap_detail="Memphis receives the more favorable of Memphis and the less favorable of Phoenix/Washington.",
+    )
+
+    payload = asset.model_dump(mode="json")
+
+    assert payload["composite_right"]["family_kind"] == "tiered_swap_ladder"
+    assert payload["composite_right"]["candidate_original_team_codes"] == ["MEM"]
+    assert payload["composite_right"]["secondary_candidate_original_team_codes"] == ["PHX", "WAS"]
 
 
 def test_draft_resolution_event_date_handles_two_night_drafts() -> None:

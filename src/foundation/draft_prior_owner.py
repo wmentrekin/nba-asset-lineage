@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 import json
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -11,12 +11,10 @@ from pydantic import BaseModel, Field
 
 from foundation.draft_resolution import PickCandidateForResolution
 from foundation.pick_inventory import PickInventoryObligation
-from foundation.pick_inventory import PickInventorySnapshot
 from foundation.pick_inventory import build_inventory_pick_raw_text
 from foundation.pick_inventory import build_own_pick_id
 from foundation.pick_inventory import build_pick_asset_id
 from foundation.pick_inventory import load_pick_inventory_obligations_from_database
-from foundation.pick_inventory import project_pick_inventory_rows
 from foundation.pick_inventory import resolve_draft_date
 
 
@@ -29,6 +27,11 @@ PriorOwnerResolutionKind = Literal[
 ]
 PriorOwnerRowStatus = Literal["resolved", "ambiguous", "unmatched"]
 ResolutionConfidence = Literal["high", "medium", "low", "none"]
+PriorOwnerProofSourceKind = Literal["selection_day_inventory", "resolved_pick_link", "curated_override", "unresolved"]
+ReplayCoverageStatus = Literal["complete", "partial", "blocked"]
+OverrideRelianceStatus = Literal["clear", "bounded", "blocked"]
+CheckpointReplayStatus = Literal["ledger_backed", "mixed", "open"]
+DraftSelectionClosureStatus = Literal["closed", "open"]
 CONTROLLED_HOLDING_STATUSES = {"owned", "swap_right", "conditional"}
 FOUNDATION_DRAFT_PRIOR_OWNER_BOOTSTRAP_SQL_PATH = Path("sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql")
 DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH = Path("configs/data/memphis_draft_prior_owner_overrides_2016_2025.json")
@@ -114,6 +117,92 @@ class DraftPriorOwnerLineageLoadResult(BaseModel):
     known_limitations: list[str]
 
 
+class DraftPriorOwnerProjectedPickRow(BaseModel):
+    snapshot_id: str
+    snapshot_date: str
+    pick_id: str
+    asset_id: str
+    draft_year: int
+    round_number: int
+    original_team: str
+    holding_status: str
+    source_obligation_id: str | None = None
+    confidence: str = "derived"
+    notes: str | None = None
+
+
+class DraftPriorOwnerReplayCoverage(BaseModel):
+    status: ReplayCoverageStatus
+    total_selections: int
+    resolved_selections: int
+    ambiguous_selections: int
+    unmatched_selections: int
+    blocked_selections: int
+    draft_years: list[int] = Field(default_factory=list)
+    selection_day_snapshot_ids: list[str] = Field(default_factory=list)
+    pre_draft_snapshot_ids: list[str] = Field(default_factory=list)
+    blocked_selection_ids: list[str] = Field(default_factory=list)
+
+
+class DraftPriorOwnerRemainingOverrideRow(BaseModel):
+    draft_selection_id: str
+    draft_year: int
+    round_number: int
+    pick_overall: int
+    original_team_code: str | None = None
+    confidence: ResolutionConfidence
+    source_locator: str | None = None
+    notes: str | None = None
+
+
+class DraftPriorOwnerOverrideRelianceSummary(BaseModel):
+    status: OverrideRelianceStatus
+    remaining_rows: int
+    selection_ids: list[str] = Field(default_factory=list)
+    rows: list[DraftPriorOwnerRemainingOverrideRow] = Field(default_factory=list)
+
+
+class DraftPriorOwnerClosureEvidenceSummary(BaseModel):
+    draft_selection_closure_status: DraftSelectionClosureStatus
+    checkpoint_replay_status: CheckpointReplayStatus
+    selection_day_inventory_rows: int
+    existing_pick_link_rows: int
+    curated_override_rows: int
+    blocked_rows: int
+    evidence: list[str] = Field(default_factory=list)
+
+
+class DraftPriorOwnerReplayProofRow(BaseModel):
+    draft_selection_id: str
+    draft_year: int
+    round_number: int
+    pick_overall: int
+    selection_day_snapshot_id: str
+    pre_draft_snapshot_id: str
+    status: PriorOwnerRowStatus
+    resolution_kind: PriorOwnerResolutionKind | None = None
+    proof_source_kind: PriorOwnerProofSourceKind
+    checkpoint_replay_supported: bool
+    draft_selection_closure_supported: bool
+    pick_id: str | None = None
+    original_team_code: str | None = None
+    source_obligation_id: str | None = None
+    confidence: ResolutionConfidence = "none"
+    override_source_locator: str | None = None
+    override_notes: str | None = None
+    reason: str
+
+
+class DraftPriorOwnerReplayProofResult(BaseModel):
+    status: Literal["ok"] = "ok"
+    team_code: str
+    replay_coverage: DraftPriorOwnerReplayCoverage
+    override_reliance: DraftPriorOwnerOverrideRelianceSummary
+    closure_evidence: DraftPriorOwnerClosureEvidenceSummary
+    proof_rows: list[DraftPriorOwnerReplayProofRow]
+    known_limitations: list[str]
+
+
 def bootstrap_foundation_draft_prior_owner_schema(
     database_url: str,
     sql_path: Path = FOUNDATION_DRAFT_PRIOR_OWNER_BOOTSTRAP_SQL_PATH,
@@ -150,7 +239,7 @@ def build_draft_prior_owner_lineage_rows(
         for row in (overrides or [])
         if row.team_code.upper() == normalized_team_code
     }
-    projected_rows_by_snapshot_id = build_projected_rows_by_snapshot_id(
+    projected_rows_by_snapshot_id = build_selection_day_projected_rows_by_snapshot_id(
         selections=filtered_selections,
         obligations=obligations,
         team_code=normalized_team_code,
@@ -166,7 +255,7 @@ def build_draft_prior_owner_lineage_rows(
         group_rows = resolve_selection_group(
             selections=group,
             pick_by_id=pick_by_id,
-            projected_rows=projected_rows_by_snapshot_id.get(build_pre_draft_snapshot_id(group[0]), []),
+            projected_rows=projected_rows_by_snapshot_id.get(build_selection_day_snapshot_id(group[0]), []),
             team_code=normalized_team_code,
             override_by_selection_id=override_by_selection_id,
         )
@@ -207,6 +296,26 @@ def preview_draft_prior_owner_lineage(
         fixture_path=fixture_path,
     )
     return build_draft_prior_owner_lineage_preview(rows=rows, team_code=team_code)
+
+
+def preview_draft_prior_owner_replay_proof(
+    database_url: str,
+    *,
+    team_code: str = "MEM",
+    fixture_path: Path = DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH,
+) -> DraftPriorOwnerReplayProofResult:
+    preview = preview_draft_prior_owner_lineage(
+        database_url,
+        team_code=team_code,
+        fixture_path=fixture_path,
+    )
+    overrides = load_draft_prior_owner_override_fixture(fixture_path).rows
+    return build_draft_prior_owner_replay_proof(
+        rows=preview.rows,
+        team_code=preview.team_code,
+        overrides=overrides,
+        known_limitations=preview.known_limitations,
+    )
 
 
 def load_draft_prior_owner_lineage(
@@ -281,15 +390,206 @@ def build_draft_prior_owner_lineage_preview(
         ambiguous=sum(1 for row in rows if row.status == "ambiguous"),
         unmatched=sum(1 for row in rows if row.status == "unmatched"),
         rows=rows,
-        known_limitations=[
-            "This derivation uses pre-draft inventory projection plus existing non-slot pick links; it does not solve every conditional branch.",
-            "Multiple Memphis selections in the same draft year and round remain ambiguous unless an exact non-slot pick link already exists.",
-            "The loader writes a separate prior-owner lineage surface and does not mutate draft_selection or draft_pick_resolution semantics.",
-        ],
+        known_limitations=build_draft_prior_owner_known_limitations(),
     )
 
 
-def build_projected_rows_by_snapshot_id(
+def build_draft_prior_owner_replay_proof(
+    *,
+    rows: list[DraftPriorOwnerLineageRow],
+    team_code: str,
+    overrides: list[DraftPriorOwnerOverrideRow] | None = None,
+    known_limitations: list[str] | None = None,
+) -> DraftPriorOwnerReplayProofResult:
+    normalized_team_code = team_code.upper()
+    override_by_selection_id = {
+        row.draft_selection_id: row
+        for row in (overrides or [])
+        if row.team_code.upper() == normalized_team_code
+    }
+    proof_rows = [
+        build_draft_prior_owner_replay_proof_row(
+            row,
+            override=override_by_selection_id.get(row.draft_selection_id),
+        )
+        for row in sorted(rows, key=selection_row_sort_key)
+    ]
+    return DraftPriorOwnerReplayProofResult(
+        team_code=normalized_team_code,
+        replay_coverage=build_draft_prior_owner_replay_coverage(proof_rows),
+        override_reliance=build_draft_prior_owner_override_reliance_summary(proof_rows),
+        closure_evidence=build_draft_prior_owner_closure_evidence_summary(proof_rows),
+        proof_rows=proof_rows,
+        known_limitations=build_draft_prior_owner_replay_proof_known_limitations(known_limitations),
+    )
+
+
+def build_draft_prior_owner_replay_proof_row(
+    row: DraftPriorOwnerLineageRow,
+    *,
+    override: DraftPriorOwnerOverrideRow | None,
+) -> DraftPriorOwnerReplayProofRow:
+    proof_source_kind = classify_draft_prior_owner_proof_source_kind(row)
+    return DraftPriorOwnerReplayProofRow(
+        draft_selection_id=row.draft_selection_id,
+        draft_year=row.draft_year,
+        round_number=row.round_number,
+        pick_overall=row.pick_overall,
+        selection_day_snapshot_id=build_selection_day_snapshot_id_from_values(
+            team_code=row.team_code,
+            draft_year=row.draft_year,
+            round_number=row.round_number,
+        ),
+        pre_draft_snapshot_id=build_pre_draft_snapshot_id_from_values(
+            team_code=row.team_code,
+            draft_year=row.draft_year,
+            round_number=row.round_number,
+        ),
+        status=row.status,
+        resolution_kind=row.resolution_kind,
+        proof_source_kind=proof_source_kind,
+        checkpoint_replay_supported=proof_source_kind == "selection_day_inventory",
+        draft_selection_closure_supported=row.status == "resolved",
+        pick_id=row.pick_id,
+        original_team_code=row.original_team_code,
+        source_obligation_id=row.source_obligation_id,
+        confidence=row.confidence,
+        override_source_locator=override.source_locator if override is not None else None,
+        override_notes=override.notes if override is not None else row.notes,
+        reason=row.reason,
+    )
+
+
+def build_draft_prior_owner_replay_coverage(
+    proof_rows: list[DraftPriorOwnerReplayProofRow],
+) -> DraftPriorOwnerReplayCoverage:
+    resolved_selections = sum(1 for row in proof_rows if row.status == "resolved")
+    ambiguous_selections = sum(1 for row in proof_rows if row.status == "ambiguous")
+    unmatched_selections = sum(1 for row in proof_rows if row.status == "unmatched")
+    blocked_selection_ids = [
+        row.draft_selection_id
+        for row in proof_rows
+        if row.status != "resolved"
+    ]
+    if not blocked_selection_ids:
+        status: ReplayCoverageStatus = "complete"
+    elif resolved_selections:
+        status = "partial"
+    else:
+        status = "blocked"
+    return DraftPriorOwnerReplayCoverage(
+        status=status,
+        total_selections=len(proof_rows),
+        resolved_selections=resolved_selections,
+        ambiguous_selections=ambiguous_selections,
+        unmatched_selections=unmatched_selections,
+        blocked_selections=len(blocked_selection_ids),
+        draft_years=sorted({row.draft_year for row in proof_rows}),
+        selection_day_snapshot_ids=sorted({row.selection_day_snapshot_id for row in proof_rows}),
+        pre_draft_snapshot_ids=sorted({row.pre_draft_snapshot_id for row in proof_rows}),
+        blocked_selection_ids=blocked_selection_ids,
+    )
+
+
+def build_draft_prior_owner_override_reliance_summary(
+    proof_rows: list[DraftPriorOwnerReplayProofRow],
+) -> DraftPriorOwnerOverrideRelianceSummary:
+    remaining_rows = [
+        DraftPriorOwnerRemainingOverrideRow(
+            draft_selection_id=row.draft_selection_id,
+            draft_year=row.draft_year,
+            round_number=row.round_number,
+            pick_overall=row.pick_overall,
+            original_team_code=row.original_team_code,
+            confidence=row.confidence,
+            source_locator=row.override_source_locator,
+            notes=row.override_notes,
+        )
+        for row in proof_rows
+        if row.proof_source_kind == "curated_override"
+    ]
+    has_blocked_rows = any(row.status != "resolved" for row in proof_rows)
+    if has_blocked_rows:
+        status: OverrideRelianceStatus = "blocked"
+    elif remaining_rows:
+        status = "bounded"
+    else:
+        status = "clear"
+    return DraftPriorOwnerOverrideRelianceSummary(
+        status=status,
+        remaining_rows=len(remaining_rows),
+        selection_ids=[row.draft_selection_id for row in remaining_rows],
+        rows=remaining_rows,
+    )
+
+
+def build_draft_prior_owner_closure_evidence_summary(
+    proof_rows: list[DraftPriorOwnerReplayProofRow],
+) -> DraftPriorOwnerClosureEvidenceSummary:
+    selection_day_inventory_rows = sum(1 for row in proof_rows if row.proof_source_kind == "selection_day_inventory")
+    existing_pick_link_rows = sum(1 for row in proof_rows if row.proof_source_kind == "resolved_pick_link")
+    curated_override_rows = sum(1 for row in proof_rows if row.proof_source_kind == "curated_override")
+    blocked_rows = sum(1 for row in proof_rows if row.proof_source_kind == "unresolved")
+    checkpoint_replay_status: CheckpointReplayStatus
+    if blocked_rows:
+        checkpoint_replay_status = "open"
+    elif existing_pick_link_rows or curated_override_rows:
+        checkpoint_replay_status = "mixed"
+    else:
+        checkpoint_replay_status = "ledger_backed"
+    evidence: list[str] = []
+    if selection_day_inventory_rows:
+        evidence.append(
+            f"{selection_day_inventory_rows} selections resolve from selection-day inventory projection, so they carry shared checkpoint and draft-selection replay evidence."
+        )
+    if existing_pick_link_rows:
+        evidence.append(
+            f"{existing_pick_link_rows} selections close through existing non-slot pick links; those rows support draft-selection lineage but do not independently prove checkpoint replay."
+        )
+    if curated_override_rows:
+        evidence.append(
+            f"{curated_override_rows} selections still rely on curated overrides and remain explicitly enumerated as bounded residue."
+        )
+    if blocked_rows:
+        evidence.append(
+            f"{blocked_rows} selections remain ambiguous or unmatched, so replay closure is still open."
+        )
+    evidence.append(
+        "Selection-day evidence is tracked separately from day-before pre-draft snapshot ids because same-day effective dates can change who controlled a pick at the actual selection."
+    )
+    return DraftPriorOwnerClosureEvidenceSummary(
+        draft_selection_closure_status="closed" if blocked_rows == 0 else "open",
+        checkpoint_replay_status=checkpoint_replay_status,
+        selection_day_inventory_rows=selection_day_inventory_rows,
+        existing_pick_link_rows=existing_pick_link_rows,
+        curated_override_rows=curated_override_rows,
+        blocked_rows=blocked_rows,
+        evidence=evidence,
+    )
+
+
+def build_draft_prior_owner_known_limitations() -> list[str]:
+    return [
+        "This derivation now uses selection-day inventory projection plus existing non-slot pick links; it does not solve every conditional branch.",
+        "Selection-day control can differ from day-before pre-draft state when obligations become effective on the draft date, so those surfaces should not be treated as interchangeable proof.",
+        "Multiple Memphis selections in the same draft year and round remain ambiguous unless an exact non-slot pick link already exists.",
+        "The loader writes a separate prior-owner lineage surface and does not mutate draft_selection or draft_pick_resolution semantics.",
+    ]
+
+
+def build_draft_prior_owner_replay_proof_known_limitations(
+    known_limitations: list[str] | None = None,
+) -> list[str]:
+    limitations = list(known_limitations or build_draft_prior_owner_known_limitations())
+    extra_limitation = (
+        "Checkpoint closure evidence here is summarized from prior-owner proof source kinds, with selection-day and day-before snapshot ids kept distinct; this surface does not enumerate roster checkpoint dates on its own."
+    )
+    if extra_limitation not in limitations:
+        limitations.append(extra_limitation)
+    return limitations
+
+
+def build_selection_day_projected_rows_by_snapshot_id(
     *,
     selections: list[DraftSelectionForPriorOwnerLineage],
     obligations: list[PickInventoryObligation],
@@ -300,47 +600,154 @@ def build_projected_rows_by_snapshot_id(
         for obligation in obligations
         if obligation.loadable and obligation.confidence != "uncertain"
     ]
-    snapshots = build_pre_draft_snapshots(selections, team_code=team_code)
-    if not snapshots:
-        return {}
-    projected_rows = project_pick_inventory_rows(
-        snapshots=snapshots,
-        obligations=projectable_obligations,
-        team_code=team_code,
-        max_draft_year=max(selection.draft_year for selection in selections),
-    )
     rows_by_snapshot_id: dict[str, list[object]] = defaultdict(list)
-    for row in projected_rows:
-        rows_by_snapshot_id[row.snapshot_id].append(row)
+    for selection in selections:
+        snapshot_id = build_selection_day_snapshot_id(selection)
+        if snapshot_id in rows_by_snapshot_id:
+            continue
+        rows_by_snapshot_id[snapshot_id] = build_selection_day_projected_rows(
+            draft_year=selection.draft_year,
+            round_number=selection.round_number,
+            obligations=projectable_obligations,
+            team_code=team_code,
+        )
     return dict(rows_by_snapshot_id)
 
 
-def build_pre_draft_snapshots(
-    selections: list[DraftSelectionForPriorOwnerLineage],
+def build_selection_day_projected_rows(
     *,
+    draft_year: int,
+    round_number: int,
+    obligations: list[PickInventoryObligation],
     team_code: str,
-) -> list[PickInventorySnapshot]:
-    snapshot_by_id: dict[str, PickInventorySnapshot] = {}
-    for selection in selections:
-        snapshot_id = build_pre_draft_snapshot_id(selection)
-        snapshot_date = (
-            date.fromisoformat(resolve_draft_date(selection.draft_year, selection.round_number)) - timedelta(days=1)
-        ).isoformat()
-        snapshot_by_id[snapshot_id] = PickInventorySnapshot(
+) -> list[DraftPriorOwnerProjectedPickRow]:
+    normalized_team_code = team_code.upper()
+    snapshot_date = resolve_draft_date(draft_year, round_number)
+    snapshot_id = build_selection_day_snapshot_id_from_values(
+        team_code=normalized_team_code,
+        draft_year=draft_year,
+        round_number=round_number,
+    )
+    own_pick_id = build_own_pick_id(normalized_team_code, draft_year, round_number)
+    row_by_pick_id: dict[str, DraftPriorOwnerProjectedPickRow] = {
+        own_pick_id: DraftPriorOwnerProjectedPickRow(
             snapshot_id=snapshot_id,
             snapshot_date=snapshot_date,
-            snapshot_kind="pre_draft",
-            season=build_draft_season(selection.draft_year),
-            team_code=team_code.upper(),
+            pick_id=own_pick_id,
+            asset_id=build_pick_asset_id(own_pick_id),
+            draft_year=draft_year,
+            round_number=round_number,
+            original_team=normalized_team_code,
+            holding_status="owned",
+            source_obligation_id=None,
+            confidence="derived",
+            notes="Selection-day own-pick baseline; modified by dated obligations effective on or before the draft-selection date.",
         )
-    return [snapshot_by_id[key] for key in sorted(snapshot_by_id)]
+    }
+    for obligation in sorted(obligations, key=lambda item: (item.effective_date, item.obligation_id)):
+        if obligation.perspective_team_code != normalized_team_code:
+            continue
+        if obligation.draft_year != draft_year or obligation.round_number != round_number:
+            continue
+        if date.fromisoformat(obligation.effective_date) > date.fromisoformat(snapshot_date):
+            continue
+        apply_selection_day_obligation(
+            row_by_pick_id=row_by_pick_id,
+            snapshot_id=snapshot_id,
+            snapshot_date=snapshot_date,
+            obligation=obligation,
+            team_code=normalized_team_code,
+        )
+    return sorted(
+        row_by_pick_id.values(),
+        key=lambda row: (
+            row.draft_year,
+            row.round_number,
+            holding_status_order(row.holding_status),
+            row.original_team,
+            row.pick_id,
+        ),
+    )
+
+
+def apply_selection_day_obligation(
+    *,
+    row_by_pick_id: dict[str, DraftPriorOwnerProjectedPickRow],
+    snapshot_id: str,
+    snapshot_date: str,
+    obligation: PickInventoryObligation,
+    team_code: str,
+) -> None:
+    original_team_code = normalize_team_code(obligation.original_team_code) or team_code
+    if obligation.direction in ("incoming", "swap_right"):
+        pick_id = build_prior_owner_pick_id(
+            team_code=team_code,
+            draft_year=obligation.draft_year,
+            round_number=obligation.round_number,
+            original_team_code=original_team_code,
+        )
+        holding_status = "swap_right" if obligation.direction == "swap_right" else obligation.holding_status
+    elif obligation.direction in ("outgoing", "swap_obligation"):
+        if original_team_code == team_code:
+            pick_id = build_own_pick_id(team_code, obligation.draft_year, obligation.round_number)
+        else:
+            pick_id = build_prior_owner_pick_id(
+                team_code=team_code,
+                draft_year=obligation.draft_year,
+                round_number=obligation.round_number,
+                original_team_code=original_team_code,
+            )
+        holding_status = "encumbered" if obligation.direction == "swap_obligation" else obligation.holding_status
+    else:
+        pick_id = build_own_pick_id(team_code, obligation.draft_year, obligation.round_number)
+        holding_status = obligation.holding_status
+    row_by_pick_id[pick_id] = DraftPriorOwnerProjectedPickRow(
+        snapshot_id=snapshot_id,
+        snapshot_date=snapshot_date,
+        pick_id=pick_id,
+        asset_id=build_pick_asset_id(pick_id),
+        draft_year=obligation.draft_year,
+        round_number=obligation.round_number,
+        original_team=original_team_code,
+        holding_status=holding_status,
+        source_obligation_id=obligation.obligation_id,
+        confidence=obligation.confidence,
+        notes=obligation.notes,
+    )
+
+
+def build_selection_day_snapshot_id(selection: DraftSelectionForPriorOwnerLineage) -> str:
+    return build_selection_day_snapshot_id_from_values(
+        team_code=selection.team_code,
+        draft_year=selection.draft_year,
+        round_number=selection.round_number,
+    )
+
+
+def build_selection_day_snapshot_id_from_values(
+    *,
+    team_code: str,
+    draft_year: int,
+    round_number: int,
+) -> str:
+    return f"snapshot:prior-owner:{team_code.lower()}:{draft_year}:r{round_number}:selection_day"
 
 
 def build_pre_draft_snapshot_id(selection: DraftSelectionForPriorOwnerLineage) -> str:
-    return (
-        f"snapshot:prior-owner:{selection.team_code.lower()}:{selection.draft_year}:"
-        f"r{selection.round_number}:pre_draft"
+    return build_pre_draft_snapshot_id_from_values(
+        team_code=selection.team_code,
+        draft_year=selection.draft_year,
+        round_number=selection.round_number,
     )
+
+
+def build_pre_draft_snapshot_id_from_values(
+    *,
+    team_code: str,
+    draft_year: int,
+    round_number: int,
+) -> str:
+    return f"snapshot:prior-owner:{team_code.lower()}:{draft_year}:r{round_number}:pre_draft"
 
 
 def build_draft_season(draft_year: int) -> str:
@@ -389,7 +796,7 @@ def resolve_selection_group(
         status = "ambiguous" if controlled_candidates else "unmatched"
         reason = (
             "multiple Memphis selections share this draft year and round, "
-            "and pre-draft inventory does not carry pick_overall to map remaining picks safely"
+            "and selection-day inventory does not carry pick_overall to map remaining picks safely"
         )
         resolved_rows.extend(
             [
@@ -488,14 +895,14 @@ def resolve_single_inventory_selection(
         return build_unresolved_lineage_row(
             selection,
             status="unmatched",
-            reason="pre-draft inventory does not show a controlled Memphis pick-right candidate for this draft year and round",
+            reason="selection-day inventory does not show a controlled Memphis pick-right candidate for this draft year and round",
             candidate_rows=[],
         )
     if len(candidate_rows) > 1:
         return build_unresolved_lineage_row(
             selection,
             status="ambiguous",
-            reason="pre-draft inventory shows multiple controlled Memphis pick-right candidates for this draft year and round",
+            reason="selection-day inventory shows multiple controlled Memphis pick-right candidates for this draft year and round",
             candidate_rows=candidate_rows,
         )
 
@@ -505,15 +912,15 @@ def resolve_single_inventory_selection(
     if source_obligation_id is None and original_team_code == team_code:
         resolution_kind: PriorOwnerResolutionKind = "team_default_fallback"
         confidence: ResolutionConfidence = "low"
-        reason = "pre-draft inventory falls back to Memphis own-pick baseline for this draft year and round"
+        reason = "selection-day inventory falls back to Memphis own-pick baseline for this draft year and round"
     elif len(all_same_round_rows) == 1:
         resolution_kind = "inventory_exact_pick"
         confidence = "high"
-        reason = "pre-draft inventory projects exactly one controlled pick-right for this draft year and round"
+        reason = "selection-day inventory projects exactly one controlled pick-right for this draft year and round"
     else:
         resolution_kind = "inventory_single_candidate"
         confidence = "medium"
-        reason = "pre-draft inventory leaves one controlled Memphis pick-right candidate after non-controlled rows are excluded"
+        reason = "selection-day inventory leaves one controlled Memphis pick-right candidate after non-controlled rows are excluded"
 
     return build_resolved_lineage_row(
         selection,
@@ -638,6 +1045,26 @@ def build_prior_owner_pick_id(
 
 def normalize_team_code(value: str | None) -> str:
     return value.strip().upper() if value and value.strip() else ""
+
+
+def classify_draft_prior_owner_proof_source_kind(row: DraftPriorOwnerLineageRow) -> PriorOwnerProofSourceKind:
+    if row.status != "resolved" or row.resolution_kind is None:
+        return "unresolved"
+    if row.resolution_kind in {"inventory_exact_pick", "inventory_single_candidate", "team_default_fallback"}:
+        return "selection_day_inventory"
+    if row.resolution_kind == "resolved_pick_original_team":
+        return "resolved_pick_link"
+    return "curated_override"
+
+
+def holding_status_order(holding_status: str) -> int:
+    return {
+        "owned": 0,
+        "swap_right": 1,
+        "conditional": 2,
+        "encumbered": 3,
+        "owed_out": 4,
+    }.get(holding_status, 99)
 
 
 def load_draft_selections_for_prior_owner_lineage(

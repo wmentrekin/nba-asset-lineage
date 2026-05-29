@@ -1,7 +1,7 @@
 {
   "fixture_id": "memphis_future_pick_obligations_2016_2026_seed_v1",
   "team_code": "MEM",
-  "description": "Source-backed Memphis future pick obligation fixture for previewing high-confidence current and near-future obligation rows.",
+  "description": "Source-backed Memphis pick obligation fixture for previewing high-confidence future inventory rows plus bounded historical selection-day replay rows.",
   "source_summary": {
     "retrieved_at": "2026-05-14T00:00:00Z",
     "primary_current_state_source": "RealGM Memphis Grizzlies future draft picks",
@@ -97,6 +97,198 @@
       "confidence": "validated",
       "loadable": true,
       "notes": "Current RealGM state and the provided BRef source event agree that Memphis controls the IND 2026 second."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2022-06-23:uta-2022-r1-selection-day",
+      "effective_date": "2022-06-23",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "UTA",
+      "draft_year": 2022,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Utah's 2022 first-round pick on selection day and used it at No. 22 before the draft rights moved in the Minnesota trade.",
+      "source_event_id": "bref:draft:2022:pick:022",
+      "source_urls": [
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Basketball-Reference Memphis draft history, Walker Kessler via Utah"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for Walker Kessler prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2022-06-23:cle-2022-r1-selection-day",
+      "effective_date": "2022-06-23",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "CLE",
+      "draft_year": 2022,
+      "round_number": 1,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Cleveland's 2022 first-round pick on selection day and used it at No. 29 before the draft rights moved in the Minnesota trade.",
+      "source_event_id": "bref:draft:2022:pick:029",
+      "source_urls": [
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Basketball-Reference Memphis draft history, TyTy Washington Jr. via Cleveland"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for TyTy Washington Jr. prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2023-06-22:min-2023-r2-selection-day",
+      "effective_date": "2023-06-22",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "MIN",
+      "draft_year": 2023,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Minnesota's 2023 second-round pick on selection day and used it at No. 45 for GG Jackson II.",
+      "source_event_id": "bref:draft:2023:pick:045",
+      "source_urls": [
+        "https://en.wikipedia.org/wiki/2023_NBA_draft",
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "2023 NBA draft results, GG Jackson II via Minnesota",
+        "Basketball-Reference Memphis draft history, GG Jackson II"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for GG Jackson II prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2024-06-27:bkn-2024-r2-selection-day",
+      "effective_date": "2024-06-27",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "BKN",
+      "draft_year": 2024,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Brooklyn's 2024 second-round pick on selection day and used it at No. 39 for Jaylen Wells.",
+      "source_event_id": "bref:draft:2024:pick:039",
+      "source_urls": [
+        "https://www.landofbasketball.com/draft/grizzlies.htm",
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Land of Basketball Memphis draft history, Jaylen Wells via Brooklyn",
+        "Basketball-Reference Memphis draft history, Jaylen Wells"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for Jaylen Wells prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2024-06-27:okc-2024-r2-selection-day",
+      "effective_date": "2024-06-27",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "OKC",
+      "draft_year": 2024,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Oklahoma City's 2024 second-round pick on selection day and used it at No. 57 before the draft rights moved to Toronto.",
+      "source_event_id": "bref:draft:2024:pick:057",
+      "source_urls": [
+        "https://www.landofbasketball.com/draft/grizzlies.htm",
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Land of Basketball Memphis draft history, Ulrich Chomche via Oklahoma City",
+        "Basketball-Reference Memphis draft history, Ulrich Chomche"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for Ulrich Chomche prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-26:gsw-2025-r2-selection-day",
+      "effective_date": "2025-06-26",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "GSW",
+      "draft_year": 2025,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Golden State's 2025 second-round pick on selection day and used it at No. 48 for Javon Small.",
+      "source_event_id": "bref:draft:2025:pick:048",
+      "source_urls": [
+        "https://ufdcimages.uflib.ufl.edu/AA/00/06/85/31/02134/2025-06-27.pdf",
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Florida Gators 2025-06-27 PDF, Javon Small via Golden State",
+        "Basketball-Reference Memphis draft history, Javon Small"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for Javon Small prior-owner truth."
+    },
+    {
+      "obligation_id": "mem-pick-obligation:2025-06-26:hou-2025-r2-selection-day",
+      "effective_date": "2025-06-26",
+      "perspective_team_code": "MEM",
+      "owner_team_code": "MEM",
+      "original_team_code": "HOU",
+      "draft_year": 2025,
+      "round_number": 2,
+      "direction": "incoming",
+      "holding_status": "owned",
+      "obligation_type": "traded_pick",
+      "protection_text": null,
+      "swap_text": null,
+      "condition_text": "Memphis controlled Houston's 2025 second-round pick on selection day and used it at No. 56 before the draft rights moved to Golden State.",
+      "source_event_id": "bref:draft:2025:pick:056",
+      "source_urls": [
+        "https://ufdcimages.uflib.ufl.edu/AA/00/06/85/31/02134/2025-06-27.pdf",
+        "https://www.basketball-reference.com/teams/MEM/draft.html"
+      ],
+      "source_labels": [
+        "Florida Gators 2025-06-27 PDF, Will Richard via Houston",
+        "Basketball-Reference Memphis draft history, Will Richard"
+      ],
+      "retrieved_at": "2026-05-14T00:00:00Z",
+      "confidence": "curated",
+      "loadable": true,
+      "notes": "Selection-day replay row for Will Richard prior-owner truth."
     },
     {
       "obligation_id": "mem-pick-obligation:2026-02-03:lal-2027-r1-to-mem",

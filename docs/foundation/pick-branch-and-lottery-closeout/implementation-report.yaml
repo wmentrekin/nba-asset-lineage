@@ -1,0 +1,79 @@
+artifact: implementation_report
+feature: "foundation/pick-branch-and-lottery-closeout"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+based_on: "docs/foundation/pick-branch-and-lottery-closeout/plan.yaml"
+
+summary:
+  scope_executed: "Repaired the lottery fixture validator, reclassified loaded lottery rows and source-backed non-projectable pick fallback rows from open audit gaps to documented limitations/context, updated stale CLI/doc wording, and verified the new audit contract locally and against live read-only Supabase state."
+  outcome: "Complete. The live foundation audit now reports `known_gaps=[]` while preserving both surfaces in `documented_limitations`."
+
+task_batches_attempted:
+  - "B1 closeout contract and safeguard review"
+  - "B2 validator repair plus audit/CLI/doc/test alignment"
+  - "B3 verification and report sync"
+task_batches_completed:
+  - "B1"
+  - "B2"
+  - "B3"
+
+changes:
+  files:
+    - "src/foundation/draft_lottery_results.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "tests/foundation/test_draft_lottery_results.py"
+    - "tests/foundation/test_audit.py"
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/pick-branch-and-lottery-closeout/status.yaml"
+    - "docs/foundation/pick-branch-and-lottery-closeout/requirements.yaml"
+    - "docs/foundation/pick-branch-and-lottery-closeout/plan.yaml"
+    - "docs/foundation/pick-branch-and-lottery-closeout/implementation-report.yaml"
+  modules:
+    - "foundation.draft_lottery_results fixture validation"
+    - "foundation.audit documented limitation reporting"
+    - "redesign_cli full-span convenience payload wording"
+  docs_updated:
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+
+local_validation:
+  checks_run:
+    - "./.venv/bin/pytest tests/foundation/test_draft_lottery_results.py"
+    - "./.venv/bin/pytest tests/foundation/test_audit.py"
+    - "./.venv/bin/pytest tests/foundation/test_audit.py tests/foundation/test_draft_lottery_results.py"
+    - "./.venv/bin/pytest"
+  failures: []
+  skipped: []
+
+review_summary:
+  status: completed
+  key_findings:
+    - "The closeout stayed within the reset-era minimum graph contract; neither fallback pick rows nor lottery rows were promoted into the base graph export."
+    - "The one real blocker was the lottery validator bug, and it was repaired before reclassification."
+    - "The final audit is quieter without hiding the contextual/documentation surfaces; they remain visible through `documented_limitations`."
+
+test_summary:
+  status: passed
+  checks_run:
+    - "Focused pytest: 58 passed."
+    - "Full Python test suite: 227 passed."
+    - "Live `preview-draft-lottery-results --team-code MEM` returned `blocked_rows=0`, `warning_rows=0`, `existing_matching_rows=5`."
+    - "Live `preview-pick-inventory-obligations --team-code MEM` returned `fixture_rows=21`, `loadable_rows=19`, `blocked_rows=0`, `warning_rows=0`."
+    - "Live `audit-foundation-data` returned `known_gaps=[]` and a `documented_limitations` section containing the fallback-pick and loaded-lottery surfaces."
+    - "Live `inspect-foundation-graph-baseline` preserved canonical counts `407 / 420 / 568` and checksum `cbc6fc7ff7b7b941cc0d623b8e0052d79796581e2cc66ddcaf34b95e085ec094`."
+  failures: []
+  gaps: []
+
+open_issues:
+  - "Supplemental corroboration depth remains on the backburner and is intentionally outside this closeout."
+  - "The future-pick ledger remains a current-state-focused source-backed ledger rather than a full historical replay of every obligation branch."
+
+handoff:
+  current_state: completed
+  next_owner: "orchestrator"
+  next_action: "Return to remaining backburner limitation work only if the user wants to go beyond the minimum graph-truth contract."

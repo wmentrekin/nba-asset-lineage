@@ -1,15 +1,15 @@
 artifact: status
 feature: "foundation/pick-branch-and-lottery-closeout"
 mode: "bounded-feature"
-stage: "discovery"
+stage: "completed"
 owner_skill: work
 
 objective: "Close the remaining conditional future-pick branch modeling gap and the draft-lottery integration gap with the smallest truthful reset-era changes."
 
 summary:
-  current_focus: "Determine whether the two remaining gaps are real data/model blockers or stale open-gap classifications that can be closed additively."
-  last_completed: "Two-way historical coverage and contract-semantics depth were closed in the previous pass."
-  current_blocker: ""
+  current_focus: "Completed the closeout: lottery validation is repaired and the remaining pick-branch and lottery residues now surface as documented limitations/context rather than open gaps."
+  last_completed: "Live read-only verification confirmed `known_gaps=[]` and preserved both surfaces under `documented_limitations`."
+  current_blocker: "none"
 
 artifacts:
   requirements: "docs/foundation/pick-branch-and-lottery-closeout/requirements.yaml"
@@ -20,26 +20,34 @@ agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
-    stage: "discovery"
-    task: "Classify the remaining two gaps, keep the user updated, and prepare the execution checkpoint."
-    last_update: "Loaded the work-skill contract, active foundation docs, and the current pick/lottery code paths."
-    blocker: ""
-  - id: "019e6fab-e716-7d23-85c1-213880d817d7"
-    role: "repo-researcher"
-    model_guidance: "medium"
-    status: "running"
-    stage: "discovery"
-    task: "Inspect the exact non-loadable future-pick fallback rows and propose the smallest truthful closeout path."
-    last_update: "Explorer launched for the pick-branch residue."
+    status: "completed"
+    stage: "verification"
+    task: "Integrated the worker changes, ran verification, and synced the closeout artifacts."
+    last_update: "Focused tests, full pytest, and live read-only CLI verification all passed."
     blocker: ""
   - id: "019e6fab-fe43-7d10-9d26-5d796a226288"
     role: "repo-researcher"
     model_guidance: "medium"
-    status: "running"
-    stage: "discovery"
+    status: "completed"
+    stage: "verification"
     task: "Inspect the current draft-lottery integration gap and propose the smallest truthful closeout path."
-    last_update: "Explorer launched for the lottery integration residue."
+    last_update: "Confirmed the lottery feature is already complete as contextual metadata and the remaining residue is open-gap classification plus stale CLI/doc wording."
+    blocker: ""
+  - id: "019e715a-eb59-7c11-99e2-a206e51a05b3"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Retry the pick-branch residue inspection after the first explorer failed to return cleanly."
+    last_update: "Confirmed the two fallback rows are already truthful documentation-only rows and that making them loadable would falsely project mutually exclusive assets."
+    blocker: ""
+  - id: "019e715c-13bb-7210-b277-e7029fd207eb"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Critique the hypothesis that both remaining gaps are stale open-gap classifications rather than missing graph features."
+    last_update: "Reviewer agreed with the narrow closeout but flagged a real lottery validator bug that must be fixed first."
     blocker: ""
 
 loops:
@@ -52,7 +60,7 @@ loops:
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: pending
+  pre_execution_status: completed
   options:
     - proceed
     - revise_plan
@@ -63,7 +71,9 @@ blockers: []
 decisions:
   - "Treat this as a bounded-feature closeout pass unless discovery shows that one of the two gaps requires a larger architectural expansion."
   - "Use parallel repo-researcher lanes for pick-branch closure and lottery closure before drafting the execution checkpoint."
+  - "The lottery residue will not trigger base-graph expansion unless review finds a strong contradiction."
+  - "The closeout must keep these surfaces visible as limitations/context, not silently hide them."
 
-next_action: "Integrate the explorer findings into a requirements doc and draft the execution plan."
+next_action: "Return to the remaining backburner limitation work only if the user wants to continue beyond the minimum graph-truth contract."
 next_recommended_command: "$work"
 user_input_needed: false

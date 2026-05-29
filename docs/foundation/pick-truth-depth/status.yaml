@@ -1,0 +1,71 @@
+artifact: status
+feature: "foundation/pick-truth-depth"
+mode: "large-initiative"
+stage: "completed"
+owner_skill: work
+
+objective: "Unify the remaining pick-related backlog into one durable closeout plan covering historical pick replay depth, conditional fallback branches, and lottery context within the reset-era foundation."
+
+summary:
+  current_focus: "Completed the pick-truth closeout: realized Memphis-visible pick replay is now loaded and verified, with bounded override residue kept explicit."
+  last_completed: "Applied the additive pick-inventory bootstrap, loaded 26 obligation rows including 8 historical selection-day replay rows, refreshed draft prior-owner lineage, and verified complete replay coverage with 8 bounded curated overrides."
+  current_blocker: "none"
+
+artifacts:
+  requirements: "docs/foundation/pick-truth-depth/requirements.yaml"
+  plan: "docs/foundation/pick-truth-depth/plan.yaml"
+  implementation_report: "docs/foundation/pick-truth-depth/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "verification"
+    task: "Integrated the worker changes, executed the live load sequence, and synced the closeout artifacts."
+    last_update: "Live read-only verification confirmed 26 matching obligation rows, complete replay coverage for all 20 Memphis draft selections, and no open audit gaps."
+    blocker: ""
+  - id: "019e71e7-d077-7e50-a248-12489b2a4c49"
+    role: "implementation-worker"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Add additive composite-right structure and widen the pick-inventory contract for the pick-truth closeout."
+    last_update: "Implemented derived composite-right semantics plus the additive pick-inventory bootstrap changes and focused pick/export test coverage."
+    blocker: ""
+  - id: "019e71e7-e3b9-76f1-972a-3c4526dc69dc"
+    role: "implementation-worker"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Build the selection-day replay-proof surface and tighten draft prior-owner replay derivation."
+    last_update: "Implemented the read-only replay proof, selection-day inventory derivation, and focused prior-owner coverage used by the final live verification pass."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 1
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: completed
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Treat the remaining pick work as one initiative rather than as separate fallback, lottery, and replay tickets."
+  - "Use realized historical replay for Memphis-visible states as the finish line instead of reopening full branch-engine scope."
+  - "Keep the two conditional fallback rows documented-only and lottery contextual-only while closing the replay backlog."
+  - "Accept bounded curated override residue for ambiguous same-round draft nights as long as replay coverage is complete and the residue stays explicit."
+
+next_action: "Return to backburner supplemental corroboration depth or broader future-pick history work only if the user wants to go beyond the current reset-era pick-truth contract."
+next_recommended_command: "$work"
+user_input_needed: false

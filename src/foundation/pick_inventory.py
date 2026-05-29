@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import psycopg
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 from foundation.export import draft_resolution_event_date
 from foundation.ingest import AssetRow
@@ -18,6 +18,7 @@ from foundation.ingest import replace_roster_snapshot_picks
 from foundation.ingest import upsert_assets
 from foundation.ingest import upsert_pick_inventory_obligations
 from foundation.ingest import upsert_picks
+from foundation.models import CompositePickRight, derive_composite_pick_right
 
 
 DEFAULT_FUTURE_PICK_OBLIGATION_PATH = Path("configs/data/memphis_future_pick_obligations_2016_2026.json")
@@ -61,6 +62,16 @@ class PickInventoryObligation(BaseModel):
     loadable: bool = True
     notes: str | None = None
 
+    @computed_field
+    @property
+    def composite_right(self) -> CompositePickRight | None:
+        return derive_composite_pick_right(
+            source_obligation_id=self.obligation_id,
+            draft_year=self.draft_year,
+            round_number=self.round_number,
+            original_team_code=self.original_team_code,
+        )
+
     @model_validator(mode="after")
     def normalize_codes(self) -> "PickInventoryObligation":
         perspective_team_code = normalize_team_code(self.perspective_team_code or self.team_code)
@@ -100,6 +111,16 @@ class ProjectedPickInventoryRow(BaseModel):
     source_obligation_id: str | None = None
     confidence: PickInventoryConfidence = "derived"
     notes: str | None = None
+
+    @computed_field
+    @property
+    def composite_right(self) -> CompositePickRight | None:
+        return derive_composite_pick_right(
+            source_obligation_id=self.source_obligation_id,
+            draft_year=self.draft_year,
+            round_number=self.round_number,
+            original_team_code=self.original_team,
+        )
 
 
 class PickInventoryFixture(BaseModel):
@@ -151,6 +172,16 @@ class PickInventoryObligationPreviewRow(BaseModel):
     swap_text: str | None = None
     condition_text: str | None = None
     notes: str | None = None
+
+    @computed_field
+    @property
+    def composite_right(self) -> CompositePickRight | None:
+        return derive_composite_pick_right(
+            source_obligation_id=self.obligation_id,
+            draft_year=self.draft_year,
+            round_number=self.round_number,
+            original_team_code=self.original_team_code,
+        )
 
 
 class PickInventoryObligationPreview(BaseModel):

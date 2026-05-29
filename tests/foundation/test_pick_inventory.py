@@ -215,6 +215,83 @@ def test_project_pick_inventory_replaces_non_mem_incoming_with_later_outgoing() 
     assert orlando_rows[0].source_obligation_id == "obligation:outgoing:2028:orl"
 
 
+def test_pick_inventory_obligation_derives_protected_swap_family_and_non_projectable_fallback() -> None:
+    primary = PickInventoryObligation(
+        obligation_id="mem-pick-obligation:2025-06-15:orl-2029-r1-swap-right",
+        effective_date="2025-06-15",
+        perspective_team_code="MEM",
+        owner_team_code="MEM",
+        original_team_code="ORL",
+        draft_year=2029,
+        round_number=1,
+        direction="swap_right",
+        holding_status="swap_right",
+        obligation_type="swap",
+        confidence="validated",
+    )
+    fallback = PickInventoryObligation(
+        obligation_id="mem-pick-obligation:2025-06-15:orl-2029-r2-fallback-doc",
+        effective_date="2025-06-15",
+        perspective_team_code="MEM",
+        owner_team_code="MEM",
+        original_team_code="ORL",
+        draft_year=2029,
+        round_number=2,
+        direction="incoming",
+        holding_status="conditional",
+        obligation_type="conditional_fallback",
+        confidence="uncertain",
+        loadable=False,
+    )
+
+    assert primary.composite_right is not None
+    assert primary.composite_right.family_kind == "protected_swap_right"
+    assert primary.composite_right.selection_rule == "swap_if_target_not_protected"
+    assert primary.composite_right.retained_original_team_codes == ["MEM"]
+    assert primary.composite_right.fallback_branches[0].obligation_id == fallback.obligation_id
+    assert primary.composite_right.fallback_branches[0].projectable is False
+    assert fallback.composite_right is not None
+    assert fallback.composite_right.obligation_role == "fallback_documentation"
+    assert fallback.composite_right.projectable is False
+
+
+def test_pick_inventory_obligation_derives_favorability_families_for_truthful_visuals() -> None:
+    most_favorable = PickInventoryObligation(
+        obligation_id="mem-pick-obligation:2026-02-03:uth-cle-min-2027-r1-most-favorable-to-mem",
+        effective_date="2026-02-03",
+        perspective_team_code="MEM",
+        owner_team_code="MEM",
+        original_team_code="UTH",
+        draft_year=2027,
+        round_number=1,
+        direction="incoming",
+        holding_status="conditional",
+        obligation_type="traded_pick",
+        confidence="validated",
+    )
+    tiered_swap = PickInventoryObligation(
+        obligation_id="mem-pick-obligation:2023-07-11:phx-was-mem-2030-r1-swap-right",
+        effective_date="2023-07-11",
+        perspective_team_code="MEM",
+        owner_team_code="MEM",
+        original_team_code="PHX",
+        draft_year=2030,
+        round_number=1,
+        direction="swap_right",
+        holding_status="swap_right",
+        obligation_type="swap",
+        confidence="validated",
+    )
+
+    assert most_favorable.composite_right is not None
+    assert most_favorable.composite_right.family_kind == "most_favorable_set"
+    assert most_favorable.composite_right.candidate_original_team_codes == ["UTH", "CLE", "MIN"]
+    assert tiered_swap.composite_right is not None
+    assert tiered_swap.composite_right.family_kind == "tiered_swap_ladder"
+    assert tiered_swap.composite_right.candidate_original_team_codes == ["MEM"]
+    assert tiered_swap.composite_right.secondary_candidate_original_team_codes == ["PHX", "WAS"]
+
+
 def test_project_pick_inventory_drops_resolved_picks_after_draft_date() -> None:
     rows = project_pick_inventory_rows(
         snapshots=[
@@ -495,6 +572,44 @@ def test_pick_inventory_obligation_load_rows_and_entity_rows_use_ready_rows_only
     assert len(pick_rows) == 1
     assert len(asset_rows) == 1
     assert asset_rows[0].pick_id == pick_rows[0].pick_id
+
+
+def test_project_pick_inventory_rows_preserve_composite_right_metadata() -> None:
+    rows = project_pick_inventory_rows(
+        snapshots=[
+            PickInventorySnapshot(
+                snapshot_id="snapshot:mem:2029-30:post_deadline",
+                snapshot_date="2030-02-15",
+                snapshot_kind="post_deadline",
+                season="2029-30",
+                team_code="MEM",
+            )
+        ],
+        obligations=[
+            PickInventoryObligation(
+                obligation_id="mem-pick-obligation:2023-07-11:phx-was-mem-2030-r1-swap-right",
+                effective_date="2023-07-11",
+                perspective_team_code="MEM",
+                owner_team_code="MEM",
+                original_team_code="PHX",
+                draft_year=2030,
+                round_number=1,
+                direction="swap_right",
+                holding_status="swap_right",
+                obligation_type="swap",
+                confidence="validated",
+            )
+        ],
+        team_code="MEM",
+        max_draft_year=2030,
+    )
+
+    projected_swap = next(row for row in rows if row.pick_id == "pick:inventory:mem:2030:r1:phx")
+
+    assert projected_swap.composite_right is not None
+    assert projected_swap.composite_right.family_kind == "tiered_swap_ladder"
+    assert projected_swap.composite_right.selection_rule == "more_favorable_of_primary_vs_secondary_pool"
+    assert projected_swap.composite_right.secondary_candidate_original_team_codes == ["PHX", "WAS"]
 
 
 def test_roster_snapshot_pick_rows_preserve_obligation_metadata() -> None:

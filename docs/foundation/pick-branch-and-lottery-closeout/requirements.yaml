@@ -1,0 +1,95 @@
+artifact: requirements
+feature: "foundation/pick-branch-and-lottery-closeout"
+mode: "bounded-feature"
+status: completed
+owner_skill: work
+
+summary:
+  problem: "The only remaining structural gaps are still being reported as open even though both underlying data surfaces already exist and are intentionally outside the minimum graph-truth contract."
+  motivation: "Close the last active foundation gap classifications without inventing broader branch or editorial systems that the reset repo explicitly deferred."
+  requested_outcome: "Reclassify conditional fallback pick rows and loaded draft lottery rows truthfully so they no longer appear as open gaps, while preserving their documented limitations and keeping the base graph export unchanged."
+
+goals:
+  - "Close the conditional future-pick branch gap without projecting mutually exclusive fallback assets into the live snapshot surface."
+  - "Close the draft-lottery integration gap without forcing lottery rows into the base graph export."
+  - "Keep fallback pick rows and lottery rows available as additive/contextual foundation data with explicit limitations."
+  - "Remove stale open-gap wording from audit, CLI, and active docs."
+  - "Preserve the reset-era minimum graph contract."
+
+non_goals:
+  - "Do not add a full conditional-branch solver that projects all mutually exclusive future-pick outcomes."
+  - "Do not add draft lottery events, nodes, or strands to the base graph export."
+  - "Do not reopen supplemental corroboration-depth work."
+  - "Do not broaden into frontend, narrative, or annotation rendering."
+
+constraints:
+  technical:
+    - "All changes must remain in the active reset track."
+    - "Live write paths, if any, must stay in checked-in Python/CLI commands."
+    - "The existing pick fallback rows must remain non-projectable unless there is a truthful exclusivity model."
+    - "The graph-facing export should remain unchanged for lottery data."
+    - "Tests must be updated alongside any audit-contract changes."
+  product:
+    - "The minimum truthful graph remains the Memphis-only 10-year asset evolution graph."
+    - "Conditional fallback obligations may remain documented-only if that is the truthful representation."
+    - "Lottery results may remain contextual metadata if that is the truthful representation."
+  process:
+    - "Use `$work` and keep the closeout bounded."
+    - "Use parallel agents where they materially help."
+    - "Stop at the execution checkpoint before code changes."
+
+assumptions:
+  - "The two non-loadable future-pick rows are already fully source-backed documentation rows and the remaining residue is primarily audit classification."
+  - "The lottery feature is already loaded, but the closeout must first repair any stale validation bug before the gap is reclassified."
+  - "The right finish line is closure of open-gap classification, not expansion of graph scope."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/audit.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/draft_lottery_results.py"
+    - "src/redesign_cli.py"
+    - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+    - "configs/data/memphis_draft_lottery_results_2016_2026.json"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/README.md"
+    - "tests/foundation/test_audit.py"
+    - "tests/foundation/test_draft_lottery_results.py"
+  systems_in_scope:
+    - "future pick obligation fixture gap reporting"
+    - "draft lottery audit classification"
+    - "full-span CLI gap wording"
+    - "active reset-era documentation"
+  prior_artifacts:
+    - "docs/draft-lottery-results/*"
+    - "docs/foundation/two-way-and-contract-semantics-closeout/*"
+    - "docs/foundation/data-gap-closure/*"
+
+research:
+  repo_findings:
+    - "The future-pick fixture has exactly two non-loadable rows, both explicit conditional fallbacks: the Lakers 2027 second fallback and the Orlando 2029 second fallback."
+    - "Those fallback rows are already source-backed, intentionally non-loadable, and explicitly documented as non-projectable until exclusivity semantics are modeled."
+    - "The audit currently elevates those non-loadable fallback documentation rows into an open low-severity gap."
+    - "Draft lottery rows are already fixture-backed, previewable, loadable, tested, and live-loaded into `foundation.draft_lottery_result`."
+    - "The audit still emits a low-severity open gap that draft lottery results are 'seed-loaded contextual metadata' even when the table is populated."
+    - "The base graph export intentionally does not consume draft lottery results."
+    - "The `load-foundation-full-span` payload still contains stale wording that draft lottery results are not loaded by that command."
+    - "The lottery fixture validator currently applies loadable-row validation only to the last fixture row; that guardrail must be fixed before closeout."
+  platform_findings: []
+
+acceptance_criteria:
+  - "Audit no longer reports the two conditional fallback pick rows as an open remaining gap when they are fully source-backed documentation rows."
+  - "Audit no longer reports loaded draft lottery rows as an open remaining gap."
+  - "Lottery fixture validation truthfully validates every loadable fixture row, not only the last row."
+  - "The repo still preserves explicit limitations showing that fallback pick rows are documented-only and that lottery rows remain outside the base graph export."
+  - "The base graph export remains unchanged for lottery data."
+  - "No new live projection of mutually exclusive fallback pick assets is introduced."
+  - "Focused tests and full relevant validation pass."
+  - "Active docs and CLI wording match the new closure contract."
+
+open_questions:
+  - "Whether the conditional fallback residue should remain visible only in limitation/report surfaces or also in a dedicated non-gap audit section."
+
+ready_for_planning: true
+planning_blockers: []

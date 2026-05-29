@@ -1,6 +1,7 @@
 import foundation.audit as audit
 from foundation.canonical import derive_foundation_canonical_bundle
 from foundation.audit import build_draft_lineage_limitations
+from foundation.audit import build_documented_limitations
 from foundation.audit import build_event_span_currentness
 from foundation.audit import build_known_gaps
 from foundation.audit import build_pick_inventory_fixture_gap_report
@@ -217,7 +218,7 @@ def test_build_known_gaps_flags_event_span_not_current() -> None:
                 "selections": 20,
                 "unlinked_pick_rows": 0,
                 "resolved_pick_rows": 20,
-                "lottery_results": 4,
+                "lottery_results": 0,
             },
         }
     )
@@ -273,7 +274,7 @@ def test_build_known_gaps_flags_missing_official_roster_checkpoint_validation() 
                 "selections": 20,
                 "unlinked_pick_rows": 0,
                 "resolved_pick_rows": 20,
-                "lottery_results": 4,
+                "lottery_results": 0,
             },
         }
     )
@@ -329,7 +330,7 @@ def test_build_known_gaps_accepts_official_fixture_roster_reference_coverage() -
                 "selections": 20,
                 "unlinked_pick_rows": 0,
                 "resolved_pick_rows": 20,
-                "lottery_results": 4,
+                "lottery_results": 0,
             },
         }
     )
@@ -1494,7 +1495,29 @@ def test_build_known_gaps_surfaces_pick_inventory_reporting_details() -> None:
     gap_text = " ".join(gap["gap"] for gap in gaps)
     assert "Future pick obligation ledger has UNKNOWN owner rows" in gap_text
     assert "Future pick obligation fixture has UNKNOWN owner rows" in gap_text
-    assert "Future pick obligation fixture includes non-loadable fallback documentation rows" in gap_text
+
+
+def test_build_documented_limitations_surfaces_pick_inventory_fallback_rows() -> None:
+    limitations = build_documented_limitations(
+        {
+            "pick_inventory_fixture_gap_report": {
+                "non_loadable_rows": 2,
+            }
+        }
+    )
+
+    assert limitations == [
+        {
+            "severity": "low",
+            "limitation": "Future pick obligation fixture retains non-loadable fallback documentation rows.",
+            "evidence": "2 fixture rows remain non-loadable and excluded from DB loads and snapshot projection.",
+            "context": (
+                "These source-backed fallback rows document conditional branch outcomes, but the base graph "
+                "does not project them until conditional branch semantics can prevent simultaneous "
+                "primary/fallback ownership."
+            ),
+        }
+    ]
 
 
 def test_build_draft_lineage_limitations_clears_once_prior_owner_rows_cover_all_selections() -> None:
@@ -1570,7 +1593,7 @@ def test_build_known_gaps_preserves_seed_two_way_coverage_caveat() -> None:
         }
     )
 
-    assert len(gaps) == 2
+    assert len(gaps) == 1
     assert gaps[0]["severity"] == "low"
     assert "seed-loaded" in gaps[0]["gap"]
 
@@ -1718,8 +1741,8 @@ def test_build_known_gaps_flags_incomplete_contract_semantics() -> None:
 
     gap_text = " ".join(gap["gap"] for gap in gaps)
     assert "Structured contract-semantics coverage is incomplete" in gap_text
-    assert gaps[1]["severity"] == "low"
-    assert "Draft lottery results are seed-loaded contextual metadata" in gaps[1]["gap"]
+    contract_gap = next(gap for gap in gaps if gap["gap"] == "Structured contract-semantics coverage is incomplete.")
+    assert contract_gap["severity"] == "low"
 
 
 def test_build_known_gaps_accepts_graph_span_even_when_canonical_starts_later() -> None:
@@ -1775,7 +1798,69 @@ def test_build_known_gaps_accepts_graph_span_even_when_canonical_starts_later() 
     assert "graph export span starts after the requested summer 2016 anchor" not in gap_text
 
 
-def test_build_known_gaps_clears_empty_lottery_gap_but_preserves_seed_caveat() -> None:
+def test_build_documented_limitations_surface_loaded_lottery_context_without_gap() -> None:
+    report = {
+        "counts": {
+            "canonical_event": 10,
+            "event_asset_transition": 20,
+        },
+        "graph_export_span": {
+            "start_date": "2016-07-01",
+            "end_date": "2026-06-30",
+        },
+        "source_coverage": [
+            {
+                "source_system": "nba_stats",
+                "source_type": "common_team_roster",
+                "records": 10,
+            }
+        ],
+        "snapshots": {
+            "snapshots": 40,
+            "pick_rows": 40,
+            "date_aware_reconstruction": 40,
+            "derived_from_roster_baseline": 0,
+            "contract_status": [
+                {
+                    "roster_status": "two_way",
+                    "rows": 20,
+                    "two_way_rows": 20,
+                }
+            ],
+        },
+        "pick_inventory": {
+            "obligations": 20,
+            "uncertain_rows": 0,
+            "documented_only_rows": 0,
+        },
+        "draft": {
+            "selections": 20,
+            "unlinked_pick_rows": 0,
+            "resolved_pick_rows": 20,
+            "lottery_results": 4,
+        },
+    }
+
+    gaps = build_known_gaps(report)
+    limitations = build_documented_limitations(report)
+
+    gap_text = " ".join(gap["gap"] for gap in gaps)
+    assert "Draft lottery results are not loaded" not in gap_text
+    assert "Draft lottery results are seed-loaded contextual metadata" not in gap_text
+    assert limitations == [
+        {
+            "severity": "low",
+            "limitation": "Draft lottery results are loaded as contextual metadata only.",
+            "evidence": "4 rows are loaded; 0 carry explicit owner/original-team semantics.",
+            "context": (
+                "These rows stay outside the base graph export and remain available only for draft-context "
+                "annotation or audit visibility."
+            ),
+        }
+    ]
+
+
+def test_build_known_gaps_keeps_empty_lottery_table_as_gap() -> None:
     gaps = build_known_gaps(
         {
             "counts": {
@@ -1815,11 +1900,10 @@ def test_build_known_gaps_clears_empty_lottery_gap_but_preserves_seed_caveat() -
                 "selections": 20,
                 "unlinked_pick_rows": 0,
                 "resolved_pick_rows": 20,
-                "lottery_results": 4,
+                "lottery_results": 0,
             },
         }
     )
 
     gap_text = " ".join(gap["gap"] for gap in gaps)
-    assert "Draft lottery results are not loaded" not in gap_text
-    assert "Draft lottery results are seed-loaded contextual metadata" in gap_text
+    assert "Draft lottery results are not loaded" in gap_text

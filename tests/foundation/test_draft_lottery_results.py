@@ -117,6 +117,33 @@ def test_missing_source_metadata_blocks_loadable_rows() -> None:
     assert "loadable rows require original_team_code" in preview.rows[0].issues
 
 
+def test_fixture_validation_blocks_bad_earlier_loadable_row_in_multi_row_fixture() -> None:
+    invalid_row = make_row(
+        lottery_result_id="draft-lottery-result:mem:2019",
+        draft_year=2019,
+        source_urls=[],
+    )
+    valid_non_loadable_row = make_row(
+        lottery_result_id="draft-lottery-result:mem:2020-excluded",
+        draft_year=2020,
+        loadable=False,
+    )
+    fixture = make_fixture([invalid_row, valid_non_loadable_row])
+
+    preview = build_draft_lottery_results_preview(
+        fixture=fixture,
+        fixture_path=Path("fixture.json"),
+        team_code="MEM",
+        existing_rows=[],
+    )
+
+    assert preview.blocked_rows == 1
+    assert preview.ready_rows == 0
+    assert "loadable rows require at least one source URL" in preview.rows[0].issues
+    assert preview.rows[1].issues == []
+    assert preview.rows[1].existing_status == "not_loadable"
+
+
 def test_duplicate_year_team_blocks_preview() -> None:
     fixture = make_fixture(
         [

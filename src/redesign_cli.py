@@ -32,6 +32,7 @@ from foundation.draft_prior_owner import (
     DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH,
     load_draft_prior_owner_lineage,
     preview_draft_prior_owner_lineage,
+    preview_draft_prior_owner_replay_proof,
 )
 from foundation.draft_lottery_results import (
     DEFAULT_DRAFT_LOTTERY_RESULTS_FIXTURE_PATH,
@@ -242,6 +243,15 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH),
     )
     draft_prior_owner_load_parser.add_argument("--dry-run", action="store_true")
+    draft_prior_owner_replay_proof_parser = subparsers.add_parser(
+        "preview-draft-prior-owner-replay-proof",
+        help="Read-only proof summary for Memphis draft-selection replay coverage, override reliance, and selection-day evidence.",
+    )
+    draft_prior_owner_replay_proof_parser.add_argument("--team-code", default="MEM")
+    draft_prior_owner_replay_proof_parser.add_argument(
+        "--fixture-path",
+        default=str(DEFAULT_DRAFT_PRIOR_OWNER_OVERRIDE_PATH),
+    )
     subparsers.add_parser("preview-foundation-canonical", help="Build canonical events, members, and transitions from the current foundation tables without writing.")
     subparsers.add_parser("load-foundation-canonical", help="Build and load canonical events, members, and transitions from the current foundation tables.")
     export_graph_parser = subparsers.add_parser("export-foundation-graph", help="Build the first graph-ready export from the current foundation tables.")
@@ -801,6 +811,12 @@ def main() -> None:
             fixture_path=Path(args.fixture_path),
             dry_run=args.dry_run,
         ).model_dump(mode="json")
+    elif args.command == "preview-draft-prior-owner-replay-proof":
+        payload = preview_draft_prior_owner_replay_proof(
+            load_database_url(),
+            team_code=args.team_code,
+            fixture_path=Path(args.fixture_path),
+        ).model_dump(mode="json")
     elif args.command == "preview-foundation-canonical":
         bundle = derive_foundation_canonical_bundle_from_database(load_database_url())
         payload = {
@@ -1054,9 +1070,9 @@ def main() -> None:
                 "transitions": len(export.transitions),
                 "roster_snapshots": len(export.roster_snapshots),
             },
-            "known_gaps": [
-                "Future pick inventory snapshots are not populated yet.",
-                "Draft lottery results remain contextual and are not loaded by this command yet.",
+            "documented_limitations": [
+                "Future pick inventory snapshots are intentionally left to the separate obligation and snapshot loaders; this convenience command does not populate them.",
+                "Draft lottery results remain contextual metadata and are intentionally outside this convenience command's base graph load.",
             ],
         }
     else:

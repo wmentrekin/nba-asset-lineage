@@ -18,9 +18,9 @@ rows across 40 roster checkpoints.
 
 The current `foundation.pick` rows now include transaction-derived pick
 mentions, draft-slot resolution rows, and inventory pick rows projected from the
-obligation ledger. The seed ledger is source-backed, but it should still be
-treated as current foundation coverage rather than a complete historical replay
-of every conditional branch.
+obligation ledger. The active ledger is now source-backed enough to close the
+reset-era pick-truth contract for realized Memphis-visible replay, while still
+stopping short of a full hypothetical conditional-branch engine.
 
 ## Source Research
 
@@ -325,20 +325,23 @@ Current behavior:
 - writes only after preview/dry-run validation has zero blocked rows
 - replaces covered `roster_snapshot_pick` rows to avoid stale projection state
 
-Live verification on 2026-05-14 loaded 19 obligation rows and projected 980
+Live verification on 2026-05-28 loaded 26 obligation rows and projected 980
 `roster_snapshot_pick` rows across 40 roster checkpoints. The graph export now
 emits both backward-compatible `future_pick_asset_ids` and richer `future_picks`
 metadata for every projected snapshot pick.
 
-The active fixture is still not a complete historical replay ledger. It
-prioritizes high-confidence current-state rows validated against RealGM,
-Basketball-Reference source events, and available NBA.com official reports.
+The active fixture now includes bounded historical selection-day replay rows in
+addition to the forward-looking obligation ledger. That is enough to support the
+current Memphis-visible replay contract used by the graph export and the draft
+prior-owner proof surface. It is still not a full hypothetical branch engine.
 Non-loadable fallback rows document conditional outcomes without allowing the
 loader to project both a primary obligation and its fallback at the same time.
 The current fallback documentation rows remain source-backed but deliberately
 non-loadable: the Lakers 2027 second applies only if the protected Lakers first
 does not convey, and the Orlando 2029 second applies only if Orlando's protected
-2029 first-round swap right cannot convey.
+2029 first-round swap right cannot convey. The audit keeps those rows visible as
+documented limitation/context from the fixture surface rather than classifying
+them as an open base-graph gap.
 
 ## Risks
 

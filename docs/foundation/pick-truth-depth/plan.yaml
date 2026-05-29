@@ -1,0 +1,179 @@
+artifact: plan
+feature: "foundation/pick-truth-depth"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/foundation/pick-truth-depth/requirements.yaml"
+
+objective: "Deepen the pick layer from minimum graph-safe coverage to realized historical replay for Memphis-visible states, while keeping fallback branches and lottery context truthful and bounded."
+
+approach:
+  summary: "Treat the pick backlog as one initiative with three coupled layers: source depth, model depth, and projection depth. Target a finish line stronger than the current seed ledger but narrower than a full hypothetical branch engine."
+  key_decisions:
+    - "Use Option 1.5 as the target finish line: realized historical replay for Memphis-visible states."
+    - "Keep fallback branches non-loadable unless explicit exclusivity semantics are implemented."
+    - "Keep lottery context adjacent to pick truth, not in the base graph export."
+    - "Prefer additive model structure for composite obligations over silently flattened prose-only semantics."
+
+contracts:
+  interfaces:
+    - "`preview-pick-inventory-obligations` remains the main read-only truth surface for the obligation ledger."
+    - "`preview-pick-inventory-snapshots` remains the main read-only projection surface for historical snapshot pick state."
+    - "`preview-draft-prior-owner-lineage` remains the main read-only bridge surface for draft-night pick truth."
+    - "`audit-foundation-data` should eventually distinguish completed pick-replay truth from still-deferred hypothetical branch modeling."
+  schemas:
+    - "Expect additive changes rather than replacement of the current obligation model."
+    - "Possible additive fields may be needed for composite or favorability semantics rather than relying only on `original_team_code` plus prose."
+    - "Avoid introducing a full branch engine unless discovery during execution proves it is required for realized replay."
+  config_changes:
+    - "Expand `memphis_future_pick_obligations_2016_2026.json` into a broader historical ledger."
+    - "Potentially refine `memphis_draft_prior_owner_overrides_2016_2025.json` if broader replay truth can replace weak overrides."
+    - "Leave the lottery fixture in place as contextual support."
+  closure_predicates:
+    - "Pick-history closure passes only if a read-only proof surface shows every Memphis-visible roster checkpoint date and every Memphis draft-selection date from 2016-present replaying from loaded obligation plus prior-owner truth, with no unresolved historical-state holes."
+    - "Composite-right closure passes only if every composite obligation that would produce a false visual strand under the current flattening either gains additive machine-readable semantics or is explicitly retained as a documented limitation outside the projected/exported replay surface."
+    - "Prior-owner closure passes only if any remaining curated overrides are explicitly enumerated, bounded, and justified; otherwise override reliance must be reduced by ledger-backed derivation."
+    - "Fallback and lottery closure passes only if fallback rows remain excluded from live projection/export and lottery rows remain contextual-only, while both stay visible through audit/docs as bounded limitations or adjacent metadata."
+
+execution_batches:
+  - id: "B1"
+    goal: "Freeze the pick-truth contract."
+    tasks:
+      - id: "T1"
+        title: "Define exact closure predicates for realized pick replay"
+        objective: "Turn the discovery findings into an explicit finish line that is stronger than the seed ledger but narrower than a branch engine."
+        owned_scope:
+          - "docs/foundation/pick-truth-depth/"
+        forbidden_scope:
+          - "src/"
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "Reviewer agreement on the Option 1.5 finish line"
+  - id: "B2"
+    goal: "Close source-depth gaps in the pick ledger."
+    tasks:
+      - id: "T2"
+        title: "Inventory missing historical obligation states"
+        objective: "Enumerate every Memphis-visible historical checkpoint date and pre-draft selection date where the current ledger is incomplete, ambiguous, or would project a false state."
+        owned_scope:
+          - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+          - "docs/foundation/pick-truth-depth/"
+          - "docs/foundation/full-span-load-notes.md"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "read-only obligation preview"
+          - "read-only snapshot preview"
+          - "checked-in manifest of replay holes or explicit proof that none remain"
+      - id: "T3"
+        title: "Backfill the dated obligation ledger"
+        objective: "Add the missing historical obligation states needed for realized Memphis-visible replay across the reset span."
+        owned_scope:
+          - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+          - "src/foundation/pick_inventory.py"
+          - "tests/foundation/test_pick_inventory.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "preview-pick-inventory-obligations"
+          - "preview-pick-inventory-snapshots"
+  - id: "B3"
+    goal: "Reduce semantically flattened composite rights."
+    tasks:
+      - id: "T4"
+        title: "Introduce additive structure for composite obligations where needed"
+        objective: "Replace the most misleading prose-only composite right encodings with additive, machine-readable semantics sufficient for realized replay."
+        owned_scope:
+          - "src/foundation/pick_inventory.py"
+          - "src/foundation/models.py"
+          - "src/foundation/export.py"
+          - "tests/foundation/test_pick_inventory.py"
+          - "tests/foundation/test_export.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B2"
+        parallelizable: false
+        expected_validation:
+          - "focused pick/export tests"
+  - id: "B4"
+    goal: "Tighten draft-night replay support."
+    tasks:
+      - id: "T5"
+        title: "Reduce weak prior-owner overrides where realized replay can replace them"
+        objective: "Use the broadened obligation ledger to improve prior-owner derivation and reduce thin override reliance where possible."
+        owned_scope:
+          - "src/foundation/draft_prior_owner.py"
+          - "configs/data/memphis_draft_prior_owner_overrides_2016_2025.json"
+          - "tests/foundation/test_draft_prior_owner.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B2"
+        parallelizable: true
+        expected_validation:
+          - "preview-draft-prior-owner-lineage"
+          - "focused prior-owner tests"
+          - "explicit read-back of remaining override reliance, if any"
+  - id: "B5"
+    goal: "Integrate audit/docs and verify the new finish line."
+    tasks:
+      - id: "T6"
+        title: "Update audit, docs, and final verification"
+        objective: "Make the repo explicitly reflect the stronger realized-replay contract and verify the live read-only surfaces."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "src/redesign_cli.py"
+          - "docs/foundation/README.md"
+          - "docs/foundation/future-pick-inventory-snapshots.md"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/pick-truth-depth/status.yaml"
+          - "docs/foundation/pick-truth-depth/implementation-report.yaml"
+          - "tests/foundation/test_audit.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B3"
+          - "B4"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "preview-pick-inventory-obligations --team-code MEM"
+          - "preview-pick-inventory-snapshots --team-code MEM --max-draft-year 2032"
+          - "preview-draft-prior-owner-lineage --team-code MEM"
+          - "audit-foundation-data"
+
+ordering_notes:
+  - "Do not promote fallback branches into live projection unless exclusivity semantics exist."
+  - "Do not turn lottery into a base export dependency for this initiative."
+  - "Source depth should lead the work; model widening should be justified by concrete replay failures, not by abstraction preference."
+
+risks:
+  - "Historical replay can sprawl if the finish line is not kept at realized Memphis-visible states."
+  - "Composite rights may require more additive model structure than initially hoped."
+  - "Weak prior-owner override sources may force a choice between broader replay fidelity and stricter source standards."
+  - "The current clean audit can create false confidence if the stronger replay contract is not made explicit."
+
+open_questions:
+  - "Which composite obligation families actually require additive structure for the visual, versus which can remain prose-backed without causing false strands?"
+  - "How much historical ledger depth is enough to eliminate current-state bias at the checkpoint and draft-night layers?"
+
+review:
+  status: completed
+  loop_count: 1
+  notes:
+    - "Discovery supports a large-initiative plan with source, model, and projection batches."
+    - "The recommended finish line is stronger than minimum truth but intentionally below a full hypothetical branch engine."
+    - "Reviewer signoff confirmed the finish line is honest, but only if checkpoint replay, pre-draft replay, and bounded override reliance are explicit acceptance conditions."
+
+checkpoint:
+  required_before_execution: true
+  status: pending
