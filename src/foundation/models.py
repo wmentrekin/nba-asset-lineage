@@ -12,6 +12,7 @@ EventType = Literal[
     "signing",
 ]
 TransitionType = Literal["continuity", "pick_to_player", "acquired", "departed"]
+ConditionalPickFamilyStatus = Literal["unresolved", "primary_realized", "fallback_realized"]
 
 
 DRAFT_DATE_BY_YEAR_ROUND = {
@@ -279,6 +280,7 @@ class PlayerAsset(BaseModel):
 
 class PickAsset(BaseModel):
     asset_id: str
+    pick_id: str
     original_team: str
     draft_year: int
     round_number: int
@@ -336,6 +338,32 @@ class FuturePickSnapshot(BaseModel):
         )
 
 
+class ConditionalPickBranchSnapshot(BaseModel):
+    branch_id: str
+    pick_ref: str
+    asset_ref: str
+    obligation_id: str | None = None
+    original_team_code: str
+    round_number: int
+    trigger_kind: CompositeFallbackTrigger
+    protected_pick_start: int | None = None
+    protected_pick_end: int | None = None
+    projectable: Literal[False] = False
+    notes: str | None = None
+
+
+class ConditionalPickFamilySnapshot(BaseModel):
+    family_id: str
+    family_kind: CompositeRightKind
+    selection_rule: CompositeRightSelectionRule
+    exclusivity_status: ConditionalPickFamilyStatus = "unresolved"
+    display_original_team_code: str | None = None
+    primary_pick_id: str
+    primary_asset_id: str
+    primary_source_obligation_id: str | None = None
+    fallback_branches: list[ConditionalPickBranchSnapshot] = Field(default_factory=list)
+
+
 class RosterSnapshot(BaseModel):
     snapshot_id: str
     as_of_date: str
@@ -345,6 +373,7 @@ class RosterSnapshot(BaseModel):
     two_way_asset_ids: list[str] = Field(default_factory=list)
     future_pick_asset_ids: list[str] = Field(default_factory=list)
     future_picks: list[FuturePickSnapshot] = Field(default_factory=list)
+    conditional_pick_families: list[ConditionalPickFamilySnapshot] = Field(default_factory=list)
 
 
 class DailyRosterStatePlayer(BaseModel):
@@ -382,6 +411,24 @@ class DraftPriorOwnerLineage(BaseModel):
     notes: str | None = None
 
 
+class DraftLotteryResultExport(BaseModel):
+    lottery_result_id: str
+    draft_year: int
+    lottery_date: str | None = None
+    team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
+    lottery_position: int | None = None
+    result_pick_slot: int
+    pre_lottery_odds: str | None = None
+    notes: str | None = None
+    pick_id: str | None = None
+    pick_asset_id: str | None = None
+    draft_selection_id: str | None = None
+    draft_selection_player_id: str | None = None
+    player_asset_id: str | None = None
+
+
 class BaseGraphExport(BaseModel):
     franchise: str
     span_start: str
@@ -393,3 +440,4 @@ class BaseGraphExport(BaseModel):
     roster_snapshots: list[RosterSnapshot] = Field(default_factory=list)
     daily_roster_states: list[DailyRosterState] = Field(default_factory=list)
     draft_prior_owner_lineages: list[DraftPriorOwnerLineage] = Field(default_factory=list)
+    draft_lottery_results: list[DraftLotteryResultExport] = Field(default_factory=list)

@@ -1509,12 +1509,12 @@ def test_build_documented_limitations_surfaces_pick_inventory_fallback_rows() ->
     assert limitations == [
         {
             "severity": "low",
-            "limitation": "Future pick obligation fixture retains non-loadable fallback documentation rows.",
-            "evidence": "2 fixture rows remain non-loadable and excluded from DB loads and snapshot projection.",
+            "limitation": "Conditional fallback pick branches remain bounded additive export data.",
+            "evidence": "2 fixture rows remain non-projectable and stay outside concrete snapshot ownership.",
             "context": (
-                "These source-backed fallback rows document conditional branch outcomes, but the base graph "
-                "does not project them until conditional branch semantics can prevent simultaneous "
-                "primary/fallback ownership."
+                "These source-backed fallback rows now persist in the obligation ledger and export through "
+                "bounded conditional-family surfaces, but they remain synthetic branch candidates rather "
+                "than simultaneously owned concrete pick assets."
             ),
         }
     ]
@@ -1847,17 +1847,7 @@ def test_build_documented_limitations_surface_loaded_lottery_context_without_gap
     gap_text = " ".join(gap["gap"] for gap in gaps)
     assert "Draft lottery results are not loaded" not in gap_text
     assert "Draft lottery results are seed-loaded contextual metadata" not in gap_text
-    assert limitations == [
-        {
-            "severity": "low",
-            "limitation": "Draft lottery results are loaded as contextual metadata only.",
-            "evidence": "4 rows are loaded; 0 carry explicit owner/original-team semantics.",
-            "context": (
-                "These rows stay outside the base graph export and remain available only for draft-context "
-                "annotation or audit visibility."
-            ),
-        }
-    ]
+    assert limitations == []
 
 
 def test_build_known_gaps_keeps_empty_lottery_table_as_gap() -> None:

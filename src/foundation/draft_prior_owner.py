@@ -20,6 +20,7 @@ from foundation.pick_inventory import resolve_draft_date
 
 PriorOwnerResolutionKind = Literal[
     "resolved_pick_original_team",
+    "inventory_source_event_exact",
     "inventory_exact_pick",
     "inventory_single_candidate",
     "team_default_fallback",
@@ -48,6 +49,7 @@ class DraftSelectionForPriorOwnerLineage(BaseModel):
     pick_id: str | None = None
     draft_pick_resolution_id: str | None = None
     player_asset_id: str | None = None
+    source_event_id: str | None = None
 
 
 class DraftPriorOwnerOverrideRow(BaseModel):
@@ -127,6 +129,7 @@ class DraftPriorOwnerProjectedPickRow(BaseModel):
     original_team: str
     holding_status: str
     source_obligation_id: str | None = None
+    source_event_id: str | None = None
     confidence: str = "derived"
     notes: str | None = None
 
@@ -572,7 +575,7 @@ def build_draft_prior_owner_known_limitations() -> list[str]:
     return [
         "This derivation now uses selection-day inventory projection plus existing non-slot pick links; it does not solve every conditional branch.",
         "Selection-day control can differ from day-before pre-draft state when obligations become effective on the draft date, so those surfaces should not be treated as interchangeable proof.",
-        "Multiple Memphis selections in the same draft year and round remain ambiguous unless an exact non-slot pick link already exists.",
+        "Multiple Memphis selections in the same draft year and round remain ambiguous unless an exact non-slot pick link or exact source-event-backed inventory match already exists.",
         "The loader writes a separate prior-owner lineage surface and does not mutate draft_selection or draft_pick_resolution semantics.",
     ]
 
@@ -711,6 +714,7 @@ def apply_selection_day_obligation(
         original_team=original_team_code,
         holding_status=holding_status,
         source_obligation_id=obligation.obligation_id,
+        source_event_id=obligation.source_event_id,
         confidence=obligation.confidence,
         notes=obligation.notes,
     )
@@ -767,6 +771,25 @@ def resolve_selection_group(
     remaining: list[DraftSelectionForPriorOwnerLineage] = []
 
     for selection in selections:
+        exact_row = resolve_existing_pick_link(selection, pick_by_id=pick_by_id, team_code=team_code)
+        if exact_row is not None:
+            resolved_rows.append(exact_row)
+            if exact_row.pick_id:
+                consumed_pick_ids.add(exact_row.pick_id)
+            continue
+
+        source_event_row = resolve_source_event_inventory_match(
+            selection,
+            projected_rows=projected_rows,
+            team_code=team_code,
+            consumed_pick_ids=consumed_pick_ids,
+        )
+        if source_event_row is not None:
+            resolved_rows.append(source_event_row)
+            if source_event_row.pick_id:
+                consumed_pick_ids.add(source_event_row.pick_id)
+            continue
+
         override = override_by_selection_id.get(selection.draft_selection_id)
         if override is not None:
             override_row = resolve_curated_override(selection, override=override, team_code=team_code)
@@ -774,13 +797,8 @@ def resolve_selection_group(
             if override_row.pick_id:
                 consumed_pick_ids.add(override_row.pick_id)
             continue
-        exact_row = resolve_existing_pick_link(selection, pick_by_id=pick_by_id, team_code=team_code)
-        if exact_row is None:
-            remaining.append(selection)
-            continue
-        resolved_rows.append(exact_row)
-        if exact_row.pick_id:
-            consumed_pick_ids.add(exact_row.pick_id)
+
+        remaining.append(selection)
 
     available_projected_rows = [
         row
@@ -880,6 +898,44 @@ def resolve_existing_pick_link(
         confidence="high",
         reason=reason,
         candidate_pick_ids=[pick.pick_id],
+        candidate_original_team_codes=[original_team_code],
+    )
+
+
+def resolve_source_event_inventory_match(
+    selection: DraftSelectionForPriorOwnerLineage,
+    *,
+    projected_rows: list[object],
+    team_code: str,
+    consumed_pick_ids: set[str],
+) -> DraftPriorOwnerLineageRow | None:
+    if not selection.source_event_id:
+        return None
+    candidate_rows = [
+        row
+        for row in projected_rows
+        if getattr(row, "pick_id", None) not in consumed_pick_ids
+        and getattr(row, "source_event_id", None) == selection.source_event_id
+        and getattr(row, "holding_status", None) in CONTROLLED_HOLDING_STATUSES
+        and getattr(row, "draft_year", None) == selection.draft_year
+        and getattr(row, "round_number", None) == selection.round_number
+    ]
+    if len(candidate_rows) != 1:
+        return None
+    candidate = candidate_rows[0]
+    original_team_code = normalize_team_code(getattr(candidate, "original_team", None)) or team_code
+    source_obligation_id = getattr(candidate, "source_obligation_id", None)
+    return build_resolved_lineage_row(
+        selection,
+        pick_id=str(getattr(candidate, "pick_id")),
+        pick_asset_id=str(getattr(candidate, "asset_id")),
+        owner_team_code=team_code,
+        original_team_code=original_team_code,
+        source_obligation_id=str(source_obligation_id) if source_obligation_id is not None else None,
+        resolution_kind="inventory_source_event_exact",
+        confidence="high",
+        reason="selection-day inventory matches the draft selection source_event_id exactly",
+        candidate_pick_ids=[str(getattr(candidate, "pick_id"))],
         candidate_original_team_codes=[original_team_code],
     )
 
@@ -1050,7 +1106,7 @@ def normalize_team_code(value: str | None) -> str:
 def classify_draft_prior_owner_proof_source_kind(row: DraftPriorOwnerLineageRow) -> PriorOwnerProofSourceKind:
     if row.status != "resolved" or row.resolution_kind is None:
         return "unresolved"
-    if row.resolution_kind in {"inventory_exact_pick", "inventory_single_candidate", "team_default_fallback"}:
+    if row.resolution_kind in {"inventory_source_event_exact", "inventory_exact_pick", "inventory_single_candidate", "team_default_fallback"}:
         return "selection_day_inventory"
     if row.resolution_kind == "resolved_pick_original_team":
         return "resolved_pick_link"
@@ -1084,7 +1140,8 @@ def load_draft_selections_for_prior_owner_lineage(
                    p.display_name,
                    coalesce(dpr.pick_id, ds.pick_id) as effective_pick_id,
                    dpr.draft_pick_resolution_id,
-                   pa.asset_id
+                   pa.asset_id,
+                   ds.source_event_id
             from foundation.draft_selection ds
             left join foundation.draft_pick_resolution dpr
               on dpr.draft_selection_id = ds.draft_selection_id
@@ -1107,6 +1164,7 @@ def load_draft_selections_for_prior_owner_lineage(
                 pick_id=str(row[7]) if row[7] is not None else None,
                 draft_pick_resolution_id=str(row[8]) if row[8] is not None else None,
                 player_asset_id=str(row[9]) if row[9] is not None else None,
+                source_event_id=str(row[10]) if row[10] is not None else None,
             )
             for row in cursor.fetchall()
         ]

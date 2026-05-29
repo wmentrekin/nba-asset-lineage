@@ -110,17 +110,17 @@ The repo now has:
   through the checked-in fixture plus guarded loader.
 - Draft selections are linked to curated Memphis draft-slot pick assets and now
   export as pick-to-player graph transitions.
-- Draft lottery results are contextual for now and are not required for or
-  consumed by the base graph export. `team_code` is the Memphis perspective
-  scope, while `owner_team_code` and `original_team_code` carry pick semantics.
+- Draft lottery results now export as additive pick context linked by durable
+  first-round pick provenance. They still do not become graph events or
+  transitions. `team_code` is the Memphis perspective scope, while
+  `owner_team_code` and `original_team_code` carry pick semantics.
 - Future pick inventory snapshots are built from a dated obligation ledger, not
   from a current-state future-picks page alone. The active ledger now closes the
-  reset-era pick-truth contract for realized Memphis-visible replay, including
-  bounded historical selection-day replay rows used by draft prior-owner proof.
-  Source-backed fallback rows stay visible in audit output as documented
-  limitation/context only; they remain non-loadable and do not project into the
-  base graph, and the remaining ambiguous same-round draft-night rows stay
-  explicit through the bounded prior-owner override fixture.
+  reset-era pick-truth contract for realized Memphis-visible replay. Draft
+  prior-owner lineage now derives from loaded selection-day truth without live
+  override reliance, and the two documented fallback-second cases export as
+  bounded conditional-family data while staying out of concrete snapshot
+  ownership.
 - `audit-foundation-data` is the current command for turning these caveats into
   live database evidence.
 - `preview-draft-pick-resolution` is the current read-only command for checking
@@ -145,16 +145,16 @@ The repo now has:
 - `load-draft-lottery-results --dry-run` reports the same guarded plan; without
   `--dry-run`, it refuses blocking fixture rows and conflicting existing
   `(draft_year, team_code)` IDs, then upserts only high-confidence loadable
-  Memphis-perspective rows in one transaction. Rows with `loadable=false` are
-  never written.
-  Loaded lottery rows remain visible in audit output as contextual metadata
-  only; they are not treated as a base-graph gap and are not emitted into the
-  base graph export.
+  Memphis-perspective rows in one transaction.
+  Loaded lottery rows now emit through the additive `draft_lottery_results`
+  export surface while staying outside graph-state-changing event/transition
+  logic.
 - `preview-pick-inventory-obligations` validates the future-pick obligation
   fixture without writing.
 - `load-pick-inventory-obligations --dry-run` reports the guarded ledger write
-  plan; without `--dry-run`, it upserts only loadable source-backed obligation
-  rows plus their pick assets.
+  plan; without `--dry-run`, it upserts source-backed obligation rows, including
+  non-projectable conditional fallback rows, while creating concrete pick
+  assets only for projectable rows.
 - `load-pick-inventory-snapshots --dry-run` reports projected
   `roster_snapshot_pick` rows from the loaded ledger; without `--dry-run`, it
   replaces covered snapshot-pick rows so projection state does not go stale.

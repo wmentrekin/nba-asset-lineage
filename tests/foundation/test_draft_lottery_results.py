@@ -487,7 +487,10 @@ def test_default_seed_fixture_contract_loads() -> None:
     assert "RealGM Memphis Grizzlies Lottery History" in result_2026.source_labels
 
 
-def test_graph_export_does_not_consume_draft_lottery_results() -> None:
+def test_graph_export_reads_draft_lottery_results_for_additive_export_surface() -> None:
     from foundation.export import build_base_export_from_database
 
-    assert "draft_lottery_result" not in getsource(build_base_export_from_database)
+    export_source = getsource(build_base_export_from_database)
+
+    assert "draft_lottery_result" in export_source
+    assert "draft_lottery_results =" in export_source

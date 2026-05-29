@@ -1,0 +1,64 @@
+artifact: implementation_report
+feature: "foundation/pick-backlog-closeout"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+
+summary:
+  outcome: "The remaining pick backlog is closed for the active reset-era graph contract."
+  scope_closed:
+    - "Eliminated live Memphis draft prior-owner override reliance."
+    - "Persisted the two fallback branch cases as source-backed non-projectable obligation rows."
+    - "Added bounded conditional pick family export data."
+    - "Added additive draft lottery export data linked to pick truth."
+  residual_limitations:
+    - "The 2 fallback branch rows remain non-projectable by design and do not become simultaneous concrete pick assets."
+    - "Lottery remains additive context only and does not create graph events or transitions."
+    - "Supplemental corroboration depth is still backlog work outside this pass."
+
+implementation:
+  code_changes:
+    - "Added `inventory_source_event_exact` derivation support in `src/foundation/draft_prior_owner.py` and re-ordered resolution precedence to consume exact source-event-backed inventory matches before curated override fallback."
+    - "Expanded pick export models in `src/foundation/models.py` and `src/foundation/export.py` with `conditional_pick_families`, `draft_lottery_results`, and pick-aware lottery linkage."
+    - "Widened obligation handling in `src/foundation/pick_inventory.py` so non-projectable fallback rows can persist in `foundation.pick_inventory_obligation` while staying out of concrete pick/asset upserts and snapshot projection."
+    - "Updated audit/CLI wording in `src/foundation/audit.py`, `src/foundation/draft_lottery_results.py`, and `src/redesign_cli.py` to reflect the bounded-complete state."
+    - "Retired active use of the prior-owner override fixture by emptying `configs/data/memphis_draft_prior_owner_overrides_2016_2025.json`."
+    - "Made `sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql` idempotently refresh the `draft_prior_owner_lineage_resolution_kind_check` constraint so the live DB accepts `inventory_source_event_exact`."
+  live_writes:
+    - "Ran `load-pick-inventory-obligations --team-code MEM` and wrote 28 obligation rows."
+    - "Ran `bootstrap-foundation-daily-roster-and-prior-owner` to refresh the live `draft_prior_owner_lineage` resolution-kind constraint."
+    - "Ran `load-draft-prior-owner-lineage --team-code MEM` and upserted 20 lineage rows with zero remaining override reliance."
+
+verification:
+  local:
+    - "Focused tests passed: `pytest tests/foundation/test_draft_prior_owner.py` (`14 passed`)."
+    - "Focused tests passed: `pytest tests/foundation/test_pick_inventory.py` (`20 passed`)."
+    - "Focused tests passed: `pytest tests/foundation/test_export.py tests/foundation/test_models.py` (`17 passed`)."
+    - "Focused tests passed: `pytest tests/foundation/test_audit.py` (`43 passed`)."
+    - "Focused tests passed: `pytest tests/foundation/test_draft_lottery_results.py` (`15 passed`)."
+    - "Focused rerun after the audit closeout fix passed: `pytest tests/foundation/test_audit.py` (`43 passed`)."
+    - "Full suite passed before live verification: `pytest` (`241 passed`)."
+  live:
+    - "Read-only replay proof now reports `override_reliance.status=clear`, `override_reliance.remaining_rows=0`, `selection_day_inventory_rows=20`, and `replay_coverage.status=complete`."
+    - "Read-only audit now reports `known_gaps=[]`, `pick_inventory_obligation=28`, `draft_prior_owner_lineage=20`, `draft_lottery_result=5`, and `selections_missing_prior_owner=0`."
+    - "Read-only graph baseline stayed canonically stable at `canonical_event=407`, `canonical_event_member=420`, and `event_asset_transition=568`."
+    - "Read-only export now emits `conditional_pick_families=7`, `draft_lottery_results=5`, `draft_prior_owner_lineages=20`, and writes `tmp/pick-backlog-closeout-foundation-graph.json`."
+    - "Current graph export checksum after the additive pick closeout is `0f8d8cb5a30fb853ad91b2556b4539a4fdc22e1db1a28dbb8487984c1646e737`."
+
+result_state:
+  audit:
+    known_gaps: []
+    documented_limitations:
+      - "Conditional fallback pick branches remain bounded additive export data."
+    supplemental_backlog:
+      events_with_missing_supplemental_roles: 368
+      official_confirmation: 299
+      structured_player_movement: 69
+  pick_layer:
+    obligations: 28
+    loadable_rows: 26
+    non_projectable_fallback_rows: 2
+    conditional_pick_families: 7
+    draft_lottery_results: 5
+    draft_prior_owner_lineages: 20
+    override_reliance_remaining_rows: 0

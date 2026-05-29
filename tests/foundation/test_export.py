@@ -1,10 +1,15 @@
 import pytest
 
 from foundation.export import DraftResolutionExportRow
+from foundation.export import DraftLotteryResultDatabaseRow
+from foundation.export import PickInventoryObligationExportRow
+from foundation.export import build_conditional_pick_family_snapshots
+from foundation.export import build_draft_lottery_export_rows
 from foundation.export import build_draft_resolution_export_items
 from foundation.export import build_empty_base_export
 from foundation.export import draft_resolution_event_date
 from foundation.models import BaseGraphExport
+from foundation.models import DraftLotteryResultExport
 from foundation.models import DailyRosterState
 from foundation.models import DailyRosterStatePlayer
 from foundation.models import DraftPriorOwnerLineage
@@ -27,6 +32,7 @@ def test_build_empty_base_export_has_reset_defaults() -> None:
     assert export.roster_snapshots == []
     assert export.daily_roster_states == []
     assert export.draft_prior_owner_lineages == []
+    assert export.draft_lottery_results == []
 
 
 def test_player_asset_contract_supports_roster_baseline_metadata() -> None:
@@ -99,6 +105,7 @@ def test_roster_snapshot_contract_exposes_composite_right_metadata_for_known_pic
 def test_pick_asset_contract_exposes_tiered_swap_metadata_for_known_slots() -> None:
     asset = PickAsset(
         asset_id="asset:pick:inventory:mem:2030:r1:phx",
+        pick_id="pick:inventory:mem:2030:r1:phx",
         original_team="PHX",
         draft_year=2030,
         round_number=1,
@@ -110,6 +117,57 @@ def test_pick_asset_contract_exposes_tiered_swap_metadata_for_known_slots() -> N
     assert payload["composite_right"]["family_kind"] == "tiered_swap_ladder"
     assert payload["composite_right"]["candidate_original_team_codes"] == ["MEM"]
     assert payload["composite_right"]["secondary_candidate_original_team_codes"] == ["PHX", "WAS"]
+
+
+def test_roster_snapshot_contract_exposes_conditional_pick_family_surface() -> None:
+    future_pick = FuturePickSnapshot(
+        asset_id="asset:pick:inventory:mem:2027:r1:lal",
+        pick_id="pick:inventory:mem:2027:r1:lal",
+        holding_status="owned",
+        source_obligation_id="mem-pick-obligation:2026-02-03:lal-2027-r1-to-mem",
+        confidence="validated",
+    )
+    conditional_families = build_conditional_pick_family_snapshots(
+        future_picks=[future_pick],
+        obligation_rows=[
+            PickInventoryObligationExportRow(
+                obligation_id="mem-pick-obligation:2026-02-03:lal-2027-r2-fallback-to-mem-doc",
+                effective_date="2026-02-03",
+                perspective_team_code="MEM",
+                owner_team_code="MEM",
+                original_team_code="LAL",
+                draft_year=2027,
+                round_number=2,
+                direction="incoming",
+                holding_status="conditional",
+                obligation_type="conditional_fallback",
+                confidence="uncertain",
+                condition_text="Fallback second if the protected first does not convey.",
+                notes="Persisted non-projectable fallback branch.",
+                loadable=False,
+            )
+        ],
+    )
+    snapshot = RosterSnapshot(
+        snapshot_id="snapshot:mem:2026-27:post_deadline",
+        as_of_date="2027-02-10",
+        snapshot_kind="post_deadline",
+        season="2026-27",
+        future_pick_asset_ids=[future_pick.asset_id],
+        future_picks=[future_pick],
+        conditional_pick_families=conditional_families,
+    )
+
+    payload = snapshot.model_dump(mode="json")
+    family = payload["conditional_pick_families"][0]
+
+    assert family["family_id"] == "family:mem:2027:r1:lal-protected-conveyance"
+    assert family["exclusivity_status"] == "unresolved"
+    assert family["primary_pick_id"] == "pick:inventory:mem:2027:r1:lal"
+    assert family["fallback_branches"][0]["pick_ref"] == (
+        "pick:conditional:family:mem:2027:r1:lal-protected-conveyance:r2:lal"
+    )
+    assert family["fallback_branches"][0]["projectable"] is False
 
 
 def test_draft_resolution_event_date_handles_two_night_drafts() -> None:
@@ -178,6 +236,77 @@ def test_draft_prior_owner_lineage_contract_preserves_pick_origin_metadata() -> 
     assert payload["original_team_code"] == "TOR"
     assert payload["source_obligation_id"] == "obligation:2024-r2-tor"
     assert payload["resolution_kind"] == "inventory_exact_pick"
+
+
+def test_draft_lottery_export_rows_link_to_pick_truth_without_becoming_events() -> None:
+    lottery_rows = build_draft_lottery_export_rows(
+        lottery_rows=[
+            DraftLotteryResultDatabaseRow(
+                lottery_result_id="draft-lottery-result:mem:2024",
+                draft_year=2024,
+                lottery_date="2024-05-12",
+                team_code="MEM",
+                owner_team_code="MEM",
+                original_team_code="MEM",
+                lottery_position=7,
+                result_pick_slot=9,
+                pre_lottery_odds="6.0%",
+                notes="Memphis moves to No. 9.",
+            )
+        ],
+        pick_assets=[
+            PickAsset(
+                asset_id="asset:pick:inventory:mem:2024:r1:own",
+                pick_id="pick:inventory:mem:2024:r1:own",
+                original_team="MEM",
+                draft_year=2024,
+                round_number=1,
+            ),
+            PickAsset(
+                asset_id="asset:pick:slot:2024:9",
+                pick_id="pick:slot:2024:9",
+                original_team="MEM",
+                draft_year=2024,
+                round_number=1,
+            ),
+        ],
+        prior_owner_lineages=[
+            DraftPriorOwnerLineage(
+                draft_selection_id="draft:2024:9",
+                pick_id="pick:inventory:mem:2024:r1:own",
+                pick_asset_id="asset:pick:inventory:mem:2024:r1:own",
+                player_id="player:zach-edey",
+                player_asset_id="asset:player:zach-edey",
+                draft_year=2024,
+                round_number=1,
+                pick_overall=9,
+                owner_team_code="MEM",
+                original_team_code="MEM",
+                resolution_kind="team_default_fallback",
+                confidence="high",
+            )
+        ],
+    )
+
+    assert lottery_rows == [
+        DraftLotteryResultExport(
+            lottery_result_id="draft-lottery-result:mem:2024",
+            draft_year=2024,
+            lottery_date="2024-05-12",
+            team_code="MEM",
+            owner_team_code="MEM",
+            original_team_code="MEM",
+            lottery_position=7,
+            result_pick_slot=9,
+            pre_lottery_odds="6.0%",
+            notes="Memphis moves to No. 9.",
+            pick_id="pick:inventory:mem:2024:r1:own",
+            pick_asset_id="asset:pick:inventory:mem:2024:r1:own",
+            draft_selection_id="draft:2024:9",
+            draft_selection_player_id="player:zach-edey",
+            player_asset_id="asset:player:zach-edey",
+        )
+    ]
 
 
 def test_build_draft_resolution_export_items_emits_pick_to_player_transition() -> None:

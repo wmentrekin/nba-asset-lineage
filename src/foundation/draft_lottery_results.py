@@ -227,7 +227,7 @@ def build_draft_lottery_results_preview(
         rows=rows,
         warnings=warnings,
         known_limitations=[
-            "seed_v1 is contextual lottery metadata, not part of the minimum graph export contract.",
+            "seed_v1 is additive lottery context linked into export, but it does not create graph-state-changing events or transitions.",
             "team_code is the Memphis perspective scope; owner_team_code and original_team_code carry explicit pick semantics.",
             "Rows with loadable=false are never written.",
         ],

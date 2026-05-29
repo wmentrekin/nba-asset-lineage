@@ -2153,30 +2153,15 @@ def build_documented_limitations(report: dict[str, object]) -> list[dict[str, st
         limitations.append(
             {
                 "severity": "low",
-                "limitation": "Future pick obligation fixture retains non-loadable fallback documentation rows.",
+                "limitation": "Conditional fallback pick branches remain bounded additive export data.",
                 "evidence": (
-                    f"{pick_inventory_fixture.get('non_loadable_rows')} fixture rows remain non-loadable and "
-                    "excluded from DB loads and snapshot projection."
+                    f"{pick_inventory_fixture.get('non_loadable_rows')} fixture rows remain non-projectable and "
+                    "stay outside concrete snapshot ownership."
                 ),
                 "context": (
-                    "These source-backed fallback rows document conditional branch outcomes, but the base graph "
-                    "does not project them until conditional branch semantics can prevent simultaneous "
-                    "primary/fallback ownership."
-                ),
-            }
-        )
-    if int(draft.get("lottery_results", 0)) > 0:
-        limitations.append(
-            {
-                "severity": "low",
-                "limitation": "Draft lottery results are loaded as contextual metadata only.",
-                "evidence": (
-                    f"{draft.get('lottery_results')} rows are loaded; "
-                    f"{draft.get('lottery_results_with_owner_original', 0)} carry explicit owner/original-team semantics."
-                ),
-                "context": (
-                    "These rows stay outside the base graph export and remain available only for draft-context "
-                    "annotation or audit visibility."
+                    "These source-backed fallback rows now persist in the obligation ledger and export through "
+                    "bounded conditional-family surfaces, but they remain synthetic branch candidates rather "
+                    "than simultaneously owned concrete pick assets."
                 ),
             }
         )
@@ -2327,16 +2312,16 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                 "Resolve owner semantics from source-backed records before projecting those pick strands as truthful.",
             )
         )
-    if int(pick_inventory.get("uncertain_rows", 0)) > 0 or int(pick_inventory.get("documented_only_rows", 0)) > 0:
+    uncertain_rows = int(pick_inventory.get("uncertain_rows", 0))
+    documented_only_rows = int(pick_inventory.get("documented_only_rows", 0))
+    projectable_uncertain_rows = max(uncertain_rows - documented_only_rows, 0)
+    if projectable_uncertain_rows > 0:
         gaps.append(
             build_gap(
                 "low",
-                "Future pick obligation ledger includes caveated documentation rows.",
-                (
-                    f"{pick_inventory.get('uncertain_rows', 0)} uncertain rows and "
-                    f"{pick_inventory.get('documented_only_rows', 0)} documented-only rows are present."
-                ),
-                "Keep uncertain rows out of live snapshot projection until source semantics are resolved.",
+                "Future pick obligation ledger includes projectable uncertain rows.",
+                f"{projectable_uncertain_rows} uncertain rows remain outside the documented non-projectable fallback set.",
+                "Resolve source semantics before allowing uncertain pick rows to project into concrete snapshot ownership.",
             )
         )
     if int(pick_inventory_fixture.get("unknown_owner_rows", 0)) > 0:
@@ -2466,8 +2451,8 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
             build_gap(
                 "low",
                 "Draft lottery results are not loaded.",
-                "This is contextual and not required for the base graph, but the table is empty.",
-                "Run the seed_v1 draft lottery result preview/load only when contextual lottery annotations are needed.",
+                "The additive lottery export surface cannot populate until the table is loaded.",
+                "Run the seed_v1 draft lottery result preview/load before relying on lottery-linked pick context in export.",
             )
         )
     if int(counts.get("canonical_event", 0)) == 0 or int(counts.get("event_asset_transition", 0)) == 0:

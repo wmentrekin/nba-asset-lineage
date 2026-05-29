@@ -1,0 +1,82 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "foundation/pick-backlog-closeout"
+mode: "large-initiative"
+stage: "completed"
+owner_skill: work
+
+objective: "Fully close the remaining pick-specific backlog by eliminating the 8 manual draft prior-owner overrides, implementing bounded semantics for the 2 fallback branch cases, and deciding then implementing the lottery export surface."
+
+summary:
+  current_focus: "Closeout is complete: stored obligation truth, prior-owner lineage, conditional family export, and lottery export have all been verified against the live DB."
+  last_completed: "Loaded 28 obligation rows, reloaded 20 draft prior-owner lineage rows with zero override reliance, added 7 conditional pick family exports and 5 draft lottery export rows, and cleared `known_gaps` in the live audit."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/foundation/pick-backlog-closeout/requirements.yaml"
+  plan: "docs/foundation/pick-backlog-closeout/plan.yaml"
+  implementation_report: "docs/foundation/pick-backlog-closeout/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "completed"
+    stage: "verification"
+    task: "Execute the pick backlog closeout, verify the live DB state, and sync the docs."
+    last_update: "Verification closed with `known_gaps=[]`, `override_reliance.remaining_rows=0`, `conditional_pick_families=7`, and `draft_lottery_results=5` in the export."
+    blocker: ""
+  - id: "019e740a-4c17-7813-a144-903d4f6e31cc"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect how to eliminate the 8 manual draft prior-owner overrides."
+    last_update: "Found that the override residue can be removed by matching `draft_selection.source_event_id` to already-loaded obligation `source_event_id` rows before same-round ambiguity fallback."
+    blocker: ""
+  - id: "019e740a-4ce7-7aa0-bc4c-6d6d99472e1d"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect bounded semantics for the 2 fallback pick branch cases."
+    last_update: "Found that the correct closure is a family-scoped conditional export surface with synthetic branch refs, while fallback rows stay non-projectable and out of concrete snapshot ownership."
+    blocker: ""
+  - id: "019e740a-ec77-7350-a380-eba13d3e9617"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect the exact lottery export surface and consumer contract."
+    last_update: "Found that lottery should be exported as a linked additive surface keyed by `original_team_code + draft_year + round_number=1`, not promoted into graph events or transitions."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 1
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: satisfied
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Treat this as a real pick-backlog closeout, not another graph-safe stabilization pass."
+  - "The override residue must close to zero; bounded override reliance is not sufficient for this pass."
+  - "Fallback semantics should be expressed as conditional family export data, not as simultaneous concrete pick ownership."
+  - "Lottery should become additive linked export data without entering graph events or transitions."
+  - "The two fallback families should be persisted in `foundation.pick_inventory_obligation` as source-backed non-projectable rows, then assembled into export from the database."
+
+next_action: "Pick-specific backlog is closed for the active reset-era contract; remaining work is outside this feature."
+next_recommended_command: ""
+user_input_needed: false

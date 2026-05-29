@@ -1,0 +1,102 @@
+artifact: requirements
+feature: "foundation/pick-backlog-closeout"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+
+summary:
+  problem: "The remaining pick backlog needed to eliminate live prior-owner override reliance, move two fallback branch cases out of prose-only limbo, and make loaded lottery truth available to export without corrupting the base graph."
+  motivation: "Pick continuity is one of the most visually sensitive parts of the eventual lineage graph, and these three residues would otherwise force either false strands or fragile client-side re-derivation."
+  requested_outcome: "Finish the remaining pick backlog truthfully by eliminating manual draft-night override reliance, adding bounded family-scoped branch semantics for the two documented fallback cases, and exporting lottery as linked additive context without expanding the base graph into lottery events."
+
+goals:
+  - "Reduce draft prior-owner override reliance to zero for the current Memphis span."
+  - "Model the two documented fallback cases as conditional family export data without projecting mutually exclusive assets as simultaneously owned."
+  - "Add a truthful additive lottery export surface linked to pick truth, while keeping lottery outside graph events and transitions."
+  - "Preserve the current base graph contract for concrete player and pick continuity."
+  - "Leave the repo with an explicit, durable statement of what is complete versus intentionally bounded in the pick layer."
+
+non_goals:
+  - "Do not build a general hypothetical branch engine for every conditional pick family."
+  - "Do not project fallback branches into concrete roster snapshot pick rows."
+  - "Do not turn lottery results into graph nodes, transitions, or standalone asset-state changes."
+  - "Do not reopen supplemental corroboration-depth work in this pass."
+  - "Do not expand into frontend rendering or editorial annotation design."
+
+constraints:
+  technical:
+    - "All live writes must continue to flow through checked-in Python and CLI commands."
+    - "Canonical event, canonical event member, and event asset transition truth must remain stable."
+    - "Fallback branch identifiers must be synthetic and family-scoped so they cannot be mistaken for simultaneously owned canonical assets."
+    - "Concrete `future_picks` and `future_pick_asset_ids` export surfaces must remain concrete-only for backward compatibility."
+    - "Lottery linkage must derive from pick truth using `draft_year + original_team_code + round_number=1`, not Memphis perspective `team_code`."
+  product:
+    - "The finish line is a truthful additive export surface for bounded pick complexity, not a richer narrative or branch-visual engine."
+    - "The export should be strong enough that Astro can later draw distinct conditional pick and lottery context without re-deriving fragile joins client-side."
+    - "The graph should remain Memphis-only and base-output focused."
+  process:
+    - "Use `$work` orchestration with concurrent subagents where the write scopes are separable."
+    - "Stop at the pre-execution checkpoint before implementation begins."
+    - "Persist the closeout contract in repo docs, not just in chat."
+
+assumptions:
+  - "The current loaded Memphis `pick_inventory_obligation` rows already contain enough `source_event_id` truth to eliminate the 8 prior-owner overrides."
+  - "The two fallback cases are the only bounded branch families that must become exportable in this pass."
+  - "Lottery is best expressed as a sibling export surface to `draft_prior_owner_lineages`, not merged into `events` or `transitions`."
+  - "A small amount of additive model, persistence, and export shape work is justified if it prevents false future-pick strands."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/draft_prior_owner.py"
+    - "src/foundation/draft_resolution.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/models.py"
+    - "src/foundation/export.py"
+    - "src/foundation/draft_lottery_results.py"
+    - "src/foundation/audit.py"
+    - "src/redesign_cli.py"
+    - "configs/data/memphis_future_pick_obligations_2016_2026.json"
+    - "configs/data/memphis_draft_prior_owner_overrides_2016_2025.json"
+    - "configs/data/memphis_draft_lottery_results_2016_2026.json"
+    - "docs/foundation/future-pick-inventory-snapshots.md"
+    - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/README.md"
+  systems_in_scope:
+    - "draft prior-owner lineage derivation"
+    - "historical pick obligation replay"
+    - "composite and conditional pick-right export semantics"
+    - "lottery export linkage"
+    - "pick-facing audit and CLI surfaces"
+  prior_artifacts:
+    - "docs/foundation/pick-truth-depth/*"
+    - "docs/foundation/pick-branch-and-lottery-closeout/*"
+    - "docs/foundation/daily-roster-and-prior-owner-lineage/*"
+
+research:
+  repo_findings:
+    - "Override-first behavior in `draft_prior_owner` short-circuits stronger exact derivation opportunities that now exist through shared `source_event_id` values."
+    - "Seven of the eight current override rows already have exact traded-pick obligation matches by `source_event_id`; the eighth resolves truthfully once the exact match is consumed first and the remaining same-round selection falls back to Memphis own-pick baseline."
+    - "The two fallback cases already exist as source-backed obligation rows but are intentionally non-projectable because current projection is `pick_id`-based and would otherwise show both primary and fallback assets at once."
+    - "The current export already carries concrete future picks and prior-owner lineage, but it has no first-class conditional family surface and no lottery surface."
+    - "Lottery is already loaded and validated as foundation data; the remaining work is to export it in a linked additive shape keyed by durable pick provenance."
+    - "The prior pick-related closeout stopped at graph-safe replay, not at the fuller finish line the user is asking for now."
+    - "Because the export builder is database-backed, fallback-family truth also needs a durable database-backed surface instead of fixture-only derivation at export time."
+  platform_findings: []
+
+acceptance_criteria:
+  - "A read-only proof surface shows `override_reliance.remaining_rows == 0` for Memphis draft prior-owner lineage."
+  - "The checked-in prior-owner override fixture is either empty for the active span or reduced to non-used residue with explicit proof that live derivation no longer depends on it."
+  - "The two documented fallback cases remain excluded from concrete snapshot ownership but are durably persisted in `foundation.pick_inventory_obligation` as source-backed non-projectable rows."
+  - "The two documented fallback cases appear in export through a new conditional family surface with explicit exclusivity status and synthetic branch identity."
+  - "Fallback branch export data is derived from database-loaded source-backed obligation truth, not prose-only docs or fixture-only export derivation."
+  - "The export contains a new additive lottery section with durable linkage back to first-round pick truth and, where available, draft-selection linkage."
+  - "Lottery remains outside `events`, `transitions`, and other graph-state-changing surfaces."
+  - "Concrete export surfaces for `future_picks` remain backward compatible and do not falsely imply simultaneous ownership of fallback branches."
+  - "Active docs and audit wording reflect the stronger pick closeout contract accurately."
+  - "Focused tests, full tests, and read-only verification commands pass."
+
+open_questions:
+  - "Whether the override fixture should be deleted outright in this pass or retained as an empty bounded artifact for regression visibility."
+
+ready_for_planning: false
+planning_blockers: []

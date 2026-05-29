@@ -114,7 +114,7 @@ def test_project_pick_inventory_applies_incoming_and_outgoing_obligations_by_dat
             direction="outgoing",
             holding_status="encumbered",
             obligation_type="swap",
-            confidence="uncertain",
+            confidence="validated",
         ),
     ]
 
@@ -395,7 +395,7 @@ def test_pick_inventory_obligation_preview_blocks_uncertain_loadable_rows() -> N
     assert "uncertain rows cannot be loadable" in preview.rows[0].issues
 
 
-def test_pick_inventory_obligation_preview_excludes_loadable_false_rows_from_writes() -> None:
+def test_pick_inventory_obligation_preview_allows_source_backed_non_projectable_rows_to_be_written() -> None:
     blocked_documentation_row = make_obligation("obligation:documented-only", loadable=False)
     fixture = PickInventoryFixture(
         fixture_id="test",
@@ -412,7 +412,7 @@ def test_pick_inventory_obligation_preview_excludes_loadable_false_rows_from_wri
     )
 
     assert preview.blocked_rows == 0
-    assert preview.ready_rows == 0
+    assert preview.ready_rows == 1
     assert preview.rows[0].existing_status == "not_loadable"
 
 
@@ -563,9 +563,9 @@ def test_pick_inventory_obligation_load_rows_and_entity_rows_use_ready_rows_only
     )
 
     obligation_rows = build_pick_inventory_obligation_rows(fixture, preview)
-    pick_rows, asset_rows = build_pick_and_asset_rows_for_obligations([ready_row])
+    pick_rows, asset_rows = build_pick_and_asset_rows_for_obligations([ready_row, documented_row])
 
-    assert [row.obligation_id for row in obligation_rows] == ["obligation:ready"]
+    assert [row.obligation_id for row in obligation_rows] == ["obligation:ready", "obligation:documented-only"]
     assert obligation_rows[0].owner_team_code == "MEM"
     assert obligation_rows[0].original_team_code == "ORL"
     assert obligation_rows[0].source_labels == ["Example source"]
@@ -676,3 +676,27 @@ def test_pick_inventory_snapshot_load_blocks_uncertain_loaded_obligations() -> N
     assert result.blocked_obligations == 1
     assert result.projected_rows == 0
     assert "uncertain obligations cannot be projected" in result.warnings[0]
+
+
+def test_pick_inventory_snapshot_load_ignores_non_projectable_documentation_rows() -> None:
+    result = build_pick_inventory_snapshot_load_result(
+        database_url="unused",
+        snapshots=[
+            PickInventorySnapshot(
+                snapshot_id="snapshot:mem:2026-27:post_draft",
+                snapshot_date="2026-07-01",
+                snapshot_kind="post_draft",
+                season="2026-27",
+                team_code="MEM",
+            )
+        ],
+        obligations=[make_obligation("obligation:documented-only", confidence="uncertain", loadable=False)],
+        existing_snapshot_pick_rows=0,
+        team_code="MEM",
+        max_draft_year=2028,
+        dry_run=True,
+    )
+
+    assert result.blocked_obligations == 0
+    assert result.projected_rows > 0
+    assert result.warnings == []

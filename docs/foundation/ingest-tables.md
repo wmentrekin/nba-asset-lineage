@@ -139,10 +139,10 @@ include `canonical_event_id`, `event_date`, `event_type`, `fact_type`,
 - provenance-backed links from Memphis draft selections to slot-based pick assets
 
 `draft_lottery_result`
-- contextual lottery result metadata. `team_code` remains the perspective or
-  team-scope code for compatibility, while nullable `owner_team_code` and
-  `original_team_code` carry explicit ownership/origin semantics for rows such
-  as Memphis-origin picks owned by another team.
+- additive lottery context linked to first-round pick truth. `team_code`
+  remains the perspective or team-scope code for compatibility, while nullable
+  `owner_team_code` and `original_team_code` carry explicit ownership/origin
+  semantics for rows such as Memphis-origin picks owned by another team.
 
 ## Current Limitation
 
@@ -180,6 +180,13 @@ The first graph-ready export should read across:
 - `foundation.canonical_event`
 - `foundation.event_asset_transition`
 - `foundation.draft_pick_resolution`
+- `foundation.roster_snapshot`
+- `foundation.roster_snapshot_pick`
+- `foundation.daily_roster_state`
+- `foundation.daily_roster_state_player`
+- `foundation.draft_prior_owner_lineage`
+- `foundation.pick_inventory_obligation`
+- `foundation.draft_lottery_result`
 
 It should emit:
 
@@ -188,15 +195,21 @@ It should emit:
 - `pick_assets`
 - `transitions`
 - `roster_snapshots`
+- `daily_roster_states`
+- `draft_prior_owner_lineages`
+- `draft_lottery_results`
 
 For this pass:
 
 - `roster_snapshots` is emitted when checkpoint rows exist
 - `draft_pick_resolution` emits graph-facing `pick_to_player` transitions
 - `pick_inventory_obligation` is upstream source truth for future
-  `roster_snapshot_pick` projection; projected snapshot rows remain the graph
-  boundary for pick inventory state
-- `draft_lottery_result` is not consumed by the base graph export
+  `roster_snapshot_pick` projection; projected snapshot rows remain the concrete
+  graph boundary for pick inventory state, while bounded conditional fallback
+  families export separately from the same source-backed ledger
+- `draft_lottery_result` emits additive lottery context linked to durable
+  first-round pick provenance, but it does not create graph-state-changing
+  events or transitions
 - no roster-state validation is expected
 - no frontend layout semantics are part of the export
 

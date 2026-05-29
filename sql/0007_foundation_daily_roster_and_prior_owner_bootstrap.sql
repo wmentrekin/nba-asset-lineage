@@ -98,6 +98,21 @@ create table if not exists foundation.draft_prior_owner_lineage (
     )
 );
 
+alter table foundation.draft_prior_owner_lineage
+drop constraint if exists draft_prior_owner_lineage_resolution_kind_check;
+
+alter table foundation.draft_prior_owner_lineage
+add constraint draft_prior_owner_lineage_resolution_kind_check check (
+    resolution_kind in (
+        'resolved_pick_original_team',
+        'inventory_exact_pick',
+        'inventory_source_event_exact',
+        'inventory_single_candidate',
+        'team_default_fallback',
+        'curated_override'
+    )
+);
+
 create unique index if not exists draft_prior_owner_lineage_selection_idx
 on foundation.draft_prior_owner_lineage (draft_selection_id);
 

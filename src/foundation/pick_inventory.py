@@ -260,7 +260,7 @@ def load_projectable_future_pick_obligations(
     return [
         row
         for row in load_future_pick_obligations(path)
-        if row.loadable and row.confidence != "uncertain"
+        if is_projectable_pick_inventory_obligation(row)
     ]
 
 
@@ -370,8 +370,8 @@ def build_pick_inventory_obligation_preview(
         rows=rows,
         warnings=warnings,
         known_limitations=[
-            "The loader writes only loadable non-uncertain rows with explicit perspective/owner/original team codes.",
-            "Rows with loadable=false remain fixture documentation and are never written.",
+            "The loader writes source-backed obligation rows to durable obligation storage, but only projectable rows can flow into concrete pick/asset upserts and snapshot projection.",
+            "Rows with loadable=false remain non-projectable and are excluded from concrete snapshot ownership even when they are durably stored.",
             "Snapshot projection is derived from loaded obligations plus own-pick baseline rules.",
         ],
     )
@@ -395,6 +395,8 @@ def validate_pick_inventory_fixture(fixture: PickInventoryFixture, *, team_code:
             )
         if row.loadable:
             issues.extend(validate_loadable_pick_inventory_obligation(row, fixture.row_field_names.get(row.obligation_id, set())))
+        elif not row.source_urls or not row.source_labels or row.retrieved_at is None:
+            issues.append(f"{row.obligation_id}: non-projectable rows still require source metadata to be written durably")
     return issues
 
 
@@ -437,20 +439,18 @@ def build_pick_inventory_obligation_preview_row(
 
     existing_status: Literal["missing", "matching", "conflicting", "not_loadable"] = "missing"
     existing_obligation_id = existing_row.obligation_id if existing_row is not None else None
-    if not row.loadable:
-        existing_status = "not_loadable"
-        if existing_row is not None:
-            warnings.append(f"{row.obligation_id}: loadable=false row already exists in DB and will not be written")
-    elif existing_row is not None and existing_pick_inventory_obligation_matches(row, existing_row):
+    if existing_row is not None and existing_pick_inventory_obligation_matches(row, existing_row):
         existing_status = "matching"
     elif existing_row is not None:
         existing_status = "conflicting"
-        if row.obligation_id in allow_update_ids and row.loadable and row.confidence != "uncertain":
+        if row.obligation_id in allow_update_ids and (row.loadable or not row.loadable):
             warnings.append(f"{row.obligation_id}: existing DB row conflicts and will be updated because it is explicitly listed in allow_update_ids")
         else:
             issues.append(f"existing DB row for {row.obligation_id} conflicts with the fixture row")
+    elif not row.loadable:
+        existing_status = "not_loadable"
 
-    ready_for_load = row.loadable and row.confidence != "uncertain" and not issues
+    ready_for_load = not issues and (row.confidence != "uncertain" or not row.loadable)
     return PickInventoryObligationPreviewRow(
         obligation_id=row.obligation_id,
         effective_date=row.effective_date,
@@ -883,7 +883,7 @@ def validate_loaded_obligations_for_snapshot_projection(obligations: list[PickIn
     warnings: list[str] = []
     for obligation in obligations:
         if not obligation.loadable:
-            warnings.append(f"{obligation.obligation_id}: loadable=false obligations cannot be projected into snapshot rows")
+            continue
         if obligation.confidence == "uncertain":
             warnings.append(f"{obligation.obligation_id}: uncertain obligations cannot be projected into snapshot rows")
     return warnings
@@ -972,7 +972,11 @@ def project_pick_inventory_rows(
     projected: list[ProjectedPickInventoryRow] = []
     team_code = team_code.upper()
     team_obligations = sorted(
-        [obligation for obligation in obligations if obligation.perspective_team_code == team_code],
+        [
+            obligation
+            for obligation in obligations
+            if obligation.perspective_team_code == team_code and is_projectable_pick_inventory_obligation(obligation)
+        ],
         key=lambda obligation: (obligation.effective_date, obligation.obligation_id),
     )
 
@@ -1134,6 +1138,8 @@ def build_pick_and_asset_rows_for_obligations(
     pick_by_id: dict[str, PickRow] = {}
     asset_by_id: dict[str, AssetRow] = {}
     for obligation in obligations:
+        if not is_projectable_pick_inventory_obligation(obligation):
+            continue
         pick_id = build_pick_id_for_obligation(obligation)
         pick_by_id[pick_id] = PickRow(
             pick_id=pick_id,
@@ -1267,6 +1273,10 @@ def holding_status_order(holding_status: PickInventoryHoldingStatus) -> int:
 
 def normalize_team_code(value: str | None) -> str:
     return value.strip().upper() if value and value.strip() else ""
+
+
+def is_projectable_pick_inventory_obligation(obligation: PickInventoryObligation) -> bool:
+    return obligation.loadable and obligation.confidence != "uncertain"
 
 
 def infer_owner_team_code(

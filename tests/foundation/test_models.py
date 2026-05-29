@@ -57,6 +57,7 @@ def test_base_graph_export_contract_accepts_first_graph_ready_shape() -> None:
         pick_assets=[
             PickAsset(
                 asset_id=asset.asset_id,
+                pick_id=pick.pick_id,
                 original_team=pick.original_team or "unknown",
                 draft_year=pick.draft_year,
                 round_number=pick.round_number,

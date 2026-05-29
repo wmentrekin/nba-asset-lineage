@@ -1,0 +1,195 @@
+artifact: plan
+feature: "foundation/pick-backlog-closeout"
+mode: "large-initiative"
+status: complete
+owner_skill: work
+based_on: "docs/foundation/pick-backlog-closeout/requirements.yaml"
+
+objective: "Finish the remaining pick-specific backlog by removing live override reliance, exporting the two fallback families as bounded conditional pick data, and adding a linked additive lottery export surface."
+
+approach:
+  summary: "Treat the remaining pick backlog as three coupled but separable slices: resolver cleanup, conditional-family export modeling, and additive lottery export. Use exact existing event identity to remove manual overrides, keep fallback branches outside concrete ownership while making them addressable in export, and expose lottery as linked pick context rather than graph state change."
+  key_decisions:
+    - "Eliminate override reliance by improving derivation first, not by widening curated override coverage."
+    - "Use family-scoped synthetic branch identity for fallback cases instead of canonical `pick_id` ownership."
+    - "Keep concrete future-pick snapshot rows concrete-only; conditional branches live in a separate export surface."
+    - "Persist the two fallback families in `foundation.pick_inventory_obligation` as source-backed non-projectable rows, then assemble conditional-family export data from the database."
+    - "Add lottery as a sibling export surface to draft prior-owner lineage, not as graph events or transitions."
+    - "Update audit/docs to reflect true completion rather than leaving these items as soft limitations."
+
+contracts:
+  interfaces:
+    - "`preview-draft-prior-owner-lineage` must expose zero live override reliance for the Memphis span after the pass."
+    - "`preview-pick-inventory-obligations` remains the source-backed obligation proof surface."
+    - "`build_base_export_from_database()` must emit new additive pick surfaces without changing the meaning of existing concrete export fields."
+    - "`audit-foundation-data` must stop reporting these items as unresolved backlog and instead reflect their bounded completed state."
+  schemas:
+    - "Prefer additive model and export changes over canonical graph-table rewrites."
+    - "The fallback-family durable surface should reuse `foundation.pick_inventory_obligation` with non-projectable rows, while preserving the current no-double-projection rule."
+    - "Lottery export rows should be additive read surfaces and should not require a canonical-event schema change."
+  config_changes:
+    - "Potentially reduce or empty `configs/data/memphis_draft_prior_owner_overrides_2016_2025.json` after derivation proves sufficient."
+    - "Keep `configs/data/memphis_future_pick_obligations_2016_2026.json` as the source-backed truth surface for the two fallback families and widen the load path so those non-projectable rows are durably stored."
+    - "Keep `configs/data/memphis_draft_lottery_results_2016_2026.json` as the source-backed lottery truth fixture."
+  closure_predicates:
+    - "Override closure passes only if live draft prior-owner derivation reaches zero override reliance for all 20 Memphis selections."
+    - "Fallback closure passes only if the two documented families become durably stored and export-addressable without becoming concrete simultaneously owned pick assets."
+    - "Lottery closure passes only if export contains linked additive lottery rows while canonical graph counts remain stable and lottery stays outside graph-state surfaces."
+
+execution_batches:
+  - id: "B1"
+    goal: "Freeze the exact pick closeout contract."
+    tasks:
+      - id: "T1"
+        title: "Finalize the no-override and bounded-branch finish line"
+        objective: "Turn the completed discovery into an execution-ready contract that does not shrink the user's requested scope."
+        owned_scope:
+          - "docs/foundation/pick-backlog-closeout/"
+        forbidden_scope:
+          - "src/"
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "Reviewer agreement that the plan truly closes the three named backlog items"
+  - id: "B2"
+    goal: "Remove manual prior-owner override reliance."
+    tasks:
+      - id: "T2"
+        title: "Add exact source-event derivation to draft prior-owner lineage"
+        objective: "Use shared `source_event_id` between draft selections and loaded obligations to resolve the seven traded-pick overrides exactly before same-round ambiguity fallback."
+        owned_scope:
+          - "src/foundation/draft_prior_owner.py"
+          - "tests/foundation/test_draft_prior_owner.py"
+        forbidden_scope:
+          - "frontend/"
+          - "pick export modules"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "focused prior-owner tests"
+          - "preview-draft-prior-owner-lineage"
+      - id: "T3"
+        title: "Retire active override dependence"
+        objective: "Adjust or remove the override fixture so live Memphis derivation no longer depends on it, while retaining any regression visibility the repo still needs."
+        owned_scope:
+          - "configs/data/memphis_draft_prior_owner_overrides_2016_2025.json"
+          - "src/foundation/draft_prior_owner.py"
+          - "tests/foundation/test_draft_prior_owner.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "T2"
+        parallelizable: false
+        expected_validation:
+          - "read-back proof that override reliance is zero"
+  - id: "B3"
+    goal: "Model the two fallback families without false simultaneous ownership."
+    tasks:
+      - id: "T4"
+        title: "Persist fallback-family truth and add conditional family export models"
+        objective: "Widen the obligation load/storage path for the two source-backed non-projectable fallback rows and introduce additive export models for family-scoped primary and fallback branch candidates with explicit exclusivity status and synthetic branch identity."
+        owned_scope:
+          - "src/foundation/models.py"
+          - "src/foundation/pick_inventory.py"
+          - "tests/foundation/test_export.py"
+          - "tests/foundation/test_pick_inventory.py"
+        forbidden_scope:
+          - "frontend/"
+          - "draft prior-owner modules"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "focused model/export tests"
+      - id: "T5"
+        title: "Assemble conditional family export from source-backed obligation truth"
+        objective: "Build the two fallback families into export from database-loaded obligation truth without making them concrete roster snapshot pick rows."
+        owned_scope:
+          - "src/foundation/export.py"
+          - "tests/foundation/test_export.py"
+          - "tests/foundation/test_pick_inventory.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "T4"
+        parallelizable: false
+        expected_validation:
+          - "preview-pick-inventory-obligations"
+          - "focused pick/export tests"
+  - id: "B4"
+    goal: "Add the additive lottery export surface."
+    tasks:
+      - id: "T6"
+        title: "Define and populate linked lottery export rows"
+        objective: "Expose loaded lottery truth as a sibling export surface linked to durable first-round pick provenance and, when available, the resolved draft selection."
+        owned_scope:
+          - "src/foundation/models.py"
+          - "src/foundation/export.py"
+          - "tests/foundation/test_export.py"
+          - "tests/foundation/test_draft_lottery_results.py"
+        forbidden_scope:
+          - "frontend/"
+          - "canonical event modules"
+        dependencies:
+          - "B1"
+        parallelizable: true
+        expected_validation:
+          - "focused lottery/export tests"
+  - id: "B5"
+    goal: "Integrate audit/docs and verify the closeout."
+    tasks:
+      - id: "T7"
+        title: "Sync audit, CLI, docs, and final verification"
+        objective: "Update active repo wording and verification surfaces so the pick backlog is explicitly closed under the stronger contract."
+        owned_scope:
+          - "src/foundation/audit.py"
+          - "src/redesign_cli.py"
+          - "docs/foundation/README.md"
+          - "docs/foundation/future-pick-inventory-snapshots.md"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/foundation/pick-backlog-closeout/status.yaml"
+          - "docs/foundation/pick-backlog-closeout/implementation-report.yaml"
+          - "tests/foundation/test_audit.py"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B2"
+          - "B3"
+          - "B4"
+        parallelizable: false
+        expected_validation:
+          - "./.venv/bin/pytest"
+          - "./.venv/bin/python -m redesign_cli preview-pick-inventory-obligations --team-code MEM"
+          - "./.venv/bin/python -m redesign_cli preview-draft-prior-owner-lineage --team-code MEM"
+          - "./.venv/bin/python -m redesign_cli export-base-graph --team-code MEM"
+          - "./.venv/bin/python -m redesign_cli audit-foundation-data"
+          - "./.venv/bin/python -m redesign_cli inspect-foundation-graph-baseline"
+
+ordering_notes:
+  - "Override elimination, conditional family modeling, and lottery export can be reasoned about in parallel, but integration must preserve a single coherent export surface."
+  - "Do not let fallback branches leak into concrete `pick_assets`, `future_pick_asset_ids`, or `roster_snapshot_pick` rows."
+  - "Do not join lottery rows by Memphis perspective `team_code` when a conveyed first-round pick belongs to another owner at lottery time."
+  - "If any implementation path requires live DB writes, keep them behind checked-in CLI commands and validate read-only before and after."
+
+risks:
+  - "If `source_event_id` shapes are inconsistent, exact override elimination could fall short and require a bounded fallback strategy."
+  - "Synthetic branch identity must stay clearly non-canonical or downstream consumers may mistake hypothetical branches for real assets."
+  - "Widening the obligation loader for non-projectable rows must not accidentally reintroduce simultaneous ownership into snapshot projection."
+  - "Lottery linkage can become fragile if the export relies on team perspective instead of durable pick provenance."
+  - "Parallel coding lanes must stay disjoint because `models.py` and `export.py` are likely shared integration points."
+
+open_questions:
+  - "Whether the override fixture should remain as an empty artifact for visibility once live reliance reaches zero."
+
+review:
+  status: completed
+  loop_count: 1
+  notes:
+    - "Review found one hidden gap: the fallback-family truth needed a final durable storage decision because export is database-backed."
+    - "The plan now resolves that by persisting the two source-backed non-projectable fallback rows in `foundation.pick_inventory_obligation` and building conditional-family export data from the database."
+
+checkpoint:
+  required_before_execution: true
+  status: satisfied

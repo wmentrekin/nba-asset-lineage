@@ -40,6 +40,10 @@ Current graph export counts:
 - `pick_assets`: 137
 - `transitions`: 588
 - `roster_snapshots`: 40
+- `daily_roster_states`: 3652
+- `draft_prior_owner_lineages`: 20
+- `conditional_pick_families`: 7
+- `draft_lottery_results`: 5
 
 Audit command:
 
@@ -94,15 +98,16 @@ As of 2026-05-17, the live NBA.com preview/dry-run checkpoint reported:
 
 The earlier dry-run graph baseline remained unchanged at that checkpoint, which
 is why the NBA.com load could be approved safely before any BRef repair pass.
-The current live baseline after the latest two-way and contract-semantics
-closeout is:
+The current live baseline after the pick backlog closeout is:
 
 - canonical counts `canonical_event=407`, `canonical_event_member=420`,
   `event_asset_transition=568`
 - graph export counts `events=407`, `player_assets=229`, `pick_assets=137`,
-  `transitions=588`, `roster_snapshots=40`
+  `transitions=588`, `roster_snapshots=40`, `daily_roster_states=3652`,
+  `draft_prior_owner_lineages=20`, `conditional_pick_families=7`,
+  `draft_lottery_results=5`
 - graph export checksum
-  `cbc6fc7ff7b7b941cc0d623b8e0052d79796581e2cc66ddcaf34b95e085ec094`
+  `0f8d8cb5a30fb853ad91b2556b4539a4fdc22e1db1a28dbb8487984c1646e737`
 
 The live audit now reports loaded source systems `basketball_reference`,
 `curated_fixture`, `nba_official`, `nba_player_movement`, and `team_official`,
@@ -257,11 +262,9 @@ The current closeout still keeps richer contract semantics additive:
 
 Current live audit documented limitations/context after the closeout:
 
-- source-backed conditional future-pick fallback rows remain visible in the
-  audit fixture report as documentation-only context; they stay non-loadable and
-  out of snapshot projection until conditional branch semantics exist
-- loaded draft lottery rows remain visible in the audit as contextual metadata;
-  they are not consumed by the base graph export
+- source-backed conditional future-pick fallback rows now persist in the
+  obligation ledger and export as bounded conditional-family data while staying
+  out of concrete snapshot ownership
 
 Daily roster state and draft prior-owner lineage commands:
 
@@ -294,9 +297,8 @@ Implementation notes:
   snapshots and carry forward between anchors using loaded same-day events
 - the daily surface is intentionally bounded to the graph-facing 18-player slot
   surface because full fringe contract semantics remain a separate backlog item
-- draft prior-owner lineage resolves from selection-day inventory where possible
-  and uses a tiny checked-in override fixture only for the minority of
-  ambiguous same-round Memphis selections
+- draft prior-owner lineage now resolves from selection-day inventory and exact
+  source-event derivation without active override reliance for the Memphis span
 
 Locator choices used for the closeout:
 
@@ -442,8 +444,9 @@ Resolved in this pass:
   rows, all with owner/original-team semantics.
 - `seed_v1` future-pick obligation rows can populate
   `pick_inventory_obligation` and projected `roster_snapshot_pick` rows after
-  clean preview/dry-run. The current live database has 19 loaded obligation rows
-  and 980 projected snapshot-pick rows.
+  clean preview/dry-run. The current live database has 28 loaded obligation rows
+  (26 projectable plus 2 bounded non-projectable fallback rows) and 980
+  projected snapshot-pick rows.
 - the ORL 2028 first acquired in the Bane trade and sent out in the Cedric
   Coward draft trade now resolves to `owner_team_code=POR` instead of
   `UNKNOWN`, based on NBA.com and RealGM source checks
@@ -466,25 +469,23 @@ Documented limitations and remaining backlog:
   `curated_fixture` corroboration systems, and the audit's
   `source_coverage_report` gap remains cleared.
 - Minimum event-level corroboration is now complete for in-scope events. The
-  latest live audit reports `meets_minimum=404`, `bref_only=0`,
-  `missing_required_evidence=0`, `recognized_provider_not_loaded=0`, and
-  `out_of_scope=3`. Supplemental corroboration depth still trails at
+  latest live audit reports `known_gaps=[]`, `meets_minimum=404`,
+  `bref_only=0`, `missing_required_evidence=0`,
+  `recognized_provider_not_loaded=0`, and `out_of_scope=3`. Supplemental
+  corroboration depth still trails at
   `events_with_missing_supplemental_roles=368`.
-- Draft lottery rows are loaded contextual metadata and are not consumed by the
-  base graph. The audit treats loaded lottery rows as documented context, while
-  preserving only the empty-table condition as a true gap.
-- Future pick inventory is now loaded at `26` source-backed rows, including `8`
-  bounded historical selection-day replay rows used by the draft prior-owner
-  proof surface. The reset-era replay contract is closed for realized
-  Memphis-visible states, even though the fixture still stops short of a full
-  hypothetical branch engine.
-- Two fallback pick facts are still fixture documentation only: the Lakers 2027
-  second fallback and Orlando 2029 second fallback remain non-loadable until
-  conditional branch semantics can prevent simultaneous primary/fallback
-  projection. The audit keeps these rows visible as documented limitation
-  context rather than as open graph gaps.
+- Draft lottery rows now emit through the additive `draft_lottery_results`
+  export surface with durable pick linkage, while staying outside graph
+  events/transitions.
+- Future pick inventory is now loaded at `28` source-backed obligation rows:
+  `26` projectable rows plus `2` bounded non-projectable fallback rows.
+  The ledger includes `8` historical selection-day replay rows used by the
+  draft prior-owner proof surface. The reset-era replay contract is closed for
+  realized Memphis-visible states, even though the fixture still stops short of
+  a full hypothetical branch engine.
+- The Lakers 2027 and Orlando 2029 fallback-second cases now persist as
+  non-projectable obligation rows and export as bounded conditional-family
+  surfaces instead of remaining fixture-only documentation.
 - Draft-night selected-slot resolution and prior-owner lineage are complete for
   loaded Memphis draft selections. The live replay proof reports
-  `replay_coverage.status=complete` with `8` bounded curated overrides for the
-  same-round Memphis draft-night cases that still cannot be derived purely from
-  round-level inventory.
+  `replay_coverage.status=complete` with zero remaining override reliance.

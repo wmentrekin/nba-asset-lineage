@@ -236,8 +236,9 @@ Fixture requirements:
 - loadable rows must carry same-length `source_urls` and `source_labels`
 - loadable rows must carry `retrieved_at`
 - `source_event_id` must reference loaded source events, not canonical event IDs
-- ambiguous fallback rows should use `confidence=uncertain` and
-  `loadable=false`
+- bounded fallback rows should use `confidence=uncertain` and `loadable=false`;
+  they are durably stored in `foundation.pick_inventory_obligation` but remain
+  non-projectable
 
 Recommended enums:
 
@@ -259,11 +260,11 @@ For each `roster_snapshot` date:
    to `owed_out` or `encumbered`.
 5. Keep swap rights as separate inventory rows when Memphis controls optionality,
    even if the eventual pick identity is unresolved.
-6. Keep conditional fallback facts in the fixture as non-loadable documentation
-   rows when a protected first or swap may become a fallback second.
-7. Do not project fallback documentation rows until conditional branch modeling
-   can prevent simultaneous projection of mutually exclusive primary and
-   fallback assets.
+6. Persist conditional fallback facts as non-projectable obligation rows when a
+   protected first or swap may become a fallback second.
+7. Do not project fallback rows into concrete snapshot ownership; expose them
+   only through bounded conditional-family export surfaces so mutually exclusive
+   primary and fallback assets never appear simultaneously owned.
 
 ## Database Fit
 
@@ -334,14 +335,13 @@ The active fixture now includes bounded historical selection-day replay rows in
 addition to the forward-looking obligation ledger. That is enough to support the
 current Memphis-visible replay contract used by the graph export and the draft
 prior-owner proof surface. It is still not a full hypothetical branch engine.
-Non-loadable fallback rows document conditional outcomes without allowing the
-loader to project both a primary obligation and its fallback at the same time.
-The current fallback documentation rows remain source-backed but deliberately
-non-loadable: the Lakers 2027 second applies only if the protected Lakers first
+Non-projectable fallback rows now persist in the obligation ledger without
+allowing the loader to project both a primary obligation and its fallback at the
+same time. The Lakers 2027 second applies only if the protected Lakers first
 does not convey, and the Orlando 2029 second applies only if Orlando's protected
-2029 first-round swap right cannot convey. The audit keeps those rows visible as
-documented limitation/context from the fixture surface rather than classifying
-them as an open base-graph gap.
+2029 first-round swap right cannot convey. The export emits those two bounded
+cases as synthetic conditional-family branch candidates rather than as concrete
+pick assets.
 
 ## Risks
 

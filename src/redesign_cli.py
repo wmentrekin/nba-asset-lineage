@@ -245,7 +245,7 @@ def parse_args() -> argparse.Namespace:
     draft_prior_owner_load_parser.add_argument("--dry-run", action="store_true")
     draft_prior_owner_replay_proof_parser = subparsers.add_parser(
         "preview-draft-prior-owner-replay-proof",
-        help="Read-only proof summary for Memphis draft-selection replay coverage, override reliance, and selection-day evidence.",
+        help="Read-only proof summary for Memphis draft-selection replay coverage, exact derivation closure, and selection-day evidence.",
     )
     draft_prior_owner_replay_proof_parser.add_argument("--team-code", default="MEM")
     draft_prior_owner_replay_proof_parser.add_argument(
@@ -849,6 +849,8 @@ def main() -> None:
                 "roster_snapshots": len(export.roster_snapshots),
                 "daily_roster_states": len(export.daily_roster_states),
                 "draft_prior_owner_lineages": len(export.draft_prior_owner_lineages),
+                "conditional_pick_families": sum(len(snapshot.conditional_pick_families) for snapshot in export.roster_snapshots),
+                "draft_lottery_results": len(export.draft_lottery_results),
             }
     elif args.command == "preview-bref-source-events":
         payload = preview_bref_source_events(team_code=args.team_code, season_end_year=args.season_end_year)
@@ -993,6 +995,10 @@ def main() -> None:
                 "pick_assets": len(export.pick_assets),
                 "transitions": len(export.transitions),
                 "roster_snapshots": len(export.roster_snapshots),
+                "daily_roster_states": len(export.daily_roster_states),
+                "draft_prior_owner_lineages": len(export.draft_prior_owner_lineages),
+                "conditional_pick_families": sum(len(snapshot.conditional_pick_families) for snapshot in export.roster_snapshots),
+                "draft_lottery_results": len(export.draft_lottery_results),
             },
             "graph_export_checksum_sha256": checksum,
         }
@@ -1069,10 +1075,14 @@ def main() -> None:
                 "pick_assets": len(export.pick_assets),
                 "transitions": len(export.transitions),
                 "roster_snapshots": len(export.roster_snapshots),
+                "daily_roster_states": len(export.daily_roster_states),
+                "draft_prior_owner_lineages": len(export.draft_prior_owner_lineages),
+                "conditional_pick_families": sum(len(snapshot.conditional_pick_families) for snapshot in export.roster_snapshots),
+                "draft_lottery_results": len(export.draft_lottery_results),
             },
             "documented_limitations": [
                 "Future pick inventory snapshots are intentionally left to the separate obligation and snapshot loaders; this convenience command does not populate them.",
-                "Draft lottery results remain contextual metadata and are intentionally outside this convenience command's base graph load.",
+                "Draft lottery results still load through the dedicated lottery command; this convenience command does not populate that additive export surface.",
             ],
         }
     else:

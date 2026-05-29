@@ -16,19 +16,22 @@ from foundation.pick_inventory import PickInventoryObligation
 def make_selection(
     draft_selection_id: str = "draft:2024:9",
     *,
+    draft_year: int = 2024,
     pick_overall: int = 9,
     round_number: int = 1,
     pick_id: str | None = None,
+    source_event_id: str | None = None,
 ) -> DraftSelectionForPriorOwnerLineage:
     return DraftSelectionForPriorOwnerLineage(
         draft_selection_id=draft_selection_id,
-        draft_year=2024,
+        draft_year=draft_year,
         pick_overall=pick_overall,
         round_number=round_number,
         team_code="MEM",
         player_id=f"player:{draft_selection_id.split(':')[-1]}",
         player_name="Test Player",
         pick_id=pick_id,
+        source_event_id=source_event_id,
     )
 
 
@@ -41,6 +44,7 @@ def make_obligation(
     holding_status: str,
     round_number: int = 1,
     effective_date: str = "2024-06-20",
+    source_event_id: str | None = None,
 ) -> PickInventoryObligation:
     return PickInventoryObligation(
         obligation_id=obligation_id,
@@ -56,6 +60,7 @@ def make_obligation(
         source_urls=["https://example.com/source"],
         source_labels=["Example source"],
         retrieved_at="2026-05-27T00:00:00Z",
+        source_event_id=source_event_id,
         confidence="curated",
         loadable=True,
     )
@@ -109,6 +114,93 @@ def test_draft_prior_owner_lineage_applies_curated_override_before_inventory_fal
     assert rows[0].pick_id == "pick:inventory:mem:2024:r2:okc"
     assert rows[0].original_team_code == "OKC"
     assert rows[0].confidence == "high"
+
+
+def test_draft_prior_owner_lineage_prefers_source_event_inventory_match_before_override() -> None:
+    rows = build_draft_prior_owner_lineage_rows(
+        selections=[
+            make_selection(
+                "draft:2024:39",
+                pick_overall=39,
+                round_number=2,
+                source_event_id="bref:draft:2024:pick:039",
+            )
+        ],
+        pick_candidates=[],
+        obligations=[
+            make_obligation(
+                "obligation:incoming:2024:bkn:r2",
+                owner_team_code="MEM",
+                original_team_code="BKN",
+                direction="incoming",
+                holding_status="owned",
+                round_number=2,
+                source_event_id="bref:draft:2024:pick:039",
+            )
+        ],
+        overrides=[
+            draft_prior_owner.DraftPriorOwnerOverrideRow(
+                draft_selection_id="draft:2024:39",
+                draft_year=2024,
+                round_number=2,
+                pick_overall=39,
+                team_code="MEM",
+                original_team_code="OKC",
+                source_locator="https://example.com/override",
+                notes="Should not be used once exact source_event_id derivation exists.",
+            )
+        ],
+    )
+
+    assert rows[0].status == "resolved"
+    assert rows[0].resolution_kind == "inventory_source_event_exact"
+    assert rows[0].pick_id == "pick:inventory:mem:2024:r2:bkn"
+    assert rows[0].original_team_code == "BKN"
+    assert rows[0].source_obligation_id == "obligation:incoming:2024:bkn:r2"
+
+
+def test_draft_prior_owner_lineage_clears_same_round_pair_after_exact_source_event_match_consumes_traded_pick() -> None:
+    rows = build_draft_prior_owner_lineage_rows(
+        selections=[
+            make_selection(
+                "draft:2023:45",
+                draft_year=2023,
+                pick_overall=45,
+                round_number=2,
+                source_event_id="bref:draft:2023:pick:045",
+            ),
+            make_selection("draft:2023:56", draft_year=2023, pick_overall=56, round_number=2),
+        ],
+        pick_candidates=[],
+        obligations=[
+            PickInventoryObligation(
+                obligation_id="obligation:incoming:2023:min:r2",
+                effective_date="2023-06-22",
+                perspective_team_code="MEM",
+                owner_team_code="MEM",
+                original_team_code="MIN",
+                draft_year=2023,
+                round_number=2,
+                direction="incoming",
+                holding_status="owned",
+                obligation_type="traded_pick",
+                source_urls=["https://example.com/source"],
+                source_labels=["Example source"],
+                retrieved_at="2026-05-14T00:00:00Z",
+                source_event_id="bref:draft:2023:pick:045",
+                confidence="curated",
+                loadable=True,
+            )
+        ],
+        overrides=[],
+    )
+
+    assert [row.status for row in rows] == ["resolved", "resolved"]
+    assert rows[0].resolution_kind == "inventory_source_event_exact"
+    assert rows[0].original_team_code == "MIN"
+    assert rows[1].resolution_kind == "team_default_fallback"
+    assert rows[1].pick_id == "pick:inventory:mem:2023:r2:own"
+    assert rows[1].original_team_code == "MEM"
 
 
 def test_draft_prior_owner_lineage_uses_single_controlled_inventory_candidate() -> None:
@@ -334,21 +426,16 @@ def test_load_draft_prior_owner_lineage_dry_run_uses_preview_counts(monkeypatch:
     assert result.lineages_upserted == 1
 
 
-def test_build_draft_prior_owner_replay_proof_summarizes_selection_day_and_override_residue() -> None:
-    override = draft_prior_owner.DraftPriorOwnerOverrideRow(
-        draft_selection_id="draft:2024:57",
-        draft_year=2024,
-        round_number=2,
-        pick_overall=57,
-        team_code="MEM",
-        original_team_code="OKC",
-        source_locator="https://example.com/override",
-        notes="Curated source-backed override.",
-    )
+def test_build_draft_prior_owner_replay_proof_clears_override_reliance_once_exact_source_event_matches_exist() -> None:
     rows = build_draft_prior_owner_lineage_rows(
         selections=[
             make_selection(pick_id="pick:inventory:mem:2024:r1:orl"),
-            make_selection("draft:2024:39", pick_overall=39, round_number=2),
+            make_selection(
+                "draft:2024:39",
+                pick_overall=39,
+                round_number=2,
+                source_event_id="bref:draft:2024:pick:039",
+            ),
             make_selection("draft:2024:57", pick_overall=57, round_number=2),
         ],
         pick_candidates=[
@@ -363,29 +450,22 @@ def test_build_draft_prior_owner_replay_proof_summarizes_selection_day_and_overr
         ],
         obligations=[
             make_obligation(
-                "obligation:outgoing:2024:mem:r2",
-                owner_team_code="UNKNOWN",
-                original_team_code="MEM",
-                direction="outgoing",
-                holding_status="owed_out",
-                round_number=2,
-            ),
-            make_obligation(
-                "obligation:incoming:2024:atl:r2",
+                "obligation:incoming:2024:okc:r2",
                 owner_team_code="MEM",
-                original_team_code="ATL",
+                original_team_code="OKC",
                 direction="incoming",
                 holding_status="owned",
                 round_number=2,
+                source_event_id="bref:draft:2024:pick:039",
             ),
         ],
-        overrides=[override],
+        overrides=[],
     )
 
     proof = build_draft_prior_owner_replay_proof(
         rows=rows,
         team_code="MEM",
-        overrides=[override],
+        overrides=[],
     )
 
     assert proof.replay_coverage.status == "complete"
@@ -398,15 +478,15 @@ def test_build_draft_prior_owner_replay_proof_summarizes_selection_day_and_overr
         "snapshot:prior-owner:mem:2024:r1:pre_draft",
         "snapshot:prior-owner:mem:2024:r2:pre_draft",
     ]
-    assert proof.override_reliance.status == "bounded"
-    assert proof.override_reliance.remaining_rows == 1
-    assert proof.override_reliance.rows[0].source_locator == "https://example.com/override"
+    assert proof.override_reliance.status == "clear"
+    assert proof.override_reliance.remaining_rows == 0
     assert proof.closure_evidence.draft_selection_closure_status == "closed"
     assert proof.closure_evidence.checkpoint_replay_status == "mixed"
-    assert proof.closure_evidence.selection_day_inventory_rows == 1
+    assert proof.closure_evidence.selection_day_inventory_rows == 2
     assert proof.proof_rows[1].proof_source_kind == "selection_day_inventory"
     assert proof.proof_rows[1].checkpoint_replay_supported is True
-    assert proof.proof_rows[2].override_source_locator == "https://example.com/override"
+    assert proof.proof_rows[2].proof_source_kind == "selection_day_inventory"
+    assert proof.proof_rows[2].override_source_locator is None
     assert any("same-day effective dates" in evidence for evidence in proof.closure_evidence.evidence)
 
 

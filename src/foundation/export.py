@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from foundation.models import BaseGraphExport
 from foundation.models import AssetTransition, PickAsset, PlayerAsset, TransactionEvent
 from foundation.models import FuturePickSnapshot
-from foundation.models import DailyRosterState, DailyRosterStatePlayer, DraftPriorOwnerLineage
+from foundation.models import ConditionalPickBranchSnapshot, ConditionalPickFamilySnapshot
+from foundation.models import DailyRosterState, DailyRosterStatePlayer, DraftLotteryResultExport, DraftPriorOwnerLineage
 from foundation.models import RosterSnapshot
 from foundation.models import draft_event_date
 
@@ -24,6 +25,40 @@ class DraftResolutionExportRow(BaseModel):
     notes: str | None = None
     source_event_id: str | None = None
     canonical_event_id: str | None = None
+
+
+class PickInventoryObligationExportRow(BaseModel):
+    obligation_id: str
+    effective_date: str
+    perspective_team_code: str
+    owner_team_code: str
+    original_team_code: str
+    draft_year: int
+    round_number: int
+    direction: str
+    holding_status: str
+    obligation_type: str
+    confidence: str
+    source_event_id: str | None = None
+    canonical_event_id: str | None = None
+    protection_text: str | None = None
+    swap_text: str | None = None
+    condition_text: str | None = None
+    notes: str | None = None
+    loadable: bool
+
+
+class DraftLotteryResultDatabaseRow(BaseModel):
+    lottery_result_id: str
+    draft_year: int
+    lottery_date: str | None = None
+    team_code: str
+    owner_team_code: str | None = None
+    original_team_code: str | None = None
+    lottery_position: int | None = None
+    result_pick_slot: int
+    pre_lottery_odds: str | None = None
+    notes: str | None = None
 
 
 def build_empty_base_export() -> BaseGraphExport:
@@ -65,6 +100,7 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
             cursor.execute(
                 """
                 select a.asset_id,
+                       pk.pick_id,
                        coalesce(pk.original_team, 'unknown') as original_team,
                        pk.draft_year,
                        pk.round_number,
@@ -243,6 +279,94 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
                 )
                 draft_prior_owner_rows = cursor.fetchall()
 
+            pick_inventory_obligation_rows: list[PickInventoryObligationExportRow] = []
+            cursor.execute("select to_regclass('foundation.pick_inventory_obligation')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    """
+                    select obligation_id,
+                           effective_date::text,
+                           perspective_team_code,
+                           owner_team_code,
+                           original_team_code,
+                           draft_year,
+                           round_number,
+                           direction,
+                           holding_status,
+                           obligation_type,
+                           confidence,
+                           source_event_id,
+                           canonical_event_id,
+                           protection_text,
+                           swap_text,
+                           condition_text,
+                           notes,
+                           loadable
+                    from foundation.pick_inventory_obligation
+                    where upper(perspective_team_code) = 'MEM'
+                    order by effective_date, obligation_id
+                    """
+                )
+                pick_inventory_obligation_rows = [
+                    PickInventoryObligationExportRow(
+                        obligation_id=str(row[0]),
+                        effective_date=str(row[1]),
+                        perspective_team_code=str(row[2]),
+                        owner_team_code=str(row[3]),
+                        original_team_code=str(row[4]),
+                        draft_year=int(row[5]),
+                        round_number=int(row[6]),
+                        direction=str(row[7]),
+                        holding_status=str(row[8]),
+                        obligation_type=str(row[9]),
+                        confidence=str(row[10]),
+                        source_event_id=str(row[11]) if row[11] is not None else None,
+                        canonical_event_id=str(row[12]) if row[12] is not None else None,
+                        protection_text=str(row[13]) if row[13] is not None else None,
+                        swap_text=str(row[14]) if row[14] is not None else None,
+                        condition_text=str(row[15]) if row[15] is not None else None,
+                        notes=str(row[16]) if row[16] is not None else None,
+                        loadable=bool(row[17]),
+                    )
+                    for row in cursor.fetchall()
+                ]
+
+            draft_lottery_rows: list[DraftLotteryResultDatabaseRow] = []
+            cursor.execute("select to_regclass('foundation.draft_lottery_result')")
+            if cursor.fetchone()[0] is not None:
+                cursor.execute(
+                    """
+                    select lottery_result_id,
+                           draft_year,
+                           lottery_date::text,
+                           team_code,
+                           owner_team_code,
+                           original_team_code,
+                           lottery_position,
+                           result_pick_slot,
+                           pre_lottery_odds,
+                           notes
+                    from foundation.draft_lottery_result
+                    where upper(team_code) = 'MEM'
+                    order by draft_year, lottery_result_id
+                    """
+                )
+                draft_lottery_rows = [
+                    DraftLotteryResultDatabaseRow(
+                        lottery_result_id=str(row[0]),
+                        draft_year=int(row[1]),
+                        lottery_date=str(row[2]) if row[2] is not None else None,
+                        team_code=str(row[3]),
+                        owner_team_code=str(row[4]) if row[4] is not None else None,
+                        original_team_code=str(row[5]) if row[5] is not None else None,
+                        lottery_position=int(row[6]) if row[6] is not None else None,
+                        result_pick_slot=int(row[7]),
+                        pre_lottery_odds=str(row[8]) if row[8] is not None else None,
+                        notes=str(row[9]) if row[9] is not None else None,
+                    )
+                    for row in cursor.fetchall()
+                ]
+
     export = build_empty_base_export()
     if event_rows:
         export.span_start = str(event_rows[0][2])
@@ -261,11 +385,12 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
     export.pick_assets = [
         PickAsset(
             asset_id=str(row[0]),
-            original_team=str(row[1]),
-            draft_year=int(row[2]),
-            round_number=int(row[3]),
-            protections=str(row[4]) if row[4] is not None else None,
-            swap_detail=str(row[5]) if row[5] is not None else None,
+            pick_id=str(row[1]),
+            original_team=str(row[2]),
+            draft_year=int(row[3]),
+            round_number=int(row[4]),
+            protections=str(row[5]) if row[5] is not None else None,
+            swap_detail=str(row[6]) if row[6] is not None else None,
         )
         for row in pick_rows
     ]
@@ -325,6 +450,10 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
             two_way_asset_ids=two_way_assets_by_snapshot.get(str(row[0]), []),
             future_pick_asset_ids=[pick.asset_id for pick in pick_assets_by_snapshot.get(str(row[0]), [])],
             future_picks=pick_assets_by_snapshot.get(str(row[0]), []),
+            conditional_pick_families=build_conditional_pick_family_snapshots(
+                future_picks=pick_assets_by_snapshot.get(str(row[0]), []),
+                obligation_rows=pick_inventory_obligation_rows,
+            ),
         )
         for row in snapshot_rows
     ]
@@ -376,6 +505,11 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
         )
         for row in draft_prior_owner_rows
     ]
+    export.draft_lottery_results = build_draft_lottery_export_rows(
+        lottery_rows=draft_lottery_rows,
+        pick_assets=export.pick_assets,
+        prior_owner_lineages=export.draft_prior_owner_lineages,
+    )
     return export
 
 
@@ -418,3 +552,126 @@ def build_draft_resolution_event_id(draft_selection_id: str) -> str:
 
 def draft_resolution_event_date(draft_year: int, round_number: int) -> str:
     return draft_event_date(draft_year, round_number)
+
+
+def build_conditional_pick_family_snapshots(
+    *,
+    future_picks: list[FuturePickSnapshot],
+    obligation_rows: list[PickInventoryObligationExportRow],
+) -> list[ConditionalPickFamilySnapshot]:
+    obligation_by_id = {row.obligation_id: row for row in obligation_rows}
+    families: list[ConditionalPickFamilySnapshot] = []
+    seen_family_ids: set[str] = set()
+    for pick in sorted(future_picks, key=lambda row: (row.display_order or 0, row.pick_id)):
+        composite_right = pick.composite_right
+        if composite_right is None or composite_right.obligation_role != "primary" or not composite_right.fallback_branches:
+            continue
+        if composite_right.family_id in seen_family_ids:
+            continue
+        fallback_branches: list[ConditionalPickBranchSnapshot] = []
+        for fallback in composite_right.fallback_branches:
+            obligation_id = fallback.obligation_id
+            if obligation_id is None:
+                continue
+            obligation = obligation_by_id.get(obligation_id)
+            if obligation is None:
+                continue
+            pick_ref = build_conditional_pick_ref(
+                family_id=composite_right.family_id,
+                original_team_code=obligation.original_team_code,
+                round_number=obligation.round_number,
+            )
+            fallback_branches.append(
+                ConditionalPickBranchSnapshot(
+                    branch_id=build_conditional_branch_id(composite_right.family_id, obligation_id),
+                    pick_ref=pick_ref,
+                    asset_ref=build_conditional_asset_ref(pick_ref),
+                    obligation_id=obligation_id,
+                    original_team_code=obligation.original_team_code,
+                    round_number=obligation.round_number,
+                    trigger_kind=fallback.trigger_kind,
+                    protected_pick_start=fallback.protected_pick_start,
+                    protected_pick_end=fallback.protected_pick_end,
+                    notes=obligation.notes or obligation.condition_text,
+                )
+            )
+        if not fallback_branches:
+            continue
+        families.append(
+            ConditionalPickFamilySnapshot(
+                family_id=composite_right.family_id,
+                family_kind=composite_right.family_kind,
+                selection_rule=composite_right.selection_rule,
+                exclusivity_status="unresolved",
+                display_original_team_code=composite_right.display_original_team_code,
+                primary_pick_id=pick.pick_id,
+                primary_asset_id=pick.asset_id,
+                primary_source_obligation_id=pick.source_obligation_id,
+                fallback_branches=fallback_branches,
+            )
+        )
+        seen_family_ids.add(composite_right.family_id)
+    return families
+
+
+def build_draft_lottery_export_rows(
+    *,
+    lottery_rows: list[DraftLotteryResultDatabaseRow],
+    pick_assets: list[PickAsset],
+    prior_owner_lineages: list[DraftPriorOwnerLineage],
+) -> list[DraftLotteryResultExport]:
+    pick_asset_by_slot: dict[tuple[int, int, str], PickAsset] = {}
+    for pick_asset in pick_assets:
+        key = (pick_asset.draft_year, pick_asset.round_number, pick_asset.original_team.upper())
+        current = pick_asset_by_slot.get(key)
+        if current is None or should_prefer_pick_asset(candidate=pick_asset, current=current):
+            pick_asset_by_slot[key] = pick_asset
+
+    prior_owner_by_slot = {
+        (row.draft_year, row.round_number, row.original_team_code.upper()): row
+        for row in prior_owner_lineages
+    }
+
+    export_rows: list[DraftLotteryResultExport] = []
+    for lottery_row in lottery_rows:
+        slot_key = None
+        if lottery_row.original_team_code:
+            slot_key = (lottery_row.draft_year, 1, lottery_row.original_team_code.upper())
+        pick_asset = pick_asset_by_slot.get(slot_key) if slot_key is not None else None
+        lineage = prior_owner_by_slot.get(slot_key) if slot_key is not None else None
+        export_rows.append(
+            DraftLotteryResultExport(
+                lottery_result_id=lottery_row.lottery_result_id,
+                draft_year=lottery_row.draft_year,
+                lottery_date=lottery_row.lottery_date,
+                team_code=lottery_row.team_code,
+                owner_team_code=lottery_row.owner_team_code,
+                original_team_code=lottery_row.original_team_code,
+                lottery_position=lottery_row.lottery_position,
+                result_pick_slot=lottery_row.result_pick_slot,
+                pre_lottery_odds=lottery_row.pre_lottery_odds,
+                notes=lottery_row.notes,
+                pick_id=pick_asset.pick_id if pick_asset is not None else None,
+                pick_asset_id=pick_asset.asset_id if pick_asset is not None else None,
+                draft_selection_id=lineage.draft_selection_id if lineage is not None else None,
+                draft_selection_player_id=lineage.player_id if lineage is not None else None,
+                player_asset_id=lineage.player_asset_id if lineage is not None else None,
+            )
+        )
+    return export_rows
+
+
+def build_conditional_branch_id(family_id: str, obligation_id: str) -> str:
+    return f"conditional-branch:{family_id}:{obligation_id}"
+
+
+def build_conditional_pick_ref(*, family_id: str, original_team_code: str, round_number: int) -> str:
+    return f"pick:conditional:{family_id}:r{round_number}:{original_team_code.lower()}"
+
+
+def build_conditional_asset_ref(pick_ref: str) -> str:
+    return f"asset:conditional-pick:{pick_ref}"
+
+
+def should_prefer_pick_asset(*, candidate: PickAsset, current: PickAsset) -> bool:
+    return current.pick_id.startswith("pick:slot:") and not candidate.pick_id.startswith("pick:slot:")
