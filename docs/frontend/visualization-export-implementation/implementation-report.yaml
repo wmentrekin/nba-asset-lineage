@@ -1,0 +1,94 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "frontend/visualization-export-implementation"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/frontend/visualization-export-implementation/plan.yaml"
+
+summary:
+  scope_executed: "Completed B1 through B5 for the reset-era visualization export: schema/types, backend derivation/invariants, CLI/artifact path, live Memphis artifact validation, and Astro migration to the derived contract."
+  outcome: "The repo now exports a derived visualization artifact from live foundation truth, validates it against the real Memphis dataset, and renders the Astro page from that artifact instead of the older browser-derived graph scaffold."
+
+task_batches_attempted:
+  - "B1"
+  - "B2"
+  - "B3"
+  - "B4"
+  - "B5"
+task_batches_completed:
+  - "B1"
+  - "B2"
+  - "B3"
+  - "B4"
+  - "B5"
+
+changes:
+  files:
+    - "src/foundation/models.py"
+    - "src/foundation/visualization_export.py"
+    - "src/redesign_cli.py"
+    - "tests/foundation/test_visualization_export.py"
+    - "frontend/src/lib/visualization-graph.ts"
+    - "frontend/src/lib/visualization-graph.test.ts"
+    - "frontend/src/lib/visualization.ts"
+    - "frontend/src/lib/visualization.test.ts"
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/data/generated/visualization-graph.json"
+    - "docs/frontend/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+  modules:
+    - "foundation.models"
+    - "foundation.visualization_export"
+    - "redesign_cli"
+    - "frontend/src/lib/visualization-graph.ts"
+    - "frontend/src/lib/visualization.ts"
+  docs_updated:
+    - "docs/frontend/visualization-export-implementation/status.yaml"
+    - "docs/frontend/visualization-export-implementation/implementation-report.yaml"
+    - "docs/frontend/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+
+local_validation:
+  checks_run:
+    - "./.venv/bin/pytest tests/foundation/test_visualization_export.py"
+    - "./.venv/bin/pytest"
+    - "./.venv/bin/python -m redesign_cli show-visualization-export"
+    - "./.venv/bin/python -m redesign_cli export-visualization-graph --output-path frontend/src/data/generated/visualization-graph.json"
+    - "./.venv/bin/python -m redesign_cli inspect-visualization-graph-baseline"
+    - "mise exec node@22 -- npm run test"
+    - "mise exec node@22 -- npm run check"
+    - "mise exec node@22 -- npm run build"
+  failures: []
+  skipped: []
+
+review_summary:
+  status: complete
+  key_findings:
+    - "The first live Memphis export surfaced two real derivation bugs: missing transient player continuity around draft conversions and overlapping synthetic intervals for repeated short-term signings. Both were fixed before the frontend swap."
+    - "The Astro page now consumes visualization-graph.json directly and no longer derives lane truth from the older foundation-graph scaffold."
+
+test_summary:
+  status: passed
+  checks_run:
+    - "Focused visualization export pytest"
+    - "Full pytest"
+    - "Visualization export scaffold command"
+    - "Live read-only visualization export generation"
+    - "Live read-only visualization baseline"
+    - "Frontend vitest"
+    - "Astro check"
+    - "Astro build"
+  failures: []
+  gaps:
+    - "No automated browser screenshot comparison exists yet for the new page; visual review is still manual."
+
+open_issues:
+  - "The first renderer is intentionally minimal and still uses slot labels rather than the fuller traveling identity-marker treatment described in the frontend vision docs."
+  - "Synthetic temporary-overflow continuity is now truthful enough to keep transient draft/signing assets visible, but its visual treatment will likely need refinement after manual review."
+
+handoff:
+  current_state: ready_for_review
+  next_owner: "user"
+  next_action: "Open the generated page, inspect the derived renderer visually, and decide whether the next pass should tune layout/visual behavior or deepen the export further."

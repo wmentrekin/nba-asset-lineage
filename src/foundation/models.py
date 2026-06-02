@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 AssetKind = Literal["player", "pick"]
@@ -441,3 +441,212 @@ class BaseGraphExport(BaseModel):
     daily_roster_states: list[DailyRosterState] = Field(default_factory=list)
     draft_prior_owner_lineages: list[DraftPriorOwnerLineage] = Field(default_factory=list)
     draft_lottery_results: list[DraftLotteryResultExport] = Field(default_factory=list)
+
+
+VisualizationLaneBand = Literal[
+    "main_roster",
+    "two_way",
+    "temporary_overflow",
+    "pick",
+]
+VisualizationOccupancyKind = Literal[
+    "main_roster",
+    "two_way",
+    "temporary_overflow",
+    "pick_owned",
+    "pick_owed_out",
+    "pick_swap_right",
+    "pick_encumbered",
+    "pick_conditional",
+]
+VisualizationSegmentKind = Literal[
+    "resident",
+    "event_lead_in",
+    "event_settle_in",
+    "draft_conversion",
+    "termination",
+]
+VisualizationConnectorKind = Literal[
+    "outgoing",
+    "incoming",
+    "conversion",
+    "termination",
+    "lane_shift",
+]
+
+
+class VisualizationTimeModel(BaseModel):
+    unit: Literal["day"] = "day"
+    scale: Literal["linear"] = "linear"
+    compact_spacing: Literal["tight"] = "tight"
+
+
+class VisualizationBandConfig(BaseModel):
+    main_roster_slot_count: Literal[15] = 15
+    two_way_slot_count: Literal[3] = 3
+    has_temporary_overflow_band: Literal[True] = True
+    has_pick_band: Literal[True] = True
+
+
+class VisualizationLane(BaseModel):
+    lane_id: str
+    band: VisualizationLaneBand
+    slot_index: int
+    visual_order: int
+    is_dynamic: bool
+    label: str
+
+
+class VisualizationPlayerMarker(BaseModel):
+    marker_type: Literal["player"] = "player"
+    display_name: str
+    headshot_url: str | None = None
+
+
+class VisualizationPickMarker(BaseModel):
+    marker_type: Literal["pick"] = "pick"
+    chip_label: str
+
+
+VisualizationAssetMarker = Annotated[
+    VisualizationPlayerMarker | VisualizationPickMarker,
+    Field(discriminator="marker_type"),
+]
+
+
+class VisualizationAsset(BaseModel):
+    asset_id: str
+    asset_kind: AssetKind
+    marker: VisualizationAssetMarker
+    display_label: str
+    foundation_asset_id: str
+    player_id: str | None = None
+    pick_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_identity_fields(self) -> "VisualizationAsset":
+        if self.asset_kind == "player":
+            if self.player_id is None:
+                raise ValueError("player assets require player_id")
+            if self.pick_id is not None:
+                raise ValueError("player assets must not set pick_id")
+            if self.marker.marker_type != "player":
+                raise ValueError("player assets require a player marker")
+        if self.asset_kind == "pick":
+            if self.pick_id is None:
+                raise ValueError("pick assets require pick_id")
+            if self.player_id is not None:
+                raise ValueError("pick assets must not set player_id")
+            if self.marker.marker_type != "pick":
+                raise ValueError("pick assets require a pick marker")
+        return self
+
+
+class VisualizationOccupancyInterval(BaseModel):
+    interval_id: str
+    asset_id: str
+    lane_id: str
+    start_date: str
+    end_date: str
+    occupancy_kind: VisualizationOccupancyKind
+    source_state_id: str | None = None
+    source_snapshot_id: str | None = None
+    source_obligation_id: str | None = None
+
+
+class VisualizationEventSummary(BaseModel):
+    sent_asset_ids: list[str] = Field(default_factory=list)
+    received_asset_ids: list[str] = Field(default_factory=list)
+    sent_label: str | None = None
+    received_label: str | None = None
+
+
+class VisualizationEventNode(BaseModel):
+    node_id: str
+    canonical_event_id: str
+    source_group_id: str | None = None
+    event_type: EventType
+    event_date: str
+    sequence: int
+    compact_label: str
+    detail_label: str | None = None
+    summary: VisualizationEventSummary | None = None
+    inbound_asset_ids: list[str] = Field(default_factory=list)
+    outbound_asset_ids: list[str] = Field(default_factory=list)
+
+
+class VisualizationStrandSegment(BaseModel):
+    segment_id: str
+    asset_id: str
+    lane_id: str
+    segment_kind: VisualizationSegmentKind
+    start_date: str
+    end_date: str
+    start_node_id: str | None = None
+    end_node_id: str | None = None
+
+
+class VisualizationEventConnector(BaseModel):
+    connector_id: str
+    node_id: str
+    asset_id: str
+    connector_kind: VisualizationConnectorKind
+    from_lane_id: str | None = None
+    to_lane_id: str | None = None
+    lead_window_days: int
+    settle_window_days: int
+
+
+class VisualizationConditionalPickBranch(BaseModel):
+    branch_id: str
+    original_team_code: str
+    round_number: int
+    trigger_kind: str
+    projectable: Literal[False] = False
+    notes: str | None = None
+
+
+class VisualizationConditionalPickFamily(BaseModel):
+    family_id: str
+    family_kind: str
+    selection_rule: str
+    exclusivity_status: ConditionalPickFamilyStatus = "unresolved"
+    primary_pick_id: str
+    primary_asset_id: str
+    fallback_branches: list[VisualizationConditionalPickBranch] = Field(default_factory=list)
+
+
+class VisualizationDraftLotteryContext(BaseModel):
+    lottery_result_id: str
+    draft_year: int
+    lottery_date: str | None = None
+    original_team_code: str | None = None
+    owner_team_code: str | None = None
+    result_pick_slot: int
+    pick_id: str | None = None
+    pick_asset_id: str | None = None
+    draft_selection_id: str | None = None
+
+
+class VisualizationAdditiveContext(BaseModel):
+    conditional_pick_families: list[VisualizationConditionalPickFamily] = Field(default_factory=list)
+    draft_lottery_results: list[VisualizationDraftLotteryContext] = Field(default_factory=list)
+
+
+class VisualizationExportV1(BaseModel):
+    schema_version: Literal["visualization_export_v1"] = "visualization_export_v1"
+    franchise: Literal["MEM"] = "MEM"
+    generated_at: str
+    source_span_start: str
+    source_span_end: str
+    render_span_start: str
+    render_span_end: str
+    time_model: VisualizationTimeModel = Field(default_factory=VisualizationTimeModel)
+    band_config: VisualizationBandConfig = Field(default_factory=VisualizationBandConfig)
+    lanes: list[VisualizationLane] = Field(default_factory=list)
+    assets: list[VisualizationAsset] = Field(default_factory=list)
+    occupancy_intervals: list[VisualizationOccupancyInterval] = Field(default_factory=list)
+    event_nodes: list[VisualizationEventNode] = Field(default_factory=list)
+    strand_segments: list[VisualizationStrandSegment] = Field(default_factory=list)
+    event_connectors: list[VisualizationEventConnector] = Field(default_factory=list)
+    additive_context: VisualizationAdditiveContext = Field(default_factory=VisualizationAdditiveContext)

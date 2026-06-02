@@ -1,10 +1,10 @@
 ---
-import foundationGraph from "../data/generated/foundation-graph.json";
-import { buildTimelineLayout, type GraphExport } from "../lib/graph";
+import visualizationGraph from "../data/generated/visualization-graph.json";
+import { buildVisualizationTimelineLayout, type VisualizationTimelineConnector, type VisualizationTimelineNode, type VisualizationTimelineSegment } from "../lib/visualization-graph";
+import type { VisualizationExportV1 } from "../lib/visualization";
 
-const graph = foundationGraph as GraphExport;
-const layout = buildTimelineLayout(graph);
-const eventTypeById = new Map(layout.eventPoints.map((event) => [event.eventId, event.eventType]));
+const graph = visualizationGraph as unknown as VisualizationExportV1;
+const layout = buildVisualizationTimelineLayout(graph);
 const monthAnchorFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "2-digit",
@@ -12,70 +12,35 @@ const monthAnchorFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const MIN_SEGMENT_LABEL_WIDTH = 72;
-const MIN_CONNECTOR_LEAD = 22;
-const MAX_CONNECTOR_LEAD = 44;
-const TERMINATION_INSET = 14;
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function shouldRenderSegmentLabel(segment: { x1: number; x2: number }) {
+function shouldRenderSegmentLabel(segment: VisualizationTimelineSegment) {
   return segment.x2 - segment.x1 >= MIN_SEGMENT_LABEL_WIDTH;
-}
-
-function getConnectorEventType(connector: { eventId: string }) {
-  return eventTypeById.get(connector.eventId);
-}
-
-function isTerminationConnector(connector: {
-  direction: "in" | "out" | "move";
-  eventId: string;
-}) {
-  return connector.direction === "out" && getConnectorEventType(connector) === "waiver";
-}
-
-function getConnectorPath(connector: {
-  eventId: string;
-  direction: "in" | "out" | "move";
-  x: number;
-  x1: number;
-  x2: number;
-  y1: number;
-  y2: number;
-}) {
-  const midY = (connector.y1 + connector.y2) / 2;
-  const arcWidth = Math.abs(connector.x2 - connector.x1);
-  const lead = clamp(arcWidth * 1.15, MIN_CONNECTOR_LEAD, MAX_CONNECTOR_LEAD);
-  const terminationInset = isTerminationConnector(connector) ? Math.min(TERMINATION_INSET, arcWidth * 0.6) : 0;
-  const endX = connector.x2 - terminationInset;
-
-  if (connector.direction === "move") {
-    return `M ${connector.x1} ${connector.y1} C ${connector.x - lead} ${connector.y1}, ${connector.x + lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
-  }
-
-  if (connector.direction === "out") {
-    return `M ${connector.x1} ${connector.y1} C ${connector.x1 + lead} ${connector.y1}, ${connector.x - lead * 0.35} ${midY}, ${endX} ${connector.y2}`;
-  }
-
-  return `M ${connector.x1} ${connector.y1} C ${connector.x + lead * 0.35} ${midY}, ${connector.x2 - lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
-}
-
-function getConnectorMarker(connector: {
-  direction: "in" | "out" | "move";
-  eventId: string;
-}) {
-  if (connector.direction === "move") return undefined;
-  if (isTerminationConnector(connector)) return "url(#connector-cap-waiver)";
-  return connector.direction === "out" ? "url(#connector-arrow-out)" : "url(#connector-arrow-in)";
-}
-
-function isMonthStartTick(date: string) {
-  return date.endsWith("-01");
 }
 
 function formatMonthAnchor(date: string) {
   return monthAnchorFormatter.format(new Date(`${date}T00:00:00Z`));
+}
+
+function connectorPath(connector: VisualizationTimelineConnector) {
+  const midX = (connector.x1 + connector.x2) / 2;
+  const lead = Math.max(12, Math.abs(connector.x2 - connector.x1) * 0.42);
+
+  if (connector.connectorKind === "lane_shift") {
+    return `M ${connector.x1} ${connector.y1} C ${midX} ${connector.y1}, ${midX} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+  }
+
+  if (connector.connectorKind === "incoming" || (connector.connectorKind === "conversion" && connector.y1 <= connector.y2)) {
+    return `M ${connector.x1} ${connector.y1} C ${connector.x1 + lead} ${connector.y1}, ${connector.x2 - lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+  }
+
+  return `M ${connector.x1} ${connector.y1} C ${connector.x1 + lead} ${connector.y1}, ${connector.x2 - lead} ${connector.y2}, ${connector.x2} ${connector.y2}`;
+}
+
+function nodeTitle(node: VisualizationTimelineNode) {
+  const parts = [node.compactLabel, node.eventDate];
+  if (node.outboundAssetIds.length) parts.push(`Sent: ${node.outboundAssetIds.length}`);
+  if (node.inboundAssetIds.length) parts.push(`Received: ${node.inboundAssetIds.length}`);
+  return parts.join(" • ");
 }
 ---
 
@@ -86,31 +51,33 @@ function formatMonthAnchor(date: string) {
     <title>Memphis Asset Lineage</title>
     <meta
       name="description"
-      content="Memphis Grizzlies asset lineage graph built from the reset-era foundation export."
+      content="Memphis Grizzlies asset lineage graph built from the derived visualization export."
     />
   </head>
   <body>
     <main class="page">
       <section class="hero">
         <p class="eyebrow">Memphis asset lineage</p>
-        <h1>Ten years of roster evolution from the current foundation export.</h1>
+        <h1>Ten years of asset continuity rendered from a derived visualization export.</h1>
         <p class="lede">
-          This page is now wired to real foundation data: canonical events, player and pick assets,
-          and event transitions. It is intentionally minimal and graph-first.
+          This page now renders from precomputed lanes, occupancy intervals, event nodes, strands,
+          and connectors. The browser is only drawing the graph, not deriving roster truth.
         </p>
         <dl class="stats">
-          <div><dt>Events</dt><dd>{graph.events.length}</dd></div>
-          <div><dt>Players</dt><dd>{graph.player_assets.length}</dd></div>
-          <div><dt>Picks</dt><dd>{graph.pick_assets.length}</dd></div>
-          <div><dt>Transitions</dt><dd>{graph.transitions.length}</dd></div>
+          <div><dt>Lanes</dt><dd>{graph.lanes.length}</dd></div>
+          <div><dt>Assets</dt><dd>{graph.assets.length}</dd></div>
+          <div><dt>Events</dt><dd>{graph.event_nodes.length}</dd></div>
+          <div><dt>Segments</dt><dd>{graph.strand_segments.length}</dd></div>
+          <div><dt>Connectors</dt><dd>{graph.event_connectors.length}</dd></div>
+          <div><dt>Span</dt><dd>{graph.render_span_start} → {graph.render_span_end}</dd></div>
         </dl>
       </section>
 
       <section class="graph-panel">
         <header class="graph-panel__header">
           <div>
-            <h2>Asset graph</h2>
-            <p>{graph.span_start} to {graph.span_end}</p>
+            <h2>Visualization export</h2>
+            <p>{graph.render_span_start} to {graph.render_span_end}</p>
           </div>
         </header>
 
@@ -121,44 +88,14 @@ function formatMonthAnchor(date: string) {
             width={layout.width}
             height={layout.height}
             role="img"
-            aria-label="Memphis asset lineage graph"
+            aria-label="Memphis asset lineage visualization graph"
           >
             <defs>
-              <marker
-                id="connector-arrow-in"
-                viewBox="0 0 8 8"
-                refX="7"
-                refY="4"
-                markerWidth="7"
-                markerHeight="7"
-                markerUnits="strokeWidth"
-                orient="auto"
-              >
-                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(17, 109, 103, 0.75)" />
+              <marker id="arrow-player" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" markerUnits="strokeWidth" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(17, 109, 103, 0.78)" />
               </marker>
-              <marker
-                id="connector-arrow-out"
-                viewBox="0 0 8 8"
-                refX="7"
-                refY="4"
-                markerWidth="7"
-                markerHeight="7"
-                markerUnits="strokeWidth"
-                orient="auto"
-              >
-                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(143, 34, 49, 0.78)" />
-              </marker>
-              <marker
-                id="connector-cap-waiver"
-                viewBox="0 0 10 10"
-                refX="5"
-                refY="5"
-                markerWidth="7"
-                markerHeight="7"
-                markerUnits="strokeWidth"
-                orient="auto"
-              >
-                <circle cx="5" cy="5" r="3.2" fill="var(--panel)" stroke="rgba(124, 107, 77, 0.82)" stroke-width="1.6" />
+              <marker id="arrow-pick" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" markerUnits="strokeWidth" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(154, 91, 31, 0.82)" />
               </marker>
             </defs>
 
@@ -166,31 +103,29 @@ function formatMonthAnchor(date: string) {
               {layout.rows.map((row) => (
                 <line x1="0" y1={row.y} x2={layout.width} y2={row.y} class:list={["grid-line", row.band === "pick" ? "grid-line--pick" : ""]} />
               ))}
-              <line x1="0" y1={layout.playerBandEndY + 16} x2={layout.width} y2={layout.playerBandEndY + 16} class="band-divider" />
+              <line x1="0" y1={layout.playerBandEndY + 10} x2={layout.width} y2={layout.playerBandEndY + 10} class="band-divider" />
             </g>
 
-            {layout.dateTicks && layout.dateTicks.length > 0 && (
-              <g class="date-ticks" aria-hidden="true">
-                {layout.dateTicks.map((tick) => (
-                  <>
-                    <line
-                      x1={tick.x}
-                      y1="25"
-                      x2={tick.x}
-                      y2="31"
-                      class:list={["date-tick", isMonthStartTick(tick.date) ? "date-tick--anchor" : ""]}
-                    />
-                    {isMonthStartTick(tick.date) && (
-                      <text x={tick.x} y="18" text-anchor="middle" class="date-label">
-                        {formatMonthAnchor(tick.date)}
-                      </text>
-                    )}
-                  </>
-                ))}
-              </g>
-            )}
+            <g class="ticks" aria-hidden="true">
+              {layout.dateTicks.map((tick) => (
+                <>
+                  <line x1={tick.x} y1="28" x2={tick.x} y2="34" class="date-tick" />
+                  <text x={tick.x} y="20" text-anchor="middle" class="date-label">
+                    {formatMonthAnchor(tick.date)}
+                  </text>
+                </>
+              ))}
+            </g>
 
-            <g class="asset-segments">
+            <g class="lane-labels">
+              {layout.rows.map((row) => (
+                <text x="16" y={row.y + 4} class:list={["lane-label", row.band === "pick" ? "lane-label--pick" : ""]}>
+                  {row.label}
+                </text>
+              ))}
+            </g>
+
+            <g class="segments">
               {layout.segments.map((segment) => (
                 <>
                   <line
@@ -198,14 +133,16 @@ function formatMonthAnchor(date: string) {
                     y1={segment.y}
                     x2={segment.x2}
                     y2={segment.y}
-                    class:list={["segment", segment.kind === "pick" ? "segment--pick" : "segment--player"]}
-                  />
+                    class:list={[
+                      "segment",
+                      `segment--${segment.assetKind}`,
+                      `segment-kind--${segment.segmentKind}`,
+                    ]}
+                  >
+                    <title>{segment.label}</title>
+                  </line>
                   {shouldRenderSegmentLabel(segment) && (
-                    <text
-                      x={segment.x1 + 6}
-                      y={segment.y - 7}
-                      class:list={["segment-label", segment.kind === "pick" ? "segment-label--pick" : "segment-label--player"]}
-                    >
+                    <text x={segment.x1 + 6} y={segment.y - 7} class:list={["segment-label", segment.assetKind === "pick" ? "segment-label--pick" : "segment-label--player"]}>
                       {segment.label}
                     </text>
                   )}
@@ -213,40 +150,26 @@ function formatMonthAnchor(date: string) {
               ))}
             </g>
 
-            <g class="slot-labels">
-              {layout.rows.map((row) => (
+            <g class="event-spines">
+              {layout.nodes.map((node) => (
                 <>
-                  <text x="14" y={row.y + 4} class:list={["slot-label", row.band === "pick" ? "slot-label--pick" : ""]}>
-                    {row.label}
-                  </text>
-                  <circle cx="58" cy={row.y} r="4.5" class:list={["slot-dot", row.band === "pick" ? "slot-dot--pick" : ""]} />
+                  <line x1={node.x} y1={node.minY} x2={node.x} y2={node.maxY} class:list={["event-spine", `event-spine--${node.eventType}`]} />
+                  <circle cx={node.x} cy={node.y} r="5.5" class:list={["event-node", `event-node--${node.eventType}`]}>
+                    <title>{nodeTitle(node)}</title>
+                  </circle>
                 </>
               ))}
             </g>
 
-            <g class="event-connectors">
-              {layout.eventPoints.map((event) => (
-                <line
-                  x1={event.x}
-                  y1={event.minY}
-                  x2={event.x}
-                  y2={event.maxY}
-                  class:list={["event-spine", `event-spine--${event.eventType}`]}
-                />
-              ))}
+            <g class="connectors">
               {layout.connectors.map((connector) => (
                 <path
-                  d={getConnectorPath(connector)}
-                  marker-end={getConnectorMarker(connector)}
+                  d={connectorPath(connector)}
+                  marker-end={connector.connectorKind === "lane_shift" ? undefined : connector.assetKind === "pick" ? "url(#arrow-pick)" : "url(#arrow-player)"}
                   class:list={[
                     "connector",
-                    isTerminationConnector(connector)
-                      ? "connector--termination"
-                      : connector.direction === "out"
-                        ? "connector--out"
-                        : connector.direction === "move"
-                          ? "connector--move"
-                          : "connector--in",
+                    `connector--${connector.connectorKind}`,
+                    connector.assetKind === "pick" ? "connector--pick" : "connector--player",
                   ]}
                 />
               ))}
@@ -329,7 +252,7 @@ function formatMonthAnchor(date: string) {
 
   .stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(100px, 1fr));
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
     gap: 12px;
     margin: 20px 0 0;
   }
@@ -350,20 +273,14 @@ function formatMonthAnchor(date: string) {
 
   .stats dd {
     margin: 8px 0 0;
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     font-weight: 700;
+    line-height: 1.2;
   }
 
   .graph-panel {
     margin-top: 18px;
     padding: 14px;
-  }
-
-  .graph-panel__header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
   }
 
   .graph-panel__header p {
@@ -375,7 +292,7 @@ function formatMonthAnchor(date: string) {
     margin-top: 12px;
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 120px);
+    height: min(72vh, 1100px);
     border: 1px solid var(--line);
     border-radius: 18px;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 242, 233, 0.98));
@@ -391,7 +308,7 @@ function formatMonthAnchor(date: string) {
   }
 
   .grid-line--pick {
-    stroke: rgba(154, 91, 31, 0.06);
+    stroke: rgba(154, 91, 31, 0.08);
   }
 
   .band-divider {
@@ -406,10 +323,6 @@ function formatMonthAnchor(date: string) {
     stroke-linecap: round;
   }
 
-  .date-tick--anchor {
-    stroke: rgba(16, 33, 43, 0.18);
-  }
-
   .date-label {
     fill: rgba(16, 33, 43, 0.72);
     font-size: 9px;
@@ -417,20 +330,43 @@ function formatMonthAnchor(date: string) {
     letter-spacing: 0.03em;
   }
 
+  .lane-label {
+    fill: rgba(16, 33, 43, 0.6);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .lane-label--pick {
+    fill: rgba(154, 91, 31, 0.86);
+  }
+
   .segment {
-    stroke: var(--player);
-    stroke-width: 4.5;
     stroke-linecap: round;
+  }
+
+  .segment--player {
+    stroke: var(--player);
+    stroke-width: 3.8;
   }
 
   .segment--pick {
     stroke: var(--pick);
-    stroke-width: 2.5;
-    stroke-dasharray: 7 5;
+    stroke-width: 2.1;
+    stroke-dasharray: 6 4;
+  }
+
+  .segment-kind--event_lead_in,
+  .segment-kind--event_settle_in,
+  .segment-kind--draft_conversion,
+  .segment-kind--termination {
+    opacity: 0.92;
+  }
+
+  .segment-kind--termination {
+    stroke: rgba(124, 107, 77, 0.86);
   }
 
   .segment-label {
-    fill: var(--ink);
     font-size: 9px;
   }
 
@@ -442,77 +378,76 @@ function formatMonthAnchor(date: string) {
     fill: var(--pick);
   }
 
-  .slot-label {
-    fill: rgba(16, 33, 43, 0.55);
-    font-size: 11px;
-    font-weight: 600;
+  .event-spine {
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    opacity: 0.42;
   }
 
-  .slot-label--pick {
-    fill: rgba(154, 91, 31, 0.8);
+  .event-spine--trade {
+    stroke: var(--event-trade);
   }
 
-  .slot-dot {
-    fill: var(--player);
+  .event-spine--signing {
+    stroke: var(--event-signing);
   }
 
-  .slot-dot--pick {
-    fill: var(--pick);
+  .event-spine--waiver {
+    stroke: var(--event-waiver);
+  }
+
+  .event-spine--draft {
+    stroke: var(--event-draft);
+  }
+
+  .event-node {
+    stroke: rgba(255, 255, 255, 0.86);
+    stroke-width: 1.2;
+  }
+
+  .event-node--trade {
+    fill: var(--event-trade);
+  }
+
+  .event-node--signing {
+    fill: var(--event-signing);
+  }
+
+  .event-node--waiver {
+    fill: var(--event-waiver);
+  }
+
+  .event-node--draft {
+    fill: var(--event-draft);
   }
 
   .connector {
     fill: none;
-    stroke-width: 2.25;
+    stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 
-  .connector--in {
-    stroke: rgba(17, 109, 103, 0.48);
+  .connector--player {
+    stroke: rgba(17, 109, 103, 0.44);
   }
 
-  .connector--out {
-    stroke: rgba(143, 34, 49, 0.5);
+  .connector--pick {
+    stroke: rgba(154, 91, 31, 0.42);
   }
 
   .connector--termination {
-    stroke: rgba(124, 107, 77, 0.62);
+    stroke: rgba(124, 107, 77, 0.68);
   }
 
-  .connector--move {
+  .connector--lane_shift {
     stroke: rgba(16, 33, 43, 0.22);
-    stroke-dasharray: 5 5;
-  }
-
-  .event-spine {
-    stroke-width: 2;
-    stroke-linecap: round;
-  }
-
-  .event-spine--trade {
-    stroke: rgba(143, 34, 49, 0.24);
-  }
-
-  .event-spine--signing {
-    stroke: rgba(32, 77, 141, 0.2);
-  }
-
-  .event-spine--waiver {
-    stroke: rgba(124, 107, 77, 0.2);
-  }
-
-  .event-spine--draft {
-    stroke: rgba(106, 59, 165, 0.2);
-  }
-
-  .event-label {
-    fill: var(--ink);
-    font-size: 9px;
+    stroke-dasharray: 4 4;
   }
 
   @media (max-width: 720px) {
     .stats {
-      grid-template-columns: repeat(2, minmax(100px, 1fr));
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
     }
   }
 </style>

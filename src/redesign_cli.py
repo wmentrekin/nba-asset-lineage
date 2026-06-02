@@ -95,6 +95,7 @@ from foundation.two_way_status import (
     load_two_way_status,
     preview_two_way_status,
 )
+from foundation.visualization_export import build_visualization_export
 from foundation.workbench import serialize_sample_workbench
 
 RESETTABLE_PROJECT_SCHEMAS = (
@@ -256,6 +257,11 @@ def parse_args() -> argparse.Namespace:
     subparsers.add_parser("load-foundation-canonical", help="Build and load canonical events, members, and transitions from the current foundation tables.")
     export_graph_parser = subparsers.add_parser("export-foundation-graph", help="Build the first graph-ready export from the current foundation tables.")
     export_graph_parser.add_argument("--output-path", default=None)
+    export_visualization_parser = subparsers.add_parser(
+        "export-visualization-graph",
+        help="Build the derived visualization export from the current foundation tables.",
+    )
+    export_visualization_parser.add_argument("--output-path", default=None)
     preview_bref_parser = subparsers.add_parser("preview-bref-source-events", help="Fetch and normalize one Basketball-Reference transactions season without writing to the database.")
     preview_bref_parser.add_argument("--team-code", default="MEM")
     preview_bref_parser.add_argument("--season-end-year", type=int, required=True)
@@ -420,7 +426,9 @@ def parse_args() -> argparse.Namespace:
     load_nba_roster_span_parser.add_argument("--end-season-end-year", type=int, default=2026)
     load_nba_roster_span_parser.add_argument("--request-delay", type=float, default=0.8)
     subparsers.add_parser("inspect-foundation-graph-baseline", help="Read-only graph baseline counts and checksum for checkpoint review.")
+    subparsers.add_parser("inspect-visualization-graph-baseline", help="Read-only visualization export counts and checksum for checkpoint review.")
     subparsers.add_parser("show-base-export", help="Print the current base export scaffold as JSON.")
+    subparsers.add_parser("show-visualization-export", help="Print the current visualization export scaffold as JSON.")
     subparsers.add_parser("show-source-plan", help="Print the current reset-era source plan as JSON.")
     subparsers.add_parser("run-normalization-workbench", help="Run the local normalization workbench over representative raw samples.")
     subparsers.add_parser("build-foundation-ingest-sample", help="Build sample ingest rows from the normalization workbench output.")
@@ -852,6 +860,24 @@ def main() -> None:
                 "conditional_pick_families": sum(len(snapshot.conditional_pick_families) for snapshot in export.roster_snapshots),
                 "draft_lottery_results": len(export.draft_lottery_results),
             }
+    elif args.command == "export-visualization-graph":
+        base_export = build_base_export_from_database(load_database_url())
+        export = build_visualization_export(base_export)
+        payload = export.model_dump(mode="json")
+        if args.output_path:
+            Path(args.output_path).write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+            payload = {
+                "status": "ok",
+                "output_path": args.output_path,
+                "lanes": len(export.lanes),
+                "assets": len(export.assets),
+                "occupancy_intervals": len(export.occupancy_intervals),
+                "event_nodes": len(export.event_nodes),
+                "strand_segments": len(export.strand_segments),
+                "event_connectors": len(export.event_connectors),
+                "conditional_pick_families": len(export.additive_context.conditional_pick_families),
+                "draft_lottery_results": len(export.additive_context.draft_lottery_results),
+            }
     elif args.command == "preview-bref-source-events":
         payload = preview_bref_source_events(team_code=args.team_code, season_end_year=args.season_end_year)
     elif args.command == "load-bref-source-events":
@@ -1002,8 +1028,31 @@ def main() -> None:
             },
             "graph_export_checksum_sha256": checksum,
         }
+    elif args.command == "inspect-visualization-graph-baseline":
+        export = build_visualization_export(build_base_export_from_database(load_database_url()))
+        export_payload = export.model_dump(mode="json")
+        checksum = hashlib.sha256(
+            json.dumps(export_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        payload = {
+            "status": "ok",
+            "writes_to_database": False,
+            "visualization_export_counts": {
+                "lanes": len(export.lanes),
+                "assets": len(export.assets),
+                "occupancy_intervals": len(export.occupancy_intervals),
+                "event_nodes": len(export.event_nodes),
+                "strand_segments": len(export.strand_segments),
+                "event_connectors": len(export.event_connectors),
+                "conditional_pick_families": len(export.additive_context.conditional_pick_families),
+                "draft_lottery_results": len(export.additive_context.draft_lottery_results),
+            },
+            "visualization_export_checksum_sha256": checksum,
+        }
     elif args.command == "show-base-export":
         payload = build_empty_base_export().model_dump(mode="json")
+    elif args.command == "show-visualization-export":
+        payload = build_visualization_export(build_empty_base_export()).model_dump(mode="json")
     elif args.command == "show-source-plan":
         payload = get_default_source_plan().model_dump(mode="json")
     elif args.command == "run-normalization-workbench":

@@ -1,0 +1,202 @@
+# Contract: durable execution plan created by $work when the selected mode needs explicit planning
+
+artifact: plan
+feature: "frontend/visualization-export-implementation"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/frontend/visualization-export-implementation/requirements.yaml"
+
+objective: "Implement a derived visualization export and migrate the Astro page to consume it, while keeping foundation truth and browser rendering responsibilities cleanly separated."
+
+approach:
+  summary: "Build a new visualization export path above the current foundation export, encode the new schema and algorithm server-side, expose it through a dedicated CLI/artifact path, then swap the frontend from browser-derived lane logic to rendering-only consumption of the new export."
+  key_decisions:
+    - "Keep `export-foundation-graph` as the lower-level truth surface and add a separate visualization export path."
+    - "Implement the visualization algorithm in a new foundation-layer module rather than folding it into `src/foundation/export.py`."
+    - "Generate a dedicated frontend artifact alongside the existing foundation artifact instead of mutating the old contract in place first."
+    - "Treat most of the current `frontend/src/lib/graph.ts` lane/layout logic as replaceable because it conflicts with the locked architecture."
+    - "Make invariant tests part of the primary implementation path rather than a later cleanup step."
+
+contracts:
+  interfaces:
+    - "Add a dedicated visualization-export command path, likely `export-visualization-graph`, parallel to `export-foundation-graph`."
+    - "Add a schema/empty-output inspection command for the visualization export, parallel to `show-base-export`."
+    - "Add a read-only visualization baseline/inspection command that reports counts and a checksum for the generated visualization export."
+    - "Frontend entrypoint should read a generated visualization artifact rather than `foundation-graph.json`."
+  schemas:
+    - "Encode the visualization export schema from docs/frontend/visualization-export-schema.md in Python and TypeScript."
+    - "Keep the base foundation export schema intact; do not silently repurpose `BaseGraphExport` into the visualization contract."
+    - "Use occupancy intervals, grouped event nodes, strand segments, and event connectors as first-class derived surfaces."
+  config_changes:
+    - "Generate a new artifact under `frontend/src/data/generated/`, recommended filename `visualization-graph.json`."
+    - "If needed, add a `mise` task for generating the visualization artifact before frontend verification."
+
+execution_batches:
+  - id: "B1"
+    goal: "Encode the visualization contract and exporter scaffolding."
+    tasks:
+      - id: "T1"
+        title: "Add Python-side visualization export models and builder scaffold"
+        objective: "Create the new visualization export contract in foundation code and establish the module boundary that will own the algorithm."
+        owned_scope:
+          - "src/foundation/models.py"
+          - "src/foundation/visualization_export.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies: []
+        parallelizable: false
+        expected_validation:
+          - "Focused Python model/builder tests"
+      - id: "T2"
+        title: "Add TypeScript visualization export types"
+        objective: "Mirror the new visualization export schema on the frontend so the Astro page can switch contracts cleanly later."
+        owned_scope:
+          - "frontend/src/lib/"
+          - "frontend/src/lib/*.test.ts"
+        forbidden_scope:
+          - "src/foundation/"
+        dependencies:
+          - "T1"
+        parallelizable: true
+        expected_validation:
+          - "Frontend type and unit tests"
+  - id: "B2"
+    goal: "Implement the visualization derivation algorithm and invariants."
+    tasks:
+      - id: "T3"
+        title: "Implement grouped event normalization, lane assignment, and occupancy intervals"
+        objective: "Build the server-side derivation for sacred slots, two-way isolation, overflow behavior, and pick-lane assignment."
+        owned_scope:
+          - "src/foundation/visualization_export.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "B1"
+        parallelizable: false
+        expected_validation:
+          - "Builder unit tests for slot/lane invariants"
+      - id: "T4"
+        title: "Implement event windows, strand segments, and connector derivation"
+        objective: "Build adaptive lead/settle windows and render-driving segment/connector surfaces from occupancy truth plus events/transitions."
+        owned_scope:
+          - "src/foundation/visualization_export.py"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/"
+        dependencies:
+          - "T3"
+        parallelizable: false
+        expected_validation:
+          - "Builder unit tests for event geometry and conversion behavior"
+  - id: "B3"
+    goal: "Expose the new export through the minimum command and artifact path."
+    tasks:
+      - id: "T5"
+        title: "Add minimal CLI command and artifact generation path"
+        objective: "Expose the visualization export as a generated artifact so it can be validated against real Memphis data before the frontend migrates."
+        owned_scope:
+          - "src/redesign_cli.py"
+          - "src/foundation/visualization_export.py"
+          - "frontend/src/data/generated/"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/src/pages/"
+        dependencies:
+          - "B2"
+        parallelizable: false
+        expected_validation:
+          - "CLI-focused tests"
+          - "Generated artifact smoke checks"
+  - id: "B4"
+    goal: "Validate the derived export on the real Memphis artifact."
+    tasks:
+      - id: "T6"
+        title: "Review the real generated Memphis artifact against truth goals"
+        objective: "Validate lane occupancy sanity, grouped-event output, pick-to-player handoff behavior, and traceability on the actual 10-year Memphis export before frontend migration."
+        owned_scope:
+          - "src/foundation/visualization_export.py"
+          - "frontend/src/data/generated/"
+          - "tests/foundation/"
+        forbidden_scope:
+          - "frontend/src/pages/"
+        dependencies:
+          - "B3"
+        parallelizable: false
+        expected_validation:
+          - "Artifact sanity review against the Memphis dataset"
+          - "Focused validation tests"
+          - "Visualization export baseline/checksum checks"
+  - id: "B5"
+    goal: "Migrate the frontend to the new derived export."
+    tasks:
+      - id: "T7"
+        title: "Replace browser-side lane derivation with visualization-export consumption"
+        objective: "Switch the Astro page and supporting TS modules from raw graph export + client derivation to direct rendering of the derived visualization contract."
+        owned_scope:
+          - "frontend/src/pages/index.astro"
+          - "frontend/src/lib/"
+          - "frontend/src/data/generated/"
+          - "frontend/src/lib/*.test.ts"
+        forbidden_scope:
+          - "src/foundation/"
+        dependencies:
+          - "B4"
+        parallelizable: false
+        expected_validation:
+          - "Frontend unit tests"
+          - "Frontend build"
+  - id: "B6"
+    goal: "Sync docs, polish command surface, and complete verification."
+    tasks:
+      - id: "T8"
+        title: "Update docs, optional task surface, and complete verification"
+        objective: "Document the new export path, add any worthwhile task-surface polish, and run end-to-end verification."
+        owned_scope:
+          - "docs/frontend/"
+          - "docs/foundation/full-span-load-notes.md"
+          - "docs/frontend/visualization-export-implementation/implementation-report.yaml"
+          - "mise.toml"
+          - "README.md"
+        forbidden_scope:
+          - "legacy/"
+        dependencies:
+          - "B5"
+        parallelizable: false
+        expected_validation:
+          - "pytest"
+          - "frontend tests"
+          - "frontend build"
+          - "visualization export CLI checks"
+
+ordering_notes:
+  - "Keep the visualization export additive until the frontend is fully migrated."
+  - "Do not let frontend rendering depend on partial or unstable visualization-export fields."
+  - "If temporary-overflow classification needs a pragmatic v1 rule, encode it explicitly in the builder and tests rather than leaving it implicit."
+  - "Preserve direct traceability from visualization assets/nodes back to foundation ids."
+  - "Do not expand the command/task surface beyond the minimum needed until the real Memphis artifact has been reviewed."
+
+risks:
+  - "Temporary-overflow classification is still a product-locked but implementation-open area and may need a narrow v1 classifier."
+  - "Same-day event grouping may drift from current canonical grouping if not defined carefully."
+  - "Pick continuity and draft conversion can create duplicate presence bugs if the builder emits both continuity and conversion surfaces incorrectly."
+  - "Frontend migration may carry over too much of the old browser-side derivation if the module boundaries are not cleaned up early."
+  - "A large generated artifact may expose performance issues in the current SVG rendering approach once the new contract is in use."
+
+open_questions:
+  - "Use `export-visualization-graph` as the dedicated command name, or prefer a different naming convention?"
+  - "Should the first generated artifact be `frontend/src/data/generated/visualization-graph.json`?"
+  - "Should v1 keep any reusable date-scaling or path-generation helpers from the current frontend graph module, or should the module be split more aggressively?"
+
+review:
+  status: revised_once
+  loop_count: 1
+  notes:
+    - "Plan critique found one missing batch: explicit validation of the generated Memphis artifact against truth goals before frontend migration."
+    - "The plan now narrows the early command surface and inserts a real-artifact review batch before the frontend swap."
+
+checkpoint:
+  required_before_execution: true
+  status: pending

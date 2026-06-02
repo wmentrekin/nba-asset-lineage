@@ -54,6 +54,28 @@ Current graph export counts:
 - `conditional_pick_families`: 7
 - `draft_lottery_results`: 5
 
+Current visualization export counts:
+
+- `lanes`: 172
+- `assets`: 366
+- `occupancy_intervals`: 1820
+- `event_nodes`: 407
+- `strand_segments`: 2146
+- `event_connectors`: 963
+- `conditional_pick_families`: 2
+- `draft_lottery_results`: 5
+
+Visualization export commands:
+
+```bash
+./.venv/bin/python -m redesign_cli show-visualization-export
+./.venv/bin/python -m redesign_cli export-visualization-graph --output-path frontend/src/data/generated/visualization-graph.json
+./.venv/bin/python -m redesign_cli inspect-visualization-graph-baseline
+```
+
+These are read-only on the data side. The export command only writes the local
+artifact file you request.
+
 Audit command:
 
 ```bash
@@ -117,6 +139,8 @@ The current live baseline after the pick backlog closeout is:
   `draft_lottery_results=5`
 - graph export checksum
   `0f8d8cb5a30fb853ad91b2556b4539a4fdc22e1db1a28dbb8487984c1646e737`
+- visualization export checksum
+  `b5792a92d2282550585c154b9cdf85f0674cc4b64c90262921141a6dae616f88`
 
 The live audit now reports loaded source systems `basketball_reference`,
 `curated_fixture`, `nba_official`, `nba_player_movement`, and `team_official`,

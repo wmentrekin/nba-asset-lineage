@@ -1,0 +1,91 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "frontend/visualization-export-implementation"
+mode: "large-initiative"
+stage: "verification"
+owner_skill: work
+
+objective: "Plan and execute the first truthful visualization-export implementation so the Astro page renders from a derived visualization contract instead of the old graph scaffold."
+
+summary:
+  current_focus: "Sync the final implementation docs after completing backend derivation, live artifact validation, and the Astro migration."
+  last_completed: "Completed and validated B1 through B5: schema/types, derivation algorithm, CLI/artifact path, live Memphis validation, and frontend migration."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/frontend/visualization-export-implementation/requirements.yaml"
+  plan: "docs/frontend/visualization-export-implementation/plan.yaml"
+  implementation_report: "docs/frontend/visualization-export-implementation/implementation-report.yaml"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "verification"
+    task: "Coordinate final verification, artifact validation, and doc sync."
+    last_update: "Backend derivation and frontend migration are both passing local validation, and the live Memphis visualization artifact baseline is recorded."
+    blocker: ""
+  - id: "019e865f-8cee-7c91-9ce5-25260dbe925a"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect backend integration points for the derived visualization export."
+    last_update: "Recommended a new foundation-layer visualization export builder adjacent to export.py, keeping the current base export as the lower-level truth surface."
+    blocker: ""
+  - id: "019e865f-ad1f-7611-ae3e-f772441c789e"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect frontend graph/render migration points."
+    last_update: "Confirmed the current frontend derives lane truth client-side and should replace most of frontend/src/lib/graph.ts rather than adapting it incrementally."
+    blocker: ""
+  - id: "019e865f-c66a-7581-bb78-4b43508a4969"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Inspect command/test surface and recommend implementation batches."
+    last_update: "Recommended additive command surface, builder-focused test coverage, and a batch order that separates builder work from frontend migration."
+    blocker: ""
+  - id: "019e8662-b154-7992-9dcf-e45c6431e77a"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Critique the draft execution plan before the user checkpoint."
+    last_update: "Identified one missing batch: explicit validation of the real 10-year Memphis artifact before frontend migration."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 1
+    max: 2
+  execution_verification:
+    count: 1
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: satisfied
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "Treat this pass as a large initiative because it spans exporter models, builder logic, tests, command surface, and frontend migration."
+  - "Use docs/frontend/visualization-implementation-brief.md as the primary implementation source of truth."
+  - "Keep export-foundation-graph as the lower-level truth surface and add a separate derived visualization export path."
+  - "Keep Batch 1 additive and non-invasive: schema/types first, derivation logic second."
+  - "Validate the live Memphis artifact before the Astro swap so frontend work only lands on top of a real derived export."
+  - "Treat transient player continuity without daily roster coverage as synthetic visualization-only overflow presence instead of inventing false main-roster occupancy."
+
+next_action: "Review the generated static page visually and decide whether to refine the renderer or the export tuning next."
+next_recommended_command: "$work"
+user_input_needed: false

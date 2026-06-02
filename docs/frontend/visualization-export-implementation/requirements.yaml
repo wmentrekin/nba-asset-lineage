@@ -1,0 +1,102 @@
+# Contract: durable task-definition handoff created by $work when the selected mode needs explicit requirements
+
+artifact: requirements
+feature: "frontend/visualization-export-implementation"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "The repo now has a stronger foundation data layer than the active frontend can consume. The Astro page is still wired to the old graph scaffold, computes lane behavior client-side, and does not consume the richer continuity surfaces now available in the foundation export."
+  motivation: "The eventual visualization requires deterministic slot ownership, grouped transaction clarity, and render-ready continuity truth. That cannot be trusted to ad hoc frontend layout code."
+  requested_outcome: "Implement a derived visualization export and migrate the frontend to render from that contract, using the locked visualization model, schema, and algorithm docs as the source of truth."
+
+goals:
+  - "Create Python-side models for the derived visualization export."
+  - "Implement a server-side builder that transforms foundation truth into the derived visualization export."
+  - "Keep lane assignment, slot reflow, and event staging server-side and deterministic."
+  - "Update the Astro page and TypeScript types to consume the new visualization export instead of the old graph scaffold."
+  - "Add invariant tests that protect the visual-truth rules."
+  - "Keep the implementation aligned with the frontend brief and avoid reintroducing narrative or editorial systems."
+
+non_goals:
+  - "Do not add editorial overlays, chapters, minimaps, or narrative annotation systems."
+  - "Do not build a general hypothetical conditional-branch visualization engine."
+  - "Do not expand lottery into graph-state-changing events or transitions."
+  - "Do not reopen the data foundation or ingestion model unless implementation finds a concrete blocker."
+  - "Do not leave the frontend deriving slot/lane truth from raw foundation surfaces."
+
+constraints:
+  technical:
+    - "The derived export must remain traceable back to current foundation truth."
+    - "The existing base graph canonical counts should remain stable."
+    - "The frontend should consume a generated artifact rather than deriving visual truth at runtime."
+    - "The implementation should fit the current reset-era Astro + Python architecture."
+    - "Tests must cover invariants around sacred slots, grouped events, and pick conversions."
+  product:
+    - "Main roster slots are `1-15`, two-way slots are `16-18`, and temporary overflow is a separate lower band."
+    - "Time remains strictly linear by day and visually compact."
+    - "Grouped same-day actions should resolve to one node where appropriate."
+    - "Picks appear when they are tradeable and Memphis-relevant."
+  process:
+    - "This is a large-initiative `$work` pass and must stop for the pre-execution checkpoint before implementation."
+    - "Subagents should handle bounded research, review, implementation, and verification slices where possible."
+    - "The implementation should use the frontend docs package as the primary contract."
+
+assumptions:
+  - "The current foundation export already contains enough truth to build the first visualization export without further ingestion work."
+  - "The existing frontend graph scaffold can be partially reused for rendering primitives, but not for truth derivation."
+  - "The initial derived visualization export can coexist with the current foundation export rather than replacing it."
+  - "Additive pick context may exist in the visualization export without driving the first rendered version."
+
+repo_context:
+  relevant_paths:
+    - "docs/frontend/visualization-implementation-brief.md"
+    - "docs/frontend/visualization-model.md"
+    - "docs/frontend/visualization-export-schema.md"
+    - "docs/frontend/visualization-algorithm-spec.md"
+    - "src/foundation/models.py"
+    - "src/foundation/export.py"
+    - "src/redesign_cli.py"
+    - "frontend/src/pages/index.astro"
+    - "frontend/src/lib/graph.ts"
+    - "frontend/src/lib/graph.test.ts"
+    - "frontend/src/data/generated/foundation-graph.json"
+  systems_in_scope:
+    - "Python-side derived visualization export models"
+    - "Server-side visualization export builder"
+    - "CLI/export command surface"
+    - "Frontend TypeScript schema and Astro renderer"
+    - "Invariant and regression test coverage"
+  prior_artifacts:
+    - "docs/frontend/README.md"
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
+
+research:
+  repo_findings:
+    - "The current Astro page imports `frontend/src/data/generated/foundation-graph.json` and renders against `frontend/src/lib/graph.ts`, which still expects the old `GraphExport` shape."
+    - "The current frontend graph layer computes lane behavior, row assignment, and connector shapes client-side, which conflicts with the locked derived-export architecture."
+    - "The current generated frontend JSON on disk does not expose the richer additive surfaces now present in the live foundation export."
+    - "The backend already has a graph-facing export builder in `src/foundation/export.py`, making it the likely starting integration point for a derived visualization export path."
+    - "The cleanest backend seam is additive: keep `build_base_export_from_database()` as the lower-level truth boundary and add a separate visualization export builder rather than folding the visualization algorithm into the current DB query layer."
+    - "The current frontend `graph.ts` file combines schema definitions with browser-side truth derivation, so most of that module should be replaced or split rather than adapted incrementally."
+    - "The current CLI/test surface only exposes the foundation export path, so the visualization pass likely needs a parallel export command, a baseline/inspection command, and new builder-focused test coverage."
+  platform_findings: []
+
+acceptance_criteria:
+  - "A derived visualization export schema is encoded in Python and TypeScript."
+  - "A server-side builder emits the derived visualization export from current foundation truth."
+  - "The builder enforces the locked invariants around player slots, two-way slots, overflow handling, grouped events, and draft conversion."
+  - "The Astro page renders from the derived visualization export rather than the old graph scaffold."
+  - "The old client-side lane-truth derivation path is removed or bypassed."
+  - "Tests cover the new builder behavior and the frontend contract."
+  - "Docs describe the new export path and any updated command surface."
+
+open_questions:
+  - "Whether the first implementation should add a dedicated visualization-export CLI command or extend the existing foundation export command surface."
+  - "Whether the frontend should keep any reusable geometry helpers from `frontend/src/lib/graph.ts` or replace that module wholesale."
+  - "Whether the first generated artifact should live beside `foundation-graph.json` or replace it."
+
+ready_for_planning: true
+planning_blockers: []
