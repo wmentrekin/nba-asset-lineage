@@ -1,0 +1,28 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "verification-correction-1"
+task_id: "V1"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Resolve reviewer P1 findings: make restricted refresh artifact creation usable from a normal repository root, reject reordered/missing/duplicate runner plans before any write, and implement the approved CLI surface or truthfully narrow only unsupported commands."
+why_this_matters: "The current branch is not safe to approve: operational artifacts cannot be created, runner ordering is not enforced before mutation, and documentation/plan claims a CLI surface that is not present."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/foundation/refresh_mutations.py", "src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/redesign_cli.py", "README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_redesign_cli.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/foundation/refresh_mutations.py", "src/foundation/refresh_projection.py", "src/redesign_cli.py", "README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_redesign_cli.py"]
+  forbidden: ["Live database access", "Live network access", "Generic SQL/table/path inputs", "SQL migrations", "Actual capture/snapshot/run/restore", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Normal repo root and repo tmp/ may be non-private; securely create/validate only the newly created restricted tmp/<refresh-id> operational leaf and never weaken no-follow/mode checks for artifacts."
+  - "Represent runner plans with closed step identity plus plan; reject any reordered, duplicate, missing, or extra step before acquiring a write-capable transaction or applying any plan."
+  - "The approved plan explicitly names preview-refresh-projection, capture-foundation-refresh-snapshot, run-approved-foundation-refresh, and restore-foundation-refresh-snapshot. Wire safe command adapters with required explicit guards and fake-only tests, or if a named command cannot truthfully be implemented without an unapproved architecture decision, stop and escalate rather than silently rewriting the plan."
+  - "Preserve no-live-system test boundary; add regression tests reproducing each reviewer P1."
+success_criteria: ["Normal repo-root artifact creation produces a 0700 refresh leaf safely", "Runner rejects reordering/duplicate/missing/extra plans before transaction/write", "Every plan-named CLI command is either safely implemented and help-tested or explicitly escalated", "Reviewer P1 regression tests pass with fakes only"]
+validation_expected: ["P1 regression tests", "Focused safety/mutation/CLI suites", "CLI --help smoke checks", "No live access"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["A plan-named CLI command requires a new unapproved execution architecture", "Safe CLI wiring would require live access or generic SQL", "A P1 cannot be reproduced/fixed with the closed contracts"]

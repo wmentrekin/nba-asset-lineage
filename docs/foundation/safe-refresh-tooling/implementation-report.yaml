@@ -3,13 +3,13 @@
 artifact: implementation_report
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-status: ready_for_verification
+status: in_progress
 owner_skill: work
 based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
   scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, and B4/T11 documentation: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, and truthful operator safety guidance."
-  outcome: "The core safety feature is implemented and its offline validation ladder is complete. PR reviewer/tester verification remains; frontend test/check/build is explicitly dependency-blocked in this environment."
+  outcome: "Offline validation passed, but PR review found three P1 readiness defects: artifact-root permission handling, unbound runner plan ordering, and the planned CLI surface not being wired. Correction loop 1/2 is prepared but paused by user direction while GitHub API availability is unreliable; frontend test/check/build remains dependency-blocked in this environment."
 
 task_batches_attempted: ["B1", "B2", "B3", "B4"]
 task_batches_completed: ["B1", "B2", "B3", "B4"]
@@ -82,8 +82,11 @@ local_validation:
     - "mise run frontend_test/check/build was not run because this repo-local mise.toml is untrusted in the current environment; direct frontend commands confirmed the same missing-dependency limitation."
 
 review_summary:
-  status: not_started
-  key_findings: []
+  status: changes_requested
+  key_findings:
+    - "Artifact creation rejects normal repository/tmp permissions before creating a private refresh leaf."
+    - "Runner accepts unlabeled/reordered plan tuples before any write, violating fixed-order safety."
+    - "Plan-required projection/snapshot/runner/restore CLI surface is not fully wired."
 
 test_summary:
   status: partial
@@ -94,10 +97,11 @@ test_summary:
   failures: []
   gaps:
     - "Frontend dependencies are not installed locally, so frontend test/check/build require a dependency-installing verification environment."
+    - "Python suite was green but did not cover the reviewer-reported P1 artifact/runner scenarios; correction tests are required."
 
 open_issues: []
 
 handoff:
-  current_state: ready_for_verification
-  next_owner: "reviewer/tester"
-  next_action: "Push the complete execution batch to draft PR #2; conduct review/testing and rerun frontend validation in a dependency-ready environment."
+  current_state: paused
+  next_owner: "data-engineer"
+  next_action: "When GitHub is available, run correction loop 1/2: fix artifact creation, bind runner plans to step order before writes, and implement or correctly constrain the planned CLI surface."

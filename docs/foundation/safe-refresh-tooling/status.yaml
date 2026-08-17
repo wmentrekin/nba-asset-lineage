@@ -3,15 +3,15 @@
 artifact: status
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-stage: "verification"
+stage: "execution"
 owner_skill: work
 
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Push completed execution work to draft PR #2 and run reviewer/tester verification."
+  current_focus: "Paused at user direction while GitHub API availability is restored; next is verification correction loop 1/2."
   last_completed: "Completed B4/T11: operator documentation, 75 focused tests, full offline foundation suite, and CLI help checks passed."
-  current_blocker: ""
+  current_blocker: "Frontend test/check/build remains dependency-blocked locally; reviewer also found three P1 readiness issues."
 
 artifacts:
   requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
@@ -29,8 +29,8 @@ agents:
     model_guidance: "xhigh"
     status: "active"
     stage: "verification"
-    task: "Push the complete execution batch and coordinate PR review/testing."
-    last_update: "T11 completed; transitioning to draft-PR verification."
+    task: "Pause after PR review evidence; resume bounded correction loop 1/2 when GitHub is available."
+    last_update: "User paused work because GitHub API availability is unreliable."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -136,13 +136,21 @@ agents:
     task: "Document the tooling surface and execute the full local validation ladder."
     last_update: "Documentation, 75 focused tests, full offline foundation suite, and CLI help checks completed."
     blocker: ""
+  - id: "safe_tooling_v1"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "queued"
+    stage: "verification"
+    task: "Fix reviewer P1 artifact, runner-order, and CLI-surface findings before a second PR verification pass."
+    last_update: "Handoff prepared but not launched; user paused for GitHub availability."
+    blocker: ""
 
 loops:
   planning_review:
     count: 2
     max: 2
   execution_verification:
-    count: 0
+    count: 1
     max: 2
 
 checkpoint:
@@ -156,6 +164,6 @@ decisions:
   - "The parent offseason refresh remains blocked until this tooling is implemented and verified."
   - "Final planning review approved the plan after two cycles."
 
-next_action: "Push the completed execution update to draft PR #2, then run reviewer and tester verification; frontend checks remain dependency-blocked locally."
+next_action: "Wait for GitHub availability, then launch correction loop 1/2 and rerun PR verification; frontend checks remain dependency-blocked locally."
 next_recommended_command: "$work"
 user_input_needed: false
