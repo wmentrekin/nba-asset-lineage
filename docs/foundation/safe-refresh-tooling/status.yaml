@@ -19,9 +19,9 @@ artifacts:
   implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
 
 pr:
-  number: null
-  url: null
-  status: "not_opened"
+  number: 2
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/2"
+  status: "draft"
 
 agents:
   - id: "orchestrator"
