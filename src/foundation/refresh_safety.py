@@ -618,11 +618,17 @@ def validate_refresh_repository_root(repo_root: Path) -> Path:
     # checkout top-level without a shell, then require it to be exactly the
     # caller's non-symlink directory.  This admits a legitimate worktree only
     # when Git proves that the requested directory is its worktree root.
+    git_environment = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in {"GIT_DIR", "GIT_WORK_TREE"}
+    }
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
         cwd=root,
         check=False,
         capture_output=True,
+        env=git_environment,
     )
     if result.returncode:
         raise RefreshSafetyError("Refresh repository root is not an authentic Git checkout")

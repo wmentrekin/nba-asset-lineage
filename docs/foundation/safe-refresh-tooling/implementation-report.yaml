@@ -3,13 +3,13 @@
 artifact: implementation_report
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-status: in_progress
+status: ready_for_review
 owner_skill: work
 based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
   scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, B4/T11, and B5/T12–T14: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, sealed request/plan/report artifacts, and truthful operator guidance."
-  outcome: "V4 requires the supplied root to resolve as the exact authentic Git checkout top-level before snapshot-capture artifact creation or DB lookup. Empty/malformed Git metadata rejects; artifact-chain fixtures now initialize local real Git checkouts. Full offline foundation validation passes."
+  outcome: "The final Git-environment extension strips inherited GIT_DIR/GIT_WORK_TREE from the authenticity probe and rejects contaminated forged roots before side effects. Targeted and full offline foundation validation pass; frontend validation remains dependency-blocked."
 
 task_batches_attempted: ["B1", "B2", "B3", "B4", "B5"]
 task_batches_completed: ["B1", "B2", "B3", "B4", "B5"]
@@ -109,6 +109,6 @@ test_summary:
 open_issues: []
 
 handoff:
-  current_state: ready_for_targeted_verification
-  next_owner: "reviewer/tester"
-  next_action: "Push V4 and verify authentic Git-checkout rejection before snapshot-capture side effects."
+  current_state: ready_for_review
+  next_owner: "user"
+  next_action: "Review draft PR #2. After review/merge, conduct the live non-mutating baseline/source-capture/projection pass before any write approval."

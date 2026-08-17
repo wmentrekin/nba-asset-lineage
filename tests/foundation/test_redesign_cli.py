@@ -231,6 +231,52 @@ def test_snapshot_capture_valid_repo_boundary_reaches_fake_connection(
     assert json.loads(capsys.readouterr().out)["status"] == "captured"
 
 
+def test_snapshot_capture_rejects_contaminated_git_environment_before_database_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_root = tmp_path / "forged-repo"
+    repo_root.mkdir(mode=0o755)
+    (repo_root / ".git").mkdir()
+    observed_environments: list[dict[str, str]] = []
+
+    class FailedGitProbe:
+        returncode = 128
+        stdout = b""
+
+    def fake_git_probe(*_args: object, **kwargs: object) -> FailedGitProbe:
+        observed_environments.append(kwargs["env"])
+        return FailedGitProbe()
+
+    monkeypatch.setenv("GIT_DIR", "/attacker-controlled/git-dir")
+    monkeypatch.setenv("GIT_WORK_TREE", "/attacker-controlled/work-tree")
+    monkeypatch.setattr(refresh_safety.subprocess, "run", fake_git_probe)
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("Git probe must precede database lookup"))
+    monkeypatch.setattr(
+        redesign_cli.psycopg,
+        "connect",
+        lambda *_args, **_kwargs: pytest.fail("Git probe must precede connection"),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "redesign_cli.py",
+            "capture-foundation-refresh-snapshot",
+            "--repo-root",
+            str(repo_root),
+            "--refresh-id",
+            "refresh-2026-08-17",
+            "--execute",
+        ],
+    )
+
+    with pytest.raises(Exception, match="authentic Git checkout"):
+        redesign_cli.main()
+    assert observed_environments
+    assert "GIT_DIR" not in observed_environments[0]
+    assert "GIT_WORK_TREE" not in observed_environments[0]
+
+
 @pytest.mark.parametrize(
     "command",
     [

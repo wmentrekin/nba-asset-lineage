@@ -9,9 +9,9 @@ owner_skill: work
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Push V4 and run the final authentic-checkout boundary verification."
-  last_completed: "Completed V4: authentic Git top-level proof and real-checkout test fixtures passed the full offline foundation suite."
-  current_blocker: "Frontend test/check/build remains dependency-blocked locally."
+  current_focus: "Final verification complete; PR #2 is ready for user review."
+  last_completed: "Completed final Git-environment boundary fix: sanitized authenticity probe and contaminated-root regression passed full offline validation."
+  current_blocker: "Frontend test/check/build remains dependency-blocked locally because frontend/node_modules is absent."
 
 artifacts:
   requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
@@ -29,8 +29,8 @@ agents:
     model_guidance: "xhigh"
     status: "active"
     stage: "verification"
-    task: "Push V4 and coordinate final authentic-checkout boundary verification."
-    last_update: "V4 focused and full offline foundation tests passed."
+    task: "Hand off PR #2 as ready for user review."
+    last_update: "58 targeted tests and the full offline foundation suite passed after Git-env sanitization."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -245,6 +245,6 @@ decisions:
   - "Final planning review approved the plan after two cycles."
   - "User approved expanding the plan with B5's sealed request/plan artifact chain after verification exposed the CLI-surface gap."
 
-next_action: "Push V4 to draft PR #2 and run final targeted authentic-checkout boundary verification."
+next_action: "User reviews draft PR #2; live refresh remains blocked until PR review/merge and explicit refresh approval."
 next_recommended_command: "$work"
 user_input_needed: false
