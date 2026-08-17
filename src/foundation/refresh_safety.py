@@ -15,23 +15,65 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence
+import platform
+import subprocess
+import sys
+from typing import Any, Callable, Mapping, Protocol, Sequence
 import re
 import stat
 import uuid
+from importlib.metadata import PackageNotFoundError, version
 
-from foundation.foundation_table_manifest import FOUNDATION_TABLES, foundation_schema_contract
+from foundation.foundation_table_manifest import (
+    DELETE_ORDER,
+    FOUNDATION_TABLES,
+    RESTORE_INSERT_ORDER,
+    TABLE_BY_NAME,
+    foundation_schema_contract,
+)
+from foundation.refresh_mutations import FoundationMutationPlan, execute_plan
+from foundation.refresh_projection import APPROVED_PROJECTION_ORDER
 
 
 REFRESH_SNAPSHOT_SCHEMA_VERSION = "foundation_refresh_snapshot_v1"
+REFRESH_APPROVAL_SCHEMA_VERSION = "refresh_approval_v1"
+REFRESH_EXECUTION_STATE_SCHEMA_VERSION = "refresh_execution_state_v1"
 SNAPSHOT_FILE_NAME = "foundation-snapshot.json"
+APPROVAL_FILE_NAME = "refresh-approval.json"
+EXECUTION_STATE_FILE_NAME = "refresh-execution-state.json"
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _REFRESH_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
 _DATABASE_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
 
+# This is deliberately explicit rather than an open-ended map.  A reviewed
+# approval may not gain authority merely because a future caller adds a field.
+APPROVAL_FINGERPRINT_FIELDS = (
+    "baseline_digest",
+    "payload_digest",
+    "fixture_digest",
+    "projection_digest",
+    "reconciliation_digest",
+    "snapshot_digest",
+    "table_fingerprint",
+    "schema_fingerprint",
+    "database_fingerprint",
+    "plan_fingerprint",
+    "implementation_fingerprint",
+    "environment_fingerprint",
+    "dirty_tree_fingerprint",
+)
+APPROVAL_ACTIONS = frozenset({"execute_refresh", "restore_snapshot"})
+EXECUTION_STATUSES = frozenset({"pending", "running", "failed", "needs_restore", "completed"})
+RUNNER_STEP_NAMES = APPROVED_PROJECTION_ORDER
+RUNNER_PREFIX_KEYS = ("baseline", *(f"prefix-{index:02d}" for index in range(1, len(RUNNER_STEP_NAMES) + 1)))
+
 
 class RefreshSafetyError(ValueError):
     """Raised when a safety artifact or read-only snapshot is unsafe."""
+
+
+class RefreshExecutionError(RefreshSafetyError):
+    """Raised when an approved refresh cannot safely proceed or resume."""
 
 
 class SnapshotCursor(Protocol):
@@ -50,6 +92,14 @@ class SnapshotConnection(Protocol):
     def rollback(self) -> None: ...
 
 
+class RestoreConnection(Protocol):
+    """Closed restore connection surface; table names never come from callers."""
+
+    def cursor(self) -> SnapshotCursor: ...
+
+    def transaction(self) -> Any: ...
+
+
 @dataclass(frozen=True)
 class FoundationSnapshot:
     """An in-memory exact preimage of the closed 21-table foundation surface."""
@@ -61,6 +111,319 @@ class FoundationSnapshot:
     @property
     def digest(self) -> str:
         return canonical_safety_digest("foundation-snapshot", snapshot_payload(self, include_digest=False))
+
+
+@dataclass(frozen=True)
+class RefreshApproval:
+    """A human-recorded, closed approval for exactly one destructive action."""
+
+    action: str
+    approved_by: str
+    user_go_reference: str
+    fingerprints: Mapping[str, str]
+    prefix_fingerprints: Mapping[str, str]
+
+    @property
+    def digest(self) -> str:
+        return canonical_safety_digest("refresh-approval", refresh_approval_payload(self, include_digest=False))
+
+
+@dataclass(frozen=True)
+class RefreshExecutionState:
+    """Closed, monotonic local record of one approved forward refresh."""
+
+    approval_digest: str
+    sequence: int
+    status: str
+    step_index: int
+    receipts: tuple[Mapping[str, object], ...] = ()
+
+
+@dataclass(frozen=True)
+class ApprovedRefreshPlans:
+    """Exactly one immutable plan for each non-optional approved runner step."""
+
+    plans: tuple[FoundationMutationPlan, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.plans) != len(RUNNER_STEP_NAMES):
+            raise RefreshExecutionError("Approved refresh requires every fixed runner step exactly once")
+
+
+def refresh_approval_payload(approval: RefreshApproval, *, include_digest: bool = True) -> dict[str, object]:
+    """Serialize a closed approval without ever manufacturing user consent."""
+
+    _validate_refresh_approval(approval)
+    payload: dict[str, object] = {
+        "schema_version": REFRESH_APPROVAL_SCHEMA_VERSION,
+        "action": approval.action,
+        "approved_by": approval.approved_by,
+        "user_go_reference": approval.user_go_reference,
+        "fingerprints": {field: approval.fingerprints[field] for field in APPROVAL_FINGERPRINT_FIELDS},
+        "prefix_fingerprints": dict(sorted(approval.prefix_fingerprints.items())),
+    }
+    if include_digest:
+        payload["approval_sha256"] = canonical_safety_digest("refresh-approval", payload)
+    return payload
+
+
+def write_refresh_approval(artifact_directory: Path, approval: RefreshApproval) -> Path:
+    """Persist a caller-supplied approval once; this function cannot create one."""
+
+    _validate_private_directory(artifact_directory)
+    target = artifact_directory / APPROVAL_FILE_NAME
+    if target.exists() or target.is_symlink():
+        raise RefreshSafetyError("Refusing to overwrite an existing refresh approval")
+    _write_exclusive_atomic(target, _canonical_artifact_bytes(refresh_approval_payload(approval)))
+    return target
+
+
+def load_refresh_approval(path: Path, *, expected_digest: str | None = None) -> RefreshApproval:
+    if path.name != APPROVAL_FILE_NAME or path.is_symlink() or not path.is_file():
+        raise RefreshSafetyError("Refresh approval path is unsafe")
+    _validate_private_directory(path.parent)
+    info = path.lstat()
+    if info.st_mode & 0o077 or info.st_nlink != 1:
+        raise RefreshSafetyError("Refresh approval mode or link count is unsafe")
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RefreshSafetyError("Refresh approval is not valid UTF-8 JSON") from error
+    if raw != _canonical_artifact_bytes(payload):
+        raise RefreshSafetyError("Refresh approval is not canonically encoded")
+    approval = _approval_from_payload(payload)
+    if payload.get("approval_sha256") != approval.digest or (expected_digest is not None and expected_digest != approval.digest):
+        raise RefreshSafetyError("Refresh approval digest does not match expected immutable payload")
+    return approval
+
+
+def parse_refresh_approval_payload(payload: object) -> RefreshApproval:
+    """Validate a user-supplied closed approval payload without recording it."""
+
+    approval = _approval_from_payload(payload)
+    if not isinstance(payload, Mapping) or payload.get("approval_sha256") != approval.digest:
+        raise RefreshSafetyError("Refresh approval digest does not match immutable payload")
+    return approval
+
+
+def preflight_refresh_approval(
+    approval: RefreshApproval,
+    *,
+    action: str,
+    current_fingerprints: Mapping[str, str],
+    current_prefix_fingerprints: Mapping[str, str],
+) -> RefreshApproval:
+    """Validate every approval binding before a caller opens a write connection.
+
+    This pure function is the only T8 preflight seam.  Future runner and
+    restore code must call it before acquiring any write-capable resource.
+    """
+
+    _validate_refresh_approval(approval)
+    if action not in APPROVAL_ACTIONS or approval.action != action:
+        raise RefreshSafetyError("Refresh approval action does not authorize this operation")
+    _validate_fingerprint_mapping(current_fingerprints, "current approval fingerprints")
+    _validate_prefix_fingerprints(current_prefix_fingerprints)
+    if dict(current_fingerprints) != dict(approval.fingerprints):
+        raise RefreshSafetyError("Refresh approval fingerprints are stale or mismatched")
+    if dict(current_prefix_fingerprints) != dict(approval.prefix_fingerprints):
+        raise RefreshSafetyError("Refresh approval prefix fingerprints are stale or mismatched")
+    return approval
+
+
+def refresh_execution_state_payload(state: RefreshExecutionState) -> dict[str, object]:
+    """Serialize the closed execution-state record for atomic local persistence."""
+
+    _validate_execution_state(state)
+    return {
+        "schema_version": REFRESH_EXECUTION_STATE_SCHEMA_VERSION,
+        "approval_digest": state.approval_digest,
+        "sequence": state.sequence,
+        "status": state.status,
+        "step_index": state.step_index,
+        "receipts": [dict(receipt) for receipt in state.receipts],
+    }
+
+
+def load_refresh_execution_state(path: Path) -> RefreshExecutionState:
+    """Load a canonical, restricted execution state without accepting extra fields."""
+
+    if path.name != EXECUTION_STATE_FILE_NAME or path.is_symlink() or not path.is_file():
+        raise RefreshExecutionError("Refresh execution-state path is unsafe")
+    _validate_private_directory(path.parent)
+    info = path.lstat()
+    if info.st_mode & 0o077 or info.st_nlink != 1:
+        raise RefreshExecutionError("Refresh execution-state mode or link count is unsafe")
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RefreshExecutionError("Refresh execution state is not valid UTF-8 JSON") from error
+    if raw != _canonical_artifact_bytes(payload):
+        raise RefreshExecutionError("Refresh execution state is not canonically encoded")
+    required = {"schema_version", "approval_digest", "sequence", "status", "step_index", "receipts"}
+    if not isinstance(payload, dict) or set(payload) != required or payload["schema_version"] != REFRESH_EXECUTION_STATE_SCHEMA_VERSION:
+        raise RefreshExecutionError("Refresh execution state does not match the closed schema")
+    state = RefreshExecutionState(
+        approval_digest=payload["approval_digest"],
+        sequence=payload["sequence"],
+        status=payload["status"],
+        step_index=payload["step_index"],
+        receipts=tuple(payload["receipts"]) if isinstance(payload["receipts"], list) else (),
+    )
+    _validate_execution_state(state)
+    return state
+
+
+def run_approved_foundation_refresh(
+    connection: Any,
+    *,
+    approval: RefreshApproval,
+    current_fingerprints: Mapping[str, str],
+    current_prefix_fingerprints: Mapping[str, str],
+    plans: ApprovedRefreshPlans,
+    execution_state_path: Path,
+    prefix_fingerprint_reader: Callable[[Any], str],
+) -> RefreshExecutionState:
+    """Run or resume the one approved sequence; subsets and reordered steps do not exist.
+
+    ``prefix_fingerprint_reader`` is deliberately injected by the later command
+    adapter.  It must read the closed foundation surface and return the same
+    digest algorithm used by the approved projection; this module never accepts
+    a generic table or SQL selector from a caller.
+    """
+
+    _validate_runner_approval(approval, current_fingerprints, current_prefix_fingerprints)
+    if execution_state_path.exists():
+        state = load_refresh_execution_state(execution_state_path)
+        if state.approval_digest != approval.digest:
+            raise RefreshExecutionError("Execution state belongs to a different approval")
+    else:
+        _validate_private_directory(execution_state_path.parent)
+        state = RefreshExecutionState(approval.digest, 0, "pending", 0)
+        _write_execution_state(execution_state_path, state, previous_sequence=None)
+
+    if state.status == "completed":
+        return state
+    if state.status == "needs_restore":
+        raise RefreshExecutionError("Refresh state requires separately approved restore")
+
+    _acquire_refresh_lock(connection)
+    try:
+        while state.step_index < len(RUNNER_STEP_NAMES):
+            step_index = state.step_index
+            expected_pre = approval.prefix_fingerprints[RUNNER_PREFIX_KEYS[step_index]]
+            expected_post = approval.prefix_fingerprints[RUNNER_PREFIX_KEYS[step_index + 1]]
+            actual = prefix_fingerprint_reader(connection)
+
+            if state.status in {"running", "failed"}:
+                if actual == expected_post:
+                    state = _transition_execution_state(state, "pending", step_index + 1, "recovered")
+                    _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+                    continue
+                if actual != expected_pre:
+                    state = _transition_execution_state(state, "needs_restore", step_index, "unexpected-prefix")
+                    _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+                    raise RefreshExecutionError("Interrupted refresh no longer matches an approved prefix; restore is required")
+            elif actual != expected_pre:
+                state = _transition_execution_state(state, "needs_restore", step_index, "unexpected-prefix")
+                _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+                raise RefreshExecutionError("Refresh database state does not match the approved pre-prefix")
+
+            state = _transition_execution_state(state, "running", step_index, "started")
+            _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+            try:
+                _execute_plan_transactionally(connection, plans.plans[step_index])
+            except Exception:
+                state = _transition_execution_state(state, "failed", step_index, "transaction-failed")
+                _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+                raise
+
+            actual = prefix_fingerprint_reader(connection)
+            if actual != expected_post:
+                state = _transition_execution_state(state, "needs_restore", step_index, "post-prefix-mismatch")
+                _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+                raise RefreshExecutionError("Committed refresh step does not match its approved post-prefix")
+            state = _transition_execution_state(state, "pending", step_index + 1, "committed")
+            _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+
+        state = _transition_execution_state(state, "completed", len(RUNNER_STEP_NAMES), "completed")
+        _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
+        return state
+    finally:
+        _release_refresh_lock(connection)
+
+
+def implementation_fingerprint(repo_root: Path) -> str:
+    """Hash reviewed code/config bytes, including untracked and deleted entries."""
+
+    root = _repository_root(repo_root)
+    tracked = _git_lines(root, "ls-files", "-z")
+    statuses = _git_lines(root, "status", "--porcelain=v1", "-z")
+    paths = set(tracked)
+    deleted: set[str] = set()
+    for entry in statuses:
+        status, path = entry[:2], entry[3:]
+        if "D" in status:
+            deleted.add(path)
+        paths.add(path)
+    records = []
+    for path in sorted(paths):
+        if not _implementation_path(path):
+            continue
+        if path in deleted:
+            body = _git_bytes(root, "show", f"HEAD:{path}")
+            state = "deleted"
+        else:
+            candidate = root / path
+            if not candidate.is_file() or candidate.is_symlink():
+                continue
+            body, state = candidate.read_bytes(), "present"
+        records.append({"path": path, "state": state, "sha256": sha256(body).hexdigest()})
+    return canonical_safety_digest("implementation", {"head": _git_head(root), "files": records})
+
+
+def environment_fingerprint(repo_root: Path) -> str:
+    """Hash version facts only; environment variables and DSNs are never read."""
+
+    root = _repository_root(repo_root)
+    lock = root / "uv.lock"
+    lock_digest = sha256(lock.read_bytes()).hexdigest() if lock.is_file() else None
+    packages = {}
+    for package in ("psycopg", "pydantic", "PyYAML"):
+        try:
+            packages[package] = version(package)
+        except PackageNotFoundError:
+            packages[package] = None
+    return canonical_safety_digest("environment", {
+        "python_implementation": platform.python_implementation(), "python_version": platform.python_version(),
+        "os_family": platform.system(), "architecture": platform.machine(), "byteorder": sys.byteorder,
+        "packages": packages, "uv_lock_sha256": lock_digest,
+    })
+
+
+def dirty_tree_fingerprint(repo_root: Path) -> str:
+    """Hash every nonignored Git change outside tmp/, never its environment."""
+
+    root = _repository_root(repo_root)
+    records = []
+    for entry in _git_lines(root, "status", "--porcelain=v1", "-z"):
+        status, path = entry[:2], entry[3:]
+        if path == "tmp" or path.startswith("tmp/"):
+            continue
+        candidate = root / path
+        if candidate.is_symlink():
+            digest = sha256(os.readlink(candidate).encode("utf-8")).hexdigest()
+            kind = "symlink"
+        elif candidate.is_file():
+            digest, kind = sha256(candidate.read_bytes()).hexdigest(), "file"
+        elif "D" in status:
+            digest, kind = sha256(_git_bytes(root, "show", f"HEAD:{path}")).hexdigest(), "deleted"
+        else:
+            digest, kind = None, "missing"
+        records.append({"status": status, "path": path, "kind": kind, "sha256": digest})
+    return canonical_safety_digest("dirty-tree", {"head": _git_head(root), "changes": records})
 
 
 def canonical_safety_bytes(value: object) -> bytes:
@@ -238,6 +601,58 @@ def load_foundation_snapshot(path: Path, *, expected_digest: str | None = None) 
     return snapshot
 
 
+def restore_approved_foundation_snapshot(
+    connection: RestoreConnection,
+    *,
+    approval: RefreshApproval,
+    snapshot: FoundationSnapshot,
+    current_fingerprints: Mapping[str, str],
+    current_prefix_fingerprints: Mapping[str, str],
+) -> FoundationSnapshot:
+    """Restore one separately approved full preimage through the closed manifest.
+
+    Every authorization and identity check occurs before a transaction is
+    opened.  The destructive portion is then deliberately small: remove the
+    fixed child-to-parent order, replay the fixed parent-to-child order, and
+    prove the final full-table digest before the transaction can commit.
+    """
+
+    _validate_snapshot(snapshot)
+    preflight_refresh_approval(
+        approval,
+        action="restore_snapshot",
+        current_fingerprints=current_fingerprints,
+        current_prefix_fingerprints=current_prefix_fingerprints,
+    )
+    _validate_restore_snapshot_binding(approval, snapshot)
+
+    transaction = getattr(connection, "transaction", None)
+    if not callable(transaction):
+        raise RefreshSafetyError("Restore connection does not expose a transaction adapter")
+
+    with transaction():
+        with connection.cursor() as cursor:
+            for table_name in DELETE_ORDER:
+                cursor.execute(f"DELETE FROM foundation.{table_name}")
+            for table_name in RESTORE_INSERT_ORDER:
+                table = TABLE_BY_NAME[table_name]
+                if not snapshot.tables[table_name]:
+                    continue
+                columns = ", ".join(table.columns)
+                placeholders = ", ".join("%s" for _ in table.columns)
+                statement = f"INSERT INTO foundation.{table.name} ({columns}) VALUES ({placeholders})"
+                for row in snapshot.tables[table_name]:
+                    cursor.execute(statement, tuple(row[column] for column in table.columns))
+            restored = FoundationSnapshot(
+                tables=_read_snapshot_tables(cursor),
+                schema_fingerprint=snapshot.schema_fingerprint,
+                database_fingerprint=snapshot.database_fingerprint,
+            )
+            if restored.digest != snapshot.digest:
+                raise RefreshSafetyError("Restored foundation digest does not match approved snapshot")
+    return snapshot
+
+
 def _normalize_rows(rows: Sequence[object], table_name: str, columns: tuple[str, ...]) -> tuple[Mapping[str, object], ...]:
     normalized: list[Mapping[str, object]] = []
     for row in rows:
@@ -254,6 +669,18 @@ def _normalize_rows(rows: Sequence[object], table_name: str, columns: tuple[str,
     return tuple(normalized)
 
 
+def _read_snapshot_tables(cursor: SnapshotCursor) -> dict[str, tuple[Mapping[str, object], ...]]:
+    """Read the immutable manifest without starting or ending a transaction."""
+
+    rows_by_table: dict[str, tuple[Mapping[str, object], ...]] = {}
+    for table in FOUNDATION_TABLES:
+        columns = ", ".join(table.columns)
+        ordering = ", ".join(table.key_columns)
+        cursor.execute(f"SELECT {columns} FROM foundation.{table.name} ORDER BY {ordering}")
+        rows_by_table[table.name] = _normalize_rows(cursor.fetchall(), table.name, table.columns)
+    return rows_by_table
+
+
 def _validate_snapshot(snapshot: FoundationSnapshot) -> None:
     _require_digest(snapshot.schema_fingerprint, "schema fingerprint")
     _require_digest(snapshot.database_fingerprint, "database fingerprint")
@@ -267,6 +694,20 @@ def _validate_snapshot(snapshot: FoundationSnapshot) -> None:
                 raise RefreshSafetyError(f"Foundation snapshot row does not match {table.name}")
             for column in table.columns:
                 canonical_database_value(row[column])
+
+
+def _validate_restore_snapshot_binding(approval: RefreshApproval, snapshot: FoundationSnapshot) -> None:
+    """Bind the destructive action to this exact artifact and closed manifest."""
+
+    expected = {
+        "snapshot_digest": snapshot.digest,
+        "schema_fingerprint": snapshot.schema_fingerprint,
+        "database_fingerprint": snapshot.database_fingerprint,
+        "table_fingerprint": foundation_schema_fingerprint(),
+    }
+    for field, value in expected.items():
+        if approval.fingerprints[field] != value:
+            raise RefreshSafetyError(f"Restore approval {field} does not match approved snapshot")
 
 
 def _snapshot_from_payload(payload: object) -> FoundationSnapshot:
@@ -295,6 +736,181 @@ def _snapshot_from_payload(payload: object) -> FoundationSnapshot:
     )
     _validate_snapshot(snapshot)
     return snapshot
+
+
+def _approval_from_payload(payload: object) -> RefreshApproval:
+    required = {
+        "schema_version", "action", "approved_by", "user_go_reference", "fingerprints", "prefix_fingerprints", "approval_sha256"
+    }
+    if not isinstance(payload, dict) or set(payload) != required or payload.get("schema_version") != REFRESH_APPROVAL_SCHEMA_VERSION:
+        raise RefreshSafetyError("Refresh approval does not match the closed schema")
+    approval = RefreshApproval(
+        action=payload["action"], approved_by=payload["approved_by"], user_go_reference=payload["user_go_reference"],
+        fingerprints=payload["fingerprints"], prefix_fingerprints=payload["prefix_fingerprints"],
+    )
+    _validate_refresh_approval(approval)
+    return approval
+
+
+def _validate_refresh_approval(approval: RefreshApproval) -> None:
+    if approval.action not in APPROVAL_ACTIONS:
+        raise RefreshSafetyError("Refresh approval action is invalid")
+    for label, value in (("approved_by", approval.approved_by), ("user_go_reference", approval.user_go_reference)):
+        if not isinstance(value, str) or not value.strip() or len(value) > 512:
+            raise RefreshSafetyError(f"Refresh approval {label} is invalid")
+    _validate_fingerprint_mapping(approval.fingerprints, "approval fingerprints")
+    _validate_prefix_fingerprints(approval.prefix_fingerprints)
+
+
+def _validate_fingerprint_mapping(value: Mapping[str, str], label: str) -> None:
+    if not isinstance(value, Mapping) or set(value) != set(APPROVAL_FINGERPRINT_FIELDS):
+        raise RefreshSafetyError(f"{label} do not match the closed schema")
+    for field in APPROVAL_FINGERPRINT_FIELDS:
+        _require_digest(value[field], field)
+
+
+def _validate_prefix_fingerprints(value: Mapping[str, str]) -> None:
+    if not isinstance(value, Mapping) or not value or any(not isinstance(name, str) or not name for name in value):
+        raise RefreshSafetyError("Refresh approval prefix fingerprints are invalid")
+    for name, digest in value.items():
+        _require_digest(digest, f"prefix fingerprint {name}")
+
+
+def _validate_runner_approval(
+    approval: RefreshApproval,
+    current_fingerprints: Mapping[str, str],
+    current_prefix_fingerprints: Mapping[str, str],
+) -> None:
+    if tuple(current_prefix_fingerprints) != RUNNER_PREFIX_KEYS or tuple(approval.prefix_fingerprints) != RUNNER_PREFIX_KEYS:
+        raise RefreshExecutionError("Approved runner prefix evidence must cover the fixed closed order")
+    preflight_refresh_approval(
+        approval,
+        action="execute_refresh",
+        current_fingerprints=current_fingerprints,
+        current_prefix_fingerprints=current_prefix_fingerprints,
+    )
+
+
+def _validate_execution_state(state: RefreshExecutionState) -> None:
+    _require_digest(state.approval_digest, "execution approval digest")
+    if not isinstance(state.sequence, int) or state.sequence < 0:
+        raise RefreshExecutionError("Execution state sequence is invalid")
+    if state.status not in EXECUTION_STATUSES:
+        raise RefreshExecutionError("Execution state status is invalid")
+    if not isinstance(state.step_index, int) or not 0 <= state.step_index <= len(RUNNER_STEP_NAMES):
+        raise RefreshExecutionError("Execution state step index is invalid")
+    if state.status == "completed" and state.step_index != len(RUNNER_STEP_NAMES):
+        raise RefreshExecutionError("Completed execution state has an invalid step index")
+    if not isinstance(state.receipts, tuple):
+        raise RefreshExecutionError("Execution state receipts are invalid")
+    for receipt in state.receipts:
+        if not isinstance(receipt, Mapping) or set(receipt) != {"sequence", "step_index", "outcome"}:
+            raise RefreshExecutionError("Execution state receipt is invalid")
+        if not isinstance(receipt["sequence"], int) or not isinstance(receipt["step_index"], int) or not isinstance(receipt["outcome"], str):
+            raise RefreshExecutionError("Execution state receipt value is invalid")
+
+
+def _transition_execution_state(
+    state: RefreshExecutionState, status: str, step_index: int, outcome: str
+) -> RefreshExecutionState:
+    _validate_execution_state(state)
+    allowed = {
+        "pending": {"running", "needs_restore", "completed"},
+        "running": {"pending", "failed", "needs_restore"},
+        "failed": {"pending", "running", "needs_restore"},
+        "needs_restore": set(),
+        "completed": set(),
+    }
+    if status not in allowed[state.status] or not isinstance(outcome, str) or not outcome:
+        raise RefreshExecutionError("Illegal refresh execution state transition")
+    next_state = RefreshExecutionState(
+        approval_digest=state.approval_digest,
+        sequence=state.sequence + 1,
+        status=status,
+        step_index=step_index,
+        receipts=(*state.receipts, {"sequence": state.sequence + 1, "step_index": step_index, "outcome": outcome}),
+    )
+    _validate_execution_state(next_state)
+    return next_state
+
+
+def _write_execution_state(path: Path, state: RefreshExecutionState, *, previous_sequence: int | None) -> None:
+    _validate_execution_state(state)
+    if path.exists():
+        previous = load_refresh_execution_state(path)
+        if previous_sequence is None or previous.sequence != previous_sequence or state.sequence <= previous.sequence:
+            raise RefreshExecutionError("Execution state sequence is not monotonic")
+    elif previous_sequence is not None:
+        raise RefreshExecutionError("Execution state disappeared during an atomic transition")
+    _replace_atomic(path, _canonical_artifact_bytes(refresh_execution_state_payload(state)))
+
+
+def _execute_plan_transactionally(connection: Any, plan: FoundationMutationPlan) -> None:
+    transaction = getattr(connection, "transaction", None)
+    if callable(transaction):
+        with transaction():
+            execute_plan(connection, plan)
+        return
+    # In-memory test adapters have no database transaction, but execute the
+    # same immutable plan. Real connections must expose ``transaction``.
+    if hasattr(connection, "table_state"):
+        execute_plan(connection, plan)
+        return
+    raise RefreshExecutionError("Approved refresh connection does not expose a transaction adapter")
+
+
+def _acquire_refresh_lock(connection: Any) -> None:
+    acquire = getattr(connection, "acquire_refresh_lock", None)
+    if callable(acquire):
+        acquire()
+        return
+    if hasattr(connection, "table_state"):
+        return
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_advisory_lock(hashtext(%s))", ("nba-asset-lineage:foundation-refresh",))
+
+
+def _release_refresh_lock(connection: Any) -> None:
+    release = getattr(connection, "release_refresh_lock", None)
+    if callable(release):
+        release()
+        return
+    if hasattr(connection, "table_state"):
+        return
+    with connection.cursor() as cursor:
+        cursor.execute("select pg_advisory_unlock(hashtext(%s))", ("nba-asset-lineage:foundation-refresh",))
+
+
+def _repository_root(repo_root: Path) -> Path:
+    root = repo_root.resolve()
+    if not (root / ".git").exists():
+        raise RefreshSafetyError("Implementation fingerprints require a repository root")
+    return root
+
+
+def _git_lines(root: Path, *args: str) -> list[str]:
+    output = _git_bytes(root, *args)
+    return [part.decode("utf-8") for part in output.split(b"\0") if part]
+
+
+def _git_bytes(root: Path, *args: str) -> bytes:
+    result = subprocess.run(["git", *args], cwd=root, check=False, capture_output=True)
+    if result.returncode:
+        raise RefreshSafetyError(f"Git fingerprint command failed: {' '.join(args)}")
+    return result.stdout
+
+
+def _git_head(root: Path) -> str:
+    return _git_bytes(root, "rev-parse", "HEAD").decode("ascii").strip()
+
+
+def _implementation_path(path: str) -> bool:
+    return (
+        path.startswith("src/") and path.endswith(".py")
+        or path.startswith("sql/") and path.endswith(".sql")
+        or path.startswith("configs/") and path.endswith(".json")
+        or path in {"pyproject.toml", "uv.lock", "mise.toml"}
+    )
 
 
 def _decode_database_value(value: object) -> object:
@@ -372,5 +988,24 @@ def _write_exclusive_atomic(path: Path, body: bytes) -> None:
         os.link(temporary, path)
     except FileExistsError as error:
         raise RefreshSafetyError("Refusing to overwrite an existing foundation snapshot") from error
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _replace_atomic(path: Path, body: bytes) -> None:
+    """Atomically replace a closed operational state file in its private directory."""
+
+    temporary = path.parent / f".{path.name}.tmp-{uuid.uuid4().hex}"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        os.chmod(path, 0o600)
     finally:
         temporary.unlink(missing_ok=True)

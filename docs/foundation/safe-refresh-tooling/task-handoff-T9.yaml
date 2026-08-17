@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B3"
+task_id: "T9"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Execute only approved shared mutation plans in one fixed order with advisory locking, per-step transactions, atomic execution state, and approved pre/post-prefix evidence for crash-safe resume."
+why_this_matters: "Once a future approved refresh writes, a crash must be diagnosable and recoverable without guessing which partial data state is valid."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/foundation/refresh_mutations.py", "src/foundation/refresh_projection.py", "src/foundation/foundation_table_manifest.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_mutations.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/foundation/refresh_mutations.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_mutations.py"]
+  forbidden: ["Caller-supplied steps", "Step reordering or skipping", "Live database access in tests", "Live network access", "Unapproved input changes", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use only the approved runner order from plan.yaml and bind every step to approved pre/post-prefix fingerprints."
+  - "State is closed refresh_execution_state_v1 with atomic monotonic sequence and only pending/running/failed/needs_restore/completed transitions."
+  - "Acquire an advisory lock and use a transaction per registered plan; database adapters execute only the preconstructed plan."
+  - "Resume must revalidate approval fingerprints: rerun only at approved pre-prefix, mark recovered only at approved post-prefix, otherwise needs_restore."
+  - "Use fake connections and plans only; no live execution."
+success_criteria: ["No caller-selected steps", "Legal/illegal state transitions are explicit", "Crash-before/after-commit recovery paths are deterministic", "Unexpected DB state becomes needs_restore", "Changed code/input requires reapproval", "No live systems touched"]
+validation_expected: ["Legal/illegal atomic transitions", "Crash-before/after-commit prefix recovery", "Unexpected state becomes needs_restore", "Changed code/input requires reapproval"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Runner order cannot be mapped to approved prefix evidence", "A needed recovery case requires an unplanned state transition", "Any validation requires live access"]

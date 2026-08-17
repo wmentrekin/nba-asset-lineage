@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B3"
+task_id: "T10"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Restore only an exact separately approved full-foundation snapshot using the fixed child-delete/parent-insert order in one transaction, committing only after exact baseline digest equality."
+why_this_matters: "Recovery is destructive. It must be authorized separately from refresh execution and fail atomically if the approved snapshot, schema, database, or final state is not exact."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/foundation/foundation_table_manifest.py", "src/foundation/refresh_mutations.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/foundation/foundation_table_manifest.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+  forbidden: ["Automatic restore", "Refresh approval reused for restore", "Generic SQL/table/path surface", "Live database access in tests", "Live network access", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Require approval action=restore_snapshot and reject execute_refresh approvals even if every other digest matches."
+  - "Verify snapshot digest, schema/database fingerprints, and immutable manifest before beginning a single restore transaction."
+  - "Use exactly the manifest delete order then restore insert order; no caller-supplied table/path/SQL surface."
+  - "Rollback on any delete/insert/checksum failure and commit only when final full-baseline digest equals the approved snapshot."
+  - "Test fakes only; do not add automatic execution or perform live restore."
+success_criteria: ["Separate restore approval required", "Wrong digest/schema/database rejects before delete", "Fixed FK-safe delete/insert order", "Rollback on insert/checksum failure", "Commit only on exact snapshot equality", "No live systems touched"]
+validation_expected: ["Separate restore approval", "Wrong digest/schema/database rejects", "Rollback on insert/checksum failure", "Commit only on exact equality"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Snapshot data cannot be replayed through the closed manifest contract", "A required restore behavior needs an unplanned generic SQL surface", "Any validation requires live access"]

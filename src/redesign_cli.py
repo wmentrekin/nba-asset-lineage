@@ -90,6 +90,7 @@ from foundation.roster_validation import (
     load_roster_snapshot_validation,
     preview_roster_snapshot_validation,
 )
+from foundation.refresh_safety import parse_refresh_approval_payload, write_refresh_approval
 from foundation.sources import get_default_source_plan
 from foundation.two_way_status import (
     DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
@@ -120,6 +121,16 @@ def parse_args() -> argparse.Namespace:
         command_parser.add_argument("--execute", action="store_true", help="Write only the reviewed locked bundle after digest validation.")
 
     subparsers.add_parser("status", help="Show the current reset-era scaffold status.")
+    approval_parser = subparsers.add_parser(
+        "record-refresh-approval",
+        help="Record a user-supplied closed approval into a private refresh artifact directory.",
+    )
+    approval_parser.add_argument("--artifact-directory", required=True)
+    approval_parser.add_argument(
+        "--approval-input-path",
+        required=True,
+        help="Path to a reviewed refresh_approval_v1 JSON document; this command never creates approval metadata.",
+    )
     subparsers.add_parser("check-db", help="Run a minimal database connectivity check.")
     subparsers.add_parser("inspect-db-state", help="Inspect current non-system schemas and relation counts before reset.")
     subparsers.add_parser("inspect-foundation-counts", help="Inspect row counts for active foundation tables.")
@@ -650,6 +661,16 @@ def main() -> None:
 
     if args.command == "status":
         payload = command_status()
+    elif args.command == "record-refresh-approval":
+        approval_input = json.loads(Path(args.approval_input_path).read_text(encoding="utf-8"))
+        approval = parse_refresh_approval_payload(approval_input)
+        target = write_refresh_approval(Path(args.artifact_directory), approval)
+        payload = {
+            "status": "recorded",
+            "action": approval.action,
+            "approval_digest": approval.digest,
+            "approval_path": str(target),
+        }
     elif args.command == "check-db":
         payload = command_check_db()
     elif args.command == "inspect-db-state":

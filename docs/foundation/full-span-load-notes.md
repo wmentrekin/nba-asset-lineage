@@ -1,5 +1,29 @@
 # Full-Span Load Notes
 
+## Next refresh: safety-tooling handoff
+
+This document records the last verified live baseline; it is **not** permission
+to rerun a live load. The parent 2026 offseason refresh remains blocked until
+the safe-refresh-tooling PR is reviewed and its verification is complete.
+
+For that later, separately authorized pass:
+
+1. capture each required source once into a new restricted local
+   `tmp/<refresh-id>/` raw-byte bundle and record its digest;
+2. load exactly those locked bytes and run the no-write candidate projection
+   over a read-only baseline, preserving the parent cutoff and historical
+   checksum gates;
+3. review blockers, sanitized diffs, reconciliation evidence, and projection
+   checksums; then create an explicit human approval bound to all fingerprints;
+4. only after a distinct user go-ahead, use the fixed approved runner. If a
+   prefix cannot be reconciled, stop in `needs_restore` rather than guessing;
+5. restore only with a separate `restore_snapshot` approval and explicit future
+   authorization. A refresh approval never authorizes destructive recovery.
+
+Do not put raw source bodies, snapshot rows, credentials, or local operational
+artifacts in this document, a commit, or a PR. See
+[`safe-refresh-tooling/`](safe-refresh-tooling/) for the full contracts.
+
 Last verified live load scope:
 
 - team: Memphis Grizzlies

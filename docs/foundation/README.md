@@ -100,6 +100,51 @@ The repo now has:
 
 ## Current Caveats
 
+### Safe refresh boundary
+
+The planned 2026 offseason refresh is blocked until the reviewed safe-refresh
+tooling is verified and explicitly approved for a later live pass. The tooling
+is documented in [`safe-refresh-tooling/`](safe-refresh-tooling/) and is
+code-only at this point: no bundle capture, database snapshot, runner, or
+restore has been performed from this branch.
+
+Its operator contract has five distinct operations; do not collapse them into a
+single “refresh” action:
+
+1. **Capture** injects a fetcher into `foundation.source_payloads` and stores
+   immutable raw-byte bundles below restricted `tmp/<refresh-id>/` storage.
+   It is the only layer permitted to perform network I/O. There is no generic
+   capture CLI command yet.
+2. **Preview/projection** accepts a typed read-only baseline plus the same
+   immutable mutation plans the future runner will use. It returns sanitized
+   diffs, blockers, warnings, and stable checksums without a database write.
+   It is a Python integration seam, not a live CLI command.
+3. **Approval** requires a human-created closed `refresh_approval_v1` payload.
+   `record-refresh-approval` can validate and record that payload, but never
+   invents consent. See `python -m redesign_cli record-refresh-approval --help`.
+4. **Runner** accepts only a preconstructed fixed-order plan and approval-bound
+   prefix fingerprints. It supports recovery only at an approved prefix and
+   otherwise stops in `needs_restore`; no caller may choose, skip, or reorder
+   steps. It is deliberately not a general live CLI command.
+5. **Restore** replays the full 21-table preimage in fixed FK-safe order only
+   after separate `restore_snapshot` approval. It is destructive, is never
+   automatic, and is not authorized by an execution approval.
+
+Restricted operational artifacts can contain raw source bodies or full database
+preimages. They must stay in the ignored repo-local `tmp/<refresh-id>/` root,
+with private `0700` directories and `0600` files. Do not commit, upload, or
+attach them to a PR. Retain them only through the live refresh review and any
+required recovery window, then remove them using an explicitly reviewed local
+cleanup action. Sanitized projection reports may be shared only when they
+contain counts, IDs, field names, and digests—not source bodies, credentials,
+or full database rows.
+
+Known operational limitations: the advisory lock coordinates the approved
+runner only; direct legacy writers are outside that lock. A changed payload,
+fixture, code/dependency/environment/dirty-tree fingerprint, schema/database,
+or prefix state invalidates approval and requires a fresh projection and human
+approval.
+
 - Basketball-Reference transaction, roster, and draft sources are HTML pages, so
   these loaders are scrapers.
 - NBA stats reference loading uses JSON endpoints.

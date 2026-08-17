@@ -3,16 +3,16 @@
 artifact: implementation_report
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-status: in_progress
+status: ready_for_verification
 owner_skill: work
 based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
-  scope_executed: "Completed B1, B2/T3–T6, and B3/T7: local immutable source bundles, digest-guarded loader/CLI preflight, pure typed foundation export assembly, shared mutation plans, ordered no-write candidate projection/reports, and exact restricted full-foundation snapshot tooling."
-  outcome: "The project now has a reviewable, no-write candidate refresh proof and an exact read-only preimage capture boundary. It is paused by user direction before approvals, runner/resume, restore, and final documentation/verification (T8–T11)."
+  scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, and B4/T11 documentation: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, and truthful operator safety guidance."
+  outcome: "The core safety feature is implemented and its offline validation ladder is complete. PR reviewer/tester verification remains; frontend test/check/build is explicitly dependency-blocked in this environment."
 
-task_batches_attempted: ["B1", "B2"]
-task_batches_completed: ["B1"]
+task_batches_attempted: ["B1", "B2", "B3", "B4"]
+task_batches_completed: ["B1", "B2", "B3", "B4"]
 domains_touched: ["data-engineer"]
 
 pr:
@@ -38,6 +38,9 @@ changes:
     - "tests/foundation/test_refresh_projection.py"
     - "src/foundation/refresh_safety.py"
     - "tests/foundation/test_refresh_safety.py"
+    - "docs/foundation/safe-refresh-tooling/task-handoff-T8.yaml"
+    - "docs/foundation/safe-refresh-tooling/task-handoff-T9.yaml"
+    - "docs/foundation/safe-refresh-tooling/task-handoff-T10.yaml"
   modules:
     - "foundation.source_payloads"
     - "foundation.live_sources"
@@ -50,6 +53,9 @@ changes:
     - "foundation.refresh_safety"
   docs_updated:
     - "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+    - "README.md"
+    - "docs/foundation/README.md"
+    - "docs/foundation/full-span-load-notes.md"
 
 local_validation:
   checks_run:
@@ -61,22 +67,37 @@ local_validation:
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_live_sources.py -q (71 passed)"
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_live_sources.py -q (74 passed)"
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_safety.py tests/foundation/test_sql_contracts.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_projection.py -q (27 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_safety.py tests/foundation/test_redesign_cli.py tests/foundation/test_sql_contracts.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_projection.py -q (31 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_safety.py tests/foundation/test_sql_contracts.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_projection.py tests/foundation/test_redesign_cli.py -q (34 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_safety.py tests/foundation/test_sql_contracts.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_projection.py tests/foundation/test_redesign_cli.py -q (40 passed)"
+    - "git diff --check (passed; local xcrun cache warnings only)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_source_payloads.py tests/foundation/test_live_sources.py tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_safety.py tests/foundation/test_redesign_cli.py -q (75 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation -q -rA (all foundation tests passed)"
+    - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help (passed)"
+    - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli record-refresh-approval --help (passed)"
   failures: []
-  skipped: ["No live source or database operations are permitted in this feature."]
+  skipped:
+    - "No live source or database operations are permitted in this feature."
+    - "Frontend test/check/build could not run because frontend/node_modules is absent (vitest and astro commands unavailable); T11 did not install dependencies."
+    - "mise run frontend_test/check/build was not run because this repo-local mise.toml is untrusted in the current environment; direct frontend commands confirmed the same missing-dependency limitation."
 
 review_summary:
   status: not_started
   key_findings: []
 
 test_summary:
-  status: not_started
-  checks_run: []
+  status: partial
+  checks_run:
+    - "Focused safety, bundle, projection, mutation, loader, and CLI tests passed (75)."
+    - "Full offline foundation Python suite passed."
+    - "CLI help smoke checks passed."
   failures: []
-  gaps: []
+  gaps:
+    - "Frontend dependencies are not installed locally, so frontend test/check/build require a dependency-installing verification environment."
 
 open_issues: []
 
 handoff:
-  current_state: in_progress
-  next_owner: "data-engineer"
-  next_action: "Paused at the user's requested T7 checkpoint. Resume with T8: closed approval and preflight contracts."
+  current_state: ready_for_verification
+  next_owner: "reviewer/tester"
+  next_action: "Push the complete execution batch to draft PR #2; conduct review/testing and rerun frontend validation in a dependency-ready environment."

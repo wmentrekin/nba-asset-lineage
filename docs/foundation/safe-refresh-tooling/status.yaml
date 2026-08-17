@@ -3,14 +3,14 @@
 artifact: status
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-stage: "execution"
+stage: "verification"
 owner_skill: work
 
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Paused after T7 at user direction; next is B3/T8 approval and preflight contracts."
-  last_completed: "Completed B3/T7: restricted artifact integrity and deterministic manifest-driven 21-table preimage snapshot capture passed focused fixture-only tests."
+  current_focus: "Push completed execution work to draft PR #2 and run reviewer/tester verification."
+  last_completed: "Completed B4/T11: operator documentation, 75 focused tests, full offline foundation suite, and CLI help checks passed."
   current_blocker: ""
 
 artifacts:
@@ -28,9 +28,9 @@ agents:
     role: "orchestrator"
     model_guidance: "xhigh"
     status: "active"
-    stage: "execution"
-    task: "Coordinate sequential data-engineering tasks and preserve the no-live-system boundary."
-    last_update: "T7 integration suite passed; committing, pushing, and opening the requested draft PR before pause."
+    stage: "verification"
+    task: "Push the complete execution batch and coordinate PR review/testing."
+    last_update: "T11 completed; transitioning to draft-PR verification."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -104,6 +104,38 @@ agents:
     task: "Implement restricted artifact integrity and deterministic 21-table preimage snapshot capture."
     last_update: "Canonical snapshot artifacts, fingerprints, and read-only manifest capture passed fixture-only tests."
     blocker: ""
+  - id: "safe_tooling_t8"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement closed, action-specific approval records and preflight validation."
+    last_update: "Closed approval artifacts and no-write preflight validation passed fixture-only tests."
+    blocker: ""
+  - id: "safe_tooling_t9"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement the fixed-order approved runner, atomic execution state, and crash-safe resume checks."
+    last_update: "Fixed runner order, atomic state, transactions, and resume paths passed fake-only tests."
+    blocker: ""
+  - id: "safe_tooling_t10"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement separately approved full-preimage restore with fixed FK-safe ordering."
+    last_update: "Separate restore approval, fixed replay order, and rollback guards passed fake-only tests."
+    blocker: ""
+  - id: "safe_tooling_t11"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Document the tooling surface and execute the full local validation ladder."
+    last_update: "Documentation, 75 focused tests, full offline foundation suite, and CLI help checks completed."
+    blocker: ""
 
 loops:
   planning_review:
@@ -124,6 +156,6 @@ decisions:
   - "The parent offseason refresh remains blocked until this tooling is implemented and verified."
   - "Final planning review approved the plan after two cycles."
 
-next_action: "Pause after the requested T7 checkpoint and draft PR. Resume with T8: closed approval and preflight contracts."
+next_action: "Push the completed execution update to draft PR #2, then run reviewer and tester verification; frontend checks remain dependency-blocked locally."
 next_recommended_command: "$work"
 user_input_needed: false

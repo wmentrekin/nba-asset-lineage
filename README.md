@@ -71,9 +71,48 @@ mise run frontend_dev
 mise run frontend_check
 mise run frontend_test
 mise run frontend_build
+mise run foundation_test
 ```
 
 These are temporary scaffolding commands, not the long-term workflow.
+
+## Safe Refresh Tooling
+
+The next live offseason refresh is deliberately blocked behind the reviewed
+safe-refresh tooling described in
+[`docs/foundation/safe-refresh-tooling/`](docs/foundation/safe-refresh-tooling).
+It is designed to make an eventual refresh reproducible, previewable, and
+recoverable; this repository has not used it to capture sources or change a
+database yet.
+
+The safety boundary is intentionally strict:
+
+- source capture writes raw response bytes only to a restricted local
+  `tmp/<refresh-id>/` artifact directory; later normalization, preview, and
+  execution must consume the locked bundle and its reviewed SHA-256 digest;
+- projection starts from one read-only foundation baseline and produces
+  sanitized counts, IDs, changed-field names, blockers, and checksums. It does
+  not write a database;
+- a human-supplied, closed approval record binds the exact payload, fixture,
+  projection, snapshot, code, environment, dirty-tree, schema, database, plan,
+  and prefix fingerprints before a future write-capable runner can start;
+- the runner is a Python safety seam with a fixed approved step order and
+  resumable prefix checks. It is not currently exposed as a general-purpose
+  live CLI command;
+- restore is destructive and always needs a separate
+  `action=restore_snapshot` approval. An `execute_refresh` approval cannot
+  authorize it.
+
+The one checked-in operational CLI command is intentionally narrow:
+
+```bash
+uv --cache-dir /tmp/uv-cache run python -m redesign_cli record-refresh-approval --help
+```
+
+It validates and records a reviewed `refresh_approval_v1` JSON document in an
+already-private artifact directory; it cannot manufacture approval metadata or
+run a refresh. See the safety-tooling documentation before using even this
+command.
 
 The checked-in Python CLI now also supports reset-era foundation tasks such as:
 
