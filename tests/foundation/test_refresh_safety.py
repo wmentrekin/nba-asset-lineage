@@ -15,6 +15,7 @@ from foundation.refresh_safety import (
     APPROVAL_FILE_NAME,
     FoundationSnapshot,
     RefreshApproval,
+    ApprovedRefreshStep,
     ApprovedRefreshPlans,
     EXECUTION_STATE_FILE_NAME,
     RefreshSafetyError,
@@ -154,6 +155,18 @@ def test_artifact_directory_is_repo_local_private_and_no_overwrite(tmp_path: Pat
         write_foundation_snapshot(directory, _empty_snapshot())
 
 
+def test_artifact_directory_allows_normal_repo_and_tmp_ancestor_modes(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(mode=0o755)
+    temporary_root = repo_root / "tmp"
+    temporary_root.mkdir(mode=0o755)
+    directory = create_refresh_artifact_directory(repo_root, "normal-root")
+
+    assert directory == temporary_root / "normal-root"
+    assert directory.stat().st_mode & 0o777 == 0o700
+    assert not directory.is_symlink()
+
+
 def test_snapshot_payload_is_closed_to_all_21_manifest_tables() -> None:
     payload = snapshot_payload(_empty_snapshot())
     assert [table["name"] for table in payload["tables"]] == [table.name for table in FOUNDATION_TABLES]
@@ -252,17 +265,20 @@ def _state_digest(connection: FakeRefreshConnection) -> str:
 def _runner_fixture() -> tuple[RefreshApproval, ApprovedRefreshPlans, dict[str, str]]:
     plans = ApprovedRefreshPlans(
         tuple(
-            FoundationMutationPlan(
-                operations=(UpsertRows("source_record", ({"source_record_id": f"step:{index}", "source_system": "test"},)),),
-                operation_timestamp="2026-08-17T00:00:00Z",
+            ApprovedRefreshStep(
+                name=step_name,
+                plan=FoundationMutationPlan(
+                    operations=(UpsertRows("source_record", ({"source_record_id": f"step:{index}", "source_system": "test"},)),),
+                    operation_timestamp="2026-08-17T00:00:00Z",
+                ),
             )
-            for index in range(len(RUNNER_STEP_NAMES))
+            for index, step_name in enumerate(RUNNER_STEP_NAMES)
         )
     )
     state = empty_table_state()
     prefixes = [_state_digest(type("State", (), {"table_state": state})())]
-    for plan in plans.plans:
-        state = apply_plan_to_snapshot(state, plan)
+    for step in plans.steps:
+        state = apply_plan_to_snapshot(state, step.plan)
         prefixes.append(_state_digest(type("State", (), {"table_state": state})()))
     prefix_fingerprints = dict(zip(RUNNER_PREFIX_KEYS, prefixes, strict=True))
     approval = RefreshApproval(
@@ -327,7 +343,43 @@ def test_fixed_runner_rejects_reordered_or_unexpected_prefix_state_before_writes
         )
     assert load_refresh_execution_state(path).status == "needs_restore"
     with pytest.raises(RefreshExecutionError, match="every fixed runner step"):
-        ApprovedRefreshPlans(plans.plans[:-1])
+        ApprovedRefreshPlans(plans.steps[:-1])
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        lambda steps: (steps[1], steps[0], *steps[2:]),
+        lambda steps: (steps[0], steps[0], *steps[2:]),
+        lambda steps: steps[:-1],
+        lambda steps: (*steps, steps[0]),
+    ],
+    ids=["reordered", "duplicate", "missing", "extra"],
+)
+def test_runner_rejects_any_non_closed_labeled_plan_set_before_connection_write(
+    tmp_path: Path,
+    steps: object,
+) -> None:
+    approval, approved_plans, prefixes = _runner_fixture()
+    invalid_steps = steps(approved_plans.steps)  # type: ignore[operator]
+    with pytest.raises(RefreshExecutionError, match="every fixed runner step"):
+        ApprovedRefreshPlans(invalid_steps)
+
+    connection = FakeRefreshConnection()
+    state_path = tmp_path / EXECUTION_STATE_FILE_NAME
+    object.__setattr__(approved_plans, "steps", invalid_steps)
+    with pytest.raises(RefreshExecutionError, match="every fixed runner step"):
+        run_approved_foundation_refresh(
+            connection,
+            approval=approval,
+            current_fingerprints=approval.fingerprints,
+            current_prefix_fingerprints=prefixes,
+            plans=approved_plans,
+            execution_state_path=state_path,
+            prefix_fingerprint_reader=_state_digest,
+        )
+    assert connection.lock_calls == []
+    assert not state_path.exists()
 
 
 class FakeRestoreCursor:

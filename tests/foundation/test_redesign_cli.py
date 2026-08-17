@@ -83,3 +83,43 @@ def test_locked_source_cli_preview_uses_bundle_without_database_lookup(
     assert payload["bundle_sha256"] == bundle.digest
     assert payload["dry_run"] is True
     assert payload["writes_to_database"] is False
+
+
+def test_snapshot_capture_cli_requires_execute_before_database_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("must not load database URL"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "redesign_cli.py",
+            "capture-foundation-refresh-snapshot",
+            "--repo-root",
+            str(tmp_path),
+            "--refresh-id",
+            "refresh-2026-08-17",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="requires --execute"):
+        redesign_cli.main()
+    assert not (tmp_path / "tmp").exists()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "capture-foundation-refresh-snapshot",
+        "record-refresh-approval",
+    ],
+)
+def test_refresh_artifact_commands_are_available_from_cli_help(
+    command: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["redesign_cli.py", command, "--help"])
+    with pytest.raises(SystemExit) as error:
+        redesign_cli.main()
+
+    assert error.value.code == 0
+    assert command in capsys.readouterr().out

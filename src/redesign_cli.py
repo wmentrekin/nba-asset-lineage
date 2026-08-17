@@ -90,7 +90,14 @@ from foundation.roster_validation import (
     load_roster_snapshot_validation,
     preview_roster_snapshot_validation,
 )
-from foundation.refresh_safety import parse_refresh_approval_payload, write_refresh_approval
+from foundation.refresh_safety import (
+    capture_foundation_snapshot,
+    create_refresh_artifact_directory,
+    logical_database_fingerprint,
+    parse_refresh_approval_payload,
+    write_foundation_snapshot,
+    write_refresh_approval,
+)
 from foundation.sources import get_default_source_plan
 from foundation.two_way_status import (
     DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
@@ -130,6 +137,17 @@ def parse_args() -> argparse.Namespace:
         "--approval-input-path",
         required=True,
         help="Path to a reviewed refresh_approval_v1 JSON document; this command never creates approval metadata.",
+    )
+    snapshot_parser = subparsers.add_parser(
+        "capture-foundation-refresh-snapshot",
+        help="Capture the fixed 21-table preimage into a new restricted repo-local refresh leaf.",
+    )
+    snapshot_parser.add_argument("--repo-root", required=True)
+    snapshot_parser.add_argument("--refresh-id", required=True)
+    snapshot_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Required because capture opens a read-only database connection and writes a restricted local artifact.",
     )
     subparsers.add_parser("check-db", help="Run a minimal database connectivity check.")
     subparsers.add_parser("inspect-db-state", help="Inspect current non-system schemas and relation counts before reset.")
@@ -670,6 +688,27 @@ def main() -> None:
             "action": approval.action,
             "approval_digest": approval.digest,
             "approval_path": str(target),
+        }
+    elif args.command == "capture-foundation-refresh-snapshot":
+        if not args.execute:
+            raise ValueError("capture-foundation-refresh-snapshot requires --execute")
+        artifact_directory = create_refresh_artifact_directory(Path(args.repo_root), args.refresh_id)
+        with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT current_database(), current_setting('server_version_num')")
+                database_name, server_version = cursor.fetchone()
+            snapshot = capture_foundation_snapshot(
+                connection,
+                database_fingerprint=logical_database_fingerprint(
+                    database_name=str(database_name), server_version=int(server_version)
+                ),
+            )
+        snapshot_path = write_foundation_snapshot(artifact_directory, snapshot)
+        payload = {
+            "status": "captured",
+            "artifact_directory": str(artifact_directory),
+            "snapshot_path": str(snapshot_path),
+            "snapshot_digest": snapshot.digest,
         }
     elif args.command == "check-db":
         payload = command_check_db()

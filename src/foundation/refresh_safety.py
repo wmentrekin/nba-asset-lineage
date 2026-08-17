@@ -140,14 +140,21 @@ class RefreshExecutionState:
 
 
 @dataclass(frozen=True)
-class ApprovedRefreshPlans:
-    """Exactly one immutable plan for each non-optional approved runner step."""
+class ApprovedRefreshStep:
+    """One immutable plan bound to its closed runner-step identity."""
 
-    plans: tuple[FoundationMutationPlan, ...]
+    name: str
+    plan: FoundationMutationPlan
+
+
+@dataclass(frozen=True)
+class ApprovedRefreshPlans:
+    """The complete ordered, labeled plan set accepted by the forward runner."""
+
+    steps: tuple[ApprovedRefreshStep, ...]
 
     def __post_init__(self) -> None:
-        if len(self.plans) != len(RUNNER_STEP_NAMES):
-            raise RefreshExecutionError("Approved refresh requires every fixed runner step exactly once")
+        _validate_approved_refresh_plans(self)
 
 
 def refresh_approval_payload(approval: RefreshApproval, *, include_digest: bool = True) -> dict[str, object]:
@@ -294,6 +301,10 @@ def run_approved_foundation_refresh(
     a generic table or SQL selector from a caller.
     """
 
+    # Repeat the closed-plan check at the runner boundary.  This stays ahead of
+    # execution-state creation, advisory locking, transactions, and mutations
+    # even if an in-process caller has bypassed dataclass immutability.
+    _validate_approved_refresh_plans(plans)
     _validate_runner_approval(approval, current_fingerprints, current_prefix_fingerprints)
     if execution_state_path.exists():
         state = load_refresh_execution_state(execution_state_path)
@@ -334,7 +345,7 @@ def run_approved_foundation_refresh(
             state = _transition_execution_state(state, "running", step_index, "started")
             _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
             try:
-                _execute_plan_transactionally(connection, plans.plans[step_index])
+                _execute_plan_transactionally(connection, plans.steps[step_index].plan)
             except Exception:
                 state = _transition_execution_state(state, "failed", step_index, "transaction-failed")
                 _write_execution_state(execution_state_path, state, previous_sequence=state.sequence - 1)
@@ -565,16 +576,22 @@ def create_refresh_artifact_directory(repo_root: Path, refresh_id: str) -> Path:
 
     if not _REFRESH_ID.fullmatch(refresh_id):
         raise RefreshSafetyError("Refresh identifier is unsafe")
-    _validate_private_directory(repo_root)
+    # Repository roots and their existing tmp/ parents are commonly group/world
+    # readable.  Privacy is required for the newly-created operational leaf and
+    # its contents, not for the checkout itself.  Both ancestors remain real
+    # directories so a symlink can never redirect the restricted leaf.
+    _validate_real_directory(repo_root)
     temporary_root = repo_root / "tmp"
     if temporary_root.exists() or temporary_root.is_symlink():
-        _validate_private_directory(temporary_root)
+        _validate_real_directory(temporary_root)
     else:
         os.mkdir(temporary_root, 0o700)
+        _validate_private_directory(temporary_root)
     destination = temporary_root / refresh_id
     if destination.exists() or destination.is_symlink():
         raise RefreshSafetyError("Refusing to overwrite an existing refresh artifact directory")
     os.mkdir(destination, 0o700)
+    _validate_private_directory(destination)
     return destination
 
 
@@ -791,6 +808,17 @@ def _validate_runner_approval(
     )
 
 
+def _validate_approved_refresh_plans(plans: ApprovedRefreshPlans) -> None:
+    if not isinstance(plans, ApprovedRefreshPlans) or not all(
+        isinstance(step, ApprovedRefreshStep) for step in plans.steps
+    ):
+        raise RefreshExecutionError("Approved refresh plans must use labeled fixed runner steps")
+    if tuple(step.name for step in plans.steps) != RUNNER_STEP_NAMES:
+        raise RefreshExecutionError(
+            "Approved refresh requires every fixed runner step exactly once in approved order"
+        )
+
+
 def _validate_execution_state(state: RefreshExecutionState) -> None:
     _require_digest(state.approval_digest, "execution approval digest")
     if not isinstance(state.sequence, int) or state.sequence < 0:
@@ -966,12 +994,25 @@ def _canonical_artifact_bytes(payload: object) -> bytes:
 
 
 def _validate_private_directory(path: Path) -> None:
+    info = _directory_lstat(path)
+    if info.st_mode & 0o077:
+        raise RefreshSafetyError(f"Operational path must be a private real directory: {path}")
+
+
+def _validate_real_directory(path: Path) -> None:
+    """Validate a repo-local ancestor without requiring private checkout modes."""
+
+    _directory_lstat(path)
+
+
+def _directory_lstat(path: Path) -> os.stat_result:
     try:
         info = path.lstat()
     except OSError as error:
         raise RefreshSafetyError(f"Operational directory is missing: {path}") from error
-    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode) or info.st_mode & 0o077:
-        raise RefreshSafetyError(f"Operational path must be a private real directory: {path}")
+    if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+        raise RefreshSafetyError(f"Operational path must be a real directory: {path}")
+    return info
 
 
 def _write_exclusive_atomic(path: Path, body: bytes) -> None:

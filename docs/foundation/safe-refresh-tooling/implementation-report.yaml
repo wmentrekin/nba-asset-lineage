@@ -9,7 +9,7 @@ based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
   scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, and B4/T11 documentation: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, and truthful operator safety guidance."
-  outcome: "Offline validation passed, but PR review found three P1 readiness defects: artifact-root permission handling, unbound runner plan ordering, and the planned CLI surface not being wired. Correction loop 1/2 is prepared but paused by user direction while GitHub API availability is unreliable; frontend test/check/build remains dependency-blocked in this environment."
+  outcome: "V1 fixed the artifact-root and runner-plan P1 defects and added a guarded snapshot adapter. The remaining plan-named projection/runner/restore CLI commands need a new closed on-disk request/plan artifact architecture; generic inputs would violate the approved constraints. User direction is required before expanding or narrowing scope."
 
 task_batches_attempted: ["B1", "B2", "B3", "B4"]
 task_batches_completed: ["B1", "B2", "B3", "B4"]
@@ -84,9 +84,8 @@ local_validation:
 review_summary:
   status: changes_requested
   key_findings:
-    - "Artifact creation rejects normal repository/tmp permissions before creating a private refresh leaf."
-    - "Runner accepts unlabeled/reordered plan tuples before any write, violating fixed-order safety."
-    - "Plan-required projection/snapshot/runner/restore CLI surface is not fully wired."
+    - "Artifact creation and runner-plan closure P1s are fixed by V1 and need re-review."
+    - "Plan-required projection/runner/restore CLI surface remains blocked on a closed request/plan artifact architecture."
 
 test_summary:
   status: partial
@@ -97,11 +96,11 @@ test_summary:
   failures: []
   gaps:
     - "Frontend dependencies are not installed locally, so frontend test/check/build require a dependency-installing verification environment."
-    - "Python suite was green but did not cover the reviewer-reported P1 artifact/runner scenarios; correction tests are required."
+    - "V1 focused regression tests cover the artifact/runner P1s; full command-surface verification awaits a user decision on closed request/plan artifacts."
 
 open_issues: []
 
 handoff:
-  current_state: paused
-  next_owner: "data-engineer"
-  next_action: "When GitHub is available, run correction loop 1/2: fix artifact creation, bind runner plans to step order before writes, and implement or correctly constrain the planned CLI surface."
+  current_state: blocked_on_scope_decision
+  next_owner: "user"
+  next_action: "Choose whether to add closed request/plan artifact schemas and wire the remaining plan-named commands, or formally narrow their planned CLI surface."
