@@ -1,0 +1,28 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B5"
+task_id: "T12"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Implement the closed refresh-request, refresh-plan, reconciliation, and projection-report artifact chain that serializes exact typed plans and validates fixed in-leaf inputs before any database connection."
+why_this_matters: "The named operational CLI commands must reproduce only the reviewed request and typed plan—not accept generic paths, JSON, SQL, or caller-selected steps."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/refresh_mutations.py", "src/foundation/foundation_table_manifest.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_projection.py"]
+scope:
+  owned: ["src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/refresh_mutations.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_projection.py", "tests/foundation/test_refresh_safety.py"]
+  forbidden: ["Live database access", "Live network access", "Generic JSON/SQL/path/step inputs", "SQL migrations", "Actual source capture/snapshot/run/restore", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use only existing private tmp/<refresh-id> leaves. The request has fixed source-bundle and fixture slots with allowlisted relative paths and SHA-256 values; reject traversal, symlinks, links, modes, extra/unknown slots, and drift."
+  - "Add a closed codec for FoundationMutationPlan and its six operation types, tables, policies, and tagged DB values. Reject unknown operations, tables, policies, values, keys, reordering, duplicate/missing steps, noncanonical bytes, and broken digests."
+  - "refresh-plan binds request, baseline/historical checksums, reconciliation digest, and exact labeled plans. Extend the projection report to bind request/plan; create the closed reconciliation summary required by approval bindings."
+  - "Artifact validation always precedes any future fake database connect; tests use materialized fixtures/bundles and fakes only."
+success_criteria: ["Closed request/plan/reconciliation/report schemas and canonical digests", "Typed plan codec round-trips only the fixed approved plan surface", "Input, bundle, fixture, artifact, and link drift reject before DB connect", "Deterministic artifact-chain persistence and report binding", "No live systems touched"]
+validation_expected: ["Request/plan/report tamper and link-drift rejection", "Closed plan codec vectors", "Bundle/fixture validation before fake DB connect", "Deterministic artifact-chain persistence"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Any required plan type cannot be represented through a closed codec", "An existing plan/report contract cannot be bound without an unapproved schema decision", "Validation requires live access"]

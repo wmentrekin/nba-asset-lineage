@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B3"
+task_id: "T8"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Record and validate closed action-specific approvals bound to all data, plan, code, dependency, environment, dirty-tree, schema, database, snapshot, and prefix fingerprints before any future write-capable action."
+why_this_matters: "A future refresh or restore must be explicitly authorized against the exact reviewed evidence, and every stale or incomplete approval must fail before a database write can begin."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/foundation/foundation_table_manifest.py", "src/foundation/source_payloads.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+  forbidden: ["Self-generated user approval", "Secrets in fingerprints", "Open-schema state", "Live database access in tests", "Live network access", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use the closed refresh_approval_v1 schema and action-specific semantics in plan.yaml; a refresh approval must never authorize restore."
+  - "Bind all required payload, fixture, projection, reconciliation, snapshot, table, schema, database, plan, implementation, environment, dirty-tree, and prefix fingerprints."
+  - "Implementation fingerprints must cover tracked/untracked/deleted code/config changes without reading environment secrets; environment fingerprints expose version facts only."
+  - "Preflight must validate every required field and all freshness fingerprints before it returns an executable approval; fail before any write helper or connection capable of writes is invoked."
+  - "Use fake fixtures/connections only."
+success_criteria: ["Closed approval schema rejects missing, extra, mismatched, and stale fields", "Refresh and restore actions cannot be conflated", "Implementation/environment/dirty-tree drift rejects", "All preflight failures occur before writes", "No secrets or live systems touched"]
+validation_expected: ["Missing/extra/stale approval fields reject", "Implementation/environment/dirty-tree drift rejects", "All preflight failures precede writes"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["A required approval binding is undefined in the approved plan", "A fingerprint cannot be collected without secret material", "A validation path requires live access"]

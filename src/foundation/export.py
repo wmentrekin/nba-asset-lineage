@@ -3,7 +3,7 @@ from __future__ import annotations
 import psycopg
 from pydantic import BaseModel
 
-from foundation.models import BaseGraphExport
+from foundation.models import BaseGraphExport, FoundationExportInputs
 from foundation.models import AssetTransition, PickAsset, PlayerAsset, TransactionEvent
 from foundation.models import FuturePickSnapshot
 from foundation.models import ConditionalPickBranchSnapshot, ConditionalPickFamilySnapshot
@@ -69,7 +69,7 @@ def build_empty_base_export() -> BaseGraphExport:
     )
 
 
-def build_base_export_from_database(database_url: str) -> BaseGraphExport:
+def _read_base_graph_export_from_database(database_url: str) -> BaseGraphExport:
     with psycopg.connect(database_url, connect_timeout=10) as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -511,6 +511,57 @@ def build_base_export_from_database(database_url: str) -> BaseGraphExport:
         prior_owner_lineages=export.draft_prior_owner_lineages,
     )
     return export
+
+
+def read_foundation_export_inputs_from_database(database_url: str) -> FoundationExportInputs:
+    """Read the database-backed export once and expose it as typed pure-builder inputs.
+
+    This is deliberately read-only.  The projection path supplies the same input
+    contract from its in-memory table state instead of opening a connection.
+    """
+
+    return FoundationExportInputs.from_base_graph_export(
+        _read_base_graph_export_from_database(database_url)
+    )
+
+
+def build_base_export(inputs: FoundationExportInputs) -> BaseGraphExport:
+    """Assemble a stable base export without a cursor or database connection."""
+
+    span_start = inputs.span_start
+    span_end = inputs.span_end
+    if inputs.events:
+        ordered_events = sorted(
+            inputs.events,
+            key=lambda event: (event.event_date, event.sequence, event.event_id),
+        )
+        span_start = min(span_start, ordered_events[0].event_date)
+        span_end = max(span_end, ordered_events[-1].event_date)
+    else:
+        ordered_events = []
+    return BaseGraphExport(
+        franchise=inputs.franchise,
+        span_start=span_start,
+        span_end=span_end,
+        events=ordered_events,
+        player_assets=inputs.player_assets,
+        pick_assets=inputs.pick_assets,
+        transitions=inputs.transitions,
+        roster_snapshots=inputs.roster_snapshots,
+        daily_roster_states=inputs.daily_roster_states,
+        draft_prior_owner_lineages=inputs.draft_prior_owner_lineages,
+        draft_lottery_results=inputs.draft_lottery_results,
+    )
+
+
+def build_base_export_from_database(database_url: str) -> BaseGraphExport:
+    """Compatibility wrapper for callers that currently provide a database URL."""
+
+    inputs = read_foundation_export_inputs_from_database(database_url)
+    # Keep the additive draft_lottery_result export surface explicit at this
+    # compatibility boundary while the read adapter owns the SQL details.
+    draft_lottery_results = inputs.draft_lottery_results
+    return build_base_export(inputs.model_copy(update={"draft_lottery_results": draft_lottery_results}))
 
 
 def build_draft_resolution_export_items(

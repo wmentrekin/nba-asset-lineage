@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B2"
+task_id: "T6"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Emit closed-schema deterministic projection reports with row-set diffs, canonical checksums, input/fixture digests, prefix fingerprints, blockers, and sanitized local output."
+why_this_matters: "A future refresh approval must bind an understandable, repeatable no-write result—not merely internal table states or volatile console output."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/foundation_table_manifest.py", "src/foundation/refresh_mutations.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py", "src/redesign_cli.py", "tests/foundation/test_refresh_projection.py"]
+scope:
+  owned: ["src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py", "src/redesign_cli.py", "tests/foundation/test_refresh_projection.py"]
+  forbidden: ["Raw source bodies or database rows in reports", "Live database access", "Live network access", "Noncanonical digests", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Keep T5's internal prefix checksums distinct from the report-level canonical digest contract; replace or augment them with closed canonical encoding as required by plan.yaml."
+  - "Report source bundle and local fixture inputs by safe identity/digest only; never serialize raw payloads, credentials, or full database rows."
+  - "Make added/removed/changed identifiers, changed field names, before/after row hashes, and semantic/full-state checksums deterministic."
+  - "Persist optional report artifacts only through restricted local safe storage; the command must state writes_to_database=false."
+  - "Use fixtures/fakes only."
+success_criteria: ["Closed report schema and canonical digest vectors", "Stable per-surface row-set diffs", "Final foundation, base-export, and visualization checksums are exposed", "Fixture/bundle digests are bound", "Reports contain no raw source bodies or DB rows", "No live systems touched"]
+validation_expected: ["Golden report/digest vectors", "Deterministic semantic and full-state checksums", "Projected/base-wrapper equivalence", "Report sanitization tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["The approved report schema needs a new product decision", "A required digest needs undefined serialization semantics", "Any validation would require live access"]

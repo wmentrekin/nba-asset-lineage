@@ -71,9 +71,47 @@ mise run frontend_dev
 mise run frontend_check
 mise run frontend_test
 mise run frontend_build
+mise run foundation_test
 ```
 
 These are temporary scaffolding commands, not the long-term workflow.
+
+## Safe Refresh Tooling
+
+The next live offseason refresh is deliberately blocked behind the reviewed
+safe-refresh tooling described in
+[`docs/foundation/safe-refresh-tooling/`](docs/foundation/safe-refresh-tooling).
+It is designed to make an eventual refresh reproducible, previewable, and
+recoverable; this repository has not used it to capture sources or change a
+database yet.
+
+The safety boundary is intentionally strict:
+
+- source capture writes raw response bytes only to a restricted local
+  `tmp/<refresh-id>/` artifact directory; later normalization, preview, and
+  execution must consume the locked bundle and its reviewed SHA-256 digest;
+- projection starts from one read-only foundation baseline and produces
+  sanitized counts, IDs, changed-field names, blockers, and checksums. It does
+  not write a database;
+- a human-supplied, closed approval record binds the exact payload, fixture,
+  projection, snapshot, code, environment, dirty-tree, schema, database, plan,
+  and prefix fingerprints before a future write-capable runner can start;
+- the runner accepts only a sealed, fixed-order plan from that artifact leaf;
+  its CLI does not accept caller-selected steps, SQL, tables, or input files;
+- restore is destructive and always needs a separate
+  `action=restore_snapshot` approval. An `execute_refresh` approval cannot
+  authorize it.
+
+The operational commands are deliberately not a general-purpose data-loading
+interface. `preview-refresh-projection`,
+`run-approved-foundation-refresh`, and
+`restore-foundation-refresh-snapshot` each take only
+`--artifact-directory` (plus `--execute` for a write-capable command). Their
+inputs are the fixed, digest-linked files inside that private leaf. The one
+approval command additionally receives a reviewed external approval document;
+it validates and records that document, but cannot manufacture consent or run
+a refresh. See the [safe refresh operator guide](docs/foundation/safe-refresh-tooling/README.md)
+before using any of these commands.
 
 The checked-in Python CLI now also supports reset-era foundation tasks such as:
 

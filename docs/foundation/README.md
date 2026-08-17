@@ -100,6 +100,61 @@ The repo now has:
 
 ## Current Caveats
 
+### Safe refresh boundary
+
+The planned 2026 offseason refresh is blocked until the reviewed safe-refresh
+tooling is verified and explicitly approved for a later live pass. The tooling
+is documented in [`safe-refresh-tooling/`](safe-refresh-tooling/) and is
+code-only at this point: no bundle capture, database snapshot, runner, or
+restore has been performed from this branch.
+
+Its operator contract has five distinct operations; do not collapse them into a
+single “refresh” action:
+
+1. **Capture** injects a fetcher into `foundation.source_payloads` and stores
+   immutable raw-byte bundles below restricted `tmp/<refresh-id>/` storage.
+   It is the only layer permitted to perform network I/O. There is no generic
+   capture CLI command yet.
+2. **Sealed request/plan assembly** materializes fixed source-bundle slots,
+   four tracked fixture slots, `refresh-request.json`,
+   `refresh-reconciliation.json`, and `refresh-plan.json` in that same leaf.
+   These are closed, canonical, digest-linked artifacts. There is deliberately
+   no generic CLI for arbitrary JSON, SQL, tables, or plan steps.
+3. **Preview/projection** runs
+   `preview-refresh-projection --artifact-directory <leaf>`. It validates the
+   complete sealed chain before opening one read-only baseline, writes no
+   database rows, and writes a single immutable sanitized
+   `projection-report.json` in the leaf.
+4. **Approval and runner** require a human-created closed
+   `refresh_approval_v1` payload. `record-refresh-approval` can validate and
+   record that payload, but never invents consent. The runner takes only
+   `--artifact-directory <leaf> --execute`, validates every binding before a
+   write-capable connection, and supports recovery only at an approved prefix;
+   no caller may choose, skip, or reorder steps.
+5. **Restore** replays the full 21-table preimage in fixed FK-safe order only
+   after separate `action=restore_snapshot` approval and explicit `--execute`.
+   It is destructive, is never automatic, and is not authorized by an
+   `execute_refresh` approval.
+
+Restricted operational artifacts can contain raw source bodies or full database
+preimages. They must stay in the ignored repo-local `tmp/<refresh-id>/` root,
+with private `0700` directories and `0600` files. Do not commit, upload, or
+attach them to a PR. Retain them only through the live refresh review and any
+required recovery window, then remove them using an explicitly reviewed local
+cleanup action. Sanitized projection reports may be shared only when they
+contain counts, IDs, field names, and digests—not source bodies, credentials,
+or full database rows.
+
+Known operational limitations: the advisory lock coordinates the approved
+runner only; direct legacy writers are outside that lock. A changed payload,
+fixture, code/dependency/environment/dirty-tree fingerprint, schema/database,
+or prefix state invalidates approval and requires a fresh projection and human
+approval.
+
+Read the complete [safe refresh operator guide](safe-refresh-tooling/README.md)
+before any later live pass. This branch has performed no source capture,
+database snapshot, runner, or restore operation.
+
 - Basketball-Reference transaction, roster, and draft sources are HTML pages, so
   these loaders are scrapers.
 - NBA stats reference loading uses JSON endpoints.

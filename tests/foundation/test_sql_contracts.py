@@ -12,6 +12,16 @@ from foundation.sources import (
     RECOGNIZED_SOURCE_SYSTEMS,
     SOURCE_POLICY,
 )
+from foundation.foundation_table_manifest import FOUNDATION_TABLES
+
+
+def test_foundation_table_manifest_reconciles_to_the_active_bootstrap_sql() -> None:
+    sql_text = "\n".join(path.read_text(encoding="utf-8") for path in Path("sql").glob("000[1-7]_*.sql"))
+    assert len(FOUNDATION_TABLES) == 21
+    for table in FOUNDATION_TABLES:
+        assert f"foundation.{table.name}" in sql_text
+        for column in table.key_columns:
+            assert column in table.columns
 
 
 def test_source_policy_defines_first_pass_fact_taxonomy_and_roles() -> None:

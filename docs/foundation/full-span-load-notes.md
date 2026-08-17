@@ -1,5 +1,39 @@
 # Full-Span Load Notes
 
+## Next refresh: safety-tooling handoff
+
+This document records the last verified live baseline; it is **not** permission
+to rerun a live load. The parent 2026 offseason refresh remains blocked until
+the safe-refresh-tooling PR is reviewed and its verification is complete.
+
+For that later, separately authorized pass:
+
+1. create the restricted repo-local `tmp/<refresh-id>/` leaf and capture the
+   fixed 21-table snapshot only when the later live checkpoint authorizes it;
+2. capture each required source once into that leaf's fixed bundle slots,
+   materialize the four fixed fixture slots, then construct the closed
+   `refresh-request.json`, `refresh-reconciliation.json`, and
+   `refresh-plan.json` artifacts with their reviewed digests;
+3. run `preview-refresh-projection --artifact-directory <leaf>`. It validates
+   those local files before its one read-only baseline and writes the sealed,
+   sanitized `projection-report.json`; it writes no database rows;
+4. review blockers, diffs, reconciliation evidence, and checksums. Record an
+   explicit human `execute_refresh` approval bound to the exact artifact chain,
+   snapshot, code, environment, dirty tree, schema, database, and prefix
+   fingerprints;
+5. only after a distinct user go-ahead, run
+   `run-approved-foundation-refresh --artifact-directory <leaf> --execute`.
+   If a prefix cannot be reconciled, stop in `needs_restore` rather than
+   guessing;
+6. restore only with separately recorded `action=restore_snapshot` approval,
+   explicit future authorization, and
+   `restore-foundation-refresh-snapshot --artifact-directory <leaf> --execute`.
+   An execution approval never authorizes destructive recovery.
+
+Do not put raw source bodies, snapshot rows, credentials, or local operational
+artifacts in this document, a commit, or a PR. See
+[`safe-refresh-tooling/`](safe-refresh-tooling/) for the full contracts.
+
 Last verified live load scope:
 
 - team: Memphis Grizzlies

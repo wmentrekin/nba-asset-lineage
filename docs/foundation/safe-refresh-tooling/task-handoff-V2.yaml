@@ -1,0 +1,28 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "verification-correction-3-user-authorized"
+task_id: "V2"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Resolve exactly three final P1s: enforce the real repo-local artifact leaf before any connection, make the final audit/export plan non-mutating or projection-equivalent, and reject sealed projection blockers before any write-capable action."
+why_this_matters: "These defects can allow unsafe operational context or a committed mutation outside the reviewed projection, so the draft PR cannot be approved until all three fail closed."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/redesign_cli.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_projection.py", "tests/foundation/test_redesign_cli.py"]
+scope:
+  owned: ["src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/redesign_cli.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_projection.py", "tests/foundation/test_redesign_cli.py"]
+  forbidden: ["New command surface", "Generic inputs", "Live database access", "Live network access", "SQL migrations", "Actual source capture/snapshot/run/restore", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Require an existing, real repo-root-derived tmp/<refresh-id> leaf—not merely any private directory—before preview, runner, or restore resolves a DB URL/connection. Test that rejection happens before injected connection lookup."
+  - "The fixed final Audit/export verification twice checkpoint is verification-only. Enforce an empty plan for it in the serialized artifact and runner boundary, and add end-to-end preview/runner prefix-parity coverage with a malicious non-empty final plan rejection."
+  - "Fail closed on any report blockers before runner connection, advisory lock, execution-state write, transaction, or mutation. Test all boundaries with fakes."
+  - "Do not change intended behavior beyond these three P1 fixes."
+success_criteria: ["Non-repo-local/private artifact directory rejects before connection", "Non-empty final audit plan rejects before any runner side effect", "Report blockers reject before connection/lock/state/mutation", "Targeted regression suite proves all three fail-closed boundaries", "No live systems touched"]
+validation_expected: ["Focused artifact/safety/projection/CLI regression tests", "Runner side-effect sentinel tests", "CLI help smoke checks", "No live access"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Any P1 requires a new command/artifact architecture", "A fix would expand beyond the three authorized defects", "Validation requires live access"]

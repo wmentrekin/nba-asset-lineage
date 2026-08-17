@@ -355,34 +355,18 @@ def test_build_nba_player_movement_source_rows_extracts_contract_semantics_from_
     assert contract_payload["contract_semantic_source_field"] == "transaction_description"
 
 
-def test_load_nba_player_movement_dry_run_does_not_connect(monkeypatch: pytest.MonkeyPatch) -> None:
-    preview = {
-        "status": "ok",
-        "source_system": "nba_player_movement",
-        "source_type": "transactions_json",
-        "source_locator": "fixture://nba-player-movement",
-        "writes_to_database": False,
-        "source_records": 1,
-        "source_events": 2,
-        "source_record_ids": ["nba_player_movement:memphis"],
-        "source_event_ids": ["nba_player_movement:a", "nba_player_movement:b"],
-    }
-    monkeypatch.setattr(live_sources, "preview_nba_player_movement_source_rows", lambda **kwargs: preview)
+def test_load_nba_player_movement_rejects_missing_locked_bundle_before_connection(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         live_sources.psycopg,
         "connect",
         lambda *args, **kwargs: pytest.fail("dry-run should not open a write connection"),
     )
 
-    result = live_sources.load_nba_player_movement(dry_run=True)
-
-    assert result["dry_run"] is True
-    assert result["writes_to_database"] is False
-    assert result["source_events"] == 2
+    with pytest.raises(ValueError, match="payload_bundle_path"):
+        live_sources.load_nba_player_movement(dry_run=True)
 
 
 def test_load_nba_player_movement_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = {"transactions": [{"TRANSACTION_TYPE": "Signing"}]}
     source_records = [
         live_sources.SourceRecordRow(
             source_record_id="nba_player_movement:memphis",
@@ -417,12 +401,9 @@ def test_load_nba_player_movement_execute_writes_source_rows(monkeypatch: pytest
         def commit(self) -> None:
             calls.append("commit")
 
-    monkeypatch.setattr(live_sources, "read_nba_player_movement_fixture", lambda path: payload)
-    monkeypatch.setattr(
-        live_sources,
-        "build_nba_player_movement_source_rows",
-        lambda *args, **kwargs: (source_records, source_events),
-    )
+    bundle = live_sources.SourceBundle(Path("locked"), {"bundle_sha256": "a" * 64}, {})
+    monkeypatch.setattr(live_sources, "load_source_bundle", lambda *args, **kwargs: bundle)
+    monkeypatch.setattr(live_sources, "build_locked_source_rows", lambda bundle: (source_records, source_events, [], []))
     monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
     monkeypatch.setattr(
         live_sources,
@@ -434,7 +415,8 @@ def test_load_nba_player_movement_execute_writes_source_rows(monkeypatch: pytest
 
     result = live_sources.load_nba_player_movement(
         "postgresql://example",
-        fixture_path=Path("fixture.json"),
+        payload_bundle_path=Path("locked"),
+        expected_bundle_sha256="a" * 64,
         execute=True,
         dry_run=False,
     )
@@ -909,17 +891,6 @@ def test_build_official_release_fixture_bundle_rejects_duplicate_explicit_source
 
 
 def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: pytest.MonkeyPatch) -> None:
-    payload = {
-        "articles": [
-            {
-                "source_record_id": "team_official:2025-07-06:trade-pacers",
-                "source_system": "team_official",
-                "source_type": "press_release_article",
-                "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-complete-trade-with-pacers",
-                "events": [{"event_date": "2025-07-06", "event_type": "trade", "player_names_out": ["Jay Huff"]}],
-            }
-        ]
-    }
     source_records = [
         live_sources.SourceRecordRow(
             source_record_id="team_official:2025-07-06:trade-pacers",
@@ -954,12 +925,9 @@ def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: p
         def commit(self) -> None:
             calls.append("commit")
 
-    monkeypatch.setattr(live_sources, "read_official_release_fixture", lambda path: payload)
-    monkeypatch.setattr(
-        live_sources,
-        "build_official_release_source_rows",
-        lambda *args, **kwargs: (source_records, source_events),
-    )
+    bundle = live_sources.SourceBundle(Path("locked"), {"bundle_sha256": "a" * 64}, {})
+    monkeypatch.setattr(live_sources, "load_source_bundle", lambda *args, **kwargs: bundle)
+    monkeypatch.setattr(live_sources, "build_locked_source_rows", lambda bundle: (source_records, source_events, [], []))
     monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
     monkeypatch.setattr(
         live_sources,
@@ -971,7 +939,8 @@ def test_load_official_release_sources_execute_writes_source_rows(monkeypatch: p
 
     result = live_sources.load_official_release_sources(
         "postgresql://example",
-        fixture_path=Path("fixture.json"),
+        payload_bundle_path=Path("locked"),
+        expected_bundle_sha256="a" * 64,
         execute=True,
         dry_run=False,
     )
@@ -1047,12 +1016,9 @@ def test_load_bref_source_events_replaces_stale_rows_per_source_record(monkeypat
         def commit(self) -> None:
             calls.append("commit")
 
-    monkeypatch.setattr(live_sources, "fetch_bref_transactions_html", lambda **kwargs: "<html />")
-    monkeypatch.setattr(
-        live_sources,
-        "build_bref_source_rows",
-        lambda *args, **kwargs: (source_records, source_events),
-    )
+    bundle = live_sources.SourceBundle(Path("locked"), {"bundle_sha256": "a" * 64}, {})
+    monkeypatch.setattr(live_sources, "load_source_bundle", lambda *args, **kwargs: bundle)
+    monkeypatch.setattr(live_sources, "build_locked_source_rows", lambda bundle: (source_records, source_events, [], []))
     monkeypatch.setattr(live_sources, "insert_source_records", lambda connection, rows: calls.append(f"records:{len(rows)}"))
     monkeypatch.setattr(
         live_sources,
@@ -1062,7 +1028,11 @@ def test_load_bref_source_events_replaces_stale_rows_per_source_record(monkeypat
     monkeypatch.setattr(live_sources, "insert_source_events", lambda connection, rows: calls.append(f"events:{len(rows)}"))
     monkeypatch.setattr(live_sources.psycopg, "connect", lambda *args, **kwargs: FakeConnection())
 
-    result = live_sources.load_bref_source_events("postgresql://example", team_code="MEM", season_end_year=2024)
+    result = live_sources.load_bref_source_events(
+        "postgresql://example", team_code="MEM", season_end_year=2024,
+        payload_bundle_path=Path("locked"), expected_bundle_sha256="a" * 64,
+        execute=True, dry_run=False,
+    )
 
     assert calls == [
         "records:2",

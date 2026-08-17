@@ -443,6 +443,26 @@ class BaseGraphExport(BaseModel):
     draft_lottery_results: list[DraftLotteryResultExport] = Field(default_factory=list)
 
 
+class FoundationExportInputs(BaseModel):
+    """Typed, database-independent inputs for the base graph export assembly seam."""
+
+    franchise: str = "memphis-grizzlies"
+    span_start: str = "2016-07-01"
+    span_end: str = "2026-06-30"
+    events: list[TransactionEvent] = Field(default_factory=list)
+    player_assets: list[PlayerAsset] = Field(default_factory=list)
+    pick_assets: list[PickAsset] = Field(default_factory=list)
+    transitions: list[AssetTransition] = Field(default_factory=list)
+    roster_snapshots: list[RosterSnapshot] = Field(default_factory=list)
+    daily_roster_states: list[DailyRosterState] = Field(default_factory=list)
+    draft_prior_owner_lineages: list[DraftPriorOwnerLineage] = Field(default_factory=list)
+    draft_lottery_results: list[DraftLotteryResultExport] = Field(default_factory=list)
+
+    @classmethod
+    def from_base_graph_export(cls, export: BaseGraphExport) -> "FoundationExportInputs":
+        return cls(**export.model_dump())
+
+
 VisualizationLaneBand = Literal[
     "main_roster",
     "two_way",

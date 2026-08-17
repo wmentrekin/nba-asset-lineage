@@ -30,3 +30,7 @@ run = "cd frontend && npm run check"
 [tasks.frontend_test]
 description = "Run the frontend unit tests"
 run = "cd frontend && npm run test"
+
+[tasks.foundation_test]
+description = "Run the offline foundation Python test suite"
+run = "uv --cache-dir /tmp/uv-cache run pytest tests/foundation -q"

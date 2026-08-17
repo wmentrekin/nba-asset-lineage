@@ -1,0 +1,27 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B2"
+task_id: "T3"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Extract typed FoundationExportInputs, a database read adapter, and pure build_base_export so candidate projection and database export share one assembly path."
+why_this_matters: "The future projection report must prove the exact graph artifact the database-backed exporter would build, without writing a parallel approximation."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/export.py", "src/foundation/models.py", "tests/foundation/test_export.py", "tests/foundation/test_visualization_export.py"]
+scope:
+  owned: ["src/foundation/export.py", "src/foundation/models.py", "tests/foundation/test_export.py"]
+  forbidden: ["Export schema redesign", "Live database access", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Preserve build_base_export_from_database as a compatibility wrapper around the extracted pure seam."
+  - "The pure builder must accept typed values rather than a cursor/connection."
+  - "Use fixture/fake cursor tests only; do not contact a database."
+success_criteria: ["Pure and wrapper outputs are equivalent for representative inputs", "Existing BaseGraphExport contract remains stable", "No DB write helper is added"]
+validation_expected: ["Focused export tests", "Relevant visualization-export tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["The current export shape cannot be preserved without a product/schema decision", "A live database is needed for validation"]
