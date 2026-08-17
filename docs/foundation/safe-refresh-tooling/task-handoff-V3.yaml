@@ -1,0 +1,27 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "user-authorized-boundary-extension"
+task_id: "V3"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Require capture-foundation-refresh-snapshot to prove a real repository root and repo-local restricted artifact leaf before it resolves any database URL or opens a read-only connection."
+why_this_matters: "The sealed operational commands already enforce this boundary; snapshot capture must not be a bypass even though its DB transaction is read-only."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/redesign_cli.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_artifacts.py", "tests/foundation/test_redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+scope:
+  owned: ["src/redesign_cli.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_artifacts.py", "tests/foundation/test_redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+  forbidden: ["New command surface", "Generic inputs", "Live database access", "Live network access", "SQL migrations", "Actual source capture", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Validate a real non-symlink Git repository root and the safe repo-local refresh artifact path before invoking db_config or any injected connection lookup."
+  - "Add fake sentinel tests for a non-Git root, symlink root, and invalid existing artifact path; prove no DB lookup/connection occurs."
+  - "Do not modify other command behavior or expand beyond the snapshot-capture boundary."
+success_criteria: ["Non-Git/symlink/unsafe snapshot roots reject before DB lookup", "Valid repo-root behavior remains covered with fake connection", "Focused regressions pass without live access"]
+validation_expected: ["Targeted snapshot-capture pre-connection sentinels", "Focused CLI/safety tests", "CLI help smoke check"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["The fix requires a generic path or new command architecture", "A test needs live access"]

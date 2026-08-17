@@ -106,6 +106,7 @@ from foundation.refresh_safety import (
     restore_approved_foundation_snapshot,
     run_approved_foundation_refresh,
     validate_refresh_artifact_directory,
+    validate_refresh_repository_root,
     write_foundation_snapshot,
     write_refresh_approval,
 )
@@ -879,7 +880,8 @@ def main() -> None:
     elif args.command == "capture-foundation-refresh-snapshot":
         if not args.execute:
             raise ValueError("capture-foundation-refresh-snapshot requires --execute")
-        artifact_directory = create_refresh_artifact_directory(Path(args.repo_root), args.refresh_id)
+        repo_root = validate_refresh_repository_root(Path(args.repo_root))
+        artifact_directory = create_refresh_artifact_directory(repo_root, args.refresh_id)
         with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT current_database(), current_setting('server_version_num')")

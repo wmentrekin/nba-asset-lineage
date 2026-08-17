@@ -107,6 +107,117 @@ def test_snapshot_capture_cli_requires_execute_before_database_lookup(
     assert not (tmp_path / "tmp").exists()
 
 
+@pytest.mark.parametrize("unsafe_root", ["non-git", "symlink", "existing-artifact"])
+def test_snapshot_capture_rejects_unsafe_repo_boundary_before_database_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unsafe_root: str
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(mode=0o755)
+    refresh_id = "refresh-2026-08-17"
+    requested_root = repo_root
+    if unsafe_root == "symlink":
+        (repo_root / ".git").mkdir()
+        requested_root = tmp_path / "repo-link"
+        requested_root.symlink_to(repo_root, target_is_directory=True)
+    elif unsafe_root == "existing-artifact":
+        (repo_root / ".git").mkdir()
+        artifact_directory = repo_root / "tmp" / refresh_id
+        artifact_directory.mkdir(parents=True, mode=0o700)
+        os.chmod(artifact_directory, 0o700)
+
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("repo boundary must precede database lookup"))
+    monkeypatch.setattr(
+        redesign_cli.psycopg,
+        "connect",
+        lambda *_args, **_kwargs: pytest.fail("repo boundary must precede connection"),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "redesign_cli.py",
+            "capture-foundation-refresh-snapshot",
+            "--repo-root",
+            str(requested_root),
+            "--refresh-id",
+            refresh_id,
+            "--execute",
+        ],
+    )
+
+    with pytest.raises(Exception, match="Git checkout|real directory|overwrite"):
+        redesign_cli.main()
+
+
+def test_snapshot_capture_valid_repo_boundary_reaches_fake_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(mode=0o755)
+    (repo_root / ".git").mkdir()
+    observed: list[str] = []
+
+    class FakeConnection:
+        def __enter__(self) -> "FakeConnection":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    class FakeSnapshot:
+        digest = "a" * 64
+
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: "postgresql://fake")
+    monkeypatch.setattr(
+        redesign_cli.psycopg,
+        "connect",
+        lambda database_url, **_kwargs: observed.append(database_url) or FakeConnection(),
+    )
+    monkeypatch.setattr(
+        redesign_cli,
+        "capture_foundation_snapshot",
+        lambda connection, **_kwargs: FakeSnapshot(),
+    )
+    monkeypatch.setattr(
+        redesign_cli,
+        "write_foundation_snapshot",
+        lambda artifact_directory, _snapshot: artifact_directory / "foundation-snapshot.json",
+    )
+
+    class FakeCursor:
+        def __enter__(self) -> "FakeCursor":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, _query: str) -> None:
+            return None
+
+        def fetchone(self) -> tuple[str, int]:
+            return ("fake", 170000)
+
+    FakeConnection.cursor = lambda self: FakeCursor()  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "redesign_cli.py",
+            "capture-foundation-refresh-snapshot",
+            "--repo-root",
+            str(repo_root),
+            "--refresh-id",
+            "refresh-2026-08-17",
+            "--execute",
+        ],
+    )
+
+    redesign_cli.main()
+
+    assert observed == ["postgresql://fake"]
+    assert json.loads(capsys.readouterr().out)["status"] == "captured"
+
+
 @pytest.mark.parametrize(
     "command",
     [

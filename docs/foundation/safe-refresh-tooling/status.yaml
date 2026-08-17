@@ -9,8 +9,8 @@ owner_skill: work
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Push V2 and run the user-authorized targeted final verification of the three P1 fixes."
-  last_completed: "Completed V2: repo-local artifact leaf, empty final audit plan, and projection-blocker P1 boundaries passed offline regression tests."
+  current_focus: "Push V3 and run one final targeted snapshot-capture boundary verification."
+  last_completed: "Completed V3: snapshot-capture validates a real Git root before artifact creation or DB lookup."
   current_blocker: "Frontend test/check/build remains dependency-blocked locally."
 
 artifacts:
@@ -29,8 +29,8 @@ agents:
     model_guidance: "xhigh"
     status: "active"
     stage: "verification"
-    task: "Push V2 and coordinate one targeted final verification of the three P1 fixes."
-    last_update: "V2 integration and full offline foundation suite passed."
+    task: "Push V3 and coordinate one final targeted snapshot-capture boundary verification."
+    last_update: "V3 focused integration passed."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -192,6 +192,30 @@ agents:
     task: "Fix only the three final P1 safety defects and add fail-closed regression tests."
     last_update: "All three P1 boundaries passed fake-only regression and full offline foundation tests."
     blocker: ""
+  - id: "safe_tooling_review_v3"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Targeted final review of the three V2 P1 boundary fixes."
+    last_update: "Changes requested: snapshot-capture must prove a real Git repo root before connection."
+    blocker: ""
+  - id: "safe_tooling_test_v3"
+    role: "tester"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Targeted final testing of the three V2 P1 boundary fixes."
+    last_update: "The three V2 paths passed; snapshot-capture was outside its targeted scope and remains a reviewer-reported gap."
+    blocker: ""
+  - id: "safe_tooling_v3"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Prove a real repo root before snapshot-capture's DB lookup/connection."
+    last_update: "Real Git-root pre-connection validation and fake sentinels passed focused tests."
+    blocker: ""
 
 loops:
   planning_review:
@@ -213,6 +237,6 @@ decisions:
   - "Final planning review approved the plan after two cycles."
   - "User approved expanding the plan with B5's sealed request/plan artifact chain after verification exposed the CLI-surface gap."
 
-next_action: "Push V2 to draft PR #2, then run one targeted final verification limited to the three P1 regressions."
+next_action: "Push V3 to draft PR #2 and run one final targeted snapshot-capture boundary verification."
 next_recommended_command: "$work"
 user_input_needed: false

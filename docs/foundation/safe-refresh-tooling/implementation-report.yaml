@@ -9,7 +9,7 @@ based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
   scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, B4/T11, and B5/T12–T14: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, sealed request/plan/report artifacts, and truthful operator guidance."
-  outcome: "V1 fixed the first P1 set and B5 added sealed artifacts/CLI adapters. The user-authorized exceptional V2 cycle fixed the three final P1s: repo-local leaf validation before connection, an empty final audit plan, and projection-blocker rejection before all runner side effects. One targeted final verification remains."
+  outcome: "V3 extends the repo-local artifact boundary to capture-foundation-refresh-snapshot before artifact creation or its read-only database lookup. Focused integration passed; one final targeted verification remains."
 
 task_batches_attempted: ["B1", "B2", "B3", "B4", "B5"]
 task_batches_completed: ["B1", "B2", "B3", "B4", "B5"]
@@ -111,4 +111,4 @@ open_issues: []
 handoff:
   current_state: ready_for_targeted_verification
   next_owner: "reviewer/tester"
-  next_action: "Push V2 to draft PR #2, then verify only the three P1 regression boundaries; any new safety defect requires user direction."
+  next_action: "Push V3 and verify snapshot-capture rejects non-Git/symlink/unsafe roots before any connection lookup."

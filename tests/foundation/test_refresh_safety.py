@@ -28,6 +28,7 @@ from foundation.refresh_safety import (
     capture_foundation_snapshot,
     create_refresh_artifact_directory,
     validate_refresh_artifact_directory,
+    validate_refresh_repository_root,
     foundation_schema_fingerprint,
     load_foundation_snapshot,
     load_refresh_approval,
@@ -179,6 +180,21 @@ def test_artifact_directory_validation_requires_the_real_repo_local_leaf(tmp_pat
     outside.mkdir(mode=0o700)
     with pytest.raises(RefreshSafetyError, match="repo-local tmp/<refresh-id> leaf"):
         validate_refresh_artifact_directory(outside)
+
+
+def test_refresh_repository_root_rejects_non_git_and_symlink_roots(tmp_path: Path) -> None:
+    non_git_root = tmp_path / "not-a-repo"
+    non_git_root.mkdir(mode=0o755)
+    with pytest.raises(RefreshSafetyError, match="not a Git checkout"):
+        validate_refresh_repository_root(non_git_root)
+
+    real_root = tmp_path / "real-repo"
+    real_root.mkdir(mode=0o755)
+    (real_root / ".git").mkdir()
+    symlink_root = tmp_path / "repo-link"
+    symlink_root.symlink_to(real_root, target_is_directory=True)
+    with pytest.raises(RefreshSafetyError, match="real directory"):
+        validate_refresh_repository_root(symlink_root)
 
 
 def test_snapshot_payload_is_closed_to_all_21_manifest_tables() -> None:

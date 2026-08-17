@@ -595,6 +595,27 @@ def create_refresh_artifact_directory(repo_root: Path, refresh_id: str) -> Path:
     return destination
 
 
+def validate_refresh_repository_root(repo_root: Path) -> Path:
+    """Return a real Git checkout root suitable for refresh capture.
+
+    Snapshot capture starts with a caller-provided repository path, before an
+    artifact leaf exists.  Treat that path as an authority boundary just as
+    strictly as an existing artifact directory: neither the root nor its Git
+    metadata may be a symlink, and the metadata must identify a checkout.
+    """
+
+    root = Path(os.path.abspath(repo_root))
+    _validate_real_directory(root)
+    git_metadata = root / ".git"
+    try:
+        git_info = git_metadata.lstat()
+    except OSError as error:
+        raise RefreshSafetyError("Refresh repository root is not a Git checkout") from error
+    if git_metadata.is_symlink() or not (stat.S_ISDIR(git_info.st_mode) or stat.S_ISREG(git_info.st_mode)):
+        raise RefreshSafetyError("Refresh repository metadata is unsafe")
+    return root
+
+
 def validate_refresh_artifact_directory(artifact_directory: Path) -> Path:
     """Return the real repository root for one existing operational leaf.
 
@@ -610,16 +631,9 @@ def validate_refresh_artifact_directory(artifact_directory: Path) -> Path:
     if not _REFRESH_ID.fullmatch(directory.name) or directory.parent.name != "tmp":
         raise RefreshSafetyError("Artifact directory must be a repo-local tmp/<refresh-id> leaf")
     repository_root = directory.parent.parent
-    _validate_real_directory(repository_root)
+    repository_root = validate_refresh_repository_root(repository_root)
     _validate_real_directory(directory.parent)
     _validate_private_directory(directory)
-    git_metadata = repository_root / ".git"
-    try:
-        git_info = git_metadata.lstat()
-    except OSError as error:
-        raise RefreshSafetyError("Artifact directory repository root is not a Git checkout") from error
-    if git_metadata.is_symlink() or not (stat.S_ISDIR(git_info.st_mode) or stat.S_ISREG(git_info.st_mode)):
-        raise RefreshSafetyError("Artifact directory repository metadata is unsafe")
     return repository_root
 
 
