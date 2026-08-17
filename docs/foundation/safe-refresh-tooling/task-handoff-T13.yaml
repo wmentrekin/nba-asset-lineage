@@ -1,0 +1,28 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B5"
+task_id: "T13"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Wire preview-refresh-projection, run-approved-foundation-refresh, and restore-foundation-refresh-snapshot so they consume only the validated sealed artifact chain under --artifact-directory, with explicit execution guards."
+why_this_matters: "The operational commands must run exactly the reviewed artifact chain and never expose arbitrary JSON, path, SQL, table, or step selection to callers."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/foundation/refresh_mutations.py", "src/redesign_cli.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_redesign_cli.py"]
+scope:
+  owned: ["src/redesign_cli.py", "src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "tests/foundation/test_redesign_cli.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_safety.py"]
+  forbidden: ["Live database access", "Live network access", "Generic JSON/SQL/path/step inputs", "SQL migrations", "Actual source capture/snapshot/run/restore", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Each command takes only --artifact-directory; preview may open exactly one read-only baseline connection only after fixed request/materialized input validation, while runner/restore require --execute and validate the full chain before a write-capable connection."
+  - "Use fixed request slots, fixed artifact filenames, serialized labeled plans, and report links. There must be no caller-selected bundle/fixture, artifact, plan, fingerprint reader, step, table, SQL, or restore target."
+  - "The preview adapter persists only the plan/report/reconciliation artifacts to the restricted leaf. Runner requires action=execute_refresh. Restore requires action=restore_snapshot and the fixed snapshot."
+  - "Use dependency injection/fakes for all connection and builder seams; prove all invalid inputs fail before connection, lock, state write, or mutation."
+success_criteria: ["All three plan-named commands exist and help-test", "Artifact/input/chain drift rejects before any DB connection", "Preview uses one read-only baseline and writes only restricted local artifacts", "Runner/restore require --execute and correct approval action", "No live systems touched"]
+validation_expected: ["Input/chain drift rejects before DB connect", "Preview reads baseline once and writes only restricted local artifacts", "Runner/restore require --execute and correct action", "CLI help and fake-only end-to-end artifact-chain tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["A command cannot be wired without a caller-selected or generic operational input", "Exact typed builder/connection reconstruction needs an unapproved schema decision", "Any validation requires live access"]

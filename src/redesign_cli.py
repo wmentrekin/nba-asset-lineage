@@ -91,12 +91,37 @@ from foundation.roster_validation import (
     preview_roster_snapshot_validation,
 )
 from foundation.refresh_safety import (
+    APPROVAL_FILE_NAME,
+    SNAPSHOT_FILE_NAME,
     capture_foundation_snapshot,
+    environment_fingerprint,
     create_refresh_artifact_directory,
+    dirty_tree_fingerprint,
+    foundation_schema_fingerprint,
+    implementation_fingerprint,
+    load_foundation_snapshot,
+    load_refresh_approval,
     logical_database_fingerprint,
     parse_refresh_approval_payload,
+    restore_approved_foundation_snapshot,
+    run_approved_foundation_refresh,
     write_foundation_snapshot,
     write_refresh_approval,
+)
+from foundation.refresh_artifacts import (
+    PROJECTION_REPORT_FILE_NAME,
+    load_sealed_projection_report,
+    validate_artifact_chain,
+)
+from foundation.refresh_projection import (
+    FoundationBaseline,
+    ProjectionStage,
+    ProjectionReportInputs,
+    RefreshProjectionRequest,
+    build_projection_report,
+    canonical_foundation_state_digest,
+    project_refresh,
+    write_projection_report,
 )
 from foundation.sources import get_default_source_plan
 from foundation.two_way_status import (
@@ -149,6 +174,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Required because capture opens a read-only database connection and writes a restricted local artifact.",
     )
+    projection_parser = subparsers.add_parser(
+        "preview-refresh-projection",
+        help="Project only the sealed refresh artifact chain; writes no database rows.",
+    )
+    projection_parser.add_argument("--artifact-directory", required=True)
+    runner_parser = subparsers.add_parser(
+        "run-approved-foundation-refresh",
+        help="Execute only the sealed, separately approved refresh plan.",
+    )
+    runner_parser.add_argument("--artifact-directory", required=True)
+    runner_parser.add_argument("--execute", action="store_true", help="Required before opening a write-capable connection.")
+    restore_parser = subparsers.add_parser(
+        "restore-foundation-refresh-snapshot",
+        help="Restore only the sealed snapshot with a distinct restore approval.",
+    )
+    restore_parser.add_argument("--artifact-directory", required=True)
+    restore_parser.add_argument("--execute", action="store_true", help="Required before opening a write-capable connection.")
     subparsers.add_parser("check-db", help="Run a minimal database connectivity check.")
     subparsers.add_parser("inspect-db-state", help="Inspect current non-system schemas and relation counts before reset.")
     subparsers.add_parser("inspect-foundation-counts", help="Inspect row counts for active foundation tables.")
@@ -663,6 +705,149 @@ def command_clear_foundation_data() -> dict[str, object]:
     }
 
 
+def _artifact_repository_root(artifact_directory: Path) -> Path:
+    """Derive the only allowed repository root from ``tmp/<refresh-id>``."""
+
+    directory = artifact_directory.resolve()
+    if directory.parent.name != "tmp" or not (directory.parent.parent / ".git").exists():
+        raise ValueError("artifact-directory must be a repo-local tmp/<refresh-id> leaf")
+    return directory.parent.parent
+
+
+def _sealed_prefix_fingerprints(report: dict[str, object]) -> dict[str, str]:
+    """Translate the closed report list to the runner's fixed prefix keys."""
+
+    inputs = report.get("input_digests")
+    prefixes = report.get("prefix_fingerprints")
+    if not isinstance(inputs, dict) or not isinstance(prefixes, list):
+        raise ValueError("sealed projection report does not contain runner prefix evidence")
+    baseline = inputs.get("baseline_full_state_checksum")
+    values = [item.get("full_state_checksum") for item in prefixes if isinstance(item, dict)]
+    if not isinstance(baseline, str) or len(values) != 13 or any(not isinstance(value, str) for value in values):
+        raise ValueError("sealed projection report prefix evidence is incomplete")
+    return {"baseline": baseline, **{f"prefix-{index:02d}": value for index, value in enumerate(values, start=1)}}
+
+
+def _operational_database_fingerprint(connection: object) -> str:
+    """Read only a constrained database identity, never a DSN or credentials."""
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT current_database(), current_setting('server_version_num')")
+        database_name, server_version = cursor.fetchone()
+    return logical_database_fingerprint(database_name=str(database_name), server_version=int(server_version))
+
+
+def _preview_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
+    """Validate all local inputs before the one permitted read-only baseline."""
+
+    request, reconciliation, sealed_plan = validate_artifact_chain(artifact_directory)
+    # A prior report is immutable review evidence; a second preview must use a
+    # fresh leaf rather than overwrite or silently replace it.
+    report_path = artifact_directory / PROJECTION_REPORT_FILE_NAME
+    if report_path.exists() or report_path.is_symlink():
+        raise ValueError("projection-report.json already exists; create a new refresh artifact leaf")
+    with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
+        database_fingerprint = _operational_database_fingerprint(connection)
+        snapshot = capture_foundation_snapshot(connection, database_fingerprint=database_fingerprint)
+    baseline = FoundationBaseline(snapshot.tables, reconciliation.historical_checksum)
+    if canonical_foundation_state_digest(baseline.tables, semantic=False) != reconciliation.baseline_digest:
+        raise ValueError("read-only baseline no longer matches the sealed reconciliation")
+    stages = tuple(ProjectionStage(step.name, step.plan) for step in sealed_plan.plans.steps)
+    projection = project_refresh(
+        baseline,
+        RefreshProjectionRequest(
+            source_overlay=stages[0],
+            derived_stages=stages[1:-1],
+            as_of_date=request.as_of_date,
+            expected_historical_checksum=reconciliation.historical_checksum,
+        ),
+    )
+    report = build_projection_report(
+        projection,
+        inputs=ProjectionReportInputs(
+            source_bundle_digests=tuple(request.bundle_digests.values()),
+            fixture_digests=tuple(request.fixture_digests.values()),
+            request_digest=request.digest,
+            reconciliation_digest=reconciliation.digest,
+            plan_digest=sealed_plan.digest,
+        ),
+    )
+    write_projection_report(report_path, report)
+    return {
+        "status": "projected",
+        "artifact_directory": str(artifact_directory),
+        "projection_report": str(report_path),
+        "projection_digest": report["report_digest"],
+        "writes_to_database": False,
+    }
+
+
+def _sealed_refresh_fingerprints(
+    artifact_directory: Path, *, reconciliation, sealed_plan, report: dict[str, object], snapshot, database_fingerprint: str
+) -> dict[str, str]:
+    root = _artifact_repository_root(artifact_directory)
+    return {
+        "baseline_digest": reconciliation.baseline_digest,
+        "payload_digest": sealed_plan.request_digest,
+        "fixture_digest": reconciliation.fixture_digest,
+        "projection_digest": str(report["report_digest"]),
+        "reconciliation_digest": reconciliation.digest,
+        "snapshot_digest": snapshot.digest,
+        "table_fingerprint": foundation_schema_fingerprint(),
+        "schema_fingerprint": snapshot.schema_fingerprint,
+        "database_fingerprint": database_fingerprint,
+        "plan_fingerprint": sealed_plan.digest,
+        "implementation_fingerprint": implementation_fingerprint(root),
+        "environment_fingerprint": environment_fingerprint(root),
+        "dirty_tree_fingerprint": dirty_tree_fingerprint(root),
+    }
+
+
+def _run_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
+    request, reconciliation, sealed_plan = validate_artifact_chain(artifact_directory)
+    report = dict(load_sealed_projection_report(artifact_directory, request=request, reconciliation=reconciliation, plan=sealed_plan))
+    snapshot = load_foundation_snapshot(artifact_directory / SNAPSHOT_FILE_NAME)
+    approval = load_refresh_approval(artifact_directory / APPROVAL_FILE_NAME)
+    prefixes = _sealed_prefix_fingerprints(report)
+    with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
+        database_fingerprint = _operational_database_fingerprint(connection)
+        fingerprints = _sealed_refresh_fingerprints(artifact_directory, reconciliation=reconciliation, sealed_plan=sealed_plan, report=report, snapshot=snapshot, database_fingerprint=database_fingerprint)
+
+        def prefix_reader(active_connection: object) -> str:
+            current = capture_foundation_snapshot(active_connection, database_fingerprint=database_fingerprint)
+            return canonical_foundation_state_digest(current.tables, semantic=False)
+
+        state = run_approved_foundation_refresh(
+            connection,
+            approval=approval,
+            current_fingerprints=fingerprints,
+            current_prefix_fingerprints=prefixes,
+            plans=sealed_plan.plans,
+            execution_state_path=artifact_directory / "refresh-execution-state.json",
+            prefix_fingerprint_reader=prefix_reader,
+        )
+    return {"status": state.status, "step_index": state.step_index, "approval_digest": approval.digest}
+
+
+def _restore_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
+    request, reconciliation, sealed_plan = validate_artifact_chain(artifact_directory)
+    report = dict(load_sealed_projection_report(artifact_directory, request=request, reconciliation=reconciliation, plan=sealed_plan))
+    snapshot = load_foundation_snapshot(artifact_directory / SNAPSHOT_FILE_NAME)
+    approval = load_refresh_approval(artifact_directory / APPROVAL_FILE_NAME)
+    prefixes = _sealed_prefix_fingerprints(report)
+    with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
+        database_fingerprint = _operational_database_fingerprint(connection)
+        fingerprints = _sealed_refresh_fingerprints(artifact_directory, reconciliation=reconciliation, sealed_plan=sealed_plan, report=report, snapshot=snapshot, database_fingerprint=database_fingerprint)
+        restore_approved_foundation_snapshot(
+            connection,
+            approval=approval,
+            snapshot=snapshot,
+            current_fingerprints=fingerprints,
+            current_prefix_fingerprints=prefixes,
+        )
+    return {"status": "restored", "snapshot_digest": snapshot.digest, "approval_digest": approval.digest}
+
+
 def main() -> None:
     args = parse_args()
 
@@ -710,6 +895,16 @@ def main() -> None:
             "snapshot_path": str(snapshot_path),
             "snapshot_digest": snapshot.digest,
         }
+    elif args.command == "preview-refresh-projection":
+        payload = _preview_sealed_refresh(Path(args.artifact_directory))
+    elif args.command == "run-approved-foundation-refresh":
+        if not args.execute:
+            raise ValueError("run-approved-foundation-refresh requires --execute")
+        payload = _run_sealed_refresh(Path(args.artifact_directory))
+    elif args.command == "restore-foundation-refresh-snapshot":
+        if not args.execute:
+            raise ValueError("restore-foundation-refresh-snapshot requires --execute")
+        payload = _restore_sealed_refresh(Path(args.artifact_directory))
     elif args.command == "check-db":
         payload = command_check_db()
     elif args.command == "inspect-db-state":

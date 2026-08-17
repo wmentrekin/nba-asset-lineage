@@ -115,20 +115,26 @@ single “refresh” action:
    immutable raw-byte bundles below restricted `tmp/<refresh-id>/` storage.
    It is the only layer permitted to perform network I/O. There is no generic
    capture CLI command yet.
-2. **Preview/projection** accepts a typed read-only baseline plus the same
-   immutable mutation plans the future runner will use. It returns sanitized
-   diffs, blockers, warnings, and stable checksums without a database write.
-   It is a Python integration seam, not a live CLI command.
-3. **Approval** requires a human-created closed `refresh_approval_v1` payload.
-   `record-refresh-approval` can validate and record that payload, but never
-   invents consent. See `python -m redesign_cli record-refresh-approval --help`.
-4. **Runner** accepts only a preconstructed fixed-order plan and approval-bound
-   prefix fingerprints. It supports recovery only at an approved prefix and
-   otherwise stops in `needs_restore`; no caller may choose, skip, or reorder
-   steps. It is deliberately not a general live CLI command.
+2. **Sealed request/plan assembly** materializes fixed source-bundle slots,
+   four tracked fixture slots, `refresh-request.json`,
+   `refresh-reconciliation.json`, and `refresh-plan.json` in that same leaf.
+   These are closed, canonical, digest-linked artifacts. There is deliberately
+   no generic CLI for arbitrary JSON, SQL, tables, or plan steps.
+3. **Preview/projection** runs
+   `preview-refresh-projection --artifact-directory <leaf>`. It validates the
+   complete sealed chain before opening one read-only baseline, writes no
+   database rows, and writes a single immutable sanitized
+   `projection-report.json` in the leaf.
+4. **Approval and runner** require a human-created closed
+   `refresh_approval_v1` payload. `record-refresh-approval` can validate and
+   record that payload, but never invents consent. The runner takes only
+   `--artifact-directory <leaf> --execute`, validates every binding before a
+   write-capable connection, and supports recovery only at an approved prefix;
+   no caller may choose, skip, or reorder steps.
 5. **Restore** replays the full 21-table preimage in fixed FK-safe order only
-   after separate `restore_snapshot` approval. It is destructive, is never
-   automatic, and is not authorized by an execution approval.
+   after separate `action=restore_snapshot` approval and explicit `--execute`.
+   It is destructive, is never automatic, and is not authorized by an
+   `execute_refresh` approval.
 
 Restricted operational artifacts can contain raw source bodies or full database
 preimages. They must stay in the ignored repo-local `tmp/<refresh-id>/` root,
@@ -144,6 +150,10 @@ runner only; direct legacy writers are outside that lock. A changed payload,
 fixture, code/dependency/environment/dirty-tree fingerprint, schema/database,
 or prefix state invalidates approval and requires a fresh projection and human
 approval.
+
+Read the complete [safe refresh operator guide](safe-refresh-tooling/README.md)
+before any later live pass. This branch has performed no source capture,
+database snapshot, runner, or restore operation.
 
 - Basketball-Reference transaction, roster, and draft sources are HTML pages, so
   these loaders are scrapers.

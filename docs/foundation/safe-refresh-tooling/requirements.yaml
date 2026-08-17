@@ -18,6 +18,7 @@ goals:
   - "Emit stable row-level diffs, blockers, warnings, and semantic checksums suitable for a go/no-go preview report."
   - "Capture a complete restricted local preimage of all active foundation tables and validate approval metadata against exact payload, fixture, projection, plan, snapshot, and baseline digests."
   - "Encode a dependency-safe approved refresh order, resumable forward recovery, and a separately guarded exact restore path."
+  - "Add a closed, immutable refresh artifact chain so the named preview, runner, and restore CLI commands consume only approved materialized inputs and serialized typed plans."
 
 non_goals:
   - "Do not fetch current live NBA/BRef/team data in this feature."
@@ -39,6 +40,7 @@ constraints:
     - "Operational payloads, snapshots, approval records, and execution state remain under ignored tmp/, mode-restricted, and never enter commits or PRs."
     - "Operational roots must be repo-local, symlink-free, exclusively created, no-follow validated, atomic-written, mode 0700/0600, and contain only allowlisted response metadata."
     - "Restore remains a separate destructive command that fails closed without explicit --execute and exact approved snapshot digest."
+    - "Operational CLI commands accept only --artifact-directory (and --execute where a connection or local artifact write is opened); they never accept caller-supplied SQL, table, generic JSON, step, or arbitrary input-path arguments."
   product:
     - "Sanitized reports may expose only counts, IDs, changed field names, and digests—not raw database rows or full source bodies."
     - "The tooling must preserve the parent refresh's 2026-08-16 cutoff and historical-checksum gate."
@@ -109,6 +111,7 @@ acceptance_criteria:
   - "Restore validates exact snapshot/schema/database fingerprints, uses one guarded transaction and fixed table allowlist/order, rolls back on any mismatch, and commits only when the restored digest equals the baseline."
   - "All new tests pass without live network or database access; the existing full Python and frontend validation suites remain green."
   - "Docs state sensitivity, retention, cleanup, concurrency limitations, and that actual restore always requires separate user authorization."
+  - "refresh-request.json, refresh-plan.json, and projection-report.json form a closed digest-linked artifact chain; bundle and fixture drift, malformed plan codecs, or broken links reject before a database connection, lock, state write, or mutation."
   - "Canonical JSON uses strict UTF-8 sorted compact encoding, closed types, domain-separated SHA-256, explicit self-digest exclusion, fixed item ordering, normalized dates/timestamps, and golden digest vectors."
 
 open_questions: []

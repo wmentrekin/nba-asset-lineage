@@ -3,15 +3,15 @@
 artifact: status
 feature: "foundation/safe-refresh-tooling"
 mode: "large-initiative"
-stage: "planning"
+stage: "verification"
 owner_skill: work
 
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Architecture decision: V1 fixes are ready, but three planned CLI commands require a closed request/plan artifact schema."
-  last_completed: "Completed V1: artifact creation and runner plan-closure P1s fixed; guarded snapshot CLI adapter added."
-  current_blocker: "preview-refresh-projection, run-approved-foundation-refresh, and restore-foundation-refresh-snapshot cannot be safely wired without a closed on-disk request/plan artifact architecture; frontend test/check/build remains dependency-blocked locally."
+  current_focus: "Prepare B5 for the second draft-PR reviewer/tester verification pass."
+  last_completed: "Completed B5/T14: sealed operational CLI documentation and offline foundation validation."
+  current_blocker: "Frontend test/check/build remains dependency-blocked locally."
 
 artifacts:
   requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
@@ -28,9 +28,9 @@ agents:
     role: "orchestrator"
     model_guidance: "xhigh"
     status: "active"
-    stage: "planning"
-    task: "Record V1 fixes and obtain user direction on the required CLI artifact architecture."
-    last_update: "V1 fixed safety P1s; remaining command wiring requires a material architecture decision."
+    stage: "verification"
+    task: "Coordinate B5 review, verification, and PR update."
+    last_update: "T14 docs and offline validation passed; awaiting PR reviewer/tester verification."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -144,6 +144,30 @@ agents:
     task: "Fix reviewer P1 artifact, runner-order, and CLI-surface findings before a second PR verification pass."
     last_update: "Fixed artifact-root and runner-order P1s; added guarded snapshot command; escalated remaining CLI command architecture."
     blocker: ""
+  - id: "safe_tooling_t12"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement closed refresh-request, refresh-plan, reconciliation, and projection-report artifact contracts."
+    last_update: "Closed artifact chain, plan codec, and report bindings passed fixture-only tests."
+    blocker: ""
+  - id: "safe_tooling_t13"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Wire sealed preview, approved runner, and separately approved restore CLI adapters."
+    last_update: "All three sealed CLI adapters, execution guards, and pre-connection validation passed fake-only tests."
+    blocker: ""
+  - id: "safe_tooling_t14"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Document sealed CLI artifact workflow and rerun the full local validation ladder."
+    last_update: "Documented sealed workflow; focused safety/CLI tests and full offline foundation suite passed."
+    blocker: ""
 
 loops:
   planning_review:
@@ -163,7 +187,8 @@ decisions:
   - "This feature changes code, tests, and docs only; it does not load offseason data or write to live Supabase."
   - "The parent offseason refresh remains blocked until this tooling is implemented and verified."
   - "Final planning review approved the plan after two cycles."
+  - "User approved expanding the plan with B5's sealed request/plan artifact chain after verification exposed the CLI-surface gap."
 
-next_action: "Push V1 fixes to draft PR #2, then choose whether to add closed request/plan artifacts or formally narrow the planned command surface."
+next_action: "Commit and push B5, then rerun reviewer/tester verification on draft PR #2."
 next_recommended_command: "$work"
 user_input_needed: false

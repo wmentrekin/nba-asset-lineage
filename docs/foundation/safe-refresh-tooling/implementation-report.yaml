@@ -8,11 +8,11 @@ owner_skill: work
 based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
-  scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, and B4/T11 documentation: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, and truthful operator safety guidance."
-  outcome: "V1 fixed the artifact-root and runner-plan P1 defects and added a guarded snapshot adapter. The remaining plan-named projection/runner/restore CLI commands need a new closed on-disk request/plan artifact architecture; generic inputs would violate the approved constraints. User direction is required before expanding or narrowing scope."
+  scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, B4/T11, and B5/T12–T14: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, sealed request/plan/report artifacts, and truthful operator guidance."
+  outcome: "V1 fixed the artifact-root and runner-plan P1 defects and added a guarded snapshot adapter. T12 implemented the sealed artifact chain, T13 wired the plan-named CLI adapters with fixed pre-connection validation, and T14 documented the exact artifact-directory workflow and completed offline validation."
 
-task_batches_attempted: ["B1", "B2", "B3", "B4"]
-task_batches_completed: ["B1", "B2", "B3", "B4"]
+task_batches_attempted: ["B1", "B2", "B3", "B4", "B5"]
+task_batches_completed: ["B1", "B2", "B3", "B4", "B5"]
 domains_touched: ["data-engineer"]
 
 pr:
@@ -37,6 +37,7 @@ changes:
     - "src/foundation/refresh_projection.py"
     - "tests/foundation/test_refresh_projection.py"
     - "src/foundation/refresh_safety.py"
+    - "src/foundation/refresh_artifacts.py"
     - "tests/foundation/test_refresh_safety.py"
     - "docs/foundation/safe-refresh-tooling/task-handoff-T8.yaml"
     - "docs/foundation/safe-refresh-tooling/task-handoff-T9.yaml"
@@ -56,6 +57,7 @@ changes:
     - "README.md"
     - "docs/foundation/README.md"
     - "docs/foundation/full-span-load-notes.md"
+    - "docs/foundation/safe-refresh-tooling/README.md"
 
 local_validation:
   checks_run:
@@ -75,6 +77,10 @@ local_validation:
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation -q -rA (all foundation tests passed)"
     - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli --help (passed)"
     - "uv --cache-dir /tmp/uv-cache run python -m redesign_cli record-refresh-approval --help (passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_artifacts.py tests/foundation/test_refresh_safety.py tests/foundation/test_refresh_projection.py tests/foundation/test_redesign_cli.py -q (46 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation -q -rA (all offline foundation tests passed)"
+    - "CLI --help smoke checks passed for capture-foundation-refresh-snapshot, preview-refresh-projection, record-refresh-approval, run-approved-foundation-refresh, and restore-foundation-refresh-snapshot"
+    - "git diff --check (passed; local xcrun cache warnings only)"
   failures: []
   skipped:
     - "No live source or database operations are permitted in this feature."
@@ -96,11 +102,11 @@ test_summary:
   failures: []
   gaps:
     - "Frontend dependencies are not installed locally, so frontend test/check/build require a dependency-installing verification environment."
-    - "V1 focused regression tests cover the artifact/runner P1s; full command-surface verification awaits a user decision on closed request/plan artifacts."
+    - "Frontend dependencies are absent locally; no dependency installation was authorized, so frontend test/check/build remain for a dependency-ready verification environment."
 
 open_issues: []
 
 handoff:
-  current_state: blocked_on_scope_decision
-  next_owner: "user"
-  next_action: "Choose whether to add closed request/plan artifact schemas and wire the remaining plan-named commands, or formally narrow their planned CLI surface."
+  current_state: in_progress
+  next_owner: "data-engineer"
+  next_action: "Commit and push B5 documentation/validation updates, then run the second draft-PR reviewer/tester verification pass."

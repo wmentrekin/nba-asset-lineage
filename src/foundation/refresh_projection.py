@@ -114,6 +114,9 @@ class ProjectionReportInputs:
 
     source_bundle_digests: tuple[str, ...] = ()
     fixture_digests: tuple[str, ...] = ()
+    request_digest: str | None = None
+    reconciliation_digest: str | None = None
+    plan_digest: str | None = None
 
 
 def load_read_only_baseline(loader: ReadOnlyBaselineLoader) -> FoundationBaseline:
@@ -153,6 +156,18 @@ def project_refresh(
         }:
             blockers.extend(_cutoff_blockers(state, request.as_of_date, stage.name))
         prefixes.append(ProjectionPrefix(stage.name, state, foundation_state_checksum(state)))
+
+    # Audit/export verification has no mutation plan, but it is still a fixed
+    # runner checkpoint.  Preserve its prefix as a distinct, equal-state
+    # fingerprint so approvals bind all thirteen runner positions.
+    if names == APPROVED_PROJECTION_ORDER[:-1]:
+        prefixes.append(
+            ProjectionPrefix(
+                APPROVED_PROJECTION_ORDER[-1],
+                state,
+                foundation_state_checksum(state),
+            )
+        )
 
     base_export = None
     visualization = None
@@ -226,6 +241,11 @@ def build_projection_report(
 
     source_bundle_digests = _validated_digests(inputs.source_bundle_digests, "source bundle")
     fixture_digests = _validated_digests(inputs.fixture_digests, "fixture")
+    artifact_bindings = {
+        "request_digest": _optional_digest(inputs.request_digest, "refresh request"),
+        "reconciliation_digest": _optional_digest(inputs.reconciliation_digest, "refresh reconciliation"),
+        "plan_digest": _optional_digest(inputs.plan_digest, "refresh plan"),
+    }
     final_state = projection.final_state
     prefixes = [
         {
@@ -253,6 +273,7 @@ def build_projection_report(
             "source_bundle_digests": source_bundle_digests,
             "fixture_digests": fixture_digests,
         },
+        "artifact_bindings": artifact_bindings,
         "prefix_fingerprints": prefixes,
         "surface_diffs": _surface_diffs(projection.baseline.tables, final_state),
         "final_checksums": {
@@ -418,6 +439,12 @@ def _require_digest(value: str, label: str) -> str:
     return value
 
 
+def _optional_digest(value: str | None, label: str) -> str | None:
+    if value is None:
+        return None
+    return _require_digest(value, label)
+
+
 def _identifier(key: tuple[object, ...]) -> str:
     return "|".join(str(part) for part in key)
 
@@ -431,6 +458,7 @@ def _validate_projection_report(report: Mapping[str, object]) -> None:
         "schema_version",
         "writes_to_database",
         "input_digests",
+        "artifact_bindings",
         "prefix_fingerprints",
         "surface_diffs",
         "final_checksums",
@@ -442,6 +470,11 @@ def _validate_projection_report(report: Mapping[str, object]) -> None:
     without_digest = {key: value for key, value in report.items() if key != "report_digest"}
     if report.get("report_digest") != canonical_projection_digest("report", without_digest):
         raise ValueError("Projection report digest does not match its contents")
+    bindings = report.get("artifact_bindings")
+    if not isinstance(bindings, Mapping) or set(bindings) != {"request_digest", "reconciliation_digest", "plan_digest"}:
+        raise ValueError("Projection report artifact bindings do not match the closed schema")
+    for label, value in bindings.items():
+        _optional_digest(value, label)
 
 
 def _baseline_gate_blockers(

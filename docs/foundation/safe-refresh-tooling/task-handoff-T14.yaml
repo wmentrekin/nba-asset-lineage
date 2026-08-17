@@ -1,0 +1,27 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B5"
+task_id: "T14"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Document the sealed artifact-directory operational workflow, update the parent-refresh handoff, run the complete local validation ladder, and prepare draft PR #2 for its second reviewer/tester pass."
+why_this_matters: "Operators need a truthful guide for materializing fixed inputs, no-write preview, user approval, guarded runner, and separately approved restore; the expanded CLI surface must be tested and reviewable."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "docs/foundation/safe-refresh-tooling/", "mise.toml", "src/redesign_cli.py", "src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py"]
+scope:
+  owned: ["README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "docs/foundation/safe-refresh-tooling/", "mise.toml"]
+  forbidden: ["Actual source capture", "Actual database snapshot/run/restore", "Offseason data changes", "personal-site/", "SQL migrations", "Runtime source changes outside documentation/mise scope"]
+implementation_notes:
+  - "Document only --artifact-directory command inputs and the exact fixed artifact sequence. State that preview may read one baseline after input validation, runner/restore require --execute, and restore needs a separate action=restore_snapshot approval."
+  - "Include restricted artifact sensitivity, cleanup/retention, tamper/drift handling, local limitations, and the parent offseason refresh sequence."
+  - "Run focused, full foundation Python, all command --help, and frontend checks/build when dependencies permit. Do not install dependencies or use live services without fresh authority."
+success_criteria: ["Docs accurately cover the sealed artifact chain and all four operational command families", "Parent refresh handoff is explicit", "Focused/full Python and CLI help validation recorded", "Frontend gap is resolved or truthfully recorded", "No live systems touched"]
+validation_expected: ["Full offline foundation Python suite", "CLI help smoke checks for every safety command", "Frontend test/check/build in a dependency-ready environment", "PR reviewer/tester verification"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Docs need a claim unsupported by the sealed command behavior", "A required validation needs live access", "A failing full-suite area lies outside owned documentation scope"]

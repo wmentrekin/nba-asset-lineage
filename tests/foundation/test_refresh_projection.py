@@ -79,7 +79,8 @@ def test_projection_reads_baseline_once_then_applies_only_shared_plans() -> None
 
     assert loader.calls == 1
     assert result.writes_to_database is False
-    assert [prefix.name for prefix in result.prefixes] == list(APPROVED_PROJECTION_ORDER[:-1])
+    assert [prefix.name for prefix in result.prefixes] == list(APPROVED_PROJECTION_ORDER)
+    assert result.prefixes[-1].state == result.prefixes[-2].state
     assert ("event:one",) in result.final_state["source_event"]
 
 
@@ -157,15 +158,22 @@ def test_projection_report_is_deterministic_and_never_exposes_rows_or_payloads()
     report = build_projection_report(
         projection,
         inputs=ProjectionReportInputs(
-            source_bundle_digests=("b" * 64,), fixture_digests=("c" * 64,)
+            source_bundle_digests=("b" * 64,), fixture_digests=("c" * 64,),
+            request_digest="d" * 64, reconciliation_digest="e" * 64, plan_digest="f" * 64,
         ),
     )
     assert report == build_projection_report(
         projection,
         inputs=ProjectionReportInputs(
-            source_bundle_digests=("b" * 64,), fixture_digests=("c" * 64,)
+            source_bundle_digests=("b" * 64,), fixture_digests=("c" * 64,),
+            request_digest="d" * 64, reconciliation_digest="e" * 64, plan_digest="f" * 64,
         ),
     )
+    assert report["artifact_bindings"] == {
+        "request_digest": "d" * 64,
+        "reconciliation_digest": "e" * 64,
+        "plan_digest": "f" * 64,
+    }
     rendered = json.dumps(report, sort_keys=True)
     assert "do-not-report" not in rendered
     assert "still-not-reported" not in rendered

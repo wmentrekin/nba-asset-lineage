@@ -112,6 +112,9 @@ def test_snapshot_capture_cli_requires_execute_before_database_lookup(
     [
         "capture-foundation-refresh-snapshot",
         "record-refresh-approval",
+        "preview-refresh-projection",
+        "run-approved-foundation-refresh",
+        "restore-foundation-refresh-snapshot",
     ],
 )
 def test_refresh_artifact_commands_are_available_from_cli_help(
@@ -123,3 +126,77 @@ def test_refresh_artifact_commands_are_available_from_cli_help(
 
     assert error.value.code == 0
     assert command in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("command", "extra"),
+    [
+        ("preview-refresh-projection", []),
+        ("run-approved-foundation-refresh", ["--execute"]),
+        ("restore-foundation-refresh-snapshot", ["--execute"]),
+    ],
+)
+def test_sealed_operational_commands_reject_missing_artifacts_before_database_lookup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    extra: list[str],
+) -> None:
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("artifact validation must precede database lookup"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["redesign_cli.py", command, "--artifact-directory", str(tmp_path / "missing"), *extra],
+    )
+    with pytest.raises(Exception, match="Artifact|artifact|missing"):
+        redesign_cli.main()
+
+
+@pytest.mark.parametrize("command", ["run-approved-foundation-refresh", "restore-foundation-refresh-snapshot"])
+def test_sealed_destructive_commands_require_execute_before_artifact_or_database_access(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("must not load database URL"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["redesign_cli.py", command, "--artifact-directory", str(tmp_path / "missing")],
+    )
+    with pytest.raises(ValueError, match="requires --execute"):
+        redesign_cli.main()
+
+
+@pytest.mark.parametrize(
+    ("command", "extra", "adapter", "expected"),
+    [
+        ("preview-refresh-projection", [], "_preview_sealed_refresh", {"status": "projected"}),
+        ("run-approved-foundation-refresh", ["--execute"], "_run_sealed_refresh", {"status": "completed"}),
+        ("restore-foundation-refresh-snapshot", ["--execute"], "_restore_sealed_refresh", {"status": "restored"}),
+    ],
+)
+def test_sealed_cli_commands_expose_only_artifact_directory_to_injected_adapters(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    command: str,
+    extra: list[str],
+    adapter: str,
+    expected: dict[str, str],
+) -> None:
+    observed: list[Path] = []
+
+    def fake_adapter(directory: Path) -> dict[str, str]:
+        observed.append(directory)
+        return expected
+
+    monkeypatch.setattr(redesign_cli, adapter, fake_adapter)
+    artifact_directory = tmp_path / "only-artifact-input"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["redesign_cli.py", command, "--artifact-directory", str(artifact_directory), *extra],
+    )
+    redesign_cli.main()
+
+    assert observed == [artifact_directory]
+    assert json.loads(capsys.readouterr().out) == expected

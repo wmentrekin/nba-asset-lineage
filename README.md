@@ -96,23 +96,22 @@ The safety boundary is intentionally strict:
 - a human-supplied, closed approval record binds the exact payload, fixture,
   projection, snapshot, code, environment, dirty-tree, schema, database, plan,
   and prefix fingerprints before a future write-capable runner can start;
-- the runner is a Python safety seam with a fixed approved step order and
-  resumable prefix checks. It is not currently exposed as a general-purpose
-  live CLI command;
+- the runner accepts only a sealed, fixed-order plan from that artifact leaf;
+  its CLI does not accept caller-selected steps, SQL, tables, or input files;
 - restore is destructive and always needs a separate
   `action=restore_snapshot` approval. An `execute_refresh` approval cannot
   authorize it.
 
-The one checked-in operational CLI command is intentionally narrow:
-
-```bash
-uv --cache-dir /tmp/uv-cache run python -m redesign_cli record-refresh-approval --help
-```
-
-It validates and records a reviewed `refresh_approval_v1` JSON document in an
-already-private artifact directory; it cannot manufacture approval metadata or
-run a refresh. See the safety-tooling documentation before using even this
-command.
+The operational commands are deliberately not a general-purpose data-loading
+interface. `preview-refresh-projection`,
+`run-approved-foundation-refresh`, and
+`restore-foundation-refresh-snapshot` each take only
+`--artifact-directory` (plus `--execute` for a write-capable command). Their
+inputs are the fixed, digest-linked files inside that private leaf. The one
+approval command additionally receives a reviewed external approval document;
+it validates and records that document, but cannot manufacture consent or run
+a refresh. See the [safe refresh operator guide](docs/foundation/safe-refresh-tooling/README.md)
+before using any of these commands.
 
 The checked-in Python CLI now also supports reset-era foundation tasks such as:
 

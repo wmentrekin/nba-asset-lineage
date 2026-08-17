@@ -60,6 +60,12 @@ contracts:
     execution_state: "Closed refresh_execution_state_v1 with atomic monotonic sequence, fixed steps, pre/post prefix digests, sanitized receipts, and pending/running/failed/needs_restore/completed transitions."
     resume_rule: "Revalidate every approval fingerprint; rerun an interrupted step only when DB equals its approved pre-prefix, mark recovered only when DB equals approved post-prefix, otherwise needs_restore."
     restore_approval: "Separate action=restore_snapshot approval; execute_refresh approval never authorizes restore."
+  refresh_artifact_chain:
+    directory: "Existing restricted tmp/<refresh-id>/ leaf only; all command adapters take --artifact-directory and never arbitrary artifact paths."
+    request: "Closed refresh_request_v1: as_of_date, fixed source-bundle and fixture slots, relative allowlisted in-leaf locations, raw SHA-256 values, and request digest."
+    plan: "Closed refresh_plan_v1: request digest, baseline/historical checksums, reconciliation digest, and exact ordered labeled ApprovedRefreshPlans serialized through a closed FoundationMutationPlan codec."
+    report: "Closed projection-report binding request and plan digests; approval binds the whole chain with snapshot, database/schema, implementation, environment, dirty-tree, and prefix fingerprints."
+    command_boundary: "preview-refresh-projection validates the request/materialized inputs before one read-only baseline connection; runner/restore revalidate the complete chain before a write-capable connection."
 
 branching:
   strategy: "single-branch"
@@ -182,6 +188,37 @@ execution_batches:
         parallelizable: false
         expected_validation: ["Focused new tests", "Full Python suite", "Frontend tests/check/build", "CLI --help smoke checks"]
 
+  - id: "B5"
+    goal: "Close the request/plan artifact chain and wire the remaining safe operational CLI adapters."
+    tasks:
+      - id: "T12"
+        title: "Implement sealed refresh request, plan, and reconciliation artifacts"
+        objective: "Add fixed-slot in-leaf request validation, closed typed mutation-plan serialization, reconciliation evidence, and digest-linked projection artifacts without generic operational inputs."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/refresh_mutations.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_projection.py", "tests/foundation/test_refresh_safety.py"]
+        forbidden_scope: ["Live database access", "Live network access", "Generic JSON/SQL/path/step inputs", "SQL migrations", "personal-site/"]
+        dependencies: ["V1"]
+        parallelizable: false
+        expected_validation: ["Request/plan/report tamper and link-drift rejection", "Closed plan codec vectors", "Bundle/fixture validation before fake DB connect", "Deterministic artifact-chain persistence"]
+      - id: "T13"
+        title: "Wire sealed preview, runner, and restore CLI adapters"
+        objective: "Make preview-refresh-projection, run-approved-foundation-refresh, and restore-foundation-refresh-snapshot consume only the validated sealed artifact chain, with explicit guards and no caller-selected execution surface."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/redesign_cli.py", "src/foundation/refresh_artifacts.py", "src/foundation/refresh_safety.py", "src/foundation/refresh_projection.py", "tests/foundation/test_redesign_cli.py", "tests/foundation/test_refresh_artifacts.py", "tests/foundation/test_refresh_safety.py"]
+        forbidden_scope: ["Live database access", "Live network access", "Generic JSON/SQL/path/step inputs", "SQL migrations", "Actual snapshot/run/restore", "personal-site/"]
+        dependencies: ["T12"]
+        parallelizable: false
+        expected_validation: ["Input/chain drift rejects before DB connect", "Preview reads baseline once and writes only restricted local artifacts", "Runner/restore require --execute and correct action", "CLI help and fake-only end-to-end artifact-chain tests"]
+      - id: "T14"
+        title: "Reverify and document sealed CLI artifact workflow"
+        objective: "Update operator docs and parent-refresh handoff for the sealed artifact chain, rerun the complete local validation ladder, and send draft PR #2 through reviewer/tester verification again."
+        assigned_domain: "data-engineer"
+        owned_scope: ["README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "docs/foundation/safe-refresh-tooling/", "mise.toml"]
+        forbidden_scope: ["Actual source capture", "Actual database snapshot/run/restore", "Offseason data changes", "personal-site/"]
+        dependencies: ["T13"]
+        parallelizable: false
+        expected_validation: ["Full offline foundation Python suite", "CLI help smoke checks", "Frontend test/check/build in a dependency-ready environment", "PR reviewer/tester verification"]
+
 approved_runner_order:
   - "Approved locked source loads"
   - "Derived entities"
@@ -201,6 +238,7 @@ ordering_notes:
   - "All tasks are sequential because loader, CLI, and test scopes overlap."
   - "The branch is created only after the pre-execution checkpoint."
   - "A PR is opened after B4; reviewer and tester agents verify the PR before completion."
+  - "B5 was added after PR review exposed that the named CLI surface requires a sealed request/plan artifact chain; it is sequential and requires a renewed execution checkpoint."
 
 risks:
   - "Projection scope may reveal an additional DB-coupled builder; it must be extracted rather than approximated."
@@ -215,4 +253,4 @@ review:
   notes: ["Resolved cycle-1 findings with shared mutation plans/adapters, complete module ownership, exact table manifest/order, closed fingerprints/state schemas, hardened local storage/digests, and smaller tasks."]
 checkpoint:
   required_before_execution: true
-  status: satisfied
+  status: satisfied_renewed_scope
