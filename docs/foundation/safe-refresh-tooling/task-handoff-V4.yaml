@@ -1,0 +1,27 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "user-authorized-authentic-git-boundary"
+task_id: "V4"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Require snapshot-capture's supplied root to resolve as the exact top-level directory of an authentic local Git checkout before creating an artifact or resolving any database configuration."
+why_this_matters: "A .git path alone is forgeable. The root gate must fail closed on empty Git directories and malformed Git files before any filesystem or database side effect."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_safety.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_redesign_cli.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_redesign_cli.py"]
+  forbidden: ["New command surface", "Generic inputs", "Live database access", "Live network access", "SQL migrations", "Actual source capture", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use a non-shell local Git probe that proves the requested non-symlink root is the exact checkout top-level; reject missing Git, empty .git directories, malformed .git files, worktree metadata that resolves elsewhere, and subprocess failure."
+  - "Run this gate before create_refresh_artifact_directory, load_database_url, or any injected connection lookup."
+  - "Add fake/sentinel regressions for empty .git and malformed .git; retain valid checkout and legitimate worktree behavior only if it can be proven safely."
+success_criteria: ["Empty/malformed Git metadata rejects before artifact creation/DB lookup", "Exact real top-level checkout validates", "Existing missing/symlink/unsafe-leaf rejections remain", "Focused fake-only tests pass"]
+validation_expected: ["Targeted authentic-checkout sentinel tests", "Focused CLI/safety tests", "CLI help smoke check"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["Authentic checkout proof would need shell parsing or network", "Supporting worktrees requires an unplanned security decision", "Validation requires live access"]

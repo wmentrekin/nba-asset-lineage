@@ -8,6 +8,7 @@ from hashlib import sha256
 
 import pytest
 
+import foundation.refresh_safety as refresh_safety
 from foundation.foundation_table_manifest import FOUNDATION_TABLES
 from foundation.foundation_table_manifest import DELETE_ORDER, RESTORE_INSERT_ORDER, TABLE_BY_NAME
 from foundation.refresh_safety import (
@@ -169,10 +170,18 @@ def test_artifact_directory_allows_normal_repo_and_tmp_ancestor_modes(tmp_path: 
     assert not directory.is_symlink()
 
 
-def test_artifact_directory_validation_requires_the_real_repo_local_leaf(tmp_path: Path) -> None:
+def test_artifact_directory_validation_requires_the_real_repo_local_leaf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir(mode=0o755)
     (repo_root / ".git").mkdir()
+
+    class SuccessfulProbe:
+        returncode = 0
+        stdout = str(repo_root).encode("utf-8") + b"\n"
+
+    monkeypatch.setattr(refresh_safety.subprocess, "run", lambda *_args, **_kwargs: SuccessfulProbe())
     directory = create_refresh_artifact_directory(repo_root, "refresh-a")
     assert validate_refresh_artifact_directory(directory) == repo_root
 
@@ -195,6 +204,72 @@ def test_refresh_repository_root_rejects_non_git_and_symlink_roots(tmp_path: Pat
     symlink_root.symlink_to(real_root, target_is_directory=True)
     with pytest.raises(RefreshSafetyError, match="real directory"):
         validate_refresh_repository_root(symlink_root)
+
+
+@pytest.mark.parametrize("metadata", ["empty-directory", "malformed-file"])
+def test_refresh_repository_root_rejects_forged_git_metadata_before_a_git_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, metadata: str
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir(mode=0o755)
+    if metadata == "empty-directory":
+        (root / ".git").mkdir()
+    else:
+        (root / ".git").write_text("gitdir: not-a-real-gitdir\n", encoding="utf-8")
+    observed: list[Path] = []
+
+    class FailedProbe:
+        returncode = 128
+        stdout = b""
+
+    def fake_run(*_args: object, **kwargs: object) -> FailedProbe:
+        observed.append(kwargs["cwd"])
+        return FailedProbe()
+
+    monkeypatch.setattr(refresh_safety.subprocess, "run", fake_run)
+
+    with pytest.raises(RefreshSafetyError, match="authentic Git checkout"):
+        validate_refresh_repository_root(root)
+    assert observed == [root]
+
+
+def test_refresh_repository_root_requires_the_exact_git_checkout_top_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir(mode=0o755)
+    (root / ".git").mkdir()
+
+    class SuccessfulProbe:
+        returncode = 0
+        stdout = str(tmp_path / "other-checkout").encode("utf-8") + b"\n"
+
+    monkeypatch.setattr(refresh_safety.subprocess, "run", lambda *_args, **_kwargs: SuccessfulProbe())
+
+    with pytest.raises(RefreshSafetyError, match="exact Git checkout top-level"):
+        validate_refresh_repository_root(root)
+
+
+def test_refresh_repository_root_accepts_only_a_git_proven_exact_top_level(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "repo"
+    root.mkdir(mode=0o755)
+    (root / ".git").mkdir()
+
+    class SuccessfulProbe:
+        returncode = 0
+        stdout = str(root).encode("utf-8") + b"\n"
+
+    monkeypatch.setattr(refresh_safety.subprocess, "run", lambda *_args, **_kwargs: SuccessfulProbe())
+
+    assert validate_refresh_repository_root(root) == root
+
+
+def test_refresh_repository_root_accepts_the_actual_checkout_top_level() -> None:
+    repository_root = Path(__file__).resolve().parents[2]
+
+    assert validate_refresh_repository_root(repository_root) == repository_root
 
 
 def test_snapshot_payload_is_closed_to_all_21_manifest_tables() -> None:

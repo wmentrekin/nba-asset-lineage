@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import redesign_cli
+import foundation.refresh_safety as refresh_safety
 from foundation.source_payloads import CapturedResponse, SourceBundleError, capture_source_bundle
 
 
@@ -107,7 +108,9 @@ def test_snapshot_capture_cli_requires_execute_before_database_lookup(
     assert not (tmp_path / "tmp").exists()
 
 
-@pytest.mark.parametrize("unsafe_root", ["non-git", "symlink", "existing-artifact"])
+@pytest.mark.parametrize(
+    "unsafe_root", ["non-git", "symlink", "empty-git-directory", "malformed-git-file", "existing-artifact"]
+)
 def test_snapshot_capture_rejects_unsafe_repo_boundary_before_database_lookup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, unsafe_root: str
 ) -> None:
@@ -119,6 +122,10 @@ def test_snapshot_capture_rejects_unsafe_repo_boundary_before_database_lookup(
         (repo_root / ".git").mkdir()
         requested_root = tmp_path / "repo-link"
         requested_root.symlink_to(repo_root, target_is_directory=True)
+    elif unsafe_root == "empty-git-directory":
+        (repo_root / ".git").mkdir()
+    elif unsafe_root == "malformed-git-file":
+        (repo_root / ".git").write_text("gitdir: not-a-real-gitdir\n", encoding="utf-8")
     elif unsafe_root == "existing-artifact":
         (repo_root / ".git").mkdir()
         artifact_directory = repo_root / "tmp" / refresh_id
@@ -156,6 +163,12 @@ def test_snapshot_capture_valid_repo_boundary_reaches_fake_connection(
     repo_root.mkdir(mode=0o755)
     (repo_root / ".git").mkdir()
     observed: list[str] = []
+
+    class SuccessfulGitProbe:
+        returncode = 0
+        stdout = str(repo_root).encode("utf-8") + b"\n"
+
+    monkeypatch.setattr(refresh_safety.subprocess, "run", lambda *_args, **_kwargs: SuccessfulGitProbe())
 
     class FakeConnection:
         def __enter__(self) -> "FakeConnection":

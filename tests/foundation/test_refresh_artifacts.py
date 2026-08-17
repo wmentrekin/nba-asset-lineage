@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -48,6 +49,14 @@ def _approved_plans() -> ApprovedRefreshPlans:
     )
 
 
+def _initialize_local_checkout(root: Path) -> Path:
+    """Create the real, network-free Git checkout required by artifact validation."""
+
+    root.mkdir(mode=0o700)
+    subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
+    return root
+
+
 def test_closed_mutation_codec_round_trips_and_rejects_unknown_policy() -> None:
     payload = mutation_plan_payload(_plan())
     assert mutation_plan_from_payload(payload) == _plan()
@@ -57,9 +66,7 @@ def test_closed_mutation_codec_round_trips_and_rejects_unknown_policy() -> None:
 
 
 def test_sealed_chain_rejects_fixture_or_bundle_drift_before_later_connection(tmp_path: Path) -> None:
-    root = tmp_path / "repo"
-    root.mkdir(mode=0o700)
-    (root / ".git").mkdir()
+    root = _initialize_local_checkout(tmp_path / "repo")
     directory = create_refresh_artifact_directory(root, "artifact-fixture")
     (directory / "bundles").mkdir(mode=0o700)
     (directory / "fixtures").mkdir(mode=0o700)
@@ -102,9 +109,7 @@ def test_sealed_chain_rejects_fixture_or_bundle_drift_before_later_connection(tm
 
 
 def test_plan_rejects_reordered_steps_and_broken_request_binding(tmp_path: Path) -> None:
-    root = tmp_path / "repo"
-    root.mkdir(mode=0o700)
-    (root / ".git").mkdir()
+    root = _initialize_local_checkout(tmp_path / "repo")
     directory = create_refresh_artifact_directory(root, "plan-bindings")
     # Artifact parsing rejects chain drift before this test needs any DB fake.
     request = RefreshRequest("plan-bindings", date(2026, 8, 16), {kind: "a" * 64 for kind in SOURCE_KINDS}, {name: "b" * 64 for name in FIXTURE_SLOT_NAMES})

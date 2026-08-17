@@ -613,6 +613,25 @@ def validate_refresh_repository_root(repo_root: Path) -> Path:
         raise RefreshSafetyError("Refresh repository root is not a Git checkout") from error
     if git_metadata.is_symlink() or not (stat.S_ISDIR(git_info.st_mode) or stat.S_ISREG(git_info.st_mode)):
         raise RefreshSafetyError("Refresh repository metadata is unsafe")
+    # A .git sentinel is not proof of a checkout: an empty directory and a
+    # malformed worktree file are both forgeable.  Ask Git itself for the
+    # checkout top-level without a shell, then require it to be exactly the
+    # caller's non-symlink directory.  This admits a legitimate worktree only
+    # when Git proves that the requested directory is its worktree root.
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode:
+        raise RefreshSafetyError("Refresh repository root is not an authentic Git checkout")
+    try:
+        git_root = Path(os.path.abspath(result.stdout.decode("utf-8").strip()))
+    except UnicodeDecodeError as error:
+        raise RefreshSafetyError("Refresh repository root Git probe returned invalid output") from error
+    if git_root != root:
+        raise RefreshSafetyError("Refresh repository root is not the exact Git checkout top-level")
     return root
 
 
