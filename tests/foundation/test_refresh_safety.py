@@ -27,6 +27,7 @@ from foundation.refresh_safety import (
     canonical_safety_digest,
     capture_foundation_snapshot,
     create_refresh_artifact_directory,
+    validate_refresh_artifact_directory,
     foundation_schema_fingerprint,
     load_foundation_snapshot,
     load_refresh_approval,
@@ -167,6 +168,19 @@ def test_artifact_directory_allows_normal_repo_and_tmp_ancestor_modes(tmp_path: 
     assert not directory.is_symlink()
 
 
+def test_artifact_directory_validation_requires_the_real_repo_local_leaf(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir(mode=0o755)
+    (repo_root / ".git").mkdir()
+    directory = create_refresh_artifact_directory(repo_root, "refresh-a")
+    assert validate_refresh_artifact_directory(directory) == repo_root
+
+    outside = tmp_path / "outside"
+    outside.mkdir(mode=0o700)
+    with pytest.raises(RefreshSafetyError, match="repo-local tmp/<refresh-id> leaf"):
+        validate_refresh_artifact_directory(outside)
+
+
 def test_snapshot_payload_is_closed_to_all_21_manifest_tables() -> None:
     payload = snapshot_payload(_empty_snapshot())
     assert [table["name"] for table in payload["tables"]] == [table.name for table in FOUNDATION_TABLES]
@@ -268,7 +282,11 @@ def _runner_fixture() -> tuple[RefreshApproval, ApprovedRefreshPlans, dict[str, 
             ApprovedRefreshStep(
                 name=step_name,
                 plan=FoundationMutationPlan(
-                    operations=(UpsertRows("source_record", ({"source_record_id": f"step:{index}", "source_system": "test"},)),),
+                    operations=(
+                        ()
+                        if step_name == RUNNER_STEP_NAMES[-1]
+                        else (UpsertRows("source_record", ({"source_record_id": f"step:{index}", "source_system": "test"},)),)
+                    ),
                     operation_timestamp="2026-08-17T00:00:00Z",
                 ),
             )
@@ -380,6 +398,36 @@ def test_runner_rejects_any_non_closed_labeled_plan_set_before_connection_write(
         )
     assert connection.lock_calls == []
     assert not state_path.exists()
+
+
+def test_runner_rejects_a_mutating_final_audit_plan_before_any_side_effect(tmp_path: Path) -> None:
+    approval, plans, prefixes = _runner_fixture()
+    final_step = plans.steps[-1]
+    malicious = ApprovedRefreshStep(
+        final_step.name,
+        FoundationMutationPlan(
+            (UpsertRows("source_record", ({"source_record_id": "audit:mutation", "source_system": "test"},)),),
+            "2026-08-17T00:00:00Z",
+        ),
+    )
+    object.__setattr__(plans, "steps", (*plans.steps[:-1], malicious))
+    connection = FakeRefreshConnection()
+    state_path = tmp_path / EXECUTION_STATE_FILE_NAME
+
+    with pytest.raises(RefreshExecutionError, match="audit/export verification plan must be empty"):
+        run_approved_foundation_refresh(
+            connection,
+            approval=approval,
+            current_fingerprints=approval.fingerprints,
+            current_prefix_fingerprints=prefixes,
+            plans=plans,
+            execution_state_path=state_path,
+            prefix_fingerprint_reader=_state_digest,
+        )
+
+    assert connection.lock_calls == []
+    assert not state_path.exists()
+    assert connection.table_state["source_record"] == {}
 
 
 class FakeRestoreCursor:

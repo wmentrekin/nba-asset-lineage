@@ -36,6 +36,18 @@ def _plan() -> FoundationMutationPlan:
     )
 
 
+def _approved_plans() -> ApprovedRefreshPlans:
+    return ApprovedRefreshPlans(
+        tuple(
+            ApprovedRefreshStep(
+                name,
+                FoundationMutationPlan((), "2026-08-17T00:00:00Z") if name == APPROVED_PROJECTION_ORDER[-1] else _plan(),
+            )
+            for name in APPROVED_PROJECTION_ORDER
+        )
+    )
+
+
 def test_closed_mutation_codec_round_trips_and_rejects_unknown_policy() -> None:
     payload = mutation_plan_payload(_plan())
     assert mutation_plan_from_payload(payload) == _plan()
@@ -47,6 +59,7 @@ def test_closed_mutation_codec_round_trips_and_rejects_unknown_policy() -> None:
 def test_sealed_chain_rejects_fixture_or_bundle_drift_before_later_connection(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir(mode=0o700)
+    (root / ".git").mkdir()
     directory = create_refresh_artifact_directory(root, "artifact-fixture")
     (directory / "bundles").mkdir(mode=0o700)
     (directory / "fixtures").mkdir(mode=0o700)
@@ -76,7 +89,7 @@ def test_sealed_chain_rejects_fixture_or_bundle_drift_before_later_connection(tm
     from foundation.refresh_artifacts import _set_digest
     reconciliation = RefreshReconciliation(request.digest, "a" * 64, "b" * 64, _set_digest("fixtures", fixture_digests), _set_digest("bundles", bundle_digests))
     write_reconciliation(directory, reconciliation)
-    plans = ApprovedRefreshPlans(tuple(ApprovedRefreshStep(name, _plan()) for name in APPROVED_PROJECTION_ORDER))
+    plans = _approved_plans()
     sealed = SealedRefreshPlan(request.digest, reconciliation.digest, reconciliation.baseline_digest, reconciliation.historical_checksum, plans)
     write_refresh_plan(directory, sealed)
     assert validate_artifact_chain(directory)[2].digest == sealed.digest
@@ -91,11 +104,12 @@ def test_sealed_chain_rejects_fixture_or_bundle_drift_before_later_connection(tm
 def test_plan_rejects_reordered_steps_and_broken_request_binding(tmp_path: Path) -> None:
     root = tmp_path / "repo"
     root.mkdir(mode=0o700)
+    (root / ".git").mkdir()
     directory = create_refresh_artifact_directory(root, "plan-bindings")
     # Artifact parsing rejects chain drift before this test needs any DB fake.
     request = RefreshRequest("plan-bindings", date(2026, 8, 16), {kind: "a" * 64 for kind in SOURCE_KINDS}, {name: "b" * 64 for name in FIXTURE_SLOT_NAMES})
     reconciliation = RefreshReconciliation(request.digest, "c" * 64, "d" * 64, "e" * 64, "f" * 64)
-    plans = ApprovedRefreshPlans(tuple(ApprovedRefreshStep(name, _plan()) for name in APPROVED_PROJECTION_ORDER))
+    plans = _approved_plans()
     sealed = SealedRefreshPlan(request.digest, reconciliation.digest, "c" * 64, "d" * 64, plans)
     payload = __import__("foundation.refresh_artifacts", fromlist=["refresh_plan_payload"]).refresh_plan_payload(sealed)
     payload["steps"][0], payload["steps"][1] = payload["steps"][1], payload["steps"][0]
@@ -106,3 +120,19 @@ def test_plan_rejects_reordered_steps_and_broken_request_binding(tmp_path: Path)
     (directory / "refresh-plan.json").chmod(0o600)
     with pytest.raises(RefreshArtifactError, match="invalid|closed|plan"):
         load_refresh_plan(directory, request=request, reconciliation=reconciliation)
+
+
+def test_sealed_plan_rejects_a_mutating_final_audit_checkpoint() -> None:
+    request = RefreshRequest("audit-empty", date(2026, 8, 16), {kind: "a" * 64 for kind in SOURCE_KINDS}, {name: "b" * 64 for name in FIXTURE_SLOT_NAMES})
+    reconciliation = RefreshReconciliation(request.digest, "c" * 64, "d" * 64, "e" * 64, "f" * 64)
+    plans = _approved_plans()
+    final = plans.steps[-1]
+    object.__setattr__(
+        plans,
+        "steps",
+        (*plans.steps[:-1], ApprovedRefreshStep(final.name, _plan())),
+    )
+    sealed = SealedRefreshPlan(request.digest, reconciliation.digest, "c" * 64, "d" * 64, plans)
+
+    with pytest.raises(RefreshArtifactError, match="audit/export verification plan must be empty"):
+        __import__("foundation.refresh_artifacts", fromlist=["refresh_plan_payload"]).refresh_plan_payload(sealed)

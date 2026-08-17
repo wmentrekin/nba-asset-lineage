@@ -24,7 +24,7 @@ from foundation.refresh_mutations import (
 from foundation.refresh_projection import APPROVED_PROJECTION_ORDER, canonical_projection_digest
 from foundation.refresh_safety import (
     ApprovedRefreshPlans, ApprovedRefreshStep, RefreshSafetyError,
-    canonical_database_value, canonical_safety_digest,
+    canonical_database_value, canonical_safety_digest, validate_refresh_artifact_directory,
 )
 from foundation.source_payloads import SUPPORTED_SOURCE_KINDS, load_source_bundle
 
@@ -266,6 +266,7 @@ def load_refresh_plan(directory: Path, *, request: RefreshRequest, reconciliatio
 
 def validate_artifact_chain(directory: Path) -> tuple[RefreshRequest, RefreshReconciliation, SealedRefreshPlan]:
     """Validate every untrusted artifact and input before a caller connects."""
+    validate_refresh_artifact_directory(directory)
     request = load_refresh_request(directory)
     reconciliation = load_reconciliation(directory, request=request)
     return request, reconciliation, load_refresh_plan(directory, request=request, reconciliation=reconciliation)
@@ -289,6 +290,16 @@ def load_sealed_projection_report(
     if bindings != expected:
         raise RefreshArtifactError("Projection report is not bound to this artifact chain")
     return report
+
+
+def reject_projection_report_blockers(report: Mapping[str, object]) -> None:
+    """Reject execution when a sealed candidate report has unresolved blockers."""
+
+    blockers = report.get("blockers")
+    if not isinstance(blockers, list) or any(not isinstance(item, str) or not item for item in blockers):
+        raise RefreshArtifactError("Projection report blockers do not match the closed schema")
+    if blockers:
+        raise RefreshArtifactError("Sealed projection report contains blockers; refresh execution is forbidden")
 
 
 def _digest(domain: str, value: object) -> str:
@@ -315,6 +326,8 @@ def _validate_sealed_plan(value: SealedRefreshPlan) -> None:
     # ApprovedRefreshPlans does the exact names/order check in __post_init__.
     if tuple(step.name for step in value.plans.steps) != APPROVED_PROJECTION_ORDER:
         raise RefreshArtifactError("Refresh plan steps are not the closed runner order")
+    if value.plans.steps[-1].plan.operations:
+        raise RefreshArtifactError("Final audit/export verification plan must be empty")
 
 
 def _validate_digest_slots(value: Mapping[str, str], names: tuple[str, ...], label: str) -> None:

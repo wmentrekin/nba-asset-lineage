@@ -166,6 +166,26 @@ def test_sealed_destructive_commands_require_execute_before_artifact_or_database
         redesign_cli.main()
 
 
+def test_sealed_runner_rejects_report_blockers_before_connection_or_runner_side_effects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact_directory = tmp_path / "untrusted-artifact-leaf"
+    marker = object()
+    monkeypatch.setattr(redesign_cli, "validate_artifact_chain", lambda _: (marker, marker, marker))
+    monkeypatch.setattr(
+        redesign_cli,
+        "load_sealed_projection_report",
+        lambda *_args, **_kwargs: {"blockers": ["unresolved candidate alias"]},
+    )
+    monkeypatch.setattr(redesign_cli, "load_foundation_snapshot", lambda *_: pytest.fail("snapshot load must follow blocker rejection"))
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("blocker rejection must precede database lookup"))
+    monkeypatch.setattr(redesign_cli.psycopg, "connect", lambda *_args, **_kwargs: pytest.fail("blocker rejection must precede connection"))
+    monkeypatch.setattr(redesign_cli, "run_approved_foundation_refresh", lambda *_args, **_kwargs: pytest.fail("blocker rejection must precede runner"))
+
+    with pytest.raises(Exception, match="contains blockers"):
+        redesign_cli._run_sealed_refresh(artifact_directory)
+
+
 @pytest.mark.parametrize(
     ("command", "extra", "adapter", "expected"),
     [

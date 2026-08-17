@@ -9,8 +9,8 @@ owner_skill: work
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Prepare B5 for the second draft-PR reviewer/tester verification pass."
-  last_completed: "Completed B5/T14: sealed operational CLI documentation and offline foundation validation."
+  current_focus: "Push V2 and run the user-authorized targeted final verification of the three P1 fixes."
+  last_completed: "Completed V2: repo-local artifact leaf, empty final audit plan, and projection-blocker P1 boundaries passed offline regression tests."
   current_blocker: "Frontend test/check/build remains dependency-blocked locally."
 
 artifacts:
@@ -29,8 +29,8 @@ agents:
     model_guidance: "xhigh"
     status: "active"
     stage: "verification"
-    task: "Coordinate B5 review, verification, and PR update."
-    last_update: "T14 docs and offline validation passed; awaiting PR reviewer/tester verification."
+    task: "Push V2 and coordinate one targeted final verification of the three P1 fixes."
+    last_update: "V2 integration and full offline foundation suite passed."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -168,14 +168,38 @@ agents:
     task: "Document sealed CLI artifact workflow and rerun the full local validation ladder."
     last_update: "Documented sealed workflow; focused safety/CLI tests and full offline foundation suite passed."
     blocker: ""
+  - id: "safe_tooling_review_v2"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Re-review the V1/B5 corrections on draft PR #2."
+    last_update: "Changes requested: repo-local leaf pre-connect gate, empty final audit plan, and blocker gate."
+    blocker: ""
+  - id: "safe_tooling_test_v2"
+    role: "tester"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "verification"
+    task: "Independently verify the V1/B5 corrections on draft PR #2."
+    last_update: "Reproduced final-step preview/runner parity defect; frontend remains dependency-blocked."
+    blocker: ""
+  - id: "safe_tooling_v2"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Fix only the three final P1 safety defects and add fail-closed regression tests."
+    last_update: "All three P1 boundaries passed fake-only regression and full offline foundation tests."
+    blocker: ""
 
 loops:
   planning_review:
     count: 2
     max: 2
   execution_verification:
-    count: 1
-    max: 2
+    count: 3
+    max: 3
 
 checkpoint:
   pre_execution_required: true
@@ -189,6 +213,6 @@ decisions:
   - "Final planning review approved the plan after two cycles."
   - "User approved expanding the plan with B5's sealed request/plan artifact chain after verification exposed the CLI-surface gap."
 
-next_action: "Commit and push B5, then rerun reviewer/tester verification on draft PR #2."
+next_action: "Push V2 to draft PR #2, then run one targeted final verification limited to the three P1 regressions."
 next_recommended_command: "$work"
 user_input_needed: false

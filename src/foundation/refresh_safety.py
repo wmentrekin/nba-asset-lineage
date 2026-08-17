@@ -595,6 +595,34 @@ def create_refresh_artifact_directory(repo_root: Path, refresh_id: str) -> Path:
     return destination
 
 
+def validate_refresh_artifact_directory(artifact_directory: Path) -> Path:
+    """Return the real repository root for one existing operational leaf.
+
+    The command-facing artifact directory is an authority boundary: it must be
+    the actual ``<repo>/tmp/<refresh-id>`` leaf created for a refresh, not just
+    a private directory that happens to contain plausible JSON.  Check every
+    ancestor with ``lstat`` rather than resolving through a possible symlink.
+    This validation is intentionally usable before a caller looks up a DSN or
+    opens a connection.
+    """
+
+    directory = Path(os.path.abspath(artifact_directory))
+    if not _REFRESH_ID.fullmatch(directory.name) or directory.parent.name != "tmp":
+        raise RefreshSafetyError("Artifact directory must be a repo-local tmp/<refresh-id> leaf")
+    repository_root = directory.parent.parent
+    _validate_real_directory(repository_root)
+    _validate_real_directory(directory.parent)
+    _validate_private_directory(directory)
+    git_metadata = repository_root / ".git"
+    try:
+        git_info = git_metadata.lstat()
+    except OSError as error:
+        raise RefreshSafetyError("Artifact directory repository root is not a Git checkout") from error
+    if git_metadata.is_symlink() or not (stat.S_ISDIR(git_info.st_mode) or stat.S_ISREG(git_info.st_mode)):
+        raise RefreshSafetyError("Artifact directory repository metadata is unsafe")
+    return repository_root
+
+
 def load_foundation_snapshot(path: Path, *, expected_digest: str | None = None) -> FoundationSnapshot:
     """Fail closed when a restricted snapshot is changed, malformed, or unsafe."""
 
@@ -817,6 +845,8 @@ def _validate_approved_refresh_plans(plans: ApprovedRefreshPlans) -> None:
         raise RefreshExecutionError(
             "Approved refresh requires every fixed runner step exactly once in approved order"
         )
+    if plans.steps[-1].plan.operations:
+        raise RefreshExecutionError("Final audit/export verification plan must be empty")
 
 
 def _validate_execution_state(state: RefreshExecutionState) -> None:

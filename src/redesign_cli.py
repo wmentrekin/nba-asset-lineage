@@ -105,12 +105,14 @@ from foundation.refresh_safety import (
     parse_refresh_approval_payload,
     restore_approved_foundation_snapshot,
     run_approved_foundation_refresh,
+    validate_refresh_artifact_directory,
     write_foundation_snapshot,
     write_refresh_approval,
 )
 from foundation.refresh_artifacts import (
     PROJECTION_REPORT_FILE_NAME,
     load_sealed_projection_report,
+    reject_projection_report_blockers,
     validate_artifact_chain,
 )
 from foundation.refresh_projection import (
@@ -708,10 +710,7 @@ def command_clear_foundation_data() -> dict[str, object]:
 def _artifact_repository_root(artifact_directory: Path) -> Path:
     """Derive the only allowed repository root from ``tmp/<refresh-id>``."""
 
-    directory = artifact_directory.resolve()
-    if directory.parent.name != "tmp" or not (directory.parent.parent / ".git").exists():
-        raise ValueError("artifact-directory must be a repo-local tmp/<refresh-id> leaf")
-    return directory.parent.parent
+    return validate_refresh_artifact_directory(artifact_directory)
 
 
 def _sealed_prefix_fingerprints(report: dict[str, object]) -> dict[str, str]:
@@ -806,6 +805,9 @@ def _sealed_refresh_fingerprints(
 def _run_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
     request, reconciliation, sealed_plan = validate_artifact_chain(artifact_directory)
     report = dict(load_sealed_projection_report(artifact_directory, request=request, reconciliation=reconciliation, plan=sealed_plan))
+    # This must stay before snapshot/approval processing, DSN lookup,
+    # connection, advisory lock, execution-state publication, or mutation.
+    reject_projection_report_blockers(report)
     snapshot = load_foundation_snapshot(artifact_directory / SNAPSHOT_FILE_NAME)
     approval = load_refresh_approval(artifact_directory / APPROVAL_FILE_NAME)
     prefixes = _sealed_prefix_fingerprints(report)

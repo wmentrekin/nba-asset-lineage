@@ -9,7 +9,7 @@ based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
   scope_executed: "Completed B1, B2/T3–T6, B3/T7–T10, B4/T11, and B5/T12–T14: locked source loading, no-write projection/reporting, exact preimage snapshots, user-supplied approvals/preflight, fixed runner/resume, separately approved restore mechanics, sealed request/plan/report artifacts, and truthful operator guidance."
-  outcome: "V1 fixed the artifact-root and runner-plan P1 defects and added a guarded snapshot adapter. T12 implemented the sealed artifact chain, T13 wired the plan-named CLI adapters with fixed pre-connection validation, and T14 documented the exact artifact-directory workflow and completed offline validation."
+  outcome: "V1 fixed the first P1 set and B5 added sealed artifacts/CLI adapters. The user-authorized exceptional V2 cycle fixed the three final P1s: repo-local leaf validation before connection, an empty final audit plan, and projection-blocker rejection before all runner side effects. One targeted final verification remains."
 
 task_batches_attempted: ["B1", "B2", "B3", "B4", "B5"]
 task_batches_completed: ["B1", "B2", "B3", "B4", "B5"]
@@ -90,8 +90,9 @@ local_validation:
 review_summary:
   status: changes_requested
   key_findings:
-    - "Artifact creation and runner-plan closure P1s are fixed by V1 and need re-review."
-    - "Plan-required projection/runner/restore CLI surface remains blocked on a closed request/plan artifact architecture."
+    - "Artifact chain must prove the real repo-local tmp/<refresh-id> leaf before any database connection."
+    - "The final audit/export checkpoint must be empty or be projected exactly as runner executes it."
+    - "Runner must reject any sealed projection report blockers before connection, lock, state write, or mutation."
 
 test_summary:
   status: partial
@@ -103,10 +104,11 @@ test_summary:
   gaps:
     - "Frontend dependencies are not installed locally, so frontend test/check/build require a dependency-installing verification environment."
     - "Frontend dependencies are absent locally; no dependency installation was authorized, so frontend test/check/build remain for a dependency-ready verification environment."
+    - "The two-cycle verification cap blocks autonomous remediation of the three final P1 findings."
 
 open_issues: []
 
 handoff:
-  current_state: in_progress
-  next_owner: "data-engineer"
-  next_action: "Commit and push B5 documentation/validation updates, then run the second draft-PR reviewer/tester verification pass."
+  current_state: ready_for_targeted_verification
+  next_owner: "reviewer/tester"
+  next_action: "Push V2 to draft PR #2, then verify only the three P1 regression boundaries; any new safety defect requires user direction."
