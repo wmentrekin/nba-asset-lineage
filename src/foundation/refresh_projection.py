@@ -10,10 +10,14 @@ adapter used by the later runner.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from hashlib import sha256
 import json
-from typing import Callable, Protocol
+import os
+from pathlib import Path
+import re
+from typing import Callable, Mapping, Protocol
+import uuid
 
 from foundation.export import build_base_export
 from foundation.foundation_table_manifest import FOUNDATION_TABLES
@@ -35,6 +39,12 @@ APPROVED_PROJECTION_ORDER = (
     "Roster snapshot validation",
     "Approved additive draft-lottery load",
     "Audit/export verification twice",
+)
+
+PROJECTION_REPORT_SCHEMA_VERSION = "refresh_projection_report_v1"
+_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+_VOLATILE_SEMANTIC_COLUMNS = frozenset(
+    {"fetched_at", "retrieved_at", "created_at", "updated_at"}
 )
 
 
@@ -92,6 +102,18 @@ class RefreshProjection:
     @property
     def final_state(self) -> TableState:
         return self.prefixes[-1].state if self.prefixes else self.baseline.tables
+
+
+@dataclass(frozen=True)
+class ProjectionReportInputs:
+    """Safe, already-digested inputs bound into a projection report.
+
+    Raw bundle bytes and fixture contents are deliberately absent: a report can
+    identify its reviewed inputs without becoming a second source-payload store.
+    """
+
+    source_bundle_digests: tuple[str, ...] = ()
+    fixture_digests: tuple[str, ...] = ()
 
 
 def load_read_only_baseline(loader: ReadOnlyBaselineLoader) -> FoundationBaseline:
@@ -161,6 +183,265 @@ def foundation_state_checksum(state: TableState) -> str:
     }
     payload = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
     return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def canonical_projection_bytes(value: object) -> bytes:
+    """Encode report data with a closed, deterministic JSON contract.
+
+    This is intentionally separate from the source-bundle manifest encoding.
+    Report digests must remain stable even if bundle serialization evolves.
+    """
+
+    return json.dumps(
+        _canonical_projection_value(value),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def canonical_projection_digest(domain: str, value: object) -> str:
+    """Return a domain-separated SHA-256 digest for canonical report data."""
+
+    if not isinstance(domain, str) or not re.fullmatch(r"[a-z0-9._-]+", domain):
+        raise ValueError("Projection digest domain is invalid")
+    return sha256(
+        f"nba-asset-lineage:refresh-projection:{domain}:v1\\0".encode("ascii")
+        + canonical_projection_bytes(value)
+    ).hexdigest()
+
+
+def build_projection_report(
+    projection: RefreshProjection,
+    *,
+    inputs: ProjectionReportInputs = ProjectionReportInputs(),
+) -> dict[str, object]:
+    """Create a closed, sanitized candidate report without retaining any rows.
+
+    Row-set differences expose table key identifiers, changed field names, and
+    opaque row hashes only.  The function never opens a connection and accepts
+    no raw source payloads, so its output is safe to persist locally for review.
+    """
+
+    source_bundle_digests = _validated_digests(inputs.source_bundle_digests, "source bundle")
+    fixture_digests = _validated_digests(inputs.fixture_digests, "fixture")
+    final_state = projection.final_state
+    prefixes = [
+        {
+            "name": prefix.name,
+            "semantic_checksum": canonical_foundation_state_digest(prefix.state, semantic=True),
+            "full_state_checksum": canonical_foundation_state_digest(prefix.state, semantic=False),
+        }
+        for prefix in projection.prefixes
+    ]
+    base_export_checksum = _model_checksum(projection.base_export)
+    visualization_checksum = _model_checksum(projection.visualization_export)
+    report_without_digest: dict[str, object] = {
+        "schema_version": PROJECTION_REPORT_SCHEMA_VERSION,
+        "writes_to_database": False,
+        "input_digests": {
+            "baseline_semantic_checksum": canonical_foundation_state_digest(
+                projection.baseline.tables, semantic=True
+            ),
+            "baseline_full_state_checksum": canonical_foundation_state_digest(
+                projection.baseline.tables, semantic=False
+            ),
+            "historical_checksum": _require_digest(
+                projection.baseline.historical_checksum, "historical checksum"
+            ),
+            "source_bundle_digests": source_bundle_digests,
+            "fixture_digests": fixture_digests,
+        },
+        "prefix_fingerprints": prefixes,
+        "surface_diffs": _surface_diffs(projection.baseline.tables, final_state),
+        "final_checksums": {
+            "foundation_semantic_checksum": canonical_foundation_state_digest(final_state, semantic=True),
+            "foundation_full_state_checksum": canonical_foundation_state_digest(final_state, semantic=False),
+            "base_export_checksum": base_export_checksum,
+            "visualization_export_checksum": visualization_checksum,
+        },
+        "blockers": sorted(set(projection.blockers)),
+    }
+    return {
+        **report_without_digest,
+        "report_digest": canonical_projection_digest("report", report_without_digest),
+    }
+
+
+def write_projection_report(path: Path, report: Mapping[str, object]) -> None:
+    """Atomically create one mode-restricted local report artifact.
+
+    The parent must already be a private operational directory.  Existing files
+    are never overwritten, preventing a reviewed report from being replaced.
+    """
+
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", path.name):
+        raise ValueError("Projection report file name is unsafe")
+    parent = path.parent
+    parent_info = parent.lstat()
+    if parent.is_symlink() or not parent.is_dir() or parent_info.st_mode & 0o077:
+        raise ValueError("Projection report parent must be a private real directory")
+    if path.exists() or path.is_symlink():
+        raise ValueError("Refusing to overwrite an existing projection report")
+    _validate_projection_report(report)
+    body = canonical_projection_bytes(dict(report))
+    temporary = parent / f".{path.name}.tmp-{uuid.uuid4().hex}"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(temporary, flags, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(body)
+            handle.flush()
+            os.fsync(handle.fileno())
+        # ``link`` is an atomic no-replace publication primitive.  Unlike
+        # os.replace it cannot overwrite a report another process just wrote.
+        os.link(temporary, path)
+    except FileExistsError as exc:
+        raise ValueError("Refusing to overwrite an existing projection report") from exc
+    except BaseException:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        raise
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def canonical_foundation_state_digest(state: TableState, *, semantic: bool) -> str:
+    """Digest all 21 closed tables using table keys rather than insertion order."""
+
+    tables = {
+        table.name: [
+            _row_for_digest(table.name, row, semantic=semantic)
+            for _, row in sorted(state.get(table.name, {}).items(), key=lambda item: _key_sort_value(item[0]))
+        ]
+        for table in FOUNDATION_TABLES
+    }
+    return canonical_projection_digest("foundation-semantic" if semantic else "foundation-full-state", tables)
+
+
+def _surface_diffs(before: TableState, after: TableState) -> list[dict[str, object]]:
+    diffs: list[dict[str, object]] = []
+    for table in FOUNDATION_TABLES:
+        before_rows = before.get(table.name, {})
+        after_rows = after.get(table.name, {})
+        added_keys = sorted(set(after_rows).difference(before_rows), key=_key_sort_value)
+        removed_keys = sorted(set(before_rows).difference(after_rows), key=_key_sort_value)
+        changed_keys = sorted(
+            (key for key in set(before_rows).intersection(after_rows) if before_rows[key] != after_rows[key]),
+            key=_key_sort_value,
+        )
+        diffs.append(
+            {
+                "table": table.name,
+                "added": [
+                    {"identifier": _identifier(key), "after_hash": _row_hash(table.name, after_rows[key])}
+                    for key in added_keys
+                ],
+                "removed": [
+                    {"identifier": _identifier(key), "before_hash": _row_hash(table.name, before_rows[key])}
+                    for key in removed_keys
+                ],
+                "changed": [
+                    {
+                        "identifier": _identifier(key),
+                        "changed_fields": sorted(
+                            name
+                            for name in set(before_rows[key]).union(after_rows[key])
+                            if before_rows[key].get(name) != after_rows[key].get(name)
+                        ),
+                        "before_hash": _row_hash(table.name, before_rows[key]),
+                        "after_hash": _row_hash(table.name, after_rows[key]),
+                    }
+                    for key in changed_keys
+                ],
+            }
+        )
+    return diffs
+
+
+def _row_hash(table_name: str, row: Mapping[str, object]) -> str:
+    return canonical_projection_digest(f"row-{table_name}", _row_for_digest(table_name, row, semantic=False))
+
+
+def _row_for_digest(table_name: str, row: Mapping[str, object], *, semantic: bool) -> dict[str, object]:
+    columns = next(table.columns for table in FOUNDATION_TABLES if table.name == table_name)
+    return {
+        column: row[column]
+        for column in columns
+        if column in row and (not semantic or column not in _VOLATILE_SEMANTIC_COLUMNS)
+    }
+
+
+def _model_checksum(value: BaseGraphExport | VisualizationExportV1 | None) -> str | None:
+    if value is None:
+        return None
+    return canonical_projection_digest("base-export" if isinstance(value, BaseGraphExport) else "visualization-export", value.model_dump(mode="json"))
+
+
+def _canonical_projection_value(value: object) -> object:
+    if value is None or isinstance(value, (bool, str, int)):
+        return value
+    if isinstance(value, float):
+        if not value == value or value in {float("inf"), float("-inf")}:
+            raise ValueError("Projection canonical JSON does not permit non-finite floats")
+        return value
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise ValueError("Projection canonical timestamps must include a timezone")
+        return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, Mapping):
+        if not all(isinstance(key, str) for key in value):
+            raise ValueError("Projection canonical JSON object keys must be strings")
+        return {key: _canonical_projection_value(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_canonical_projection_value(item) for item in value]
+    raise ValueError(f"Unsupported projection canonical JSON value: {type(value).__name__}")
+
+
+def _validated_digests(values: tuple[str, ...], label: str) -> list[str]:
+    normalized = sorted({_require_digest(value, label) for value in values})
+    if len(normalized) != len(values):
+        raise ValueError(f"Duplicate {label} digests are not allowed")
+    return normalized
+
+
+def _require_digest(value: str, label: str) -> str:
+    if not isinstance(value, str) or not _DIGEST.fullmatch(value):
+        raise ValueError(f"{label} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _identifier(key: tuple[object, ...]) -> str:
+    return "|".join(str(part) for part in key)
+
+
+def _key_sort_value(key: tuple[object, ...]) -> tuple[str, ...]:
+    return tuple(str(part) for part in key)
+
+
+def _validate_projection_report(report: Mapping[str, object]) -> None:
+    required = {
+        "schema_version",
+        "writes_to_database",
+        "input_digests",
+        "prefix_fingerprints",
+        "surface_diffs",
+        "final_checksums",
+        "blockers",
+        "report_digest",
+    }
+    if set(report) != required or report.get("schema_version") != PROJECTION_REPORT_SCHEMA_VERSION:
+        raise ValueError("Projection report does not match the closed schema")
+    without_digest = {key: value for key, value in report.items() if key != "report_digest"}
+    if report.get("report_digest") != canonical_projection_digest("report", without_digest):
+        raise ValueError("Projection report digest does not match its contents")
 
 
 def _baseline_gate_blockers(

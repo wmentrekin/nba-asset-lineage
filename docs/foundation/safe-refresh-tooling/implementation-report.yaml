@@ -8,8 +8,8 @@ owner_skill: work
 based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
 
 summary:
-  scope_executed: "Completed B1 plus B2/T3–T5: local immutable source bundles, digest-guarded loader/CLI preflight, pure typed foundation export assembly, a closed 21-table shared mutation-plan contract, and an ordered no-write candidate projection."
-  outcome: "The project now normalizes only reviewed locked bytes, requires digest-bound execution before any database connection, shares source-partition mutation semantics between pure and registered-table adapters, and projects complete planned prefixes from a one-shot baseline without writes; deterministic report artifacts and operational safety layers remain."
+  scope_executed: "Completed B1, B2/T3–T6, and B3/T7: local immutable source bundles, digest-guarded loader/CLI preflight, pure typed foundation export assembly, shared mutation plans, ordered no-write candidate projection/reports, and exact restricted full-foundation snapshot tooling."
+  outcome: "The project now has a reviewable, no-write candidate refresh proof and an exact read-only preimage capture boundary. It is paused by user direction before approvals, runner/resume, restore, and final documentation/verification (T8–T11)."
 
 task_batches_attempted: ["B1", "B2"]
 task_batches_completed: ["B1"]
@@ -36,6 +36,8 @@ changes:
     - "tests/foundation/test_sql_contracts.py"
     - "src/foundation/refresh_projection.py"
     - "tests/foundation/test_refresh_projection.py"
+    - "src/foundation/refresh_safety.py"
+    - "tests/foundation/test_refresh_safety.py"
   modules:
     - "foundation.source_payloads"
     - "foundation.live_sources"
@@ -45,6 +47,7 @@ changes:
     - "foundation.foundation_table_manifest"
     - "foundation.refresh_mutations"
     - "foundation.refresh_projection"
+    - "foundation.refresh_safety"
   docs_updated:
     - "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
 
@@ -56,6 +59,8 @@ local_validation:
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_draft_lottery_results.py -q (37 passed)"
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_mutations.py tests/foundation/test_sql_contracts.py tests/foundation/test_ingest.py tests/foundation/test_canonical.py tests/foundation/test_live_sources.py -q (80 passed)"
     - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_live_sources.py -q (71 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_live_sources.py -q (74 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_safety.py tests/foundation/test_sql_contracts.py tests/foundation/test_refresh_mutations.py tests/foundation/test_refresh_projection.py -q (27 passed)"
   failures: []
   skipped: ["No live source or database operations are permitted in this feature."]
 
@@ -74,4 +79,4 @@ open_issues: []
 handoff:
   current_state: in_progress
   next_owner: "data-engineer"
-  next_action: "Implement T6: deterministic, sanitized candidate-projection reporting and canonical artifact digests."
+  next_action: "Paused at the user's requested T7 checkpoint. Resume with T8: closed approval and preflight contracts."

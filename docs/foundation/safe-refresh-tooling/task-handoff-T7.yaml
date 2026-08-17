@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B3"
+task_id: "T7"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Implement canonical encoding/digests, restricted artifact storage, fingerprints, and deterministic read-only 21-table foundation snapshot capture from the immutable table manifest."
+why_this_matters: "A later approved refresh needs an exact preimage and verifiable operational inputs so recovery can be exact rather than inferred from candidate IDs."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/foundation_table_manifest.py", "src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/refresh_mutations.py", "src/redesign_cli.py", "tests/foundation/test_sql_contracts.py"]
+scope:
+  owned: ["src/foundation/refresh_safety.py", "src/foundation/foundation_table_manifest.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_sql_contracts.py"]
+  forbidden: ["Generic table arguments", "Credentials in artifacts", "Live database access in tests", "Live network access", "SQL migrations", "Actual snapshot against Supabase", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use the exact manifest table/column/key/restore contract; never derive an arbitrary table name from CLI input."
+  - "Use canonical UTF-8 JSON and domain-separated digests exactly as plan.yaml specifies, with closed tagged DB value types rather than default=str."
+  - "Enforce repository-derived tmp/<refresh-id>/, restrictive modes, no-follow exclusive atomic writes, and fail-closed verification."
+  - "Read-only snapshot capture must issue only manifest-defined SELECTs and have deterministic output in fake-connection tests."
+  - "Capture logical schema/database fingerprints without serializing credentials or raw environmental secrets."
+success_criteria: ["Golden canonical digest vectors", "Restricted storage tamper/path/mode protection", "Exact 21-table manifest-driven snapshot contract", "Read-only deterministic fake snapshot capture", "No credentials or raw secrets in artifacts", "No live systems touched"]
+validation_expected: ["Golden canonical digest vectors", "Artifact storage security tests", "21-table schema/key/FK reconciliation", "Read-only deterministic snapshot tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["The manifest lacks an exact required column/type contract", "A fingerprint requires secret material", "Any validation would require live access"]

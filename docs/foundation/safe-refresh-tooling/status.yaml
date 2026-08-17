@@ -9,8 +9,8 @@ owner_skill: work
 objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
 
 summary:
-  current_focus: "Execute B2/T6: add deterministic, sanitized projection reports and canonical artifact digests."
-  last_completed: "Completed B2/T5: typed one-shot baseline overlay and ordered no-write prefix projection passed focused fixture-only tests."
+  current_focus: "Paused after T7 at user direction; next is B3/T8 approval and preflight contracts."
+  last_completed: "Completed B3/T7: restricted artifact integrity and deterministic manifest-driven 21-table preimage snapshot capture passed focused fixture-only tests."
   current_blocker: ""
 
 artifacts:
@@ -30,7 +30,7 @@ agents:
     status: "active"
     stage: "execution"
     task: "Coordinate sequential data-engineering tasks and preserve the no-live-system boundary."
-    last_update: "T5 integration suite passed; preparing deterministic report/digest work in T6."
+    last_update: "T7 integration suite passed; committing, pushing, and opening the requested draft PR before pause."
     blocker: ""
   - id: "tooling_projection_design"
     role: "repo-researcher"
@@ -91,10 +91,18 @@ agents:
   - id: "safe_tooling_t6"
     role: "data-engineer"
     model_guidance: "medium"
-    status: "running"
+    status: "completed"
     stage: "execution"
     task: "Emit deterministic, sanitized row-set diffs and canonical projection reports."
-    last_update: "Handoff prepared; task launching."
+    last_update: "Canonical reports, sanitized diffs, and safe local persistence passed fixture-only tests."
+    blocker: ""
+  - id: "safe_tooling_t7"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement restricted artifact integrity and deterministic 21-table preimage snapshot capture."
+    last_update: "Canonical snapshot artifacts, fingerprints, and read-only manifest capture passed fixture-only tests."
     blocker: ""
 
 loops:
@@ -116,6 +124,6 @@ decisions:
   - "The parent offseason refresh remains blocked until this tooling is implemented and verified."
   - "Final planning review approved the plan after two cycles."
 
-next_action: "Complete T6, then start operational artifact-integrity and snapshot safety work in B3/T7."
+next_action: "Pause after the requested T7 checkpoint and draft PR. Resume with T8: closed approval and preflight contracts."
 next_recommended_command: "$work"
 user_input_needed: false
