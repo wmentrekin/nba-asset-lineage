@@ -1,0 +1,146 @@
+# Contract: durable task-definition handoff created by $work
+
+artifact: requirements
+feature: "foundation/offseason-2026-refresh"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "The checked-in foundation and visualization stop before the 2026 draft and most 2026 offseason activity. Existing loaders, audit constants, daily-state bounds, draft fixtures, and export bounds are capped at the 2025 draft or 2025-26 season."
+  motivation: "The visualization must reflect current Memphis asset truth before visual refinement or personal-site integration."
+  requested_outcome: "Refresh source-backed Memphis lineage through 2026-08-16, rebuild the derived database layers and graph artifacts, and preserve explicit uncertainty where official evidence is incomplete."
+
+goals:
+  - "Add truthful 2026 draft selections and draft-night asset continuity, including intermediate rights movements."
+  - "Add verified post-2026-05-29 trades, signings, waivers/buyouts, roster changes, and pick movements."
+  - "Extend season, daily-state, audit, and export bounds into the 2026 offseason without claiming an opening-night 2026-27 roster."
+  - "Update source-backed pick-obligation and two-way semantics where evidence supports exact rows."
+  - "Use guarded previews before database writes, then rebuild canonical, daily-state, inventory, export, and visualization surfaces."
+  - "Regenerate checked-in graph artifacts and record new counts, checksums, coverage, and limitations."
+
+non_goals:
+  - "Do not redesign the visualization or integrate it into personal-site in this pass."
+  - "Do not treat an August offseason roster as a validated 2026-27 opening roster checkpoint."
+  - "Do not invent years, protections, transaction dates, contract types, or pick identities absent from adequate evidence."
+  - "Do not use load-foundation-full-span --replace-existing or perform a schema wipe."
+  - "Do not reintroduce legacy editorial, chapter, or narrative architecture."
+
+constraints:
+  technical:
+    - "Keep foundation source provenance separate from canonical lineage truth."
+    - "NBA Player Movement and official-release rows remain corroboration-only until an explicit reconciliation path promotes verified semantics."
+    - "All new or changed write paths must support a read-only preview or dry-run and reject unresolved blocking rows."
+    - "Preserve stable IDs and historical canonical checksums except where new post-cutoff truth necessarily extends them."
+    - "Use local .env database configuration without exposing credentials."
+    - "Database changes must use checked-in code and existing guarded loader conventions."
+    - "Official events may enter canonical truth only through an explicit checked-in reconciliation manifest with exact source-event IDs, expected participant/pick signatures, official_locked precedence, and explicit suppression of equivalent later BRef rows."
+    - "Use one as_of_date value across snapshots, daily state, audit, base export, visualization export, and CLI; no emitted dated row may exceed it."
+  product:
+    - "Render/source coverage should extend through 2026-08-16 while retaining the 2016 start."
+    - "The graph must represent exact player and pick continuity for verified trades and draft conversions."
+    - "The five unidentified draft-night seconds must be represented as two additive, non-projectable aggregate bundles (OKC quantity 2; DET quantity 3), not concrete picks or graph strands."
+    - "Carson Cooper must remain a non-loadable verified-by observation unless an authoritative exact effective date is found; 2026-07-04 must not be encoded as his signing date."
+  process:
+    - "Use the $work large-initiative workflow and stop at the pre-execution checkpoint."
+    - "Use data-engineer agents for implementation and reviewer/tester agents for verification."
+    - "Do not perform live writes until focused tests and source previews pass."
+
+assumptions:
+  - "Official NBA and Memphis sources are authoritative for the post-May event inventory."
+  - "Basketball-Reference remains a useful normalization source through 2026-06-30 but may not expose a usable 2026-27 Memphis transaction page yet."
+  - "The existing canonical/export architecture can be extended additively without a new database schema."
+  - "The visualization should be continuously current through the research cutoff rather than frozen at 2026-06-30."
+  - "Existing JSONB source-event payloads can persist reconciliation metadata and unresolved aggregate pick bundles without a SQL migration."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/live_sources.py"
+    - "src/foundation/models.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/canonical.py"
+    - "src/foundation/daily_roster_state.py"
+    - "src/foundation/draft_resolution.py"
+    - "src/foundation/draft_prior_owner.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/two_way_status.py"
+    - "src/foundation/audit.py"
+    - "src/foundation/export.py"
+    - "src/foundation/visualization_export.py"
+    - "src/redesign_cli.py"
+    - "configs/data/"
+    - "tests/foundation/"
+    - "frontend/src/data/generated/visualization-graph.json"
+    - "docs/foundation/full-span-load-notes.md"
+  systems_in_scope:
+    - "Live source preview and source-backed curation"
+    - "2026 draft resolution and prior-owner lineage"
+    - "Post-May canonical transaction reconciliation"
+    - "Future-pick inventory and two-way status"
+    - "Supabase foundation reload and derived rebuild"
+    - "Foundation and visualization export generation"
+  prior_artifacts:
+    - "docs/foundation/data-gap-closure/"
+    - "docs/foundation/daily-roster-and-prior-owner-lineage/"
+    - "docs/foundation/pick-truth-depth/"
+    - "docs/frontend/visualization-export-implementation/"
+
+research:
+  repo_findings:
+    - "DRAFT_DATE_BY_YEAR_ROUND ends at 2025 and blocks the existing 2026 draft preview."
+    - "CLI season defaults and daily/export bounds stop at season-end 2026 or 2026-06-30."
+    - "The curated draft-resolution fixture stops at 2025; future-pick and official-release evidence predates the offseason."
+    - "NBA Player Movement provides a safe discovery/dry-run surface but is corroboration-only."
+    - "Basketball-Reference loaders commit immediately after preview and should be used only for an exact reviewed season slice."
+    - "The reusable rebuild chain already covers derived entities, draft resolution, snapshots, two-way status, daily state, canonical events, pick inventory, prior-owner lineage, audits, and exports."
+  platform_findings:
+    - "Official NBA movement data was current league-wide through 2026-08-12; the official offseason roundup was updated through 2026-08-14."
+    - "Verified draft selections: Cameron Boozer No. 3, Bennett Stirtz No. 16, and Richie Saunders No. 32; Karim Lopez was selected No. 21 by Detroit and traded to Memphis."
+    - "The official Memphis draft-night release verifies Stirtz rights to Oklahoma City for Ebuka Okorie rights plus two future seconds, then Okorie rights to Detroit for Lopez rights plus three future seconds."
+    - "Verified 2026-06-29 trade: Ja Morant to Portland; Jerami Grant and Kris Murray to Memphis."
+    - "Verified 2026-07-08 six-team trade: Memphis sent Santi Aldama, Tarik Biberovic rights, and specified future seconds; received AJ Johnson, D'Angelo Russell, Isaiah Stewart, a protected Dallas first, multiple seconds, and a Washington swap."
+    - "Verified player events also include Quinten Post signing, Cameron Boozer signing, Karim Lopez signing, and Kentavious Caldwell-Pope buyout/waiver."
+    - "Carson Cooper is officially described as on a Memphis two-way contract by 2026-07-04, but the exact signing date remains unverified."
+    - "The five draft-night future seconds are verified in aggregate, but their years and protections were not established by the reviewed official release."
+
+source_evidence:
+  - "https://www.nba.com/players/transactions?TeamID=1610612763"
+  - "https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json"
+  - "https://www.nba.com/news/2026-nba-draft-order"
+  - "https://www.nba.com/grizzlies/news/grizzlies-acquire-2026-draft-rights-to-karim-lopez-and-five-future-second-round-draft-picks"
+  - "https://www.nba.com/grizzlies/news/grizzlies-select-richie-saunders-no-32-overall-in-2026-nba-draft"
+  - "https://www.nba.com/news/2026-offseason-trade-tracker"
+  - "https://www.nba.com/news/blazers-grizzlies-ja-morant-trade"
+  - "https://www.nba.com/news/khris-middleton-to-wizards-as-part-of-6-team-trade"
+  - "https://www.nba.com/news/grizzlies-pistons-isaiah-stewart-trade-2026-nba-draft"
+  - "https://www.nba.com/news/nba-offseason-deals-2026"
+  - "https://www.nba.com/grizzlies/news/grizzlies-reach-buyout-agreement-with-kentavious-caldwell-pope"
+
+acceptance_criteria:
+  - "2026 draft dates parse for both draft nights and have focused test coverage."
+  - "Every verified post-May Memphis event is either represented in canonical lineage or explicitly listed as non-lineage/context-only with a reason."
+  - "The draft-night rights chain preserves Stirtz to Okorie to Lopez continuity and exposes two unresolved bundles totaling five seconds without creating picks, assets, transitions, snapshots, lanes, or strands for them."
+  - "The six-team trade records every official Memphis player, rights, pick, protection, and swap leg."
+  - "Currentness, season, daily-state, and export bounds use one explicit 2026-08-16 as_of_date; no generated state, event, snapshot, interval, segment, or connector exceeds it."
+  - "2026 draft selections resolve to pick assets and prior-owner lineage where evidence permits."
+  - "Two-way and future-pick fixtures are refreshed or carry explicit unresolved limitations."
+  - "All live writes are preceded by a persisted go/no-go preview report proving zero stable-ID conflicts, unresolved required aliases, out-of-cutoff rows, unapproved historical changes/deletions, or unclassified equivalent-source collisions."
+  - "Official promotion is idempotent: reruns preserve canonical IDs/checksums, and a later explicitly suppressed BRef equivalent cannot duplicate the event or transitions."
+  - "A checked-in event reconciliation ledger covers every reviewed post-May event and Memphis leg with source URL, asserted semantics, disposition, uncertainty, and exact source-event identity."
+  - "Carson Cooper appears as a verified-by, non-loadable limitation unless an authoritative exact start date is found, and never enters daily two-way occupancy from an inferred date."
+  - "Foundation audit, graph baseline, visualization baseline, full Python tests, frontend tests/check/build, and artifact regeneration pass."
+  - "Documentation records new counts/checksums, source review dates, unknowns, and the distinction between current offseason state and opening-roster validation."
+
+open_questions:
+  - "Can stronger official evidence resolve Carson Cooper's exact two-way start or any of the five future-second identities before final fixture lock? If not, the conservative representations above remain required."
+  - "Does a usable Basketball-Reference 2026-27 transaction page become available during execution? Any matching row remains non-primary until explicitly classified in the reconciliation manifest."
+
+resolved_planning_contracts:
+  official_reconciliation: "Official evidence shard plus explicit canonical reconciliation manifest; official source-event IDs remain locked primaries and equivalent BRef rows remain loaded but suppressed."
+  unknown_future_seconds: "Two additive verified-aggregate bundles with quantities 2 and 3; nullable year/origin/protection; non-projectable and excluded from all concrete lineage surfaces."
+  as_of_date: "2026-08-16 propagated through every time-sensitive builder/query/command; July-August daily state is offseason carry-forward from June 30, not an opening checkpoint."
+  uncertain_two_way: "Optional start_date plus verified_by_date; verified-by-only rows are non-loadable and context-only."
+  schema: "No SQL schema change is planned; any discovered schema need returns the workflow to planning before implementation."
+
+ready_for_planning: true
+planning_blockers: []

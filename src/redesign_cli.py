@@ -62,6 +62,7 @@ from foundation.live_sources import (
     load_bref_source_events_span,
     load_nba_player_movement,
     load_official_release_sources,
+    preflight_locked_source_bundle,
     load_official_roster_reference_fixture,
     load_roster_reference_aliases,
     load_nba_reference,
@@ -111,6 +112,12 @@ RESETTABLE_PROJECT_SCHEMAS = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Reset-era Memphis asset lineage CLI.")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    def add_locked_bundle_arguments(command_parser: argparse.ArgumentParser) -> None:
+        command_parser.add_argument("--payload-bundle-path", required=True)
+        command_parser.add_argument("--expected-bundle-sha256", required=True)
+        command_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
+        command_parser.add_argument("--execute", action="store_true", help="Write only the reviewed locked bundle after digest validation.")
 
     subparsers.add_parser("status", help="Show the current reset-era scaffold status.")
     subparsers.add_parser("check-db", help="Run a minimal database connectivity check.")
@@ -262,17 +269,17 @@ def parse_args() -> argparse.Namespace:
         help="Build the derived visualization export from the current foundation tables.",
     )
     export_visualization_parser.add_argument("--output-path", default=None)
-    preview_bref_parser = subparsers.add_parser("preview-bref-source-events", help="Fetch and normalize one Basketball-Reference transactions season without writing to the database.")
+    preview_bref_parser = subparsers.add_parser("preview-bref-source-events", help="Normalize a locked Basketball-Reference transactions bundle without writing to the database.")
     preview_bref_parser.add_argument("--team-code", default="MEM")
-    preview_bref_parser.add_argument("--season-end-year", type=int, required=True)
-    load_bref_parser = subparsers.add_parser("load-bref-source-events", help="Fetch and load one Basketball-Reference transactions season into foundation.source_record and foundation.source_event.")
+    preview_bref_parser.add_argument("--season-end-year", type=int)
+    add_locked_bundle_arguments(preview_bref_parser)
+    load_bref_parser = subparsers.add_parser("load-bref-source-events", help="Load a reviewed locked Basketball-Reference transactions bundle into foundation.source_record and foundation.source_event.")
     load_bref_parser.add_argument("--team-code", default="MEM")
-    load_bref_parser.add_argument("--season-end-year", type=int, required=True)
-    load_bref_span_parser = subparsers.add_parser("load-bref-source-events-span", help="Fetch and load Basketball-Reference transactions for a season-end-year range.")
+    load_bref_parser.add_argument("--season-end-year", type=int)
+    add_locked_bundle_arguments(load_bref_parser)
+    load_bref_span_parser = subparsers.add_parser("load-bref-source-events-span", help="Load one reviewed locked Basketball-Reference transactions bundle; live span fetching is retired.")
     load_bref_span_parser.add_argument("--team-code", default="MEM")
-    load_bref_span_parser.add_argument("--start-season-end-year", type=int, default=2017)
-    load_bref_span_parser.add_argument("--end-season-end-year", type=int, default=2026)
-    load_bref_span_parser.add_argument("--request-delay", type=float, default=0.8)
+    add_locked_bundle_arguments(load_bref_span_parser)
     preview_bref_roster_parser = subparsers.add_parser("preview-bref-roster-baseline", help="Fetch and normalize one Basketball-Reference team roster page without writing to the database.")
     preview_bref_roster_parser.add_argument("--team-code", default="MEM")
     preview_bref_roster_parser.add_argument("--season-end-year", type=int, required=True)
@@ -284,17 +291,17 @@ def parse_args() -> argparse.Namespace:
     load_bref_roster_span_parser.add_argument("--start-season-end-year", type=int, default=2017)
     load_bref_roster_span_parser.add_argument("--end-season-end-year", type=int, default=2026)
     load_bref_roster_span_parser.add_argument("--request-delay", type=float, default=0.8)
-    preview_bref_draft_parser = subparsers.add_parser("preview-bref-draft-results", help="Fetch and normalize one Basketball-Reference draft page without writing.")
+    preview_bref_draft_parser = subparsers.add_parser("preview-bref-draft-results", help="Normalize a locked Basketball-Reference draft bundle without writing.")
     preview_bref_draft_parser.add_argument("--team-code", default="MEM")
-    preview_bref_draft_parser.add_argument("--draft-year", type=int, required=True)
-    load_bref_draft_parser = subparsers.add_parser("load-bref-draft-results", help="Fetch and load one Basketball-Reference draft page into draft selections.")
+    preview_bref_draft_parser.add_argument("--draft-year", type=int)
+    add_locked_bundle_arguments(preview_bref_draft_parser)
+    load_bref_draft_parser = subparsers.add_parser("load-bref-draft-results", help="Load a reviewed locked Basketball-Reference draft bundle into draft selections.")
     load_bref_draft_parser.add_argument("--team-code", default="MEM")
-    load_bref_draft_parser.add_argument("--draft-year", type=int, required=True)
-    load_bref_draft_span_parser = subparsers.add_parser("load-bref-draft-results-span", help="Fetch and load Basketball-Reference draft results for a year range.")
+    load_bref_draft_parser.add_argument("--draft-year", type=int)
+    add_locked_bundle_arguments(load_bref_draft_parser)
+    load_bref_draft_span_parser = subparsers.add_parser("load-bref-draft-results-span", help="Load one reviewed locked Basketball-Reference draft bundle; live span fetching is retired.")
     load_bref_draft_span_parser.add_argument("--team-code", default="MEM")
-    load_bref_draft_span_parser.add_argument("--start-draft-year", type=int, default=2016)
-    load_bref_draft_span_parser.add_argument("--end-draft-year", type=int, default=2025)
-    load_bref_draft_span_parser.add_argument("--request-delay", type=float, default=0.8)
+    add_locked_bundle_arguments(load_bref_draft_span_parser)
     preview_curated_draft_pick_detail_parser = subparsers.add_parser(
         "preview-curated-draft-pick-detail-sources",
         help="Read-only preview of curated draft-pick-detail corroboration rows generated from loaded Memphis draft selections.",
@@ -325,51 +332,23 @@ def parse_args() -> argparse.Namespace:
     preview_nba_roster_parser.add_argument("--season", required=True)
     preview_nba_roster_parser.add_argument("--team-id", type=int, default=1610612763)
     preview_nba_roster_parser.add_argument("--team-code", default="MEM")
-    preview_nba_player_movement_parser = subparsers.add_parser("preview-nba-player-movement", help="Read-only fixture/file or live preview of NBA.com player movement JSON rows.")
-    preview_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
-    preview_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
-    preview_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
+    preview_nba_player_movement_parser = subparsers.add_parser("preview-nba-player-movement", help="Normalize a locked NBA player-movement bundle without writing.")
+    add_locked_bundle_arguments(preview_nba_player_movement_parser)
     load_nba_player_movement_parser = subparsers.add_parser(
         "load-nba-player-movement",
-        help="Build NBA.com player movement source_record/source_event candidates and write them only with --execute.",
+        help="Load a reviewed locked NBA player-movement bundle only with --execute.",
     )
-    load_nba_player_movement_parser.add_argument("--fixture-path", default=str(DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH))
-    load_nba_player_movement_parser.add_argument("--live", action="store_true", help="Fetch the live NBA.com player movement endpoint instead of the fixture.")
-    load_nba_player_movement_parser.add_argument("--endpoint-url", default="https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json")
-    load_nba_player_movement_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
-    load_nba_player_movement_parser.add_argument("--execute", action="store_true", help="Write foundation.source_record and foundation.source_event rows after preview review.")
+    add_locked_bundle_arguments(load_nba_player_movement_parser)
     preview_official_release_parser = subparsers.add_parser(
         "preview-official-release-sources",
         help="Read-only preview of curated official NBA.com or team-release corroboration sources.",
     )
-    preview_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
-    preview_official_release_parser.add_argument(
-        "--fixture-fragment-dir",
-        default=str(DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR),
-        help="Directory of additional official-release fixture fragments to aggregate with the base fixture.",
-    )
-    preview_official_release_parser.add_argument(
-        "--fetch-live",
-        action="store_true",
-        help="Fetch the live article URLs referenced by the fixture to enrich source_record raw payload metadata.",
-    )
+    add_locked_bundle_arguments(preview_official_release_parser)
     load_official_release_parser = subparsers.add_parser(
         "load-official-release-sources",
         help="Build curated official release source_record/source_event candidates and write them only with --execute.",
     )
-    load_official_release_parser.add_argument("--fixture-path", default=str(DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH))
-    load_official_release_parser.add_argument(
-        "--fixture-fragment-dir",
-        default=str(DEFAULT_OFFICIAL_RELEASE_FRAGMENT_DIR),
-        help="Directory of additional official-release fixture fragments to aggregate with the base fixture.",
-    )
-    load_official_release_parser.add_argument(
-        "--fetch-live",
-        action="store_true",
-        help="Fetch the live article URLs referenced by the fixture before writing.",
-    )
-    load_official_release_parser.add_argument("--dry-run", action="store_true", help="Explicit read-only mode; this is also the default unless --execute is supplied.")
-    load_official_release_parser.add_argument("--execute", action="store_true", help="Write foundation.source_record and foundation.source_event rows after preview review.")
+    add_locked_bundle_arguments(load_official_release_parser)
     preview_official_roster_reference_parser = subparsers.add_parser(
         "preview-official-roster-reference-fixture",
         help="Read-only preview of checked-in official roster-reference fixture rows normalized to the validator contract.",
@@ -657,6 +636,18 @@ def command_clear_foundation_data() -> dict[str, object]:
 
 def main() -> None:
     args = parse_args()
+
+    def guarded_database_url(source_kind: str, source_scope: dict[str, object] | None) -> str | None:
+        if not args.execute:
+            return None
+        preflight_locked_source_bundle(
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            expected_source_kind=source_kind,
+            expected_source_scope=source_scope,
+        )
+        return load_database_url()
+
     if args.command == "status":
         payload = command_status()
     elif args.command == "check-db":
@@ -879,16 +870,31 @@ def main() -> None:
                 "draft_lottery_results": len(export.additive_context.draft_lottery_results),
             }
     elif args.command == "preview-bref-source-events":
-        payload = preview_bref_source_events(team_code=args.team_code, season_end_year=args.season_end_year)
-    elif args.command == "load-bref-source-events":
-        payload = load_bref_source_events(load_database_url(), team_code=args.team_code, season_end_year=args.season_end_year)
-    elif args.command == "load-bref-source-events-span":
-        payload = load_bref_source_events_span(
-            load_database_url(),
+        payload = load_bref_source_events(
             team_code=args.team_code,
-            start_season_end_year=args.start_season_end_year,
-            end_season_end_year=args.end_season_end_year,
-            request_delay=args.request_delay,
+            season_end_year=args.season_end_year,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=True,
+        )
+    elif args.command == "load-bref-source-events":
+        payload = load_bref_source_events(
+            guarded_database_url("bref_transactions", {"team_code": args.team_code.upper()}),
+            team_code=args.team_code,
+            season_end_year=args.season_end_year,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=args.dry_run,
+            execute=args.execute,
+        )
+    elif args.command == "load-bref-source-events-span":
+        payload = load_bref_source_events(
+            guarded_database_url("bref_transactions", {"team_code": args.team_code.upper()}),
+            team_code=args.team_code,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=args.dry_run,
+            execute=args.execute,
         )
     elif args.command == "load-bref-roster-baseline-span":
         payload = load_bref_roster_baseline_span(
@@ -899,16 +905,31 @@ def main() -> None:
             request_delay=args.request_delay,
         )
     elif args.command == "preview-bref-draft-results":
-        payload = preview_bref_draft_results(team_code=args.team_code, draft_year=args.draft_year)
-    elif args.command == "load-bref-draft-results":
-        payload = load_bref_draft_results(load_database_url(), team_code=args.team_code, draft_year=args.draft_year)
-    elif args.command == "load-bref-draft-results-span":
-        payload = load_bref_draft_results_span(
-            load_database_url(),
+        payload = load_bref_draft_results(
             team_code=args.team_code,
-            start_draft_year=args.start_draft_year,
-            end_draft_year=args.end_draft_year,
-            request_delay=args.request_delay,
+            draft_year=args.draft_year,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=True,
+        )
+    elif args.command == "load-bref-draft-results":
+        payload = load_bref_draft_results(
+            guarded_database_url("bref_draft", {"team_code": args.team_code.upper()}),
+            team_code=args.team_code,
+            draft_year=args.draft_year,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=args.dry_run,
+            execute=args.execute,
+        )
+    elif args.command == "load-bref-draft-results-span":
+        payload = load_bref_draft_results(
+            guarded_database_url("bref_draft", {"team_code": args.team_code.upper()}),
+            team_code=args.team_code,
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=args.dry_run,
+            execute=args.execute,
         )
     elif args.command == "preview-curated-draft-pick-detail-sources":
         payload = preview_curated_draft_pick_detail_sources(load_database_url(), team_code=args.team_code)
@@ -922,32 +943,30 @@ def main() -> None:
     elif args.command == "preview-nba-reference":
         payload = preview_nba_reference(season=args.season, team_id=args.team_id)
     elif args.command == "preview-nba-player-movement":
-        payload = preview_nba_player_movement(
-            fixture_path=Path(args.fixture_path),
-            live=args.live,
-            endpoint_url=args.endpoint_url,
+        payload = load_nba_player_movement(
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=True,
         )
     elif args.command == "load-nba-player-movement":
         payload = load_nba_player_movement(
-            load_database_url() if args.execute else None,
-            fixture_path=Path(args.fixture_path),
-            live=args.live,
-            endpoint_url=args.endpoint_url,
+            guarded_database_url("nba_player_movement", {"team_code": "MEM"}),
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
             dry_run=args.dry_run,
             execute=args.execute,
         )
     elif args.command == "preview-official-release-sources":
-        payload = preview_official_release_sources(
-            fixture_path=Path(args.fixture_path),
-            fixture_fragment_dir=Path(args.fixture_fragment_dir),
-            fetch_live=args.fetch_live,
+        payload = load_official_release_sources(
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
+            dry_run=True,
         )
     elif args.command == "load-official-release-sources":
         payload = load_official_release_sources(
-            load_database_url() if args.execute else None,
-            fixture_path=Path(args.fixture_path),
-            fixture_fragment_dir=Path(args.fixture_fragment_dir),
-            fetch_live=args.fetch_live,
+            guarded_database_url("official_releases", {"team_code": "MEM"}),
+            payload_bundle_path=Path(args.payload_bundle_path),
+            expected_bundle_sha256=args.expected_bundle_sha256,
             dry_run=args.dry_run,
             execute=args.execute,
         )

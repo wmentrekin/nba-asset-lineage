@@ -1,0 +1,77 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+status: in_progress
+owner_skill: work
+based_on: "docs/foundation/safe-refresh-tooling/plan.yaml"
+
+summary:
+  scope_executed: "Completed B1 plus B2/T3–T5: local immutable source bundles, digest-guarded loader/CLI preflight, pure typed foundation export assembly, a closed 21-table shared mutation-plan contract, and an ordered no-write candidate projection."
+  outcome: "The project now normalizes only reviewed locked bytes, requires digest-bound execution before any database connection, shares source-partition mutation semantics between pure and registered-table adapters, and projects complete planned prefixes from a one-shot baseline without writes; deterministic report artifacts and operational safety layers remain."
+
+task_batches_attempted: ["B1", "B2"]
+task_batches_completed: ["B1"]
+domains_touched: ["data-engineer"]
+
+pr:
+  number: null
+  url: null
+
+changes:
+  files:
+    - "src/foundation/source_payloads.py"
+    - "src/foundation/live_sources.py"
+    - "src/redesign_cli.py"
+    - "src/foundation/models.py"
+    - "src/foundation/export.py"
+    - "tests/foundation/test_source_payloads.py"
+    - "tests/foundation/test_live_sources.py"
+    - "tests/foundation/test_redesign_cli.py"
+    - "tests/foundation/test_export.py"
+    - "src/foundation/foundation_table_manifest.py"
+    - "src/foundation/refresh_mutations.py"
+    - "tests/foundation/test_refresh_mutations.py"
+    - "tests/foundation/test_sql_contracts.py"
+    - "src/foundation/refresh_projection.py"
+    - "tests/foundation/test_refresh_projection.py"
+  modules:
+    - "foundation.source_payloads"
+    - "foundation.live_sources"
+    - "redesign_cli"
+    - "foundation.models"
+    - "foundation.export"
+    - "foundation.foundation_table_manifest"
+    - "foundation.refresh_mutations"
+    - "foundation.refresh_projection"
+  docs_updated:
+    - "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+
+local_validation:
+  checks_run:
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_source_payloads.py tests/foundation/test_live_sources.py -q (47 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_source_payloads.py tests/foundation/test_live_sources.py tests/foundation/test_redesign_cli.py -q (49 passed)"
+    - "uv --cache-dir /tmp/uv-cache run python -m compileall -q src"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_draft_lottery_results.py -q (37 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_mutations.py tests/foundation/test_sql_contracts.py tests/foundation/test_ingest.py tests/foundation/test_canonical.py tests/foundation/test_live_sources.py -q (80 passed)"
+    - "uv --cache-dir /tmp/uv-cache run pytest tests/foundation/test_refresh_projection.py tests/foundation/test_refresh_mutations.py tests/foundation/test_export.py tests/foundation/test_visualization_export.py tests/foundation/test_live_sources.py -q (71 passed)"
+  failures: []
+  skipped: ["No live source or database operations are permitted in this feature."]
+
+review_summary:
+  status: not_started
+  key_findings: []
+
+test_summary:
+  status: not_started
+  checks_run: []
+  failures: []
+  gaps: []
+
+open_issues: []
+
+handoff:
+  current_state: in_progress
+  next_owner: "data-engineer"
+  next_action: "Implement T6: deterministic, sanitized candidate-projection reporting and canonical artifact digests."

@@ -1,0 +1,116 @@
+# Contract: durable task-definition handoff created by $work
+
+artifact: requirements
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+
+summary:
+  problem: "The current refresh CLI refetches live sources between preview and execution, BRef writers lack digest/execute guards, no read-only command projects candidate rows through the full derived stack, and partial failures lack a recoverable database preimage."
+  motivation: "The 2026 offseason refresh cannot safely reach its live-write checkpoint until the exact reviewed inputs and projected outcome are bound to guarded execution and recovery artifacts."
+  requested_outcome: "Implement and verify code-only source locking, candidate projection, approval, execution-order, snapshot, resume, and restore tooling without accessing or mutating live systems."
+
+goals:
+  - "Capture NBA movement, BRef transactions, BRef draft, and official-release inputs once as raw-byte bundles with canonical SHA-256 manifests."
+  - "Make all four refresh loaders preview and execute from the same validated bundle; execution requires --execute and the approved digest."
+  - "Project candidate source/config rows over a read-only baseline entirely in memory through entities, resolution, canonical, inventory, daily state, prior owner, base export, and visualization export."
+  - "Emit stable row-level diffs, blockers, warnings, and semantic checksums suitable for a go/no-go preview report."
+  - "Capture a complete restricted local preimage of all active foundation tables and validate approval metadata against exact payload, fixture, projection, plan, snapshot, and baseline digests."
+  - "Encode a dependency-safe approved refresh order, resumable forward recovery, and a separately guarded exact restore path."
+
+non_goals:
+  - "Do not fetch current live NBA/BRef/team data in this feature."
+  - "Do not connect to or write the live Supabase database in this feature."
+  - "Do not load any 2026 offseason transaction, draft, roster, pick, or two-way data."
+  - "Do not create SQL migrations or change the foundation schema."
+  - "Do not redesign the graph or modify personal-site."
+  - "Do not broaden locked-bundle support to roster/reference loaders beyond the four sources required by the offseason refresh."
+
+constraints:
+  technical:
+    - "Capture is the only layer allowed to perform network I/O; preview and execute consume locked local bytes only."
+    - "Digest, scope, path, and schema validation must occur before opening a database connection."
+    - "Projection loads one read-only baseline, then holds no connection and imports no write helpers."
+    - "Projection overlay must mirror current per-source-record replacement and ancillary upsert/coalesce semantics."
+    - "Projection and database execution must consume the same immutable typed FoundationMutationPlan objects; independent reimplementation of mutation semantics is forbidden."
+    - "Base-export database reads and assembly must share a new typed pure seam so projected and real exports cannot diverge."
+    - "Recovery snapshots cover exactly the 21 active foundation tables in one repeatable-read, read-only transaction."
+    - "Operational payloads, snapshots, approval records, and execution state remain under ignored tmp/, mode-restricted, and never enter commits or PRs."
+    - "Operational roots must be repo-local, symlink-free, exclusively created, no-follow validated, atomic-written, mode 0700/0600, and contain only allowlisted response metadata."
+    - "Restore remains a separate destructive command that fails closed without explicit --execute and exact approved snapshot digest."
+  product:
+    - "Sanitized reports may expose only counts, IDs, changed field names, and digests—not raw database rows or full source bodies."
+    - "The tooling must preserve the parent refresh's 2026-08-16 cutoff and historical-checksum gate."
+  process:
+    - "Implementation and verification use unit tests, fixtures, fake connections, and local generated temporary directories only."
+    - "Any need for a schema migration or live-system access returns to planning."
+
+assumptions:
+  - "Existing source normalizers and most derived builders are reusable as pure functions."
+  - "A FoundationExportInputs extraction is sufficient to make base export assembly pure."
+  - "A full 21-table preimage is safer and smaller in engineering scope than exact affected-row recovery across heterogeneous loaders."
+  - "The approved runner coordinates existing checked-in loaders rather than replacing their domain logic."
+
+repo_context:
+  relevant_paths:
+    - "src/foundation/live_sources.py"
+    - "src/foundation/ingest.py"
+    - "src/foundation/canonical.py"
+    - "src/foundation/draft_resolution.py"
+    - "src/foundation/pick_inventory.py"
+    - "src/foundation/daily_roster_state.py"
+    - "src/foundation/draft_prior_owner.py"
+    - "src/foundation/export.py"
+    - "src/foundation/visualization_export.py"
+    - "src/redesign_cli.py"
+    - "sql/0001_foundation_ingest_bootstrap.sql"
+    - "sql/0002_foundation_canonical_bootstrap.sql"
+    - "sql/0004_foundation_context_bootstrap.sql"
+    - "sql/0005_foundation_draft_pick_resolution_bootstrap.sql"
+    - "sql/0006_foundation_pick_inventory_bootstrap.sql"
+    - "sql/0007_foundation_daily_roster_and_prior_owner_bootstrap.sql"
+    - "tests/foundation/"
+    - "docs/foundation/offseason-2026-refresh/"
+  systems_in_scope:
+    - "Raw source bundle capture and validation"
+    - "Digest-guarded source normalization/loading"
+    - "Read-only candidate projection and diffing"
+    - "Foundation safety snapshot/approval/runner/restore contracts"
+    - "CLI and operational documentation"
+  prior_artifacts:
+    - "docs/foundation/offseason-2026-refresh/requirements.yaml"
+    - "docs/foundation/offseason-2026-refresh/plan.yaml"
+
+research:
+  repo_findings:
+    - "Existing pure source normalizers can consume captured bytes after small I/O separation."
+    - "Canonical, inventory, daily-state, prior-owner, and visualization builders are already mostly pure."
+    - "Base export assembly is the major remaining DB-coupled seam."
+    - "Source-event replacement cascades canonical membership; canonical replacement nulls obligation canonical links, so canonical must precede obligation reload."
+    - "Upsert-only entity behavior makes an ID-only recovery snapshot insufficient; the full active foundation preimage is required."
+    - "tmp/ is already ignored and is the correct restricted operational-artifact root."
+  platform_findings: []
+
+acceptance_criteria:
+  - "Locked bundle validation rejects tampering, missing/duplicate/path-traversal items, schema/scope mismatch, and digest drift."
+  - "Capture is atomic and fetches each URL once; official bundles also lock curated normalization definitions."
+  - "All four source loaders reject execution without a locked bundle, exact digest, and --execute before opening a DB connection; execution never performs network I/O."
+  - "preview-refresh-projection overlays candidates with SQL-equivalent semantics and performs no writes."
+  - "Projection produces deterministic per-surface diffs/checksums and the same base export as the database wrapper for equivalent inputs."
+  - "Shared mutation plans produce identical final table state through the pure in-memory adapter and registered-table database adapter in differential tests."
+  - "Projection blockers propagate rather than silently dropping unresolved aliases, resolution, obligation, daily-state, prior-owner, or cutoff failures."
+  - "Snapshot capture includes exactly all 21 active tables, deterministic schema/row digests, no credentials, restricted permissions, and a read-only repeatable-read contract."
+  - "A checked-in immutable table manifest enumerates every table's exact columns, row keys, schema signature, FK-safe insert order, and reverse delete order, and offline tests reconcile it with SQL 0001-0007."
+  - "Approval validation binds explicit user-go metadata to exact baseline, payload, local fixture, projection, reconciliation, snapshot, and execution-plan digests."
+  - "Approval and resume also bind implementation, environment, dependency-lock, dirty-tree, table-contract, and per-prefix database fingerprints through closed versioned schemas and atomic state transitions."
+  - "Approved runner rejects every stale/mismatched input before writes and encodes the tested order: sources, entities, snapshots, draft resolution, canonical, obligations, inventory snapshots, two-way, daily state, prior owner, roster validation, additive lottery, verification."
+  - "Resume is allowed only with unchanged approved inputs/code; changed inputs return to projection and approval."
+  - "Restore validates exact snapshot/schema/database fingerprints, uses one guarded transaction and fixed table allowlist/order, rolls back on any mismatch, and commits only when the restored digest equals the baseline."
+  - "All new tests pass without live network or database access; the existing full Python and frontend validation suites remain green."
+  - "Docs state sensitivity, retention, cleanup, concurrency limitations, and that actual restore always requires separate user authorization."
+  - "Canonical JSON uses strict UTF-8 sorted compact encoding, closed types, domain-separated SHA-256, explicit self-digest exclusion, fixed item ordering, normalized dates/timestamps, and golden digest vectors."
+
+open_questions: []
+ready_for_planning: true
+planning_blockers: []

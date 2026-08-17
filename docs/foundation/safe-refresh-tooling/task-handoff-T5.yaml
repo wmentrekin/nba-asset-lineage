@@ -1,0 +1,29 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B2"
+task_id: "T5"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Load one typed read-only foundation baseline, overlay locked source candidates through FoundationMutationPlan, and construct every downstream plan in approved runner order without writing."
+why_this_matters: "The parent offseason refresh needs a truthful, entirely no-write proof of its final foundation, export, and visualization impact before any future execution approval."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/refresh_mutations.py", "src/foundation/foundation_table_manifest.py", "src/foundation/source_payloads.py", "src/foundation/live_sources.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py"]
+scope:
+  owned: ["src/foundation/refresh_projection.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py", "tests/foundation/test_refresh_projection.py"]
+  forbidden: ["Database writes after baseline load", "Independent mutation semantics", "Silent blocker omission", "Live network access", "Live database access in tests", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Use FoundationMutationPlan and apply_plan_to_snapshot; do not recreate write semantics in the projector."
+  - "After its single baseline read, projection code must not retain or call a database connection."
+  - "Apply source overlay, derived entities, roster snapshots bounded by as_of_date, curated resolution, canonical rebuild, obligations, inventory, two-way, daily state, prior-owner lineage, validation, lottery, then export/visualization in the plan's approved order."
+  - "Expose every missing alias, fixture, resolution, obligation, daily, prior-owner, cutoff, and historical checksum issue as a blocker; never omit it."
+  - "Tests are fixtures/fakes only and must prove no write/connect path is reached after baseline loading."
+success_criteria: ["Typed baseline and projected-state contracts exist", "Candidate sources apply through shared plans", "Ordered prefix states are deterministic and bounded by as_of_date", "All blockers propagate", "Final base and visualization graph derive from the projected state", "No live systems touched"]
+validation_expected: ["No-write isolation", "Exact approved step-prefix digests", "Cutoff and historical-checksum gates", "All domain blocker propagation"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["An exact downstream mutation family needs an unplanned architecture decision", "Existing builder semantics cannot be made pure without an unplanned schema/product change", "Any validation would require live access"]

@@ -1,0 +1,28 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B2"
+task_id: "T4"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+objective: "Create the immutable FoundationMutationPlan contract and matching pure table-state/PostgreSQL adapters so projection and execution share exact mutation semantics."
+why_this_matters: "The future no-write preview cannot be trusted if it reimplements loader behavior separately from the later writer."
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/live_sources.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "tests/foundation/test_sql_contracts.py"]
+scope:
+  owned: ["src/foundation/refresh_mutations.py", "src/foundation/foundation_table_manifest.py", "src/foundation/live_sources.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "tests/foundation/test_refresh_mutations.py", "tests/foundation/test_sql_contracts.py"]
+  forbidden: ["Generic SQL/table identifiers", "Independent projector mutation logic", "Live database access", "SQL migrations", "personal-site/", "legacy/"]
+implementation_notes:
+  - "Follow shared_mutation_plan and table_contract in plan.yaml exactly."
+  - "Domain builders create plans; the pure and database adapters only apply plans."
+  - "Preserve existing source partition replacement, canonical full replacement, coalesced selection fields, typed patches, and bound operation timestamps."
+  - "Tests must use table snapshots/fake connections only."
+success_criteria: ["Immutable plan has only closed operation/update-policy types", "21-table manifest reconciles offline against SQL 0001-0007", "Pure and DB adapters produce identical table states for each mutation family", "No live systems touched"]
+validation_expected: ["Focused refresh-mutation and SQL-contract tests", "Affected existing foundation tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["A mutation family cannot be modeled without an unplanned schema/product decision", "Exact existing writer semantics are ambiguous", "A test would require live access"]

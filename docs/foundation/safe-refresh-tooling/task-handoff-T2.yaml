@@ -1,0 +1,39 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B1"
+task_id: "T2"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+
+objective: "Wire the four refresh-source loaders and CLI to consume validated locked bundles, requiring an expected digest and explicit --execute before any database connection, while preserving read-only preview/dry-run behavior."
+why_this_matters: "The source bytes reviewed by a future user must be exactly the bytes normalized during execution; execution must never refetch network data."
+
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/source_payloads.py", "src/foundation/live_sources.py", "src/redesign_cli.py", "tests/foundation/test_live_sources.py", "tests/foundation/test_source_payloads.py"]
+
+scope:
+  owned: ["src/foundation/live_sources.py", "src/redesign_cli.py", "tests/foundation/test_live_sources.py", "tests/foundation/test_redesign_cli.py"]
+  forbidden: ["Live network or database access", "Roster/reference loader expansion", "SQL migrations", "personal-site/", "legacy/", "src/foundation/source_payloads.py"]
+
+implementation_notes:
+  - "Use T1's load_source_bundle and build_locked_source_rows; do not recreate validation."
+  - "For NBA movement, BRef transactions, BRef draft, and official releases, execution requires payload_bundle_path, expected_bundle_sha256, and --execute."
+  - "Reject missing/wrong digest, kind/scope mismatch, and any live/fetch flag in execution before load_database_url or psycopg connect."
+  - "Preview/dry-run must normalize the same bundle and report its digest; no execution code path may fetch."
+  - "Use only fakes/monkeypatches for CLI/load tests."
+
+success_criteria:
+  - "All four loaders have uniform locked-bundle dry-run/execute semantics."
+  - "Every preflight failure occurs before database connection."
+  - "Execute never invokes fetch helpers and BRef can no longer commit without --execute."
+  - "Preview and execute produce identical normalized candidate rows from the same bundle."
+
+validation_expected: ["Focused live_sources and CLI tests", "Existing source payload tests"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["The existing public CLI cannot add these guards without an unplanned compatibility decision", "A required schema/model change appears", "A test would require network or live database access"]

@@ -1,0 +1,121 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "foundation/offseason-2026-refresh"
+mode: "large-initiative"
+stage: "planning"
+owner_skill: work
+
+objective: "Refresh Memphis transaction, draft, roster, pick, and lineage truth through the 2026 offseason, then regenerate and verify the graph artifacts."
+
+summary:
+  current_focus: "Split into a code-only safe-refresh-tooling predecessor at the user's direction."
+  last_completed: "Planning review cycle 2 confirmed data-semantics contracts but found unresolved live-write projection, payload-locking, ordering, approval, and recovery gaps."
+  current_blocker: "The current CLI cannot prove the exact candidate-derived database result before writes or guarantee that loaders consume the reviewed live payload bytes."
+
+artifacts:
+  requirements: "docs/foundation/offseason-2026-refresh/requirements.yaml"
+  plan: "docs/foundation/offseason-2026-refresh/plan.yaml"
+  implementation_report: "docs/foundation/offseason-2026-refresh/implementation-report.yaml"
+
+pr:
+  number: null
+  url: null
+  status: "not_opened"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "planning"
+    task: "Report the loop-cap stop and request user direction."
+    last_update: "Stopped before execution after the second review remained not ready."
+    blocker: ""
+  - id: "repo_loader_discovery"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Map reusable loaders and 2026 offseason code/data gaps."
+    last_update: "Mapped loaders, fixtures, code boundaries, and 2026 gaps."
+    blocker: ""
+  - id: "repo_db_discovery"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Establish safe read-only baseline commands and guarded load sequence."
+    last_update: "Established safe previews, write ordering, and stale temporal boundaries without running live commands."
+    blocker: ""
+  - id: "platform_offseason_sources"
+    role: "platform-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Identify authoritative post-May Memphis transaction and draft source coverage."
+    last_update: "Verified the post-May event inventory and remaining evidence gaps through official NBA/Memphis sources."
+    blocker: ""
+  - id: "plan_reviewer"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Critique the requirements and execution plan before the user checkpoint."
+    last_update: "Cycle 2 returned changes_required for projection, payload-locking, write order, approval, and recovery."
+    blocker: ""
+  - id: "reconciliation_contract"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "running"
+    stage: "planning"
+    task: "Resolve official-source promotion, provenance, precedence, and idempotency mechanics."
+    last_update: "Spawned for planning review cycle 1 corrections."
+    blocker: ""
+  - id: "unknown_pick_contract"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "running"
+    stage: "planning"
+    task: "Resolve truthful non-projectable representation for five unidentified future seconds."
+    last_update: "Spawned for planning review cycle 1 corrections."
+    blocker: ""
+  - id: "cutoff_two_way_contract"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "running"
+    stage: "planning"
+    task: "Resolve as-of propagation and verified-by two-way semantics."
+    last_update: "Spawned for planning review cycle 1 corrections."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 2
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: blocked
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers:
+  - "No read-only command overlays reviewed candidate source rows on the live baseline and projects the full derived result."
+  - "Live source loaders can refetch bytes after preview; BRef loaders also lack execute/digest guards."
+  - "The planned derived write order can invalidate canonical-event foreign-key links."
+  - "The secondary database-write approval and recovery records are not yet executable contracts."
+decisions:
+  - "Refresh foundation truth before visualization styling or personal-site integration."
+  - "Keep discovery read-only; use existing guarded checked-in loaders for any eventual live writes."
+  - "Treat the 2026 draft and subsequent offseason activity as explicitly in scope."
+
+next_action: "Complete foundation/safe-refresh-tooling before resuming this live offseason refresh."
+next_recommended_command: "$work"
+user_input_needed: false

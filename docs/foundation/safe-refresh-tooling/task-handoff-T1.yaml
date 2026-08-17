@@ -1,0 +1,39 @@
+artifact: task_handoff
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+execution_batch_id: "B1"
+task_id: "T1"
+assigned_domain: "data-engineer"
+branch: "work/safe-refresh-tooling"
+owner_skill: work
+
+objective: "Add local-only immutable source bundles with atomic capture, strict canonical manifests/digests, secure path validation, and deterministic normalization input for the four approved refresh source kinds."
+why_this_matters: "Later source previews and writes must normalize the exact same reviewed bytes; this is the boundary that prevents time-of-check/time-of-use drift."
+
+inputs:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+  relevant_paths: ["src/foundation/live_sources.py", "src/foundation/models.py", "tests/foundation/test_live_sources.py", "docs/foundation/safe-refresh-tooling/plan.yaml"]
+
+scope:
+  owned: ["src/foundation/source_payloads.py", "src/foundation/live_sources.py", "tests/foundation/test_source_payloads.py", "tests/foundation/test_live_sources.py"]
+  forbidden: ["Live network calls during tests", "Live database access", "SQL migrations", "personal-site/", "legacy/", "src/redesign_cli.py"]
+
+implementation_notes:
+  - "Follow source_bundle, canonical_integrity, and operational_storage contracts in plan.yaml exactly."
+  - "Support only nba_player_movement, bref_transactions, bref_draft, and official_releases."
+  - "Keep network fetching out of normalization; injected fixture bytes/fake fetchers only in tests."
+  - "Do not alter legacy canonical IDs or reuse permissive legacy digest helpers."
+
+success_criteria:
+  - "Canonical manifests and raw-body digests validate deterministically."
+  - "Tampering, missing/duplicate/path-traversal items, unsupported metadata, and schema/scope mismatch reject before normalization."
+  - "Atomic bundle creation leaves no final partial bundle."
+  - "Official normalization config is locked alongside raw article bytes."
+  - "Tests use only fixtures/fakes with no network or DB access."
+
+validation_expected: ["Focused source_payloads and live_sources tests", "Relevant existing foundation tests affected by refactoring"]
+output_format:
+  sections: [Changes, Local Validation, Blockers, Notes]
+escalate_if: ["A required model/schema change is needed", "Existing normalizer cannot accept captured bytes without touching T2-owned CLI", "Security contract conflicts with repository/platform behavior"]

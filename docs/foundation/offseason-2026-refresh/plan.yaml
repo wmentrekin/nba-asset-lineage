@@ -1,0 +1,201 @@
+# Contract: durable execution plan created by $work
+
+artifact: plan
+feature: "foundation/offseason-2026-refresh"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/foundation/offseason-2026-refresh/requirements.yaml"
+
+objective: "Extend Memphis foundation and visualization truth through 2026-08-16 using verified draft/offseason evidence, deterministic official-source reconciliation, guarded incremental writes, and explicit uncertainty."
+
+approach:
+  summary: "Implement the truth contracts and cutoff first, then encode a complete official event ledger and 2026 draft fixtures. Run all tests and live previews into a persisted go/no-go report. Require a second explicit database-write checkpoint, execute only exact incremental commands, rebuild deterministically, open one PR, and verify it with reviewer/tester agents."
+  key_decisions:
+    - "One as_of_date, 2026-08-16, bounds snapshots, daily state, audit, foundation export, visualization export, and CLI output."
+    - "Official source events enter canonical truth only through an exact-ID reconciliation manifest with official_locked precedence."
+    - "Later BRef equivalents remain provenance rows but are suppressed explicitly; unclassified collisions block previews."
+    - "The five unidentified future seconds are two additive bundles (OKC quantity 2; DET quantity 3), never concrete picks or strands."
+    - "Carson Cooper remains a non-loadable verified-by observation unless an exact effective date is sourced."
+    - "No SQL schema change is planned; a discovered schema need stops execution and returns to planning."
+    - "Use incremental idempotent loads only; never use destructive full-span replacement."
+
+contracts:
+  interfaces:
+    - "Add --as-of-date to snapshot, daily-state, audit, export, and graph-baseline commands, defaulting to 2026-08-16."
+    - "Extend official release preview/load with --reconciliation-path and blocking validation diagnostics."
+    - "Add a read-only refresh preview that emits docs/foundation/offseason-2026-refresh/preview-report.yaml with objective gate fields."
+  schemas:
+    - "Reuse foundation JSONB provenance. Reconciliation metadata lives on referenced official source-event payloads."
+    - "Add Python/base-export/visualization additive-context models for unresolved pick bundles; no SQL table or graph asset kind."
+    - "Extend two-way fixture models with optional start_date and verified_by_date; verified-by-only rows cannot be loadable."
+  config_changes:
+    - "Add configs/data/memphis_official_release_fragments/shard-2026-offseason.json."
+    - "Add configs/data/memphis_official_canonical_reconciliation_2026.json with event-by-event dispositions/signatures."
+    - "Extend and rename the curated draft-resolution fixture/default through 2026."
+    - "Extend official, pick, two-way, and roster evidence only where exact source facts support it."
+    - "Regenerate both checked-in graph JSON artifacts after the live rebuild."
+
+reconciliation_manifest_contract:
+  top_level_fields: [manifest_version, team_scope, coverage_start, coverage_end, reviewed_at, notes, reconciliation_groups]
+  group_fields: [reconciliation_key, event_date, event_type, disposition, canonical_member_source_event_ids, suppressed_equivalent_source_event_ids, source_group_hint, expected_signature, precedence, unresolved_fields, notes]
+  dispositions: [promote, context_only, blocked]
+  precedence: "official_locked"
+  invariants:
+    - "Only explicitly promoted official IDs become canonical-eligible."
+    - "Unlisted official and NBA movement rows remain corroboration-only."
+    - "Every exact BRef equivalent must be explicitly suppressed or classified; ambiguity blocks execution."
+    - "Reruns and later suppressed BRef arrival preserve canonical IDs, counts, and transitions."
+
+unresolved_pick_bundle_contract:
+  rows:
+    - {acquired_from_team_code: "OKC", quantity: 2}
+    - {acquired_from_team_code: "DET", quantity: 3}
+  fixed_fields: {perspective_team_code: "MEM", direction: "incoming", round_number: 2, projectable: false, evidence_status: "verified_aggregate"}
+  required_nullable_unknowns: [draft_year, original_team_code, protection_text]
+  forbidden_outputs: [pick, asset, obligation_projection, transition, snapshot_pick, prior_owner_row, lane, occupancy_interval, strand, connector]
+
+as_of_contract:
+  value: "2026-08-16"
+  span_start: "2016-06-23"
+  daily_start: "2016-07-01"
+  expected_daily_dates: 3699
+  latest_period_semantics: "Carry June 30 verified state through July-August, apply dated events as end-of-day changes, label 2026-27, and create no opening-roster checkpoint."
+
+branching:
+  strategy: "single-branch"
+  branch_name: "work/offseason-2026-refresh"
+  worktrees: []
+
+database_write_checkpoint:
+  required: true
+  artifact: "docs/foundation/offseason-2026-refresh/preview-report.yaml"
+  go_condition: "Every T5 gate is explicitly true and the orchestrator records status: go."
+  no_go_behavior: "Stop, report exact differences, and request user direction; do not start B4."
+
+execution_batches:
+  - id: "B1"
+    goal: "Implement deterministic truth, uncertainty, and time-bound contracts before touching live data."
+    tasks:
+      - id: "T1"
+        title: "Implement the global as-of contract"
+        objective: "Propagate 2026-08-16 through builders, bounded queries, audits, exports, visualization invariants, and CLI; extend daily state by offseason carry-forward and skip future checkpoints."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/models.py", "src/foundation/ingest.py", "src/foundation/daily_roster_state.py", "src/foundation/audit.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/redesign_cli.py", "tests/foundation/"]
+        forbidden_scope: ["personal-site/", "legacy/", "frontend/src/pages/"]
+        dependencies: []
+        parallelizable: false
+        expected_validation: ["Focused cutoff/snapshot/daily/audit/export/visualization/CLI tests", "No output after 2026-08-16", "No 2026-27 opening snapshot"]
+      - id: "T2"
+        title: "Implement official canonical reconciliation"
+        objective: "Parse, validate, preview, and apply the exact-ID official reconciliation manifest with official_locked precedence and explicit later-source suppression."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/live_sources.py", "src/foundation/ingest.py", "src/redesign_cli.py", "tests/foundation/test_live_sources.py", "tests/foundation/test_ingest.py", "tests/foundation/test_canonical.py", "tests/foundation/test_canonical_contract.py", "tests/foundation/test_audit.py"]
+        forbidden_scope: ["SQL migrations", "personal-site/", "legacy/"]
+        dependencies: ["T1"]
+        parallelizable: false
+        expected_validation: ["Preview performs no writes", "Unknown/signature-drift/duplicate manifest references block", "Rerun and suppressed-equivalent idempotency tests"]
+      - id: "T3"
+        title: "Implement bounded uncertainty models"
+        objective: "Add non-projectable unresolved pick bundles to additive exports and verified-by-only two-way observations that never project into exact daily state."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/models.py", "src/foundation/live_sources.py", "src/foundation/two_way_status.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "frontend/src/lib/visualization.ts", "tests/foundation/", "frontend/src/lib/visualization.test.ts"]
+        forbidden_scope: ["SQL migrations", "Concrete unknown pick assets", "Inferred Carson Cooper start date", "personal-site/", "legacy/"]
+        dependencies: ["T2"]
+        parallelizable: false
+        expected_validation: ["Exactly two bundles total five", "No concrete lineage output for bundles", "Verified-by-only row is non-loadable and excluded from daily occupancy"]
+
+  - id: "B2"
+    goal: "Encode the complete verified 2026 source and event ledger."
+    tasks:
+      - id: "T4"
+        title: "Add 2026 evidence, draft resolution, and reconciliation data"
+        objective: "Create the official shard/manifest covering every reviewed event and leg; extend draft dates/resolution and exact pick/two-way/roster fixtures only where evidence supports them."
+        assigned_domain: "data-engineer"
+        owned_scope: ["configs/data/", "src/foundation/models.py", "src/foundation/draft_resolution.py", "src/foundation/draft_prior_owner.py", "src/foundation/pick_inventory.py", "tests/foundation/"]
+        forbidden_scope: ["Fabricated pick identity/protection", "Unverified contract date", "personal-site/", "legacy/"]
+        dependencies: ["T3"]
+        parallelizable: false
+        expected_validation: ["2026 two-night draft tests", "Every manifest event/leg has URL, semantics, ID, disposition, and uncertainty", "August 15-16 quiet-interval review recorded"]
+
+  - id: "B3"
+    goal: "Produce an objective no-write live preview and recovery baseline."
+    tasks:
+      - id: "T5"
+        title: "Capture baseline and preview every source/derived change"
+        objective: "Create the environment, run focused/full tests, capture pre-write counts/checksums and affected-row evidence, run live source previews/dry-runs, and persist preview-report.yaml."
+        assigned_domain: "data-engineer"
+        owned_scope: ["Read-only live sources", "Read-only Supabase", "tmp/offseason-2026-refresh/", "docs/foundation/offseason-2026-refresh/preview-report.yaml", "docs/foundation/offseason-2026-refresh/implementation-report.yaml"]
+        forbidden_scope: ["Any live write", "Schema changes", "Destructive commands"]
+        dependencies: ["T4"]
+        parallelizable: false
+        expected_validation:
+          - "zero conflicting stable IDs and unresolved required aliases"
+          - "zero out-of-cutoff rows and unclassified equivalent-source collisions"
+          - "exact expected event/leg totals from the manifest"
+          - "no unapproved historical source changes/deletions"
+          - "historical canonical checksum through 2026-04-10 unchanged"
+          - "expected projected canonical/transition diffs only"
+
+  - id: "B4"
+    goal: "Execute only the approved incremental refresh and deterministic rebuild."
+    tasks:
+      - id: "T6"
+        title: "Run guarded live writes in dependency order"
+        objective: "Apply reviewed source rows and rebuild all derived surfaces, validating after each step and rerunning deterministically from the failed step if needed."
+        assigned_domain: "data-engineer"
+        owned_scope: ["Supabase foundation schema through checked-in loaders", "docs/foundation/offseason-2026-refresh/implementation-report.yaml"]
+        forbidden_scope: ["Database reset", "load-foundation-full-span --replace-existing", "Ad hoc SQL", "Unapproved fixture/path", "Write when preview status is not go"]
+        dependencies: ["T5", "database_write_checkpoint:go"]
+        parallelizable: false
+        expected_validation: ["Per-step counts and IDs match preview", "Historical checksum remains stable", "Two identical rebuilds produce identical post-refresh checksums"]
+
+  - id: "B5"
+    goal: "Regenerate artifacts, document coverage, and prepare the PR."
+    tasks:
+      - id: "T7"
+        title: "Regenerate exports and synchronize documentation"
+        objective: "Write bounded graph artifacts, new counts/checksums, source coverage, reconciliation ledger summary, recovery/rerun record, and remaining limitations."
+        assigned_domain: "data-engineer"
+        owned_scope: ["frontend/src/data/generated/", "docs/foundation/", "docs/frontend/", "docs/foundation/offseason-2026-refresh/"]
+        forbidden_scope: ["Frontend visual redesign", "personal-site/", "legacy/"]
+        dependencies: ["T6"]
+        parallelizable: false
+        expected_validation: ["Full Python suite", "Frontend tests/check/build", "Foundation and visualization baseline inspections"]
+
+live_command_order:
+  environment: "mise run setup, then uv --cache-dir /tmp/uv-cache run python -m redesign_cli <command>"
+  baseline: ["check-db", "inspect-db-state", "inspect-foundation-counts", "audit-foundation-data --as-of-date 2026-08-16", "inspect-foundation-graph-baseline --as-of-date 2026-08-16", "inspect-visualization-graph-baseline --as-of-date 2026-08-16"]
+  source_preview: ["preview-nba-player-movement --live", "load-nba-player-movement --live --dry-run", "preview-bref-source-events --team-code MEM --season-end-year 2026", "preview-bref-source-events --team-code MEM --season-end-year 2027", "preview-bref-draft-results --team-code MEM --draft-year 2026", "preview-official-release-sources --fetch-live --reconciliation-path configs/data/memphis_official_canonical_reconciliation_2026.json", "load-official-release-sources --fetch-live --dry-run --reconciliation-path configs/data/memphis_official_canonical_reconciliation_2026.json"]
+  source_write: ["load-nba-player-movement --live --execute", "load-bref-source-events --team-code MEM --season-end-year 2026", "load-bref-draft-results --team-code MEM --draft-year 2026", "load-official-release-sources --fetch-live --execute --reconciliation-path configs/data/memphis_official_canonical_reconciliation_2026.json"]
+  derived_preview: ["preview-derived-foundation-entities", "preview-curated-draft-pick-resolution", "load-curated-draft-pick-resolution --dry-run", "preview-pick-inventory-obligations", "load-pick-inventory-obligations --dry-run", "preview-two-way-status", "load-two-way-status --dry-run", "preview-daily-roster-state --as-of-date 2026-08-16", "load-daily-roster-state --as-of-date 2026-08-16 --dry-run", "preview-draft-prior-owner-lineage", "load-draft-prior-owner-lineage --dry-run", "preview-foundation-canonical"]
+  derived_write: ["load-derived-foundation-entities", "load-curated-draft-pick-resolution", "load-pick-inventory-obligations", "load-roster-snapshots-from-baselines --as-of-date 2026-08-16", "load-two-way-status", "load-pick-inventory-snapshots", "load-daily-roster-state --as-of-date 2026-08-16", "load-draft-prior-owner-lineage", "load-foundation-canonical"]
+  final_verify: ["audit-foundation-data --as-of-date 2026-08-16", "inspect-foundation-graph-baseline --as-of-date 2026-08-16", "inspect-visualization-graph-baseline --as-of-date 2026-08-16", "export-foundation-graph --as-of-date 2026-08-16 --output-path frontend/src/data/generated/foundation-graph.json", "export-visualization-graph --as-of-date 2026-08-16 --output-path frontend/src/data/generated/visualization-graph.json"]
+  conditional_note: "Do not load a BRef 2027 page unless preview shows usable reviewed rows and every collision is classified. Do not load a 2026-27 formal roster baseline/checkpoint in this pass."
+
+recovery:
+  pre_write: "Persist baseline counts/checksums, exact source preview payloads, affected source IDs, and projected diffs under tmp/offseason-2026-refresh and summarize them in preview-report.yaml."
+  partial_failure: "Stop immediately; record the last successful command. Because writes are deterministic/upsert or transactionally replaced, fix only the failing checked-in path and rerun from that command through all downstream derived commands."
+  validation: "Run the complete final verification twice; identical second-run counts/checksums prove recovery/idempotency. Any historical checksum drift is no-go and requires user direction."
+
+ordering_notes:
+  - "Tasks are sequential because models, configs, tests, and live state overlap."
+  - "B4 cannot begin from dependency alone; the persisted database-write checkpoint must be go."
+  - "Open one PR after B5, then run reviewer and tester verification on that PR."
+
+risks:
+  - "The official event ledger may expose a source ambiguity that correctly blocks promotion."
+  - "A later BRef page may require new explicit suppression entries but cannot silently replace official primaries."
+  - "Unknown future seconds remain additive context and will not draw five visible strands until exact identities are sourced."
+  - "Intermediate live state may be incomplete after a failure; deterministic downstream rerun is mandatory before any artifact generation."
+
+open_questions: []
+
+review:
+  status: revised
+  loop_count: 1
+  notes: ["Resolved source-promotion, unknown-pick, cutoff, live-gate, completeness-ledger, uncertain-two-way, dependency, and recovery findings from review cycle 1."]
+
+checkpoint:
+  required_before_execution: true
+  status: pending

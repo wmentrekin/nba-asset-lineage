@@ -1,0 +1,121 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+stage: "execution"
+owner_skill: work
+
+objective: "Build and verify code-only tooling that can lock reviewed source bytes, project candidate refreshes without live writes, guard execution by approved digests, order rebuilds safely, and preserve recoverable pre-write data."
+
+summary:
+  current_focus: "Execute B2/T6: add deterministic, sanitized projection reports and canonical artifact digests."
+  last_completed: "Completed B2/T5: typed one-shot baseline overlay and ordered no-write prefix projection passed focused fixture-only tests."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+  plan: "docs/foundation/safe-refresh-tooling/plan.yaml"
+  implementation_report: "docs/foundation/safe-refresh-tooling/implementation-report.yaml"
+
+pr:
+  number: null
+  url: null
+  status: "not_opened"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "execution"
+    task: "Coordinate sequential data-engineering tasks and preserve the no-live-system boundary."
+    last_update: "T5 integration suite passed; preparing deterministic report/digest work in T6."
+    blocker: ""
+  - id: "tooling_projection_design"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Design locked-payload loaders and no-write candidate projection."
+    last_update: "Defined locked bundles, guarded loaders, pure projection, and export refactor."
+    blocker: ""
+  - id: "tooling_recovery_design"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "discovery"
+    task: "Design recovery snapshots, approval records, and safe rebuild ordering."
+    last_update: "Defined full preimage, approval, runner/resume, restore, retention, and correct write order."
+    blocker: ""
+  - id: "tooling_plan_reviewer"
+    role: "reviewer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Critique code-only tooling requirements and plan before checkpoint."
+    last_update: "Approved; ready for pre-execution checkpoint."
+    blocker: ""
+  - id: "tooling_table_manifest"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Define exact 21-table manifest, FK orders, row keys, and shared mutation boundaries."
+    last_update: "Delivered exact 21-table columns/keys/FK orders and shared mutation-plan boundaries."
+    blocker: ""
+  - id: "tooling_integrity_contract"
+    role: "repo-researcher"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "planning"
+    task: "Define canonical digests, artifact security, fingerprints, approval, and state transitions."
+    last_update: "Delivered canonical digests, secure storage, fingerprints, approvals, and crash-safe state transitions."
+    blocker: ""
+  - id: "safe_tooling_t4"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Implement the immutable table manifest and shared mutation-plan adapters."
+    last_update: "Focused mutation/SQL-contract suites passed; no network or DB used."
+    blocker: ""
+  - id: "safe_tooling_t5"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "completed"
+    stage: "execution"
+    task: "Build one typed read-only baseline overlay and ordered derived projection without writes."
+    last_update: "One-shot baseline, shared-plan prefixes, cutoff/checksum gates, and pure export hooks passed fixture-only tests."
+    blocker: ""
+  - id: "safe_tooling_t6"
+    role: "data-engineer"
+    model_guidance: "medium"
+    status: "running"
+    stage: "execution"
+    task: "Emit deterministic, sanitized row-set diffs and canonical projection reports."
+    last_update: "Handoff prepared; task launching."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 2
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: satisfied
+  options: [proceed, revise_plan, narrow_scope, stop]
+
+blockers: []
+decisions:
+  - "This feature changes code, tests, and docs only; it does not load offseason data or write to live Supabase."
+  - "The parent offseason refresh remains blocked until this tooling is implemented and verified."
+  - "Final planning review approved the plan after two cycles."
+
+next_action: "Complete T6, then start operational artifact-integrity and snapshot safety work in B3/T7."
+next_recommended_command: "$work"
+user_input_needed: false

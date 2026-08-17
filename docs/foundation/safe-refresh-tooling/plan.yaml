@@ -1,0 +1,218 @@
+# Contract: durable execution plan created by $work
+
+artifact: plan
+feature: "foundation/safe-refresh-tooling"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/foundation/safe-refresh-tooling/requirements.yaml"
+
+objective: "Build fully testable code-only safety tooling that makes the later 2026 offseason refresh previewable, byte-locked, approval-bound, correctly ordered, resumable, and restorable."
+
+approach:
+  summary: "Extract network capture from normalization, standardize guarded locked-bundle loaders, build an exact pure candidate projection over a read-only baseline, then add restricted full-preimage safety and an approved runner/restore contract. Verify exclusively with fixtures and fake connections."
+  key_decisions:
+    - "Use directory bundles containing raw bodies plus a canonical manifest and bundle SHA-256."
+    - "Hash local curation/fixture bytes alongside live bundles in the projection report."
+    - "Extract FoundationExportInputs and pure build_base_export rather than approximate graph diffs."
+    - "Snapshot all 21 active foundation tables; do not attempt candidate-ID-only recovery."
+    - "Use one approved runner with a fixed step allowlist/order; retain restore as a separate explicitly destructive command."
+    - "No live source or Supabase access occurs during this feature."
+
+contracts:
+  source_bundle:
+    manifest_fields: [schema_version, source_kind, source_scope, captured_at, normalization_config, items, bundle_sha256]
+    item_fields: [stable_key, source_url, media_type, relative_body_path, byte_length, response_metadata, body_sha256]
+    source_kinds: [nba_player_movement, bref_transactions, bref_draft, official_releases]
+  projection:
+    command: "preview-refresh-projection"
+    inputs: [repeatable locked bundles and expected digests, hashed local fixtures, as_of_date, read-only baseline]
+    outputs: [blockers, warnings, row-set diffs, historical checksum, projected foundation checksum, projected visualization checksum, writes_to_database=false]
+  safety:
+    snapshot_commands: [capture-foundation-refresh-snapshot, restore-foundation-refresh-snapshot]
+    approval_commands: [record-refresh-approval, run-approved-foundation-refresh]
+    operational_root: "tmp/<refresh-id>/"
+    sensitivity: "restricted_local_operational"
+  canonical_integrity:
+    json_encoding: "UTF-8 json.dumps(sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False), no newline, no default=str, closed JSON/tagged DB types only"
+    digest: "Lowercase SHA-256 with nba-asset-lineage:<artifact-type>:v1 NUL domain prefix; self digest field omitted; raw body digests cover exact bytes without prefix."
+    ordering: "Manifest items sorted by stable_key; relative POSIX paths only; UTC RFC3339-second timestamps with Z; ISO dates."
+    response_metadata_allowlist: [status_code, final_url, content_type, content_encoding, content_length, etag, last_modified]
+  operational_storage:
+    root: "Repository-derived tmp/<refresh-id>/ only; refresh ID matches [A-Za-z0-9][A-Za-z0-9._-]{0,63}."
+    security: "Reject symlinks/non-regular/hard-linked files, use exclusive no-follow creation, 0700 dirs, 0600 files, atomic same-directory rename, and fail closed on permissive POSIX modes."
+  shared_mutation_plan:
+    operations: [UpsertRows, InsertMissingRows, DeleteKeys, ReplacePartitions, ReplaceAll, PatchRows]
+    update_policies: [excluded, coalesce_excluded_existing, preserve_existing, append_once, constant, operation_timestamp]
+    consumers: [apply_plan_to_snapshot, execute_plan]
+    invariant: "Domain builders create each immutable plan once; both consumers apply that same plan and never invoke domain derivation."
+  table_contract:
+    module: "src/foundation/foundation_table_manifest.py"
+    tables: [source_record, player, pick, canonical_event, draft_lottery_result, source_event, asset, player_alias, roster_baseline_player, roster_snapshot, draft_selection, daily_roster_state, canonical_event_member, event_asset_transition, pick_inventory_obligation, roster_snapshot_player, roster_snapshot_pick, roster_snapshot_validation, draft_pick_resolution, daily_roster_state_player, draft_prior_owner_lineage]
+    restore_insert_order: [source_record, player, pick, canonical_event, draft_lottery_result, source_event, asset, player_alias, roster_baseline_player, roster_snapshot, draft_selection, daily_roster_state, canonical_event_member, event_asset_transition, pick_inventory_obligation, roster_snapshot_player, roster_snapshot_pick, roster_snapshot_validation, draft_pick_resolution, daily_roster_state_player, draft_prior_owner_lineage]
+    delete_order: [draft_prior_owner_lineage, daily_roster_state_player, draft_pick_resolution, roster_snapshot_validation, roster_snapshot_pick, roster_snapshot_player, pick_inventory_obligation, event_asset_transition, canonical_event_member, daily_roster_state, draft_selection, roster_snapshot, roster_baseline_player, player_alias, asset, source_event, draft_lottery_result, canonical_event, pick, player, source_record]
+    detail_requirement: "Each entry contains the exact researched ordered columns, PK/composite row key, alternate unique keys, logical type/null/default signature, and FK edges; tests reconcile against SQL 0001-0007."
+  approval_and_state:
+    implementation_fingerprint: "HEAD plus sorted raw-byte hashes for src/**/*.py, sql/*.sql, configs/**/*.json, pyproject.toml, uv.lock, mise.toml, including untracked/deleted entries."
+    environment_fingerprint: "Python implementation/version, OS family, architecture, byte order, installed psycopg/Pydantic/PyYAML versions, uv.lock digest; no env vars or secrets."
+    dirty_tree_fingerprint: "HEAD plus porcelain-v1-z status and content/target hashes for nonignored changes outside tmp/."
+    approval_schema: "Closed refresh_approval_v1 binding explicit approved_by/user_go_reference/action plus every baseline, payload, fixture, projection, reconciliation, snapshot, table, schema, database, plan, implementation, environment, and dirty-tree digest."
+    execution_state: "Closed refresh_execution_state_v1 with atomic monotonic sequence, fixed steps, pre/post prefix digests, sanitized receipts, and pending/running/failed/needs_restore/completed transitions."
+    resume_rule: "Revalidate every approval fingerprint; rerun an interrupted step only when DB equals its approved pre-prefix, mark recovered only when DB equals approved post-prefix, otherwise needs_restore."
+    restore_approval: "Separate action=restore_snapshot approval; execute_refresh approval never authorizes restore."
+
+branching:
+  strategy: "single-branch"
+  branch_name: "work/safe-refresh-tooling"
+  worktrees: []
+
+execution_batches:
+  - id: "B1"
+    goal: "Create immutable source capture and uniform digest-guarded loading."
+    tasks:
+      - id: "T1"
+        title: "Implement locked source bundles"
+        objective: "Add atomic raw-byte capture, canonical manifests, SHA-256 validation, scope/path integrity, and deterministic candidate normalization for the four refresh source kinds."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/source_payloads.py", "src/foundation/live_sources.py", "tests/foundation/test_source_payloads.py", "tests/foundation/test_live_sources.py"]
+        forbidden_scope: ["Live network calls during tests", "Live database access", "SQL migrations", "personal-site/", "legacy/"]
+        dependencies: []
+        parallelizable: false
+        expected_validation: ["Byte/digest tamper tests", "Atomic capture tests", "One-fetch-per-URL tests", "Deterministic candidate-row tests"]
+      - id: "T2"
+        title: "Guard all refresh-source loaders"
+        objective: "Require bundle path, expected digest, dry-run/execute semantics, and pre-connection validation for NBA movement, BRef transactions, BRef draft, and official releases."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/live_sources.py", "src/redesign_cli.py", "tests/foundation/test_live_sources.py", "tests/foundation/test_redesign_cli.py"]
+        forbidden_scope: ["Live network or database access", "Roster/reference loader expansion", "SQL migrations"]
+        dependencies: ["T1"]
+        parallelizable: false
+        expected_validation: ["Wrong/missing digest rejected before connection", "Execute never fetches", "Preview and execute normalize identical rows", "BRef requires --execute"]
+
+  - id: "B2"
+    goal: "Project exact candidate database and graph outcomes without writes."
+    tasks:
+      - id: "T3"
+        title: "Extract pure export assembly"
+        objective: "Introduce FoundationExportInputs, read adapter, and pure build_base_export while preserving compatibility and output equivalence."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/export.py", "src/foundation/models.py", "tests/foundation/test_export.py"]
+        forbidden_scope: ["Export schema redesign", "Live database access", "SQL migrations"]
+        dependencies: ["T2"]
+        parallelizable: false
+        expected_validation: ["Pure builder/database-wrapper equivalence", "Existing export contract tests"]
+      - id: "T4"
+        title: "Implement shared typed mutation plans and adapters"
+        objective: "Make every refresh family emit one immutable FoundationMutationPlan consumed by both pure table-state and registered-table PostgreSQL adapters."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_mutations.py", "src/foundation/foundation_table_manifest.py", "src/foundation/live_sources.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "tests/foundation/test_refresh_mutations.py", "tests/foundation/test_sql_contracts.py"]
+        forbidden_scope: ["Generic SQL/table identifiers", "Independent projector mutation logic", "Live database access", "SQL migrations"]
+        dependencies: ["T3"]
+        parallelizable: false
+        expected_validation: ["Table manifest reconciles with SQL 0001-0007", "Pure/DB adapter differential table-state tests", "Replacement/cascade/coalesce/patch/timestamp parity for every family"]
+      - id: "T5"
+        title: "Implement baseline overlay and derived projection"
+        objective: "Load one typed read-only baseline, apply shared source mutation plans, construct all downstream plans in exact runner order, and produce per-prefix full-foundation states without writes."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_projection.py", "src/foundation/ingest.py", "src/foundation/canonical.py", "src/foundation/daily_roster_state.py", "src/foundation/draft_resolution.py", "src/foundation/pick_inventory.py", "src/foundation/two_way_status.py", "src/foundation/draft_prior_owner.py", "src/foundation/roster_validation.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py", "tests/foundation/test_refresh_projection.py"]
+        forbidden_scope: ["Database writes after baseline load", "Independent mutation semantics", "Silent blocker omission", "SQL migrations"]
+        dependencies: ["T4"]
+        parallelizable: false
+        expected_validation: ["No-write isolation", "Exact approved step-prefix digests", "Cutoff/historical-checksum gates", "All domain blockers propagate"]
+      - id: "T6"
+        title: "Implement deterministic projection reporting"
+        objective: "Emit closed-schema row-set diffs, changed-field hashes, fixture/input digests, prefix fingerprints, final foundation/export/visualization checksums, blockers, and sanitized local reports."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_projection.py", "src/foundation/source_payloads.py", "src/foundation/export.py", "src/foundation/visualization_export.py", "src/foundation/audit.py", "src/redesign_cli.py", "tests/foundation/test_refresh_projection.py"]
+        forbidden_scope: ["Raw source bodies or DB rows in reports", "Live database access", "Noncanonical digests"]
+        dependencies: ["T5"]
+        parallelizable: false
+        expected_validation: ["Golden report/digest vectors", "Deterministic semantic and full-state checksums", "Projected/base-wrapper equivalence"]
+
+  - id: "B3"
+    goal: "Add restricted preimage, approval, runner, resume, and restore safety contracts."
+    tasks:
+      - id: "T7"
+        title: "Implement artifact integrity and deterministic foundation snapshots"
+        objective: "Add canonical encoding/digests, restricted symlink-safe atomic storage, fingerprints, and exact 21-table read-only snapshot capture against the immutable table manifest."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_safety.py", "src/foundation/foundation_table_manifest.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_sql_contracts.py"]
+        forbidden_scope: ["Generic table arguments", "Credentials in artifacts", "Live database access in tests", "SQL migrations"]
+        dependencies: ["T6"]
+        parallelizable: false
+        expected_validation: ["Golden canonical digest vectors", "Symlink/path/mode/metadata tests", "21-table schema/key/FK reconciliation", "Read-only deterministic snapshot tests"]
+      - id: "T8"
+        title: "Implement closed approval and preflight contracts"
+        objective: "Record and validate explicit action-specific user approval bound to all data, plan, code, dependency, environment, dirty-tree, schema, database, and prefix fingerprints."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_safety.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+        forbidden_scope: ["Self-generated user approval", "Secrets in fingerprints", "Open-schema state", "Live database access in tests"]
+        dependencies: ["T7"]
+        parallelizable: false
+        expected_validation: ["Missing/extra/stale approval fields reject", "Implementation/environment/dirty-tree drift rejects", "All preflight failures precede writes"]
+      - id: "T9"
+        title: "Implement fixed-order forward runner and resume"
+        objective: "Execute only approved shared mutation plans with advisory locking, per-step transactions, atomic state, and pre/post-prefix evidence for crash-safe resume."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_safety.py", "src/foundation/refresh_mutations.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py", "tests/foundation/test_refresh_mutations.py"]
+        forbidden_scope: ["Caller-supplied steps", "Step reordering/skipping", "Live database access in tests", "Unapproved input changes"]
+        dependencies: ["T8"]
+        parallelizable: false
+        expected_validation: ["Legal/illegal atomic transitions", "Crash-before/after-commit prefix recovery", "Unexpected state becomes needs_restore", "Changed code/input requires reapproval"]
+      - id: "T10"
+        title: "Implement separately approved guarded restore"
+        objective: "Restore only an exact approved snapshot using fixed child-delete/parent-insert order in one transaction and commit only on full baseline digest equality."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/foundation/refresh_safety.py", "src/foundation/foundation_table_manifest.py", "src/redesign_cli.py", "tests/foundation/test_refresh_safety.py"]
+        forbidden_scope: ["Automatic restore", "Refresh approval reused for restore", "Generic SQL/table/path surface", "Live database access in tests"]
+        dependencies: ["T9"]
+        parallelizable: false
+        expected_validation: ["Separate restore approval", "Wrong digest/schema/database rejects", "Rollback on insert/checksum failure", "Commit only on exact equality"]
+
+  - id: "B4"
+    goal: "Document and verify the complete tooling surface."
+    tasks:
+      - id: "T11"
+        title: "Complete CLI documentation and regression verification"
+        objective: "Document capture/projection/approval/run/restore commands, sensitivity/retention/cleanup, limitations, and parent-refresh handoff; run the full validation ladder."
+        assigned_domain: "data-engineer"
+        owned_scope: ["README.md", "docs/foundation/README.md", "docs/foundation/full-span-load-notes.md", "docs/foundation/safe-refresh-tooling/", "mise.toml"]
+        forbidden_scope: ["Actual source capture", "Actual database snapshot/run/restore", "Offseason data changes", "personal-site/"]
+        dependencies: ["T10"]
+        parallelizable: false
+        expected_validation: ["Focused new tests", "Full Python suite", "Frontend tests/check/build", "CLI --help smoke checks"]
+
+approved_runner_order:
+  - "Approved locked source loads"
+  - "Derived entities"
+  - "Roster snapshots bounded by as_of_date"
+  - "Curated draft resolution"
+  - "Canonical rebuild"
+  - "Pick obligations"
+  - "Pick inventory snapshots"
+  - "Two-way status"
+  - "Daily roster state bounded by as_of_date"
+  - "Draft prior-owner lineage"
+  - "Roster snapshot validation"
+  - "Approved additive draft-lottery load"
+  - "Audit/export verification twice"
+
+ordering_notes:
+  - "All tasks are sequential because loader, CLI, and test scopes overlap."
+  - "The branch is created only after the pre-execution checkpoint."
+  - "A PR is opened after B4; reviewer and tester agents verify the PR before completion."
+
+risks:
+  - "Projection scope may reveal an additional DB-coupled builder; it must be extracted rather than approximated."
+  - "Full preimage artifacts may be large; compression and ignored restricted storage mitigate this without weakening recovery."
+  - "The advisory lock coordinates only the approved runner; direct legacy writers remain a documented operational limitation."
+  - "Restore is destructive by nature and must never be exercised without a separate future user authorization."
+
+open_questions: []
+review:
+  status: approved
+  loop_count: 1
+  notes: ["Resolved cycle-1 findings with shared mutation plans/adapters, complete module ownership, exact table manifest/order, closed fingerprints/state schemas, hardened local storage/digests, and smaller tasks."]
+checkpoint:
+  required_before_execution: true
+  status: satisfied

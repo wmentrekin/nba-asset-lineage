@@ -3,6 +3,7 @@ import pytest
 from foundation.export import DraftResolutionExportRow
 from foundation.export import DraftLotteryResultDatabaseRow
 from foundation.export import PickInventoryObligationExportRow
+from foundation.export import build_base_export
 from foundation.export import build_conditional_pick_family_snapshots
 from foundation.export import build_draft_lottery_export_rows
 from foundation.export import build_draft_resolution_export_items
@@ -14,6 +15,7 @@ from foundation.models import DailyRosterState
 from foundation.models import DailyRosterStatePlayer
 from foundation.models import DraftPriorOwnerLineage
 from foundation.models import FuturePickSnapshot
+from foundation.models import FoundationExportInputs
 from foundation.models import PickAsset
 from foundation.models import PlayerAsset
 from foundation.models import RosterSnapshot
@@ -33,6 +35,89 @@ def test_build_empty_base_export_has_reset_defaults() -> None:
     assert export.daily_roster_states == []
     assert export.draft_prior_owner_lineages == []
     assert export.draft_lottery_results == []
+
+
+def test_pure_base_export_builder_preserves_the_base_graph_contract() -> None:
+    inputs = FoundationExportInputs(
+        span_start="2024-02-09",
+        span_end="2024-02-10",
+        events=[
+            {
+                "event_id": "event:later",
+                "event_type": "trade",
+                "event_date": "2024-02-10",
+                "label": "Later",
+                "sequence": 2,
+            },
+            {
+                "event_id": "event:earlier",
+                "event_type": "trade",
+                "event_date": "2024-02-09",
+                "label": "Earlier",
+                "sequence": 1,
+            },
+        ],
+        player_assets=[
+            PlayerAsset(
+                asset_id="asset:player:fixture",
+                player_id="player:fixture",
+                display_name="Fixture Player",
+            )
+        ],
+    )
+
+    export = build_base_export(inputs)
+
+    assert isinstance(export, BaseGraphExport)
+    assert [event.event_id for event in export.events] == ["event:earlier", "event:later"]
+    assert export.player_assets == inputs.player_assets
+    assert export.span_start == "2024-02-09"
+    assert export.span_end == "2024-02-10"
+
+
+def test_foundation_export_inputs_round_trip_through_the_pure_builder() -> None:
+    existing = BaseGraphExport(
+        franchise="memphis-grizzlies",
+        span_start="2024-01-01",
+        span_end="2024-12-31",
+        events=[
+            {
+                "event_id": "event:fixture",
+                "event_type": "trade",
+                "event_date": "2024-02-08",
+                "label": "Fixture",
+            }
+        ],
+    )
+
+    assert build_base_export(FoundationExportInputs.from_base_graph_export(existing)) == existing
+
+
+def test_database_wrapper_matches_the_pure_builder_for_typed_inputs(monkeypatch: pytest.MonkeyPatch) -> None:
+    from foundation import export as export_module
+
+    existing = BaseGraphExport(
+        franchise="memphis-grizzlies",
+        span_start="2024-01-01",
+        span_end="2024-12-31",
+        events=[
+            {
+                "event_id": "event:fixture",
+                "event_type": "trade",
+                "event_date": "2024-02-08",
+                "label": "Fixture",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        export_module,
+        "_read_base_graph_export_from_database",
+        lambda database_url: existing,
+    )
+
+    assert export_module.build_base_export_from_database("postgresql://fixture") == build_base_export(
+        FoundationExportInputs.from_base_graph_export(existing)
+    )
 
 
 def test_player_asset_contract_supports_roster_baseline_metadata() -> None:

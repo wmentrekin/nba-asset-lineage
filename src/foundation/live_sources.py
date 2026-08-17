@@ -32,6 +32,7 @@ from foundation.ingest import (
 )
 from foundation.models import draft_event_date
 from foundation.prototypes import normalize_common_all_players_row, normalize_common_team_roster_row
+from foundation.source_payloads import SourceBundle, SourceBundleError, load_source_bundle
 from foundation.sources import extract_contract_semantic_fields
 from foundation.workbench import normalize_bref_transaction_block
 
@@ -93,6 +94,127 @@ DEFAULT_ROSTER_REFERENCE_ALIAS_FIXTURE_PATH = Path(
     "configs/data/memphis_roster_reference_aliases_v1.json"
 )
 DEFAULT_MEMPHIS_TEAM_ID = 1610612763
+
+
+def build_locked_source_rows(bundle: SourceBundle) -> tuple[list[SourceRecordRow], list[SourceEventRow], list[PlayerRow], list[DraftSelectionRow]]:
+    """Normalize one validated bundle without reading a path, fetching, or writing.
+
+    T2 owns the guarded command surface.  This deliberately small seam lets its
+    preview and execute paths pass the exact reviewed bytes into existing builders.
+    """
+    source_kind = bundle.manifest["source_kind"]
+    scope = bundle.manifest["source_scope"]
+    config = bundle.manifest["normalization_config"]
+    items = bundle.manifest["items"]
+    if not isinstance(scope, dict) or not isinstance(config, dict) or not isinstance(items, list):
+        raise SourceBundleError("Validated source bundle has an invalid normalization contract.")
+    item_by_key = {str(item["stable_key"]): item for item in items if isinstance(item, dict)}
+
+    if source_kind == "nba_player_movement":
+        if len(bundle.bodies) != 1:
+            raise SourceBundleError("NBA player movement bundles require exactly one response body.")
+        stable_key, body = next(iter(bundle.bodies.items()))
+        item = item_by_key[stable_key]
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SourceBundleError("NBA player movement bundle body must be UTF-8 JSON.") from exc
+        records, events = build_nba_player_movement_source_rows(
+            payload,
+            source_locator=str(item["source_url"]),
+            endpoint_url=str(config.get("endpoint_url") or item["source_url"]),
+            endpoint_metadata={str(key): value for key, value in dict(item["response_metadata"]).items()},
+            fetched_at=str(bundle.manifest["captured_at"]),
+        )
+        return records, events, [], []
+
+    if source_kind == "bref_transactions":
+        team_code = scope.get("team_code")
+        season_by_key = config.get("season_end_year_by_stable_key")
+        if not isinstance(team_code, str) or not isinstance(season_by_key, dict):
+            raise SourceBundleError("BRef transaction bundle requires team_code and season mapping.")
+        records: list[SourceRecordRow] = []
+        events: list[SourceEventRow] = []
+        for stable_key, body in bundle.bodies.items():
+            season = season_by_key.get(stable_key)
+            if not isinstance(season, int):
+                raise SourceBundleError(f"Missing BRef transaction season for {stable_key}.")
+            try:
+                html = body.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise SourceBundleError("BRef transaction body must be UTF-8 HTML.") from exc
+            source_rows, source_events = build_bref_source_rows(
+                team_code=team_code,
+                season_end_year=season,
+                html=html,
+                source_locator=str(item_by_key[stable_key]["source_url"]),
+                fetched_at=str(bundle.manifest["captured_at"]),
+            )
+            records.extend(source_rows)
+            events.extend(source_events)
+        return records, events, [], []
+
+    if source_kind == "bref_draft":
+        team_code = scope.get("team_code")
+        year_by_key = config.get("draft_year_by_stable_key")
+        if not isinstance(team_code, str) or not isinstance(year_by_key, dict):
+            raise SourceBundleError("BRef draft bundle requires team_code and draft-year mapping.")
+        records: list[SourceRecordRow] = []
+        events: list[SourceEventRow] = []
+        players: list[PlayerRow] = []
+        selections: list[DraftSelectionRow] = []
+        for stable_key, body in bundle.bodies.items():
+            draft_year = year_by_key.get(stable_key)
+            if not isinstance(draft_year, int):
+                raise SourceBundleError(f"Missing BRef draft year for {stable_key}.")
+            try:
+                html = body.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                raise SourceBundleError("BRef draft body must be UTF-8 HTML.") from exc
+            source_rows, source_events, source_players, source_selections = build_bref_draft_rows(
+                draft_year=draft_year,
+                team_code=team_code,
+                html=html,
+                source_locator=str(item_by_key[stable_key]["source_url"]),
+                fetched_at=str(bundle.manifest["captured_at"]),
+            )
+            records.extend(source_rows)
+            events.extend(source_events)
+            players.extend(source_players)
+            selections.extend(source_selections)
+        return records, events, players, selections
+
+    if source_kind == "official_releases":
+        articles = config.get("articles")
+        body_key_by_record_id = config.get("body_key_by_source_record_id", {})
+        if not isinstance(articles, list) or not isinstance(body_key_by_record_id, dict):
+            raise SourceBundleError("Official release bundle requires locked article definitions and body keys.")
+        locked_articles: list[dict[str, object]] = []
+        for article in articles:
+            if not isinstance(article, dict):
+                raise SourceBundleError("Official release article definitions must be objects.")
+            locked_article = dict(article)
+            record_id = string_or_none(locked_article.get("source_record_id"))
+            body_key = body_key_by_record_id.get(record_id)
+            if not record_id or not isinstance(body_key, str) or body_key not in bundle.bodies:
+                raise SourceBundleError("Official release definition does not reference a locked body.")
+            try:
+                metadata = extract_official_article_metadata(bundle.bodies[body_key].decode("utf-8"))
+            except UnicodeDecodeError as exc:
+                raise SourceBundleError("Official release body must be UTF-8 HTML.") from exc
+            locked_article.pop("html_fixture_path", None)
+            locked_article["source_title"] = metadata["title"] or string_or_none(locked_article.get("source_title"))
+            locked_article["source_description"] = metadata["description"] or string_or_none(locked_article.get("source_description"))
+            locked_article["source_published_at"] = metadata["published_at"] or string_or_none(locked_article.get("source_published_at"))
+            locked_article["source_modified_at"] = metadata["modified_at"] or string_or_none(locked_article.get("source_modified_at"))
+            locked_article["source_excerpt"] = metadata["article_text_excerpt"] or string_or_none(locked_article.get("source_excerpt"))
+            locked_articles.append(locked_article)
+        records, events = build_official_release_source_rows(
+            {"articles": locked_articles}, fetch_live=False, fetched_at=str(bundle.manifest["captured_at"])
+        )
+        return records, events, [], []
+
+    raise SourceBundleError(f"Unsupported source kind in bundle: {source_kind}")
 
 
 def build_bref_transactions_url(team_code: str, season_end_year: int) -> str:
@@ -161,12 +283,14 @@ def build_bref_source_rows(
     team_code: str,
     season_end_year: int,
     html: str,
+    source_locator: str | None = None,
+    fetched_at: str | None = None,
 ) -> tuple[list[SourceRecordRow], list[SourceEventRow]]:
     blocks = extract_bref_transaction_blocks(html)
     source_records: list[SourceRecordRow] = []
     source_events: list[SourceEventRow] = []
-    page_url = build_bref_transactions_url(team_code=team_code, season_end_year=season_end_year)
-    fetched_at = utc_now_iso()
+    page_url = source_locator or build_bref_transactions_url(team_code=team_code, season_end_year=season_end_year)
+    fetched_at = fetched_at or utc_now_iso()
 
     for block in blocks:
         source_record_id = (
@@ -254,61 +378,98 @@ def apply_bref_canonical_repairs(source_events: list[SourceEventRow]) -> None:
         )
 
 
-def load_bref_source_events(database_url: str, *, team_code: str, season_end_year: int) -> dict[str, object]:
-    html = fetch_bref_transactions_html(team_code=team_code, season_end_year=season_end_year)
-    source_records, source_events = build_bref_source_rows(
-        team_code=team_code,
-        season_end_year=season_end_year,
-        html=html,
+def _locked_source_result(
+    *,
+    database_url: str | None,
+    payload_bundle_path: Path | None,
+    expected_bundle_sha256: str | None,
+    expected_source_kind: str,
+    expected_source_scope: dict[str, object] | None,
+    dry_run: bool,
+    execute: bool,
+) -> tuple[SourceBundle, list[SourceRecordRow], list[SourceEventRow], list[PlayerRow], list[DraftSelectionRow], dict[str, object]]:
+    """Load and normalize reviewed bytes before any possible database connection."""
+    if dry_run and execute:
+        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    if payload_bundle_path is None or not expected_bundle_sha256:
+        raise ValueError("payload_bundle_path and expected_bundle_sha256 are required for locked source loading.")
+    bundle = load_source_bundle(
+        payload_bundle_path,
+        expected_digest=expected_bundle_sha256,
+        expected_source_kind=expected_source_kind,
+        expected_source_scope=expected_source_scope,
     )
-    with psycopg.connect(database_url, connect_timeout=20) as connection:
-        insert_source_records(connection, source_records)
-        replace_source_events_for_records(
-            connection,
-            source_record_ids=[row.source_record_id for row in source_records],
-            rows=source_events,
-        )
-        insert_source_events(connection, source_events)
-        connection.commit()
-    return {
+    source_records, source_events, players, draft_selections = build_locked_source_rows(bundle)
+    if execute and not database_url:
+        raise ValueError("database_url is required when execute=True")
+    return bundle, source_records, source_events, players, draft_selections, {
         "status": "ok",
+        "bundle_path": str(bundle.path),
+        "bundle_sha256": bundle.digest,
+        "source_kind": expected_source_kind,
+        "dry_run": not execute,
+        "writes_to_database": execute,
         "source_records": len(source_records),
         "source_events": len(source_events),
-        "season_end_year": season_end_year,
-        "team_code": team_code.upper(),
+        "players": len(players),
+        "draft_selections": len(draft_selections),
+        "source_record_ids": [row.source_record_id for row in source_records],
+        "source_event_ids": [row.source_event_id for row in source_events],
     }
 
 
-def load_bref_source_events_span(
-    database_url: str,
+def preflight_locked_source_bundle(
     *,
-    team_code: str = DEFAULT_TEAM_CODE,
-    start_season_end_year: int = DEFAULT_SEASON_START_YEAR,
-    end_season_end_year: int = DEFAULT_SEASON_END_YEAR,
-    request_delay: float = 0.8,
+    payload_bundle_path: Path,
+    expected_bundle_sha256: str,
+    expected_source_kind: str,
+    expected_source_scope: dict[str, object] | None,
 ) -> dict[str, object]:
-    seasons: list[dict[str, object]] = []
-    total_source_records = 0
-    total_source_events = 0
-    for season_end_year in range(start_season_end_year, end_season_end_year + 1):
-        result = load_bref_source_events(
-            database_url,
-            team_code=team_code,
-            season_end_year=season_end_year,
-        )
-        seasons.append(result)
-        total_source_records += int(result["source_records"])
-        total_source_events += int(result["source_events"])
-        time.sleep(request_delay)
-    return {
-        "status": "ok",
-        "team_code": team_code.upper(),
-        "start_season_end_year": start_season_end_year,
-        "end_season_end_year": end_season_end_year,
-        "source_records": total_source_records,
-        "source_events": total_source_events,
-        "seasons": seasons,
-    }
+    """Validate and normalize a locked bundle without database or network access."""
+    *_ignored, result = _locked_source_result(
+        database_url=None,
+        payload_bundle_path=payload_bundle_path,
+        expected_bundle_sha256=expected_bundle_sha256,
+        expected_source_kind=expected_source_kind,
+        expected_source_scope=expected_source_scope,
+        dry_run=True,
+        execute=False,
+    )
+    return result
+
+
+def load_bref_source_events(
+    database_url: str | None = None,
+    *,
+    team_code: str,
+    season_end_year: int | None = None,
+    payload_bundle_path: Path | None = None,
+    expected_bundle_sha256: str | None = None,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    bundle, source_records, source_events, _players, _selections, result = _locked_source_result(
+        database_url=database_url,
+        payload_bundle_path=payload_bundle_path,
+        expected_bundle_sha256=expected_bundle_sha256,
+        expected_source_kind="bref_transactions",
+        expected_source_scope={"team_code": team_code.upper()},
+        dry_run=dry_run,
+        execute=execute,
+    )
+    if not execute:
+        return result
+    assert database_url is not None
+    with psycopg.connect(database_url, connect_timeout=20) as connection:
+        insert_source_records(connection, source_records)
+        replace_source_events_for_records(connection, source_record_ids=[row.source_record_id for row in source_records], rows=source_events)
+        insert_source_events(connection, source_events)
+        connection.commit()
+    return result
+
+
+def load_bref_source_events_span(*args: object, **kwargs: object) -> dict[str, object]:
+    raise ValueError("Use one locked bref_transactions bundle with load_bref_source_events; span fetching is not permitted.")
 
 
 def preview_bref_source_events(*, team_code: str, season_end_year: int) -> dict[str, object]:
@@ -396,6 +557,8 @@ def build_bref_draft_rows(
     draft_year: int,
     team_code: str,
     html: str,
+    source_locator: str | None = None,
+    fetched_at: str | None = None,
 ) -> tuple[list[SourceRecordRow], list[SourceEventRow], list[PlayerRow], list[DraftSelectionRow]]:
     draft_rows = extract_bref_draft_rows(html)
     team_code = team_code.upper()
@@ -404,8 +567,8 @@ def build_bref_draft_rows(
         source_record_id=source_record_id,
         source_system="basketball_reference",
         source_type="draft_page",
-        source_locator=build_bref_draft_url(draft_year),
-        fetched_at=utc_now_iso(),
+        source_locator=source_locator or build_bref_draft_url(draft_year),
+        fetched_at=fetched_at or utc_now_iso(),
         raw_payload={
             "draft_year": draft_year,
             "rows": draft_rows,
@@ -630,67 +793,40 @@ def preview_bref_draft_results(*, draft_year: int, team_code: str) -> dict[str, 
     }
 
 
-def load_bref_draft_results(database_url: str, *, draft_year: int, team_code: str) -> dict[str, object]:
-    html = fetch_bref_draft_html(draft_year)
-    source_records, source_events, players, selections = build_bref_draft_rows(
-        draft_year=draft_year,
-        team_code=team_code,
-        html=html,
+def load_bref_draft_results(
+    database_url: str | None = None,
+    *,
+    draft_year: int | None = None,
+    team_code: str,
+    payload_bundle_path: Path | None = None,
+    expected_bundle_sha256: str | None = None,
+    dry_run: bool = True,
+    execute: bool = False,
+) -> dict[str, object]:
+    _bundle, source_records, source_events, players, selections, result = _locked_source_result(
+        database_url=database_url,
+        payload_bundle_path=payload_bundle_path,
+        expected_bundle_sha256=expected_bundle_sha256,
+        expected_source_kind="bref_draft",
+        expected_source_scope={"team_code": team_code.upper()},
+        dry_run=dry_run,
+        execute=execute,
     )
+    if not execute:
+        return result
+    assert database_url is not None
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
         upsert_players(connection, players)
-        replace_source_events_for_records(
-            connection,
-            source_record_ids=[row.source_record_id for row in source_records],
-            rows=source_events,
-        )
+        replace_source_events_for_records(connection, source_record_ids=[row.source_record_id for row in source_records], rows=source_events)
         insert_source_events(connection, source_events)
         upsert_draft_selections(connection, selections)
         connection.commit()
-    return {
-        "status": "ok",
-        "source_records": len(source_records),
-        "source_events": len(source_events),
-        "players": len(players),
-        "draft_selections": len(selections),
-        "draft_year": draft_year,
-        "team_code": team_code.upper(),
-    }
+    return result
 
 
-def load_bref_draft_results_span(
-    database_url: str,
-    *,
-    team_code: str = DEFAULT_TEAM_CODE,
-    start_draft_year: int = 2016,
-    end_draft_year: int = 2025,
-    request_delay: float = 0.8,
-) -> dict[str, object]:
-    years: list[dict[str, object]] = []
-    total_source_records = 0
-    total_source_events = 0
-    total_players = 0
-    total_selections = 0
-    for draft_year in range(start_draft_year, end_draft_year + 1):
-        result = load_bref_draft_results(database_url, draft_year=draft_year, team_code=team_code)
-        years.append(result)
-        total_source_records += int(result["source_records"])
-        total_source_events += int(result["source_events"])
-        total_players += int(result["players"])
-        total_selections += int(result["draft_selections"])
-        time.sleep(request_delay)
-    return {
-        "status": "ok",
-        "team_code": team_code.upper(),
-        "start_draft_year": start_draft_year,
-        "end_draft_year": end_draft_year,
-        "source_records": total_source_records,
-        "source_events": total_source_events,
-        "players": total_players,
-        "draft_selections": total_selections,
-        "years": years,
-    }
+def load_bref_draft_results_span(*args: object, **kwargs: object) -> dict[str, object]:
+    raise ValueError("Use one locked bref_draft bundle with load_bref_draft_results; span fetching is not permitted.")
 
 
 def load_draft_pick_detail_seed_rows(
@@ -1455,40 +1591,23 @@ def preview_nba_player_movement_source_rows(
 def load_nba_player_movement(
     database_url: str | None = None,
     *,
-    fixture_path: Path = DEFAULT_NBA_PLAYER_MOVEMENT_FIXTURE_PATH,
-    live: bool = False,
-    endpoint_url: str = NBA_PLAYER_MOVEMENT_ENDPOINT_URL,
+    payload_bundle_path: Path | None = None,
+    expected_bundle_sha256: str | None = None,
     dry_run: bool = True,
     execute: bool = False,
 ) -> dict[str, object]:
-    if dry_run and execute:
-        raise ValueError("Choose either dry-run mode or --execute, not both.")
-    if not execute:
-        return {
-            **preview_nba_player_movement_source_rows(
-                fixture_path=fixture_path,
-                live=live,
-                endpoint_url=endpoint_url,
-            ),
-            "dry_run": True,
-            "writes_to_database": False,
-        }
-    if not database_url:
-        raise ValueError("database_url is required when execute=True")
-
-    endpoint_metadata: dict[str, str | None] = {}
-    if live:
-        payload, endpoint_metadata = fetch_nba_player_movement_json(endpoint_url=endpoint_url)
-        source_locator = endpoint_url
-    else:
-        payload = read_nba_player_movement_fixture(fixture_path)
-        source_locator = str(fixture_path)
-    source_records, source_events = build_nba_player_movement_source_rows(
-        payload,
-        source_locator=source_locator,
-        endpoint_url=endpoint_url,
-        endpoint_metadata=endpoint_metadata,
+    _bundle, source_records, source_events, _players, _selections, result = _locked_source_result(
+        database_url=database_url,
+        payload_bundle_path=payload_bundle_path,
+        expected_bundle_sha256=expected_bundle_sha256,
+        expected_source_kind="nba_player_movement",
+        expected_source_scope={"team_code": "MEM"},
+        dry_run=dry_run,
+        execute=execute,
     )
+    if not execute:
+        return result
+    assert database_url is not None
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
         replace_source_events_for_record(
@@ -1498,18 +1617,7 @@ def load_nba_player_movement(
         )
         insert_source_events(connection, source_events)
         connection.commit()
-    return {
-        "status": "ok",
-        "source_system": NBA_PLAYER_MOVEMENT_SOURCE_SYSTEM,
-        "source_type": NBA_PLAYER_MOVEMENT_SOURCE_TYPE,
-        "source_locator": source_locator,
-        "dry_run": False,
-        "writes_to_database": True,
-        "source_records": len(source_records),
-        "source_events": len(source_events),
-        "source_record_ids": [row.source_record_id for row in source_records],
-        "source_event_ids": [row.source_event_id for row in source_events],
-    }
+    return result
 
 
 def read_official_release_fixture(path: Path) -> dict[str, object]:
@@ -1787,36 +1895,23 @@ def preview_official_release_sources(
 def load_official_release_sources(
     database_url: str | None = None,
     *,
-    fixture_path: Path = DEFAULT_OFFICIAL_RELEASE_FIXTURE_PATH,
-    fixture_fragment_dir: Path | None = None,
-    fetch_live: bool = False,
+    payload_bundle_path: Path | None = None,
+    expected_bundle_sha256: str | None = None,
     dry_run: bool = True,
     execute: bool = False,
 ) -> dict[str, object]:
-    if dry_run and execute:
-        raise ValueError("Choose either dry-run mode or --execute, not both.")
+    _bundle, source_records, source_events, _players, _selections, result = _locked_source_result(
+        database_url=database_url,
+        payload_bundle_path=payload_bundle_path,
+        expected_bundle_sha256=expected_bundle_sha256,
+        expected_source_kind="official_releases",
+        expected_source_scope={"team_code": "MEM"},
+        dry_run=dry_run,
+        execute=execute,
+    )
     if not execute:
-        return {
-            **preview_official_release_sources(
-                fixture_path=fixture_path,
-                fixture_fragment_dir=fixture_fragment_dir,
-                fetch_live=fetch_live,
-            ),
-            "dry_run": True,
-            "writes_to_database": False,
-        }
-    if not database_url:
-        raise ValueError("database_url is required when execute=True")
-
-    payload = build_official_release_fixture_bundle(
-        fixture_path,
-        fixture_fragment_dir=fixture_fragment_dir,
-    )
-    source_records, source_events = build_official_release_source_rows(
-        payload,
-        fixture_base_path=fixture_path.parent,
-        fetch_live=fetch_live,
-    )
+        return result
+    assert database_url is not None
     with psycopg.connect(database_url, connect_timeout=20) as connection:
         insert_source_records(connection, source_records)
         replace_source_events_for_records(
@@ -1826,18 +1921,7 @@ def load_official_release_sources(
         )
         insert_source_events(connection, source_events)
         connection.commit()
-    return {
-        "status": "ok",
-        "dry_run": False,
-        "writes_to_database": True,
-        "fixture_path": str(fixture_path),
-        "fixture_fragment_dir": str(fixture_fragment_dir) if fixture_fragment_dir else None,
-        "fetch_live": fetch_live,
-        "source_records": len(source_records),
-        "source_events": len(source_events),
-        "source_record_ids": [row.source_record_id for row in source_records],
-        "source_event_ids": [row.source_event_id for row in source_events],
-    }
+    return result
 
 
 def replace_source_events_for_record(
