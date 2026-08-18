@@ -13,6 +13,7 @@ from foundation.refresh_artifacts import (
     RefreshArtifactError,
     RefreshReconciliation,
     RefreshRequest,
+    build_refresh_plan_from_locked_bundles,
     SealedRefreshPlan,
     load_refresh_plan,
     load_refresh_request,
@@ -55,6 +56,34 @@ def _initialize_local_checkout(root: Path) -> Path:
     root.mkdir(mode=0o700)
     subprocess.run(["git", "init", "--quiet", str(root)], check=True, capture_output=True)
     return root
+
+
+def test_builder_materializes_missing_plan_from_locked_source_slots(tmp_path, monkeypatch) -> None:
+    root = _initialize_local_checkout(tmp_path / "checkout")
+    artifact = create_refresh_artifact_directory(root, "builder-test")
+    request = RefreshRequest(
+        "builder-test", date(2026, 8, 17),
+        {kind: "a" * 64 for kind in SOURCE_KINDS},
+        {name: "b" * 64 for name in FIXTURE_SLOT_NAMES},
+    )
+    reconciliation = RefreshReconciliation(
+        request.digest, "c" * 64, "d" * 64, "e" * 64, "f" * 64
+    )
+    write_refresh_request(artifact, request)
+    write_reconciliation(artifact, reconciliation)
+    monkeypatch.setattr(
+        "foundation.refresh_artifacts.load_source_bundle",
+        lambda *args, **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        "foundation.live_sources.build_locked_source_rows",
+        lambda bundle: ([], [], [], []),
+    )
+    monkeypatch.setattr("foundation.refresh_artifacts._validate_request_material", lambda *args: None)
+    plan = build_refresh_plan_from_locked_bundles(artifact, request=request, reconciliation=reconciliation)
+    assert tuple(step.name for step in plan.plans.steps) == APPROVED_PROJECTION_ORDER
+    assert len(plan.plans.steps[0].plan.operations) == 4
+    assert all(not step.plan.operations for step in plan.plans.steps[1:])
 
 
 def test_closed_mutation_codec_round_trips_and_rejects_unknown_policy() -> None:

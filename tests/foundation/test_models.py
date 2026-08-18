@@ -24,6 +24,11 @@ def test_draft_event_date_covers_reset_span_draft_years() -> None:
     assert draft_event_date(2017, 2) == "2017-06-22"
 
 
+def test_draft_event_date_covers_2026_two_night_draft() -> None:
+    assert draft_event_date(2026, 1) == "2026-06-23"
+    assert draft_event_date(2026, 2) == "2026-06-24"
+
+
 def test_base_graph_export_contract_accepts_first_graph_ready_shape() -> None:
     bundle = build_foundation_ingest_sample_bundle()
     canonical = derive_foundation_canonical_bundle(bundle.source_events)

@@ -27,8 +27,8 @@ from foundation.sources import (
 from foundation.two_way_status import DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH, load_two_way_status_fixture
 
 
-CURRENTNESS_VERIFIED_THROUGH = "2026-05-29"
-CURRENTNESS_LAST_VERIFIED_EVENT_DATE = "2026-04-10"
+CURRENTNESS_VERIFIED_THROUGH = "2026-08-16"
+CURRENTNESS_LAST_VERIFIED_EVENT_DATE = "2026-07-27"
 CURRENTNESS_SOURCE_BASIS = (
     "Basketball-Reference Memphis transactions page",
     "NBA.com transaction and team release search",
@@ -1381,7 +1381,7 @@ def fetch_contract_semantics_metrics(connection: psycopg.Connection) -> dict[str
 
 def fetch_daily_roster_state_metrics(connection: psycopg.Connection) -> dict[str, object]:
     expected_span_start = "2016-07-01"
-    expected_span_end = "2026-06-30"
+    expected_span_end = CURRENTNESS_VERIFIED_THROUGH
     expected_days = (date.fromisoformat(expected_span_end) - date.fromisoformat(expected_span_start)).days + 1
     if not table_exists(connection, "daily_roster_state"):
         return {
@@ -2282,7 +2282,7 @@ def build_known_gaps(report: dict[str, object]) -> list[dict[str, str]]:
                     f"{daily_roster_state.get('span_start')} to {daily_roster_state.get('span_end')} with "
                     f"{daily_roster_state.get('internal_missing_days', 0)} missing requested-span dates."
                 ),
-                "Reload daily roster state so the Memphis span is continuously covered from 2016-07-01 through 2026-06-30.",
+                f"Reload daily roster state so the Memphis span is continuously covered from 2016-07-01 through {CURRENTNESS_VERIFIED_THROUGH}.",
             )
         )
     if int(snapshots.get("pick_rows", 0)) == 0:

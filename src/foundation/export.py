@@ -65,7 +65,7 @@ def build_empty_base_export() -> BaseGraphExport:
     return BaseGraphExport(
         franchise="memphis-grizzlies",
         span_start="2016-07-01",
-        span_end="2026-06-30",
+        span_end="2026-08-16",
     )
 
 

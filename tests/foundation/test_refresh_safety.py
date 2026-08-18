@@ -128,7 +128,9 @@ def test_snapshot_capture_uses_exact_manifest_selects_and_read_only_transaction(
     assert len(selects) == 21
     for table, query in zip(FOUNDATION_TABLES, selects, strict=True):
         assert query == f"SELECT {', '.join(table.columns)} FROM foundation.{table.name} ORDER BY {', '.join(table.key_columns)}"
-    assert connection.rollbacks == 1
+    # One rollback clears any implicit probe transaction; the final rollback
+    # closes the explicit repeatable-read snapshot transaction.
+    assert connection.rollbacks == 2
 
 
 def test_snapshot_write_load_is_deterministic_and_rejects_tamper(tmp_path: Path) -> None:

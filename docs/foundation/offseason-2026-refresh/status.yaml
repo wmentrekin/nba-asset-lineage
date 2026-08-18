@@ -3,15 +3,15 @@
 artifact: status
 feature: "foundation/offseason-2026-refresh"
 mode: "large-initiative"
-stage: "planning"
+stage: "verification"
 owner_skill: work
 
 objective: "Refresh Memphis transaction, draft, roster, pick, and lineage truth through the 2026 offseason, then regenerate and verify the graph artifacts."
 
 summary:
-  current_focus: "Split into a code-only safe-refresh-tooling predecessor at the user's direction."
-  last_completed: "Planning review cycle 2 confirmed data-semantics contracts but found unresolved live-write projection, payload-locking, ordering, approval, and recovery gaps."
-  current_blocker: "The current CLI cannot prove the exact candidate-derived database result before writes or guarantee that loaders consume the reviewed live payload bytes."
+  current_focus: "Hand off the applied direct refresh and regenerated graph artifacts for review."
+  last_completed: "Applied the direct locked 2026 offseason refresh, promoted the seven reviewed official events, rebuilt canonical history, and regenerated foundation/visualization exports."
+  current_blocker: "None for the loaded source/canonical scope; 2026-27 daily roster coverage remains unavailable until a roster baseline is added."
 
 artifacts:
   requirements: "docs/foundation/offseason-2026-refresh/requirements.yaml"
@@ -99,7 +99,7 @@ loops:
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: blocked
+  pre_execution_status: pending
   options:
     - proceed
     - revise_plan
@@ -107,15 +107,12 @@ checkpoint:
     - stop
 
 blockers:
-  - "No read-only command overlays reviewed candidate source rows on the live baseline and projects the full derived result."
-  - "Live source loaders can refetch bytes after preview; BRef loaders also lack execute/digest guards."
-  - "The planned derived write order can invalidate canonical-event foreign-key links."
-  - "The secondary database-write approval and recovery records are not yet executable contracts."
+  - "Daily roster state remains through 2026-06-30 because no 2026-27 roster baseline is loaded; this does not affect the source/canonical refresh through 2026-07-27."
 decisions:
   - "Refresh foundation truth before visualization styling or personal-site integration."
   - "Keep discovery read-only; use existing guarded checked-in loaders for any eventual live writes."
   - "Treat the 2026 draft and subsequent offseason activity as explicitly in scope."
 
-next_action: "Complete foundation/safe-refresh-tooling before resuming this live offseason refresh."
+next_action: "Review the regenerated visualization artifact, then decide whether to add a 2026-27 roster baseline/daily-state refresh."
 next_recommended_command: "$work"
 user_input_needed: false

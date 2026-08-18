@@ -6,10 +6,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Literal, Protocol, TypeAlias
 
+from psycopg.types.json import Jsonb
+
 from foundation.foundation_table_manifest import FOUNDATION_TABLES, foundation_table
 
 Row: TypeAlias = dict[str, object]
 UpdatePolicy = Literal["excluded", "coalesce_excluded_existing", "preserve_existing", "append_once", "constant", "operation_timestamp"]
+
+
+def _database_value(value: object) -> object:
+    """Adapt closed JSON objects for psycopg while preserving native arrays."""
+    return Jsonb(value) if isinstance(value, dict) else value
 
 
 @dataclass(frozen=True)
@@ -237,7 +244,10 @@ def _insert_rows(cursor: Any, table_name: str, rows: tuple[Row, ...], *, do_noth
         columns = tuple(row)
         placeholders = ", ".join(["%s"] * len(columns))
         conflict = " on conflict do nothing" if do_nothing else ""
-        cursor.execute(f"insert into foundation.{table_name} ({', '.join(columns)}) values ({placeholders}){conflict}", tuple(row[column] for column in columns))
+        cursor.execute(
+            f"insert into foundation.{table_name} ({', '.join(columns)}) values ({placeholders}){conflict}",
+            tuple(_database_value(row[column]) for column in columns),
+        )
 
 
 def _upsert_rows(cursor: Any, table_name: str, rows: tuple[Row, ...], policies: dict[str, UpdatePolicy], timestamp: str) -> None:
@@ -264,7 +274,7 @@ def _upsert_rows(cursor: Any, table_name: str, rows: tuple[Row, ...], policies: 
         # The timestamp is part of the immutable plan, including its insert
         # branch; otherwise preview and execution would disagree on new rows.
         parameters: tuple[object, ...] = tuple(
-            timestamp if policies.get(column) == "operation_timestamp" else row[column]
+            timestamp if policies.get(column) == "operation_timestamp" else _database_value(row[column])
             for column in columns
         )
         parameters += tuple(timestamp for column in columns if policies.get(column) == "operation_timestamp" and column not in table.key_columns)
@@ -286,6 +296,6 @@ def _patch_rows(cursor: Any, table_name: str, patches: tuple[tuple[tuple[object,
                 assignments.append(f"{column} = coalesce({column}, %s)")
             else:
                 assignments.append(f"{column} = %s")
-            values.append(timestamp if policy == "operation_timestamp" else value)
+            values.append(timestamp if policy == "operation_timestamp" else _database_value(value))
         if assignments:
             cursor.execute(f"update foundation.{table.name} set {', '.join(assignments)} where {predicate}", tuple(values) + key)

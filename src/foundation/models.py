@@ -36,6 +36,9 @@ DRAFT_DATE_BY_YEAR_ROUND = {
     (2024, 2): "2024-06-27",
     (2025, 1): "2025-06-25",
     (2025, 2): "2025-06-26",
+    # The 2026 draft returned to the two-night Tuesday/Wednesday schedule.
+    (2026, 1): "2026-06-23",
+    (2026, 2): "2026-06-24",
 }
 
 
@@ -448,7 +451,9 @@ class FoundationExportInputs(BaseModel):
 
     franchise: str = "memphis-grizzlies"
     span_start: str = "2016-07-01"
-    span_end: str = "2026-06-30"
+    # The offseason refresh is intentionally bounded by the dated source review.
+    # Callers can still provide an earlier historical span explicitly.
+    span_end: str = "2026-08-16"
     events: list[TransactionEvent] = Field(default_factory=list)
     player_assets: list[PlayerAsset] = Field(default_factory=list)
     pick_assets: list[PickAsset] = Field(default_factory=list)

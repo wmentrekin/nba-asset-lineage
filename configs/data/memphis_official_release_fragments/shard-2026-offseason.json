@@ -1,0 +1,164 @@
+{
+  "articles": [
+    {
+      "source_record_id": "nba_official:2026-07-13:cameron-boozer-signing",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/nba-offseason-deals-2026",
+      "source_title": "NBA offseason deals 2026",
+      "source_published_at": "2026-07-13T00:00:00Z",
+      "source_excerpt": "Memphis signed Cameron Boozer to his rookie-scale contract.",
+      "events": [{
+        "source_event_id": "nba_official:2026-07-13:cameron-boozer-signing",
+        "event_date": "2026-07-13",
+        "event_type": "signing",
+        "label": "Memphis signs Cameron Boozer",
+        "player_names_in": ["Cameron Boozer"],
+        "player_names_out": [],
+        "raw_note": "Official offseason transaction roundup records the rookie-scale signing; exact contract terms are not needed for lineage."
+      }]
+    },
+    {
+      "source_record_id": "nba_official:2026-07-25:kentavious-caldwell-pope-waiver",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/nba-offseason-deals-2026",
+      "source_title": "NBA offseason deals 2026",
+      "source_published_at": "2026-07-25T00:00:00Z",
+      "source_excerpt": "Memphis waived Kentavious Caldwell-Pope.",
+      "events": [{
+        "source_event_id": "nba_official:2026-07-25:kentavious-caldwell-pope-waiver",
+        "event_date": "2026-07-25",
+        "event_type": "waiver",
+        "label": "Memphis waives Kentavious Caldwell-Pope",
+        "player_names_in": [],
+        "player_names_out": ["Kentavious Caldwell-Pope"],
+        "raw_note": "League transaction row is retained as the dated waiver; the later team release confirms the buyout agreement."
+      }]
+    },
+    {
+      "source_record_id": "team_official:2026-06-24:lopez-stirtz-okc-detroit-draft-trade",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-acquire-2026-draft-rights-to-karim-lopez-and-five-future-second-round-draft-picks",
+      "source_title": "Grizzlies Acquire 2026 Draft Rights to Karim Lopez and Five Future Second Round Draft Picks",
+      "source_published_at": "2026-06-24T09:15:00-05:00",
+      "source_excerpt": "Memphis acquired Karim Lopez at No. 21 and five future second-round picks in the draft-rights transactions involving Oklahoma City and Detroit.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-06-24:lopez-stirtz-okc-detroit-draft-trade",
+          "event_date": "2026-06-24",
+          "event_type": "trade",
+          "label": "Memphis swaps 2026 draft rights with Oklahoma City and Detroit",
+          "source_group_hint": "official:2026-06-24:draft-rights-trade",
+          "player_names_in": ["Karim Lopez"],
+          "player_names_out": ["Bennett Stirtz"],
+          "pick_details_in": [
+            {"raw_text": "2026 draft rights to Karim Lopez, No. 21 overall"},
+            {"raw_text": "two future second-round picks from Oklahoma City"},
+            {"raw_text": "three future second-round picks from Detroit"}
+          ],
+          "pick_details_out": [
+            {"raw_text": "2026 draft rights to Bennett Stirtz, No. 16 overall"},
+            {"raw_text": "2026 draft rights to Ebuka Okorie, No. 17 overall"}
+          ],
+          "raw_note": "Memphis first sent the No. 16 rights and two future seconds to Oklahoma City for No. 17 and then sent No. 17 and three future seconds to Detroit for No. 21. The five future seconds remain aggregate, non-projectable bundles until their exact identities are sourced."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2026-06-29:morant-grant-murray-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://api-hub-dev.nba.com/news/blazers-grizzlies-ja-morant-trade",
+      "source_title": "Trail Blazers add Ja Morant in trade with Grizzlies",
+      "source_published_at": "2026-06-30T05:44:00Z",
+      "source_excerpt": "Portland acquired Ja Morant from Memphis for Jerami Grant and Kris Murray.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2026-06-29:morant-grant-murray-trade",
+          "event_date": "2026-06-29",
+          "event_type": "trade",
+          "label": "Memphis trades Ja Morant to Portland for Jerami Grant and Kris Murray",
+          "source_group_hint": "official:2026-06-29:morant-trade",
+          "player_names_in": ["Jerami Grant", "Kris Murray"],
+          "player_names_out": ["Ja Morant"],
+          "raw_note": "Portland sent Jerami Grant and Kris Murray to Memphis for Ja Morant."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2026-07-08:stewart-six-team-trade",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://www.nba.com/news/grizzlies-pistons-isaiah-stewart-trade-2026-nba-draft",
+      "source_title": "Grizzlies trade for Isaiah Stewart, sending picks back to Pistons",
+      "source_published_at": "2026-07-09T00:18:00Z",
+      "source_excerpt": "Memphis acquired Isaiah Stewart, AJ Johnson, D'Angelo Russell, and future draft consideration in a larger six-team trade.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2026-07-08:stewart-six-team-trade",
+          "event_date": "2026-07-08",
+          "event_type": "trade",
+          "label": "Memphis acquires Isaiah Stewart, AJ Johnson, and D'Angelo Russell in six-team trade",
+          "source_group_hint": "official:2026-07-08:six-team-trade",
+          "player_names_in": ["Isaiah Stewart", "AJ Johnson", "D'Angelo Russell"],
+          "player_names_out": ["Santi Aldama"],
+          "pick_details_in": [
+            {"raw_text": "2029 second-round pick via Dallas"},
+            {"raw_text": "2029 second-round pick via Washington"},
+            {"raw_text": "2030 top-20 protected first-round pick via Dallas"},
+            {"raw_text": "2032 second-round pick swap via Washington"},
+            {"raw_text": "2033 second-round pick via Washington"}
+          ],
+          "pick_details_out": [
+            {"raw_text": "2029 second-round pick, second-best of Detroit/New York/Milwaukee, via Memphis"},
+            {"raw_text": "2031 second-round pick via Memphis"},
+            {"raw_text": "2032 second-round pick via Memphis"}
+          ],
+          "raw_note": "The three future second-round picks Memphis acquired from Detroit on June 24 were returned as part of this larger six-team transaction; the exact pick identities and protections follow the NBA transaction breakdown."
+        }
+      ]
+    },
+    {
+      "source_record_id": "nba_official:2026-07-08:quinten-post-signing",
+      "source_system": "nba_official",
+      "source_type": "news_release_article",
+      "source_locator": "https://cdn-uat.nba.com/news/quinten-post-free-agency-2026",
+      "source_title": "Grizzlies add Quinten Post after Warriors decline to match offer sheet",
+      "source_published_at": "2026-07-09T00:38:00Z",
+      "source_excerpt": "Golden State declined to match Quinten Post's offer sheet, making him a Memphis player.",
+      "events": [
+        {
+          "source_event_id": "nba_official:2026-07-08:quinten-post-signing",
+          "event_date": "2026-07-08",
+          "event_type": "signing",
+          "label": "Memphis signs Quinten Post after Golden State declines to match",
+          "player_names_in": ["Quinten Post"],
+          "player_names_out": [],
+          "raw_note": "Post signed a three-year offer sheet with Memphis; Golden State declined to match it."
+        }
+      ]
+    },
+    {
+      "source_record_id": "team_official:2026-07-27:kentavious-caldwell-pope-buyout",
+      "source_system": "team_official",
+      "source_type": "press_release_article",
+      "source_locator": "https://www.nba.com/grizzlies/news/grizzlies-reach-buyout-agreement-with-kentavious-caldwell-pope",
+      "source_title": "Grizzlies Reach Buyout Agreement with Kentavious Caldwell-Pope",
+      "source_published_at": "2026-07-27T10:01:00-05:00",
+      "source_excerpt": "Memphis announced a buyout agreement with Kentavious Caldwell-Pope.",
+      "events": [
+        {
+          "source_event_id": "team_official:2026-07-27:kentavious-caldwell-pope-buyout",
+          "event_date": "2026-07-27",
+          "event_type": "waiver",
+          "label": "Memphis reaches buyout agreement with Kentavious Caldwell-Pope",
+          "player_names_in": [],
+          "player_names_out": ["Kentavious Caldwell-Pope"],
+          "raw_note": "The official release confirms the buyout. The associated waiver transaction is retained as corroboration until an official NBA transaction row is captured; this event is not promoted from the release alone."
+        }
+      ]
+    }
+  ]
+}
