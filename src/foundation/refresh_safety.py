@@ -23,6 +23,7 @@ import re
 import stat
 import uuid
 from importlib.metadata import PackageNotFoundError, version
+from psycopg.types.json import Jsonb
 
 from foundation.foundation_table_manifest import (
     DELETE_ORDER,
@@ -460,6 +461,12 @@ def canonical_safety_digest(domain: str, value: object) -> str:
 def canonical_database_value(value: object) -> dict[str, object]:
     """Represent only accepted database value types; never silently stringify."""
 
+    # psycopg's Jsonb wrapper is used only at the SQL boundary.  Unwrap it so
+    # fake adapters and post-restore digest verification see the same mapping
+    # that the database returns.
+    if isinstance(value, Jsonb):
+        value = value.obj
+
     if value is None:
         return {"type": "null"}
     if isinstance(value, bool):
@@ -520,6 +527,11 @@ def capture_foundation_snapshot(
     _require_digest(database_fingerprint, "database fingerprint")
     rows_by_table: dict[str, tuple[Mapping[str, object], ...]] = {}
     try:
+        # psycopg starts an implicit transaction when a connection-level
+        # probe (for example, server_version) has already run.  End that
+        # transaction before installing the explicitly bounded snapshot
+        # transaction; otherwise PostgreSQL rejects SET TRANSACTION.
+        connection.rollback()
         with connection.cursor() as cursor:
             cursor.execute("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             for table in FOUNDATION_TABLES:
@@ -726,7 +738,7 @@ def restore_approved_foundation_snapshot(
                 placeholders = ", ".join("%s" for _ in table.columns)
                 statement = f"INSERT INTO foundation.{table.name} ({columns}) VALUES ({placeholders})"
                 for row in snapshot.tables[table_name]:
-                    cursor.execute(statement, tuple(row[column] for column in table.columns))
+                    cursor.execute(statement, tuple(Jsonb(row[column]) if isinstance(row[column], dict) else row[column] for column in table.columns))
             restored = FoundationSnapshot(
                 tables=_read_snapshot_tables(cursor),
                 schema_fingerprint=snapshot.schema_fingerprint,

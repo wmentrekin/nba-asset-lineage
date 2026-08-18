@@ -26,7 +26,7 @@ def test_build_empty_base_export_has_reset_defaults() -> None:
     assert isinstance(export, BaseGraphExport)
     assert export.franchise == "memphis-grizzlies"
     assert export.span_start == "2016-07-01"
-    assert export.span_end == "2026-06-30"
+    assert export.span_end == "2026-08-16"
     assert export.events == []
     assert export.player_assets == []
     assert export.pick_assets == []

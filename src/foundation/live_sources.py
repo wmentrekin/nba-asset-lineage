@@ -1601,7 +1601,9 @@ def load_nba_player_movement(
         payload_bundle_path=payload_bundle_path,
         expected_bundle_sha256=expected_bundle_sha256,
         expected_source_kind="nba_player_movement",
-        expected_source_scope={"team_code": "MEM"},
+        # This NBA endpoint is league-wide.  The normalizer limits its output to
+        # Memphis, but the locked source bundle itself is scoped to the endpoint.
+        expected_source_scope={"endpoint_url": NBA_PLAYER_MOVEMENT_ENDPOINT_URL},
         dry_run=dry_run,
         execute=execute,
     )

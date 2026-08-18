@@ -20,6 +20,7 @@ from foundation.foundation_table_manifest import foundation_table
 from foundation.refresh_mutations import (
     DeleteKeys, FoundationMutationPlan, InsertMissingRows, PatchRows,
     ReplaceAll, ReplacePartitions, UpsertRows,
+    source_partition_plan,
 )
 from foundation.refresh_projection import APPROVED_PROJECTION_ORDER, canonical_projection_digest
 from foundation.refresh_safety import (
@@ -27,6 +28,7 @@ from foundation.refresh_safety import (
     canonical_database_value, canonical_safety_digest, validate_refresh_artifact_directory,
 )
 from foundation.source_payloads import SUPPORTED_SOURCE_KINDS, load_source_bundle
+from foundation.live_sources import build_locked_source_rows
 
 
 REFRESH_REQUEST_SCHEMA_VERSION = "refresh_request_v1"
@@ -37,6 +39,8 @@ REFRESH_PLAN_FILE_NAME = "refresh-plan.json"
 RECONCILIATION_FILE_NAME = "refresh-reconciliation.json"
 PROJECTION_REPORT_FILE_NAME = "projection-report.json"
 SOURCE_KINDS = tuple(sorted(SUPPORTED_SOURCE_KINDS))
+BREF_OPTIONAL_SOURCE_KINDS = frozenset({"bref_transactions", "bref_draft"})
+OMITTED_SOURCE_DIGEST = "0" * 64
 FIXTURE_SLOT_NAMES = ("draft_resolution", "historical_checksum", "roster_baseline", "two_way_status")
 _DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 _REFRESH_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
@@ -91,7 +95,7 @@ def request_payload(request: RefreshRequest, *, include_digest: bool = True) -> 
         "refresh_id": request.refresh_id,
         "as_of_date": request.as_of_date.isoformat(),
         "source_bundles": [
-            {"source_kind": kind, "relative_path": f"bundles/{kind}", "bundle_sha256": request.bundle_digests[kind]}
+            {"source_kind": kind, "relative_path": f"bundles/{kind}", "bundle_sha256": request.bundle_digests[kind], **({"omitted": True} if request.bundle_digests[kind] == OMITTED_SOURCE_DIGEST else {})}
             for kind in SOURCE_KINDS
         ],
         "fixtures": [
@@ -215,12 +219,85 @@ def write_refresh_plan(directory: Path, value: SealedRefreshPlan) -> Path:
     return _write(directory, REFRESH_PLAN_FILE_NAME, refresh_plan_payload(value))
 
 
+def build_refresh_plan_from_locked_bundles(
+    directory: Path,
+    *,
+    request: RefreshRequest,
+    reconciliation: RefreshReconciliation,
+    operation_timestamp: str = "1970-01-01T00:00:00Z",
+) -> SealedRefreshPlan:
+    """Derive the closed runner plan from the reviewed source bundles.
+
+    This is intentionally a local, deterministic builder: it only reads bundles
+    already bound to ``request`` and never opens a database or fetches a URL.
+    BRef slots may be the explicit all-zero omission digest; official/NBA
+    bundles remain the authoritative source overlay in that mode.  The later
+    runner stages are currently empty checkpoints, preserving the fixed runner
+    contract until their independently reviewed derivations are supplied.
+    """
+    if request.digest != reconciliation.request_digest:
+        raise RefreshArtifactError("Refresh plan inputs are not bound to the same request")
+    # Re-validate bytes and permissions before deriving anything from them.
+    _validate_request_material(directory, request)
+    from foundation.live_sources import build_locked_source_rows
+
+    records: list[object] = []
+    events: list[object] = []
+    players: list[object] = []
+    selections: list[object] = []
+    for kind in SOURCE_KINDS:
+        digest = request.bundle_digests[kind]
+        if digest == OMITTED_SOURCE_DIGEST:
+            continue
+        bundle = load_source_bundle(
+            directory / "bundles" / kind,
+            expected_digest=digest,
+            expected_source_kind=kind,
+        )
+        source_records, source_events, source_players, source_selections = build_locked_source_rows(bundle)
+        records.extend(row.model_dump(mode="json") for row in source_records)
+        events.extend(row.model_dump(mode="json") for row in source_events)
+        players.extend(row.model_dump(mode="json") for row in source_players)
+        selections.extend(row.model_dump(mode="json") for row in source_selections)
+
+    source_plan = source_partition_plan(
+        source_records=tuple(records),
+        source_events=tuple(events),
+        players=tuple(players),
+        # Draft selections carry source_event_id FKs. Commit their source
+        # events in the first checkpoint, then apply selections in the next
+        # checkpoint so PostgreSQL observes the dependency exactly as the
+        # projection does.
+        draft_selections=(),
+        operation_timestamp=operation_timestamp,
+    )
+    empty = FoundationMutationPlan((), operation_timestamp)
+    draft_plan = FoundationMutationPlan(
+        operations=((UpsertRows("draft_selection", tuple(selections), (("pick_id", "coalesce_excluded_existing"), ("source_event_id", "coalesce_excluded_existing"))),) if selections else ()),
+        operation_timestamp=operation_timestamp,
+    )
+    steps = tuple(
+        ApprovedRefreshStep(
+            name,
+            source_plan if index == 0 else draft_plan if index == 1 else empty,
+        )
+        for index, name in enumerate(APPROVED_PROJECTION_ORDER)
+    )
+    return SealedRefreshPlan(
+        request.digest,
+        reconciliation.digest,
+        reconciliation.baseline_digest,
+        reconciliation.historical_checksum,
+        ApprovedRefreshPlans(steps),
+    )
+
+
 def load_refresh_request(directory: Path) -> RefreshRequest:
     payload = _load(directory, REFRESH_REQUEST_FILE_NAME)
     required = {"schema_version", "refresh_id", "as_of_date", "source_bundles", "fixtures", "request_sha256"}
     if not isinstance(payload, dict) or set(payload) != required or payload["schema_version"] != REFRESH_REQUEST_SCHEMA_VERSION:
         raise RefreshArtifactError("Refresh request does not match the closed schema")
-    bundles = _slots(payload["source_bundles"], "source_kind", SOURCE_KINDS, "bundles", lambda n: n, "bundle_sha256")
+    bundles = _slots(payload["source_bundles"], "source_kind", SOURCE_KINDS, "bundles", lambda n: n, "bundle_sha256", optional_names=BREF_OPTIONAL_SOURCE_KINDS)
     fixtures = _slots(payload["fixtures"], "name", FIXTURE_SLOT_NAMES, "fixtures", lambda n: f"{n}.json", "sha256")
     try:
         request = RefreshRequest(payload["refresh_id"], date.fromisoformat(payload["as_of_date"]), bundles, fixtures)
@@ -333,13 +410,19 @@ def _validate_sealed_plan(value: SealedRefreshPlan) -> None:
 def _validate_digest_slots(value: Mapping[str, str], names: tuple[str, ...], label: str) -> None:
     if not isinstance(value, Mapping) or tuple(value) != names:
         raise RefreshArtifactError(f"Refresh request {label} slots do not match the closed schema")
-    for digest in value.values():
+    for name, digest in value.items():
+        if digest == OMITTED_SOURCE_DIGEST and name in BREF_OPTIONAL_SOURCE_KINDS:
+            continue
         _require_digest(digest)
 
 
 def _validate_request_material(directory: Path, request: RefreshRequest) -> None:
     _private_directory(directory)
     for kind in SOURCE_KINDS:
+        if request.bundle_digests[kind] == OMITTED_SOURCE_DIGEST:
+            if kind not in BREF_OPTIONAL_SOURCE_KINDS:
+                raise RefreshArtifactError("Only optional BRef source bundles may be omitted")
+            continue
         load_source_bundle(directory / "bundles" / kind, expected_digest=request.bundle_digests[kind], expected_source_kind=kind)
     for name in FIXTURE_SLOT_NAMES:
         path = directory / "fixtures" / f"{name}.json"
@@ -348,14 +431,18 @@ def _validate_request_material(directory: Path, request: RefreshRequest) -> None
             raise RefreshArtifactError("Refresh request fixture bytes drifted")
 
 
-def _slots(raw: object, name_key: str, names: tuple[str, ...], parent: str, leaf, digest_key: str) -> dict[str, str]:
+def _slots(raw: object, name_key: str, names: tuple[str, ...], parent: str, leaf, digest_key: str, *, optional_names: frozenset[str] = frozenset()) -> dict[str, str]:
     if not isinstance(raw, list) or len(raw) != len(names):
         raise RefreshArtifactError("Refresh request slots are invalid")
     result: dict[str, str] = {}
     for expected, item in zip(names, raw, strict=True):
-        if not isinstance(item, dict) or set(item) != {name_key, "relative_path", digest_key} or item[name_key] != expected or item["relative_path"] != f"{parent}/{leaf(expected)}":
+        allowed = {name_key, "relative_path", digest_key, "omitted"}
+        if not isinstance(item, dict) or not set(item).issubset(allowed) or not {name_key, "relative_path", digest_key}.issubset(item) or item[name_key] != expected or item["relative_path"] != f"{parent}/{leaf(expected)}":
             raise RefreshArtifactError("Refresh request paths are not allowlisted")
-        _require_digest(item[digest_key])
+        if not (item.get("omitted") is True and item[digest_key] == OMITTED_SOURCE_DIGEST and expected in optional_names):
+            _require_digest(item[digest_key])
+        if item.get("omitted") is True and (expected not in optional_names or item[digest_key] != OMITTED_SOURCE_DIGEST):
+            raise RefreshArtifactError("Only optional source slots may be explicitly omitted")
         result[expected] = item[digest_key]
     return result
 

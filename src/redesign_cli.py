@@ -112,6 +112,10 @@ from foundation.refresh_safety import (
 )
 from foundation.refresh_artifacts import (
     PROJECTION_REPORT_FILE_NAME,
+    build_refresh_plan_from_locked_bundles,
+    write_refresh_plan,
+    load_refresh_request,
+    load_reconciliation,
     load_sealed_projection_report,
     reject_projection_report_blockers,
     validate_artifact_chain,
@@ -126,6 +130,7 @@ from foundation.refresh_projection import (
     project_refresh,
     write_projection_report,
 )
+from foundation.foundation_table_manifest import FOUNDATION_TABLES
 from foundation.sources import get_default_source_plan
 from foundation.two_way_status import (
     DEFAULT_TWO_WAY_STATUS_FIXTURE_PATH,
@@ -134,6 +139,7 @@ from foundation.two_way_status import (
 )
 from foundation.visualization_export import build_visualization_export
 from foundation.workbench import serialize_sample_workbench
+from foundation.offseason_refresh import run_locked_offseason_refresh
 
 RESETTABLE_PROJECT_SCHEMAS = (
     "bronze",
@@ -494,6 +500,16 @@ def parse_args() -> argparse.Namespace:
     full_span_parser.add_argument("--request-delay", type=float, default=0.8)
     full_span_parser.add_argument("--output-path", default=None)
     full_span_parser.add_argument("--replace-existing", action="store_true", help="Clear active foundation tables before reloading the full-span source set.")
+    locked_offseason_refresh_parser = subparsers.add_parser(
+        "apply-locked-offseason-2026-refresh",
+        help="Preflight or apply the reviewed incremental 2026 offseason bundles; does not use the sealed refresh runner.",
+    )
+    locked_offseason_refresh_parser.add_argument("--artifact-directory", required=True)
+    locked_offseason_refresh_parser.add_argument(
+        "--reconciliation-path",
+        default="configs/data/memphis_official_canonical_reconciliation_2026.json",
+    )
+    locked_offseason_refresh_parser.add_argument("--execute", action="store_true")
 
     return parser.parse_args()
 
@@ -737,10 +753,34 @@ def _operational_database_fingerprint(connection: object) -> str:
     return logical_database_fingerprint(database_name=str(database_name), server_version=int(server_version))
 
 
+def _snapshot_table_state(snapshot: object) -> dict[str, dict[tuple[object, ...], dict[str, object]]]:
+    """Convert the immutable row-list snapshot into the projector's keyed state."""
+    return {
+        table.name: {
+            tuple(row[column] for column in table.key_columns): dict(row)
+            for row in snapshot.tables[table.name]
+        }
+        for table in FOUNDATION_TABLES
+    }
+
+
 def _preview_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
     """Validate all local inputs before the one permitted read-only baseline."""
 
-    request, reconciliation, sealed_plan = validate_artifact_chain(artifact_directory)
+    validate_refresh_artifact_directory(artifact_directory)
+    request = load_refresh_request(artifact_directory)
+    reconciliation = load_reconciliation(artifact_directory, request=request)
+    plan_path = artifact_directory / "refresh-plan.json"
+    if plan_path.exists() or plan_path.is_symlink():
+        _, _, sealed_plan = validate_artifact_chain(artifact_directory)
+    else:
+        sealed_plan = build_refresh_plan_from_locked_bundles(
+            artifact_directory,
+            request=request,
+            reconciliation=reconciliation,
+            operation_timestamp=f"{request.as_of_date.isoformat()}T00:00:00Z",
+        )
+        write_refresh_plan(artifact_directory, sealed_plan)
     # A prior report is immutable review evidence; a second preview must use a
     # fresh leaf rather than overwrite or silently replace it.
     report_path = artifact_directory / PROJECTION_REPORT_FILE_NAME
@@ -749,7 +789,7 @@ def _preview_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
     with psycopg.connect(load_database_url(), connect_timeout=10) as connection:
         database_fingerprint = _operational_database_fingerprint(connection)
         snapshot = capture_foundation_snapshot(connection, database_fingerprint=database_fingerprint)
-    baseline = FoundationBaseline(snapshot.tables, reconciliation.historical_checksum)
+    baseline = FoundationBaseline(_snapshot_table_state(snapshot), reconciliation.historical_checksum)
     if canonical_foundation_state_digest(baseline.tables, semantic=False) != reconciliation.baseline_digest:
         raise ValueError("read-only baseline no longer matches the sealed reconciliation")
     stages = tuple(ProjectionStage(step.name, step.plan) for step in sealed_plan.plans.steps)
@@ -818,7 +858,7 @@ def _run_sealed_refresh(artifact_directory: Path) -> dict[str, object]:
 
         def prefix_reader(active_connection: object) -> str:
             current = capture_foundation_snapshot(active_connection, database_fingerprint=database_fingerprint)
-            return canonical_foundation_state_digest(current.tables, semantic=False)
+            return canonical_foundation_state_digest(_snapshot_table_state(current), semantic=False)
 
         state = run_approved_foundation_refresh(
             connection,
@@ -1209,7 +1249,10 @@ def main() -> None:
         )
     elif args.command == "load-nba-player-movement":
         payload = load_nba_player_movement(
-            guarded_database_url("nba_player_movement", {"team_code": "MEM"}),
+            guarded_database_url(
+                "nba_player_movement",
+                {"endpoint_url": "https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json"},
+            ),
             payload_bundle_path=Path(args.payload_bundle_path),
             expected_bundle_sha256=args.expected_bundle_sha256,
             dry_run=args.dry_run,
@@ -1337,6 +1380,13 @@ def main() -> None:
         payload = serialize_sample_workbench()
     elif args.command == "build-foundation-ingest-sample":
         payload = serialize_foundation_ingest_sample_bundle()
+    elif args.command == "apply-locked-offseason-2026-refresh":
+        payload = run_locked_offseason_refresh(
+            load_database_url() if args.execute else None,
+            artifact_directory=Path(args.artifact_directory),
+            reconciliation_path=Path(args.reconciliation_path),
+            execute=args.execute,
+        )
     elif args.command == "load-foundation-full-span":
         database_url = load_database_url()
         bootstrap_foundation_ingest_schema(database_url, sql_path=Path("sql/0001_foundation_ingest_bootstrap.sql"))

@@ -159,15 +159,15 @@ def test_build_event_span_currentness_reports_verified_quiet_interval() -> None:
         {
             "source": "foundation.canonical_event",
             "start_date": "2016-07-07",
-            "end_date": "2026-04-10",
+                "end_date": "2026-07-27",
             "event_count": 388,
         }
     )
 
     assert currentness["status"] == "verified_quiet_interval"
-    assert currentness["loaded_event_end_date"] == "2026-04-10"
-    assert currentness["last_verified_event_date"] == "2026-04-10"
-    assert currentness["verified_through"] == "2026-05-29"
+    assert currentness["loaded_event_end_date"] == "2026-07-27"
+    assert currentness["last_verified_event_date"] == "2026-07-27"
+    assert currentness["verified_through"] == "2026-08-16"
     assert currentness["source_basis"]
 
 

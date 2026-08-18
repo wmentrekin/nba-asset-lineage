@@ -19,6 +19,43 @@ class FakeConnection:
         self.table_state = table_state
 
 
+class RecordingCursor:
+    def __init__(self):
+        self.calls = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, sql, params=()):
+        self.calls.append((sql, params))
+
+
+class SqlRecordingConnection:
+    def __init__(self):
+        self.cursor_obj = RecordingCursor()
+
+    def cursor(self):
+        return self.cursor_obj
+
+
+def test_sql_insert_executes_every_row_in_partition_replacement() -> None:
+    connection = SqlRecordingConnection()
+    plan = FoundationMutationPlan(
+        operation_timestamp="2026-08-17T00:00:00Z",
+        operations=(ReplaceAll("player", (
+            {"player_id": "player:1", "display_name": "One"},
+            {"player_id": "player:2", "display_name": "Two"},
+        )),),
+    )
+    execute_plan(connection, plan)
+    inserts = [call for call in connection.cursor_obj.calls if call[0].startswith("insert")]
+    assert len(inserts) == 2
+    assert [call[1] for call in inserts] == [("player:1", "One"), ("player:2", "Two")]
+
+
 def test_closed_manifest_contains_the_21_active_foundation_tables() -> None:
     assert len(FOUNDATION_TABLES) == 21
     assert {table.name for table in FOUNDATION_TABLES} >= {"source_record", "source_event", "canonical_event", "daily_roster_state"}

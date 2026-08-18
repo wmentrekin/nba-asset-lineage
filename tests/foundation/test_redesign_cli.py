@@ -21,7 +21,7 @@ def _movement_bundle(tmp_path: Path):
     return capture_source_bundle(
         _private_root(tmp_path) / "movement",
         source_kind="nba_player_movement",
-        source_scope={"team_code": "MEM"},
+        source_scope={"endpoint_url": "https://stats.nba.com/js/data/playermovement/NBA_Player_Movement.json"},
         normalization_config={"endpoint_url": "https://example.test/movement"},
         responses=[
             CapturedResponse(
@@ -84,6 +84,34 @@ def test_locked_source_cli_preview_uses_bundle_without_database_lookup(
     assert payload["bundle_sha256"] == bundle.digest
     assert payload["dry_run"] is True
     assert payload["writes_to_database"] is False
+
+
+def test_direct_offseason_refresh_preflight_never_looks_up_database_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[object] = []
+    monkeypatch.setattr(redesign_cli, "load_database_url", lambda: pytest.fail("preflight must not load database URL"))
+
+    def fake_refresh(database_url: str | None, **kwargs: object) -> dict[str, object]:
+        calls.append((database_url, kwargs))
+        return {"status": "ok", "writes_to_database": False}
+
+    monkeypatch.setattr(redesign_cli, "run_locked_offseason_refresh", fake_refresh)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "redesign_cli.py",
+            "apply-locked-offseason-2026-refresh",
+            "--artifact-directory",
+            str(tmp_path / "artifact"),
+        ],
+    )
+
+    redesign_cli.main()
+
+    assert calls == [(None, {"artifact_directory": tmp_path / "artifact", "reconciliation_path": Path("configs/data/memphis_official_canonical_reconciliation_2026.json"), "execute": False})]
+    assert json.loads(capsys.readouterr().out)["writes_to_database"] is False
 
 
 def test_snapshot_capture_cli_requires_execute_before_database_lookup(
