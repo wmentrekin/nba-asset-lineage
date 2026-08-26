@@ -1,0 +1,61 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "db-keepalive"
+mode: "quick-fix"
+stage: "verification"
+owner_skill: work
+
+objective: "Add a scheduled GitHub Action that pings the Supabase database, mirroring cfb-rankings' db-keepalive.yml, so nba-asset-lineage's project doesn't auto-pause from inactivity."
+
+summary:
+  current_focus: "PR open; workflow cannot be manually triggered until merged to main (GitHub only discovers workflow_dispatch workflows that exist on the default branch)."
+  last_completed: "Pushed branch, set DATABASE_URL repo secret, opened PR #5."
+  current_blocker: "Real end-to-end verification against Supabase is only possible after merge (workflow_dispatch 404s on a non-default-branch-only workflow)."
+
+artifacts:
+  requirements: null
+  plan: null
+  implementation_report: "docs/db-keepalive/implementation-report.yaml"
+
+pr:
+  number: 5
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/5"
+  status: "open"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "verification"
+    task: "Add Supabase keepalive GitHub Action reusing the existing check-db CLI command."
+    last_update: "Pushed work/db-keepalive, set DATABASE_URL secret, opened PR #5. workflow_dispatch attempt 404'd because the workflow isn't on main yet."
+    blocker: "Awaiting merge to actually exercise the schedule/workflow_dispatch trigger."
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: false
+  pre_execution_status: "not_applicable"
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers:
+  - "workflow_dispatch can't target a branch-only workflow; real verification waits for merge to main."
+decisions:
+  - "Reused the repo's existing check-db CLI command (src/redesign_cli.py: command_check_db) instead of writing a new keepalive script, since it already does a trivial DB ping via load_database_url()."
+  - "Used a single DATABASE_URL secret (matching load_database_url()) rather than the 5 discrete DB_HOST/DB_NAME/DB_USER/DB_PASSWORD/DB_PORT secrets cfb-rankings uses, since this repo's db_config.py already centers on DATABASE_URL for CLI usage."
+
+next_action: "User merges PR #5, then triggers workflow_dispatch on main to confirm the ping succeeds against the real secret."
+next_recommended_command: "$work"
+user_input_needed: false

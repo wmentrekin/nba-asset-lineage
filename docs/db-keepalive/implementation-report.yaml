@@ -1,0 +1,58 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "db-keepalive"
+mode: "quick-fix"
+status: draft
+owner_skill: work
+based_on: "cfb-rankings/.github/workflows/db-keepalive.yml"
+
+summary:
+  scope_executed: "Added .github/workflows/db-keepalive.yml, a scheduled GitHub Action that pings the Supabase database every 3 days to prevent auto-pause, mirroring the cfb-rankings repo's equivalent action."
+  outcome: "Workflow added on branch work/db-keepalive, reusing the existing `check-db` CLI command; pushed, DATABASE_URL secret set, PR #5 opened."
+
+task_batches_attempted:
+  - "Add Supabase keepalive GitHub Action"
+task_batches_completed:
+  - "Add Supabase keepalive GitHub Action"
+
+domains_touched:
+  - platform-engineer
+
+pr:
+  number: 5
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/5"
+
+changes:
+  files:
+    - ".github/workflows/db-keepalive.yml"
+    - "docs/db-keepalive/status.yaml"
+    - "docs/db-keepalive/implementation-report.yaml"
+  modules: []
+  docs_updated: []
+
+local_validation:
+  checks_run:
+    - "uv run python -m redesign_cli check-db (confirmed it reads DATABASE_URL and attempts a real connection; failed only on local DNS resolution, not on wiring)"
+  failures: []
+  skipped:
+    - "Full end-to-end run against Supabase in GitHub Actions: workflow_dispatch 404'd because GitHub only discovers workflow_dispatch triggers for workflows present on the default branch, not branch-only ones. Verification is deferred until after merge."
+
+review_summary:
+  status: not_started
+  key_findings: []
+
+test_summary:
+  status: not_started
+  checks_run: []
+  failures: []
+  gaps:
+    - "Workflow has not run in GitHub Actions yet; needs DATABASE_URL secret set before workflow_dispatch verification."
+
+open_issues:
+  - "DATABASE_URL secret must be set on the nba-asset-lineage GitHub repo before the schedule/workflow_dispatch will succeed."
+
+handoff:
+  current_state: in_progress
+  next_owner: "user"
+  next_action: "Confirm push/PR/secret creation, then verify via workflow_dispatch."
