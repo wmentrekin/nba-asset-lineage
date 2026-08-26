@@ -1,0 +1,61 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "db-keepalive"
+mode: "quick-fix"
+stage: "execution"
+owner_skill: work
+
+objective: "Add a scheduled GitHub Action that pings the Supabase database, mirroring cfb-rankings' db-keepalive.yml, so nba-asset-lineage's project doesn't auto-pause from inactivity."
+
+summary:
+  current_focus: "Workflow added; awaiting user confirmation to push branch, open PR, and set the DATABASE_URL repo secret."
+  last_completed: "Added .github/workflows/db-keepalive.yml reusing the existing check-db CLI command."
+  current_blocker: "DATABASE_URL secret is not yet set on the nba-asset-lineage GitHub repo; the schedule will fail until it is."
+
+artifacts:
+  requirements: null
+  plan: null
+  implementation_report: "docs/db-keepalive/implementation-report.yaml"
+
+pr:
+  number: null
+  url: null
+  status: "not_opened"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    model_guidance: "xhigh"
+    status: "active"
+    stage: "execution"
+    task: "Add Supabase keepalive GitHub Action reusing the existing check-db CLI command."
+    last_update: "Workflow file written and committed locally on work/db-keepalive."
+    blocker: "Needs user confirmation before push/PR/secret creation."
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: false
+  pre_execution_status: "not_applicable"
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers:
+  - "DATABASE_URL secret must be set on the GitHub repo for the scheduled run to succeed."
+decisions:
+  - "Reused the repo's existing check-db CLI command (src/redesign_cli.py: command_check_db) instead of writing a new keepalive script, since it already does a trivial DB ping via load_database_url()."
+  - "Used a single DATABASE_URL secret (matching load_database_url()) rather than the 5 discrete DB_HOST/DB_NAME/DB_USER/DB_PASSWORD/DB_PORT secrets cfb-rankings uses, since this repo's db_config.py already centers on DATABASE_URL for CLI usage."
+
+next_action: "Confirm with user, then push branch, set DATABASE_URL secret, and open PR."
+next_recommended_command: "$work"
+user_input_needed: true
