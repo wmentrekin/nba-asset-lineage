@@ -9,7 +9,7 @@ based_on: "cfb-rankings/.github/workflows/db-keepalive.yml"
 
 summary:
   scope_executed: "Added .github/workflows/db-keepalive.yml, a scheduled GitHub Action that pings the Supabase database every 3 days to prevent auto-pause, mirroring the cfb-rankings repo's equivalent action."
-  outcome: "Workflow added on branch work/db-keepalive, reusing the existing `check-db` CLI command; not yet pushed, no PR opened, DATABASE_URL secret not yet set."
+  outcome: "Workflow added on branch work/db-keepalive, reusing the existing `check-db` CLI command; pushed, DATABASE_URL secret set, PR #5 opened."
 
 task_batches_attempted:
   - "Add Supabase keepalive GitHub Action"
@@ -20,8 +20,8 @@ domains_touched:
   - platform-engineer
 
 pr:
-  number: null
-  url: null
+  number: 5
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/5"
 
 changes:
   files:
@@ -36,7 +36,7 @@ local_validation:
     - "uv run python -m redesign_cli check-db (confirmed it reads DATABASE_URL and attempts a real connection; failed only on local DNS resolution, not on wiring)"
   failures: []
   skipped:
-    - "Full end-to-end run against Supabase (requires the DATABASE_URL secret and running in GitHub Actions)"
+    - "Full end-to-end run against Supabase in GitHub Actions: workflow_dispatch 404'd because GitHub only discovers workflow_dispatch triggers for workflows present on the default branch, not branch-only ones. Verification is deferred until after merge."
 
 review_summary:
   status: not_started
