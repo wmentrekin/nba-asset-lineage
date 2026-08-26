@@ -3,15 +3,15 @@
 artifact: status
 feature: "db-keepalive"
 mode: "quick-fix"
-stage: "verification"
+stage: "complete"
 owner_skill: work
 
 objective: "Add a scheduled GitHub Action that pings the Supabase database, mirroring cfb-rankings' db-keepalive.yml, so nba-asset-lineage's project doesn't auto-pause from inactivity."
 
 summary:
-  current_focus: "PR open; workflow cannot be manually triggered until merged to main (GitHub only discovers workflow_dispatch workflows that exist on the default branch)."
-  last_completed: "Pushed branch, set DATABASE_URL repo secret, opened PR #5."
-  current_blocker: "Real end-to-end verification against Supabase is only possible after merge (workflow_dispatch 404s on a non-default-branch-only workflow)."
+  current_focus: "Done. Verified working end-to-end after merge."
+  last_completed: "Merged PR #5. First workflow_dispatch after merge failed (direct-connection host db.gjotcimniipqwhdgqutp.supabase.co is IPv6-only; GitHub Actions runners can't route to it). Switched the DATABASE_URL secret to the Supabase transaction pooler (aws-1-us-east-1.pooler.supabase.com:6543, user postgres.gjotcimniipqwhdgqutp), matching how cfb-rankings' keepalive connects. Re-ran workflow_dispatch: succeeded (run 33008651863)."
+  current_blocker: ""
 
 artifacts:
   requirements: null
@@ -21,17 +21,17 @@ artifacts:
 pr:
   number: 5
   url: "https://github.com/wmentrekin/nba-asset-lineage/pull/5"
-  status: "open"
+  status: "merged"
 
 agents:
   - id: "orchestrator"
     role: "orchestrator"
     model_guidance: "xhigh"
-    status: "active"
-    stage: "verification"
+    status: "complete"
+    stage: "complete"
     task: "Add Supabase keepalive GitHub Action reusing the existing check-db CLI command."
-    last_update: "Pushed work/db-keepalive, set DATABASE_URL secret, opened PR #5. workflow_dispatch attempt 404'd because the workflow isn't on main yet."
-    blocker: "Awaiting merge to actually exercise the schedule/workflow_dispatch trigger."
+    last_update: "PR #5 merged. Fixed DATABASE_URL secret to use the pooler host after an IPv6-unreachable failure; workflow_dispatch now succeeds (run 33008651863)."
+    blocker: ""
 
 loops:
   planning_review:
@@ -50,12 +50,12 @@ checkpoint:
     - narrow_scope
     - stop
 
-blockers:
-  - "workflow_dispatch can't target a branch-only workflow; real verification waits for merge to main."
+blockers: []
 decisions:
   - "Reused the repo's existing check-db CLI command (src/redesign_cli.py: command_check_db) instead of writing a new keepalive script, since it already does a trivial DB ping via load_database_url()."
   - "Used a single DATABASE_URL secret (matching load_database_url()) rather than the 5 discrete DB_HOST/DB_NAME/DB_USER/DB_PASSWORD/DB_PORT secrets cfb-rankings uses, since this repo's db_config.py already centers on DATABASE_URL for CLI usage."
+  - "DATABASE_URL secret points at the Supabase transaction pooler (aws-1-us-east-1.pooler.supabase.com:6543), not the direct-connection host in local .env, because the direct host is IPv6-only and GitHub Actions runners have no IPv6 route. This mirrors how cfb-rankings' DB_HOST/DB_PORT secrets are already configured (aws-0-us-east-1.pooler.supabase.com:6543)."
 
-next_action: "User merges PR #5, then triggers workflow_dispatch on main to confirm the ping succeeds against the real secret."
+next_action: "None. Feature complete."
 next_recommended_command: "$work"
 user_input_needed: false
