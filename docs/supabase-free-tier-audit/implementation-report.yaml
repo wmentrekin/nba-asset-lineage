@@ -35,8 +35,8 @@ domains_touched:
   - platform-engineer
 
 pr:
-  number: null
-  url: null
+  number: 6
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/6"
 
 changes:
   files:
