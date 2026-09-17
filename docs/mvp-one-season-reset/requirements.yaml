@@ -13,7 +13,7 @@ summary:
 
 goals:
   - "Wipe the repo to the framework skeleton (.agents/, .claude/, CLAUDE.md, AGENTS.md, README.md, LICENSE, .gitignore, .python-version) and rebuild from scratch."
-  - "Pin a minimal data model (target: 6 tables) in a fresh `lineage` schema in the existing Supabase project; drop the old `foundation` schema after a backup."
+  - "Pin a minimal data model (target: 5 tables) in a fresh `lineage` schema in the existing Supabase project; drop the old `foundation` schema after a backup."
   - "Ingest Memphis transactions for the window [2025-26 opening night, load date] from the NBA player-movement JSON feed, storing the raw payload verbatim with source URL and fetched_at."
   - "Derive transactions (nodes) and asset movements (strand segments) deterministically from raw payloads + one curated opening-night snapshot file (players + all Memphis-owned future picks) + one curated corrections file; a re-run over identical inputs produces identical output."
   - "Cover node kinds: trade, signing, waiver/release, two-way signing, two-way conversion, 10-day/Exhibit-10, 2026 draft selection."
@@ -81,7 +81,7 @@ research:
 
 acceptance_criteria:
   - "Repo contains only: framework files, README/AGENTS/CLAUDE rewritten for the MVP, pyproject/uv.lock/mise.toml, src/lineage/, sql/, data/, tests/, .github/workflows/."
-  - "`sql/` defines the `lineage` schema with <= 6 tables; applied to Supabase; `foundation` dropped after a stored backup."
+  - "`sql/` defines the `lineage` schema with <= 5 tables; applied to Supabase; `foundation` dropped after a stored backup."
   - "`lineage fetch` stores the feed payload as a source_record (idempotent by content hash)."
   - "`lineage derive` rebuilds transaction, asset, movement rows from source_record + data/*.json in one transaction; two consecutive runs yield identical row sets."
   - "`lineage validate` passes on the loaded data and fails on a fixture with a planted inconsistency."

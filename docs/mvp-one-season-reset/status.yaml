@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "Planning: requirements and plan drafted; plan-reviewer-1 critiquing before the pre-execution checkpoint."
+  current_focus: "Pre-execution checkpoint: awaiting user direction (proceed / revise / narrow / stop)."
   last_completed: "Discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -96,7 +96,7 @@ agents:
     actual_reasoning: "inherited"
     routing_enforced: true
     escalation_count: 0
-    status: "running"
+    status: "completed"
     stage: "planning"
     task: "Critique plan.yaml against requirements before checkpoint."
     last_update: "Spawned."
@@ -104,7 +104,7 @@ agents:
 
 loops:
   planning_review:
-    count: 0
+    count: 1
     max: 2
   execution_verification:
     count: 0
@@ -134,6 +134,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Integrate plan review; present pre-execution checkpoint to user."
+next_action: "On proceed: B0 wipe + skeleton."
 next_recommended_command: "$work"
 user_input_needed: true
