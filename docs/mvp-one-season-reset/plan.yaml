@@ -24,7 +24,7 @@ approach:
     - "Derive truncates and rebuilds transaction/asset_movement/player/pick inside one DB transaction — no incremental merge logic."
     - "Corrections are applied after parsing, before load, as declarative row overrides/additions keyed by (source group key, asset id)."
     - "Fetch uses a browser-like User-Agent and stores payload_sha256; identical payloads are not stored twice."
-    - "Window start = opening night date in data/opening_roster_2025_26.json; rows before it are dropped except those needed to explain a baseline holding (none expected)."
+    - "Window start = as_of date in data/opening_snapshot_2025_26.json; rows before it are dropped except those needed to explain a baseline holding (none expected)."
     - "SVG: x = time, one horizontal lane per asset (players top, picks below), a node marker per transaction date spanning the lanes it touches; hand-written SVG strings, no library."
 
 contracts:
@@ -44,11 +44,11 @@ contracts:
     - "pyproject.toml rewritten: package `lineage`, script `lineage = lineage.cli:main`, deps pydantic, psycopg[binary], httpx; dev pytest."
     - "mise.toml rewritten (python 3.11, uv; node removed)."
     - ".gitignore trimmed; `exports/` and `.env` ignored."
-    - "data/opening_roster_2025_26.json, data/opening_pick_inventory_2025_26.json, data/corrections.json added."
+    - "data/opening_snapshot_2025_26.json (players + ALL Memphis-owned future draft picks as of opening night) and data/corrections.json added."
 
 branching:
   strategy: "single-branch"
-  branch_name: "claude/blissful-shannon-sve08l"
+  branch_name: "work/mvp"
   worktrees: []
 
 execution_batches:
@@ -105,8 +105,8 @@ execution_batches:
     goal: "Deterministic derive"
     tasks:
       - id: "T3.1"
-        title: "Curated baseline files"
-        objective: "data/opening_roster_2025_26.json (players, contract_type, NBA person ids, source_url, as_of) and data/opening_pick_inventory_2025_26.json (Memphis-owned future picks with protections + source_url). Drafted by orchestrator from knowledge, marked `verified: false` until the user confirms each row."
+        title: "Curated opening-night snapshot"
+        objective: "One file, data/opening_snapshot_2025_26.json: as_of date; players (NBA person id, name, contract_type, source_url); and every future draft pick Memphis owns as of opening night — own picks and acquired picks, both rounds, through the furthest tradable year — with original_team, round, protections, source_url. Drafted by orchestrator from knowledge, marked `verified: false` until the user confirms each row."
         assigned_domain: "data-engineer"
         model_routing: {task_profile: documentation, uncertainty: high, consequence: high, scope_size: narrow, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "session model (orchestrator)", routing_enforced: false, escalation_tier: frontier, escalation_condition: "cannot establish a fact; leave verified:false and list for user"}
         owned_scope: ["data/*.json"]
@@ -166,7 +166,7 @@ model_routing_notes:
 
 open_questions:
   - "Feed reachability from CI (resolved by first run)."
-  - "Who verifies the two curated baseline files (user)."
+  - "Who verifies the curated snapshot rows (user)."
 
 review:
   status: draft

@@ -15,7 +15,7 @@ goals:
   - "Wipe the repo to the framework skeleton (.agents/, .claude/, CLAUDE.md, AGENTS.md, README.md, LICENSE, .gitignore, .python-version) and rebuild from scratch."
   - "Pin a minimal data model (target: 6 tables) in a fresh `lineage` schema in the existing Supabase project; drop the old `foundation` schema after a backup."
   - "Ingest Memphis transactions for the window [2025-26 opening night, load date] from the NBA player-movement JSON feed, storing the raw payload verbatim with source URL and fetched_at."
-  - "Derive transactions (nodes) and asset movements (strand segments) deterministically from raw payloads + two curated baseline files + one curated corrections file; a re-run over identical inputs produces identical output."
+  - "Derive transactions (nodes) and asset movements (strand segments) deterministically from raw payloads + one curated opening-night snapshot file (players + all Memphis-owned future picks) + one curated corrections file; a re-run over identical inputs produces identical output."
   - "Cover node kinds: trade, signing, waiver/release, two-way signing, two-way conversion, 10-day/Exhibit-10, 2026 draft selection."
   - "Cover assets: players (opening roster + anyone moving through a Memphis transaction) and draft picks Memphis owns for the future as of opening night, plus picks received in-window."
   - "Parse pick movements from trade description text with a strict grammar; unparseable text fails the load loudly; a checked-in corrections file can override/add rows."
@@ -43,7 +43,7 @@ constraints:
     - "Every transaction row must be traceable to a raw source record."
   process:
     - "Follow .agents workflow: plan checkpoint before execution; PR before verification; docs/<feature>/ removed at merge."
-    - "Feature branch is the session-pinned claude/blissful-shannon-sve08l."
+    - "Feature branch is the session-pinned work/mvp."
 
 assumptions:
   - "The NBA player-movement feed lists one row per player per transaction with a group key linking rows of the same trade, a transaction type, a date, team IDs, and a free-text description that mentions draft picks."
@@ -90,8 +90,7 @@ acceptance_criteria:
   - "GitHub workflow `lineage-load.yml` (workflow_dispatch) runs fetch → derive → validate → export and uploads graph.json/graph.svg as artifacts."
 
 open_questions:
-  - "Who authors data/opening_roster_2025_26.json — user pastes the official release, or orchestrator drafts from knowledge and user verifies?"
-  - "Who authors data/opening_pick_inventory_2025_26.json — same question."
+  - "Curated snapshot: orchestrator drafts from knowledge with verified:false flags; user verifies each row (decided)."
   - "Does stats.nba.com respond from GitHub-hosted runners? Verified only by the first workflow run."
 
 ready_for_planning: true

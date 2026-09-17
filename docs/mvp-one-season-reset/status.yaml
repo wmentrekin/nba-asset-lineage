@@ -22,8 +22,8 @@ repository_sync:
       notes: "Clean tree; feature branch already checked out at main."
 
 branching:
-  branch_name: "claude/blissful-shannon-sve08l"
-  notes: "Session-pinned branch used instead of work/<slug>; harness forbids pushing elsewhere."
+  branch_name: "work/mvp"
+  notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
   current_focus: "Planning: requirements and plan drafted; plan-reviewer-1 critiquing before the pre-execution checkpoint."
@@ -123,7 +123,7 @@ blockers: []
 decisions:
   - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
   - "Mode: large-initiative (full rip-and-replace with new data model and frontend)."
-  - "Use session-pinned branch claude/blissful-shannon-sve08l as the feature branch."
+  - "Use session-pinned branch work/mvp as the feature branch."
   - "No deletion until discovery questions are answered and the plan is approved."
 
 model_routing:
