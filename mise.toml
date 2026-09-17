@@ -16,7 +16,7 @@ run = "uv --cache-dir /tmp/uv-cache run lineage migrate"
 
 [tasks.fetch]
 description = "Pull the raw player-movement feed and store it"
-run = "uv --cache-dir /tmp/uv-cache run lineage fetch"
+run = "uv --cache-dir /tmp/uv-cache run lineage fetch --save-to exports/nba_player_movement.json"
 
 [tasks.derive]
 description = "Rebuild transaction/asset rows from raw payloads and data files"

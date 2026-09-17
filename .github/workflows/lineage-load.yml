@@ -1,0 +1,63 @@
+name: Lineage Load
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: lineage-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+
+      - name: Fetch feed
+        run: uv run lineage fetch --save-to exports/nba_player_movement.json
+
+      # Becomes a hard failure once B3 implements derive.
+      - name: Derive
+        run: uv run lineage derive
+        continue-on-error: true
+
+      # Becomes a hard failure once B4 implements validate.
+      - name: Validate
+        run: uv run lineage validate
+        continue-on-error: true
+
+      # Becomes a hard failure once B4 implements export.
+      - name: Export
+        run: uv run lineage export
+        continue-on-error: true
+
+      # Becomes a hard failure once B4 implements render.
+      - name: Render
+        run: uv run lineage render
+        continue-on-error: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-outputs
+          path: exports/
+          if-no-files-found: warn
+          retention-days: 30

@@ -19,7 +19,7 @@ def test_help_lists_all_verbs():
         assert verb in result.stdout
 
 
-@pytest.mark.parametrize("verb", ["migrate", "fetch", "derive", "validate", "export", "render", "load"])
+@pytest.mark.parametrize("verb", ["derive", "validate", "export", "render", "load"])
 def test_stub_verb_exits_2(verb):
     result = subprocess.run(
         [sys.executable, "-m", "lineage.cli", verb],
