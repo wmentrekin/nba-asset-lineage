@@ -116,6 +116,21 @@ agents:
     task: "T0.1 wipe + skeleton"
     last_update: "Completed: tree wiped to skeleton; uv sync ok; 8 tests pass."
     blocker: ""
+  - id: "data-engineer-b1b2"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T1.1 schema + migrate; T2.1 fetch + lineage-load.yml"
+    last_update: "Spawned."
+    blocker: ""
 
 loops:
   planning_review:
