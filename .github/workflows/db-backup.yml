@@ -36,11 +36,14 @@ jobs:
           # pooling doesn't support, so swap in the 5432 session pooler port
           # for the dump only -- never echoed, so it doesn't hit the logs.
           SESSION_POOLER_URL="${DATABASE_URL/:6543/:5432}"
-          supabase db dump --db-url "$SESSION_POOLER_URL" -f backup.sql
+          # `db dump` is schema-only by default; the data needs its own pass.
+          supabase db dump --db-url "$SESSION_POOLER_URL" -f backup-schema.sql
+          supabase db dump --db-url "$SESSION_POOLER_URL" --data-only -f backup-data.sql
+          ls -l backup-*.sql
 
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
         with:
           name: supabase-backup-${{ github.run_id }}
-          path: backup.sql
+          path: backup-*.sql
           retention-days: 90
