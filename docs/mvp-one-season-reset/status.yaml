@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "Running fixed db-backup workflow on work/mvp to get a real data dump before T1.2. Then awaiting user: (1) go for backup + drop foundation + apply lineage schema (T1.2); (2) trigger Lineage Load workflow once to capture a real payload; (3) snapshot row verification."
+  current_focus: "Backup verified. Awaiting user: (1) go for backup + drop foundation + apply lineage schema (T1.2); (2) trigger Lineage Load workflow once to capture a real payload; (3) snapshot row verification."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -150,7 +150,7 @@ checkpoint:
     - stop
 
 blockers:
-  - "T1.2 drop of foundation blocked until a real data backup exists: the weekly db-backup artifact was schema-only (4.5 KB). Workflow fixed to add --data-only; awaiting a green run with a multi-MB artifact."
+  - "T1.2 drop of foundation awaits the user's explicit go. Real backup now exists: run 35280990596 on work/mvp, artifact supabase-backup-35280990596 (backup-data.sql 16.35 MB, backup-schema.sql 37.6 KB), expires 2026-12-16."
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
