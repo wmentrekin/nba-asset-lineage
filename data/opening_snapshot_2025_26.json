@@ -1,0 +1,56 @@
+{
+  "$comment": "Curated opening-night snapshot for the Memphis Grizzlies, 2025-26. Drafted by the orchestrator from model knowledge; every row starts verified:false and must be confirmed by the repo owner against the cited sources before the MVP is called ready. person_id may be null here; derive resolves ids by name from the NBA player-movement feed and fails loudly if it cannot.",
+  "team": "MEM",
+  "season": "2025-26",
+  "as_of": "2025-10-22",
+  "as_of_note": "Memphis regular-season opener (vs New Orleans, FedExForum). Confirm date and use the roster as finalized on 2025-10-20/21 (opening-night roster release).",
+  "sources": {
+    "roster": "https://www.nba.com/grizzlies/news/grizzlies-finalize-2025-26-opening-night-roster",
+    "picks": "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Future_Drafts",
+    "picks_alt": "https://www.spotrac.com/nba/memphis-grizzlies/draft"
+  },
+  "players": [
+    {"person_id": 1629630, "name": "Ja Morant", "contract_type": "standard", "verified": false},
+    {"person_id": 1628991, "name": "Jaren Jackson Jr.", "contract_type": "standard", "verified": false},
+    {"person_id": 1641744, "name": "Zach Edey", "contract_type": "standard", "verified": false, "note": "Injured (ankle) at opening night; still on roster."},
+    {"person_id": 1630583, "name": "Santi Aldama", "contract_type": "standard", "verified": false},
+    {"person_id": 1629634, "name": "Brandon Clarke", "contract_type": "standard", "verified": false},
+    {"person_id": 1630590, "name": "Scotty Pippen Jr.", "contract_type": "standard", "verified": false},
+    {"person_id": null, "name": "Jaylen Wells", "contract_type": "standard", "verified": false},
+    {"person_id": null, "name": "Cedric Coward", "contract_type": "standard", "verified": false, "note": "2025 #11 pick."},
+    {"person_id": 203484, "name": "Kentavious Caldwell-Pope", "contract_type": "standard", "verified": false, "note": "Acquired in the Desmond Bane trade (June 2025)."},
+    {"person_id": 1629660, "name": "Ty Jerome", "contract_type": "standard", "verified": false, "note": "Signed July 2025."},
+    {"person_id": 1631246, "name": "Vince Williams Jr.", "contract_type": "standard", "verified": false},
+    {"person_id": 1629723, "name": "John Konchar", "contract_type": "standard", "verified": false},
+    {"person_id": 1641713, "name": "GG Jackson II", "contract_type": "standard", "verified": false},
+    {"person_id": null, "name": "Cam Spencer", "contract_type": "standard", "verified": false, "note": "Converted from two-way to standard in summer 2025 — confirm."},
+    {"person_id": 1629111, "name": "Jock Landale", "contract_type": "standard", "verified": false, "note": "UNCERTAIN: may have been waived before opening night. If waived, remove and the 15th standard slot may have been left open."},
+    {"person_id": null, "name": "Olivier-Maxence Prosper", "contract_type": "two_way", "verified": false},
+    {"person_id": null, "name": "PJ Hall", "contract_type": "two_way", "verified": false},
+    {"person_id": null, "name": "Javon Small", "contract_type": "two_way", "verified": false, "note": "2025 #48 pick."},
+    {"person_id": null, "name": "Jahmai Mashack", "contract_type": "two_way", "verified": false, "note": "UNCERTAIN: 2025 #59 pick; only three two-way slots exist, so one of Prosper/Hall/Small/Mashack was not on the opening-night roster (or was on an Exhibit 10 / Hustle). Resolve against the release."}
+  ],
+  "picks": [
+    {"draft_year": 2026, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2026, "round": 2, "original_team": "MEM", "protections": null, "verified": false, "note": "UNCERTAIN whether Memphis still owns its own 2026 2nd."},
+    {"draft_year": 2027, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2027, "round": 2, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2028, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2028, "round": 2, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2029, "round": 1, "original_team": "MEM", "protections": null, "verified": false, "note": "Memphis holds the right to swap this pick with Orlando's 2029 1st (Bane trade). Swap right is a footnote for now, not an asset."},
+    {"draft_year": 2029, "round": 2, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2030, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2030, "round": 1, "original_team": "ORL", "protections": null, "verified": false, "note": "Unprotected, from the Desmond Bane trade."},
+    {"draft_year": 2030, "round": 2, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2031, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2031, "round": 2, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2032, "round": 1, "original_team": "MEM", "protections": null, "verified": false},
+    {"draft_year": 2032, "round": 2, "original_team": "MEM", "protections": null, "verified": false}
+  ],
+  "known_omissions_to_verify": [
+    "2028 ORL 1st (Bane trade) — believed sent to Portland in the June 2025 move from #16 to #11 (Cedric Coward); if Memphis still owns it, add it.",
+    "Any second-round picks Memphis owns from other teams (Memphis has historically held several) — add from the RealGM future-picks page.",
+    "Any Memphis second-round picks already owed to other teams as of opening night — remove them.",
+    "Protections on any of the above."
+  ]
+}

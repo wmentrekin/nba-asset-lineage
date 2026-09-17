@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "planning"
+stage: "execution"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,8 +26,8 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "Pre-execution checkpoint: awaiting user direction (proceed / revise / narrow / stop)."
-  last_completed: "Discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
+  current_focus: "Execution B1/B2: lineage schema + migrate verb; fetch verb + lineage-load.yml workflow."
+  last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
 artifacts:
@@ -99,7 +99,22 @@ agents:
     status: "completed"
     stage: "planning"
     task: "Critique plan.yaml against requirements before checkpoint."
-    last_update: "Spawned."
+    last_update: "Changes requested; all applied."
+    blocker: ""
+  - id: "developer-b0"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "fast"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Haiku 4.5"
+    actual_model: "sonnet (Agent model param) — substituted up one tier because the task rewrites AGENTS/README content and deletes the whole tree"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T0.1 wipe + skeleton"
+    last_update: "Completed: tree wiped to skeleton; uv sync ok; 8 tests pass."
     blocker: ""
 
 loops:
@@ -112,7 +127,7 @@ loops:
 
 checkpoint:
   pre_execution_required: true
-  pre_execution_status: pending
+  pre_execution_status: approved
   options:
     - proceed
     - revise_plan
@@ -121,6 +136,7 @@ checkpoint:
 
 blockers: []
 decisions:
+  - "Checkpoint: user chose proceed (2026-09-17)."
   - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
   - "Mode: large-initiative (full rip-and-replace with new data model and frontend)."
   - "Use session-pinned branch work/mvp as the feature branch."
@@ -134,6 +150,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "On proceed: B0 wipe + skeleton."
+next_action: "Spawn data-engineer for T1.1 + T2.1; user verifies snapshot rows."
 next_recommended_command: "$work"
 user_input_needed: true
