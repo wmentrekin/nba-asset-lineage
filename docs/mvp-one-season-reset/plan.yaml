@@ -1,0 +1,178 @@
+# Contract: durable execution plan created by $work when the selected mode needs explicit planning
+
+artifact: plan
+feature: "mvp-one-season-reset"
+mode: "large-initiative"
+status: draft
+owner_skill: work
+based_on: "docs/mvp-one-season-reset/requirements.yaml"
+
+objective: "Replace the repo with a minimal, deterministic, one-season Memphis asset-lineage pipeline: raw feed -> 6-table lineage schema -> validated graph JSON + SVG."
+
+approach:
+  summary: >
+    Wipe to the framework skeleton. Build a small Python package `src/lineage/` with six CLI
+    verbs (migrate, fetch, derive, validate, export, render). Raw feed payloads are stored
+    verbatim; everything downstream is a pure, idempotent function of (raw payloads, three curated
+    JSON files, code). The parser is finalized only after a real payload is captured by the first
+    GitHub Actions run and read back through Supabase, because this sandbox cannot fetch it.
+  key_decisions:
+    - "Schema `lineage`, six tables: source_record, player, pick, transaction, asset_movement, baseline_holding."
+    - "Strands are not stored; a strand is the date-ordered sequence of asset_movement rows for one asset, computed at export time."
+    - "Holders are plain codes: NBA team tricode (MEM, PHX...), FA (free agency/unsigned), DRAFT (pre-selection pick pool). No team table."
+    - "Pick identity is a natural key `{draft_year}-R{round}-{original_team}` so picks are stable across trades."
+    - "Derive truncates and rebuilds transaction/asset_movement/player/pick inside one DB transaction — no incremental merge logic."
+    - "Corrections are applied after parsing, before load, as declarative row overrides/additions keyed by (source group key, asset id)."
+    - "Fetch uses a browser-like User-Agent and stores payload_sha256; identical payloads are not stored twice."
+    - "Window start = opening night date in data/opening_roster_2025_26.json; rows before it are dropped except those needed to explain a baseline holding (none expected)."
+    - "SVG: x = time, one horizontal lane per asset (players top, picks below), a node marker per transaction date spanning the lanes it touches; hand-written SVG strings, no library."
+
+contracts:
+  interfaces:
+    - "CLI: `uv run lineage <verb>` with verbs migrate | fetch [--payload-file] | derive | validate | export [--out] | render [--in --out]"
+    - "mise tasks: setup, migrate, fetch, derive, validate, export, render, load (fetch+derive+validate+export+render), test"
+    - "GitHub workflow lineage-load.yml: workflow_dispatch; runs `mise run load`; uploads graph.json + graph.svg + raw payload as artifacts"
+  schemas:
+    - "lineage.source_record(id bigserial pk, source text, source_url text, fetched_at timestamptz, payload jsonb, payload_sha256 text unique)"
+    - "lineage.player(id integer pk /* NBA person id */, full_name text, slug text)"
+    - "lineage.pick(id text pk, draft_year int, round int, original_team text, protections text)"
+    - "lineage.transaction(id text pk, occurred_on date, kind text check(...), description text, group_key text, source_record_id bigint fk, counterparties text[])"
+    - "lineage.asset_movement(id bigserial pk, transaction_id text fk, asset_type text check(player|pick), asset_id text, from_holder text, to_holder text, contract_type text null, note text null, unique(transaction_id, asset_type, asset_id))"
+    - "lineage.baseline_holding(as_of date, asset_type text, asset_id text, holder text default 'MEM', contract_type text null, source_url text, pk(as_of, asset_type, asset_id))"
+    - "graph.json: {window:{start,end}, nodes:[{id,date,kind,description,counterparties}], assets:[{id,type,label}], strands:[{asset_id, segments:[{from_node|null, to_node|null, holder, contract_type}]}]}"
+  config_changes:
+    - "pyproject.toml rewritten: package `lineage`, script `lineage = lineage.cli:main`, deps pydantic, psycopg[binary], httpx; dev pytest."
+    - "mise.toml rewritten (python 3.11, uv; node removed)."
+    - ".gitignore trimmed; `exports/` and `.env` ignored."
+    - "data/opening_roster_2025_26.json, data/opening_pick_inventory_2025_26.json, data/corrections.json added."
+
+branching:
+  strategy: "single-branch"
+  branch_name: "claude/blissful-shannon-sve08l"
+  worktrees: []
+
+execution_batches:
+  - id: "B0"
+    goal: "Wipe and skeleton"
+    tasks:
+      - id: "T0.1"
+        title: "Delete old implementation; write skeleton"
+        objective: "git rm everything except .agents/, .claude/, LICENSE, .gitignore, .python-version, .github/workflows/{db-keepalive,db-backup}.yml. Write new README.md, AGENTS.md, CLAUDE.md pointer, pyproject.toml, mise.toml, empty src/lineage/__init__.py, tests/, data/, sql/ dirs. uv lock."
+        assigned_domain: "generalist-developer"
+        model_routing: {task_profile: implementation, uncertainty: low, consequence: medium, scope_size: bounded, determinism: deterministic, requested_tier: fast, requested_reasoning: medium, provider_model: "Claude Haiku 4.5", routing_enforced: true, escalation_tier: balanced, escalation_condition: "uv lock or tooling fails unexpectedly"}
+        owned_scope: ["repo root files", "src/", "tests/", "data/", "sql/", "docs/ (except docs/mvp-one-season-reset/)"]
+        forbidden_scope: [".agents/", ".claude/", "docs/mvp-one-season-reset/", ".github/workflows/db-*.yml"]
+        dependencies: []
+        parallelizable: false
+        expected_validation: ["git status shows only intended paths", "uv sync succeeds", "uv run lineage --help prints verbs (stub)"]
+  - id: "B1"
+    goal: "Schema and DB reset"
+    tasks:
+      - id: "T1.1"
+        title: "Write sql/0001_lineage.sql and migrate verb"
+        objective: "Six tables per contracts; `lineage migrate` applies sql/*.sql idempotently (create schema/table if not exists)."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: low, consequence: medium, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "schema cannot express a required contract"}
+        owned_scope: ["sql/", "src/lineage/db.py", "src/lineage/cli.py (migrate)"]
+        forbidden_scope: ["live DB writes"]
+        dependencies: ["T0.1"]
+        parallelizable: true
+        expected_validation: ["SQL parses (psql --dry via python sqlparse-free: apply against a throwaway schema name in tests? -> at minimum: unit test loads file and asserts 6 CREATE TABLE statements)"]
+      - id: "T1.2"
+        title: "Backup then drop `foundation`; apply lineage schema"
+        objective: "Orchestrator-run with explicit user go: trigger db-backup.yml (or MCP dump), confirm artifact, `drop schema foundation cascade`, apply sql/0001 via Supabase MCP."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: low, consequence: high, scope_size: narrow, determinism: deterministic, requested_tier: frontier, requested_reasoning: high, provider_model: "session model (orchestrator)", routing_enforced: false, escalation_tier: frontier, escalation_condition: "backup cannot be confirmed"}
+        owned_scope: ["Supabase live DB"]
+        forbidden_scope: ["any other schema"]
+        dependencies: ["T1.1"]
+        parallelizable: false
+        expected_validation: ["backup artifact exists", "list_tables shows lineage.* only (plus system)"]
+  - id: "B2"
+    goal: "Fetch, raw store, CI capture"
+    tasks:
+      - id: "T2.1"
+        title: "fetch verb + lineage-load.yml"
+        objective: "httpx GET of the player-movement feed with browser UA; store source_record (sha dedup); `--payload-file` for offline use. Workflow with workflow_dispatch running mise load, uploading artifacts; fetch step alone must succeed even if later verbs are stubs."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: medium, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "feed unreachable from CI"}
+        owned_scope: ["src/lineage/fetch.py", "src/lineage/cli.py (fetch)", ".github/workflows/lineage-load.yml", "mise.toml tasks", "tests/test_fetch.py"]
+        forbidden_scope: ["parser logic"]
+        dependencies: ["T1.1"]
+        parallelizable: true
+        expected_validation: ["pytest with a stub payload", "user triggers workflow; run green through fetch; orchestrator reads source_record via Supabase MCP"]
+  - id: "B3"
+    goal: "Deterministic derive"
+    tasks:
+      - id: "T3.1"
+        title: "Curated baseline files"
+        objective: "data/opening_roster_2025_26.json (players, contract_type, NBA person ids, source_url, as_of) and data/opening_pick_inventory_2025_26.json (Memphis-owned future picks with protections + source_url). Drafted by orchestrator from knowledge, marked `verified: false` until the user confirms each row."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: documentation, uncertainty: high, consequence: high, scope_size: narrow, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "session model (orchestrator)", routing_enforced: false, escalation_tier: frontier, escalation_condition: "cannot establish a fact; leave verified:false and list for user"}
+        owned_scope: ["data/*.json"]
+        forbidden_scope: ["src/"]
+        dependencies: ["T0.1"]
+        parallelizable: true
+        expected_validation: ["JSON schema check in tests", "user review"]
+      - id: "T3.2"
+        title: "Feed parser, pick grammar, corrections, derive verb"
+        objective: "Map feed rows (filtered to Memphis-involved, date >= window start) to transaction + asset_movement; group trade rows by group key; strict pick grammar over description text producing pick rows with natural keys; apply data/corrections.json; fail loudly on unparseable pick text or unknown transaction type; load in one DB transaction after truncating derived tables. Built against the real payload captured in T2.1."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: high, consequence: high, scope_size: bounded, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "Claude Opus 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "feed shape contradicts assumptions"}
+        owned_scope: ["src/lineage/parse.py", "src/lineage/picks.py", "src/lineage/derive.py", "src/lineage/cli.py (derive)", "tests/fixtures/", "tests/test_parse.py", "tests/test_picks.py", "tests/test_derive.py"]
+        forbidden_scope: ["sql/", "data/*.json except adding corrections entries with a note"]
+        dependencies: ["T2.1 real payload available", "T3.1"]
+        parallelizable: false
+        expected_validation: ["pytest offline on captured fixture", "derive twice -> identical row sets (test via in-memory or against DB read-back)"]
+  - id: "B4"
+    goal: "Validate, export, render"
+    tasks:
+      - id: "T4.1"
+        title: "validate verb"
+        objective: "Invariants: every asset has exactly one holder at any date; every movement's from_holder equals the prior holder; baseline players with no movement are still MEM; no transaction without a source_record; every pick referenced exists; kinds within the allowed set. Non-zero exit and readable report on failure."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: medium, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "invariant conflicts with real data in a way that suggests a model flaw"}
+        owned_scope: ["src/lineage/validate.py", "tests/test_validate.py", "src/lineage/cli.py (validate)"]
+        forbidden_scope: ["derive logic"]
+        dependencies: ["T3.2"]
+        parallelizable: true
+        expected_validation: ["pytest: passes on fixture, fails on planted inconsistency"]
+      - id: "T4.2"
+        title: "export + render verbs"
+        objective: "graph.json per contract; graph.svg hand-written: time axis, asset lanes, node markers, strand segments coloured by holder (MEM vs other)."
+        assigned_domain: "generalist-developer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: low, scope_size: bounded, determinism: interpretive, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "none expected"}
+        owned_scope: ["src/lineage/export.py", "src/lineage/render.py", "tests/test_export.py", "tests/test_render.py", "src/lineage/cli.py (export, render)"]
+        forbidden_scope: ["derive/validate logic"]
+        dependencies: ["T3.2"]
+        parallelizable: true
+        expected_validation: ["pytest", "SVG well-formed (xml.etree parse)", "user eyeballs graph.svg from CI artifact"]
+
+ordering_notes:
+  - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
+  - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval."
+  - "T3.2 waits for a real payload; if CI cannot reach the feed, fallback is the user running `mise run fetch` locally and committing the filtered payload as a fixture."
+  - "Docs for the shipped MVP live in README.md; docs/mvp-one-season-reset/ is deleted at merge."
+
+risks:
+  - "Feed blocked from GitHub runners (bot protection). Mitigation: browser UA; fallback local run."
+  - "Feed shape differs from assumption (no group key, picks absent from descriptions). Mitigation: parser built only after capture; corrections file absorbs gaps."
+  - "Opening roster/pick inventory drafted from model knowledge may be wrong. Mitigation: verified:false flags; user confirms before PR is called ready."
+  - "Two-way/10-day/Exhibit-10 semantics in the feed may be lumpy. Mitigation: kind mapping table in parse.py with loud failure for unknowns."
+
+model_routing_notes:
+  - "Provider map verified 2026-09-07. Agent tool exposes model=haiku|sonnet|opus; reasoning inherits from session."
+  - "T3.2 is the only frontier-tier implementation task (high uncertainty × high consequence)."
+
+open_questions:
+  - "Feed reachability from CI (resolved by first run)."
+  - "Who verifies the two curated baseline files (user)."
+
+review:
+  status: draft
+  loop_count: 0
+  notes: []
+
+checkpoint:
+  required_before_execution: true
+  status: pending

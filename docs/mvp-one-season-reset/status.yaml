@@ -1,0 +1,139 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "mvp-one-season-reset"
+mode: "large-initiative"
+stage: "planning"
+owner_skill: work
+
+objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
+
+repository_sync:
+  completed_before_work: true
+  checked_at: "2026-09-17"
+  repositories:
+    - path: "/home/user/nba-asset-lineage"
+      remote: "https://github.com/wmentrekin/nba-asset-lineage"
+      relevant_branch: "main"
+      local_commit_before: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      remote_commit_after_fetch: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      local_commit_after: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      result: "current"
+      notes: "Clean tree; feature branch already checked out at main."
+
+branching:
+  branch_name: "claude/blissful-shannon-sve08l"
+  notes: "Session-pinned branch used instead of work/<slug>; harness forbids pushing elsewhere."
+
+summary:
+  current_focus: "Planning: requirements and plan drafted; plan-reviewer-1 critiquing before the pre-execution checkpoint."
+  last_completed: "Discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/mvp-one-season-reset/requirements.yaml"
+  plan: "docs/mvp-one-season-reset/plan.yaml"
+  implementation_report: null
+
+pr:
+  number: null
+  url: null
+  status: "not_opened"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    task_profile: "orchestration"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "session default (Claude Fable 5.1 reported by harness)"
+    actual_reasoning: "session default"
+    routing_enforced: false
+    escalation_count: 0
+    status: "active"
+    stage: "discovery"
+    task: "Run discovery questions with user; coordinate researchers."
+    last_update: "Preflight done; spawning researchers."
+    blocker: ""
+  - id: "repo-researcher-1"
+    role: "repo-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Identify what in the current repo is worth keeping/mining for a one-season MVP; everything else is deletion candidate."
+    last_update: "Spawned."
+    blocker: ""
+  - id: "platform-researcher-1"
+    role: "platform-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Find reliable, accessible sources for Memphis 2025-26 opening roster and every transaction through 2026-09-17."
+    last_update: "Completed: all nine candidate hosts egress-blocked from sandbox; NBA player-movement JSON is best machine-readable lead."
+    blocker: ""
+  - id: "plan-reviewer-1"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "planning"
+    task: "Critique plan.yaml against requirements before checkpoint."
+    last_update: "Spawned."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 0
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: pending
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+decisions:
+  - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
+  - "Mode: large-initiative (full rip-and-replace with new data model and frontend)."
+  - "Use session-pinned branch claude/blissful-shannon-sve08l as the feature branch."
+  - "No deletion until discovery questions are answered and the plan is approved."
+
+model_routing:
+  provider: "Claude Code / Anthropic"
+  provider_map_verified_at: "2026-09-07"
+  substitutions:
+    - "Orchestrator runs on the session model (Fable 5.1) rather than Opus 5."
+  unresolved_limitations:
+    - "Subagent reasoning level inherits from main session; not independently controllable."
+
+next_action: "Integrate plan review; present pre-execution checkpoint to user."
+next_recommended_command: "$work"
+user_input_needed: true
