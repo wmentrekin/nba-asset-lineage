@@ -30,8 +30,8 @@ model_usage:
     - "Two orchestrator-sized fixes after T3.2: Wells person_id resolved from the full feed; transaction.note column added (sql/0002)."
 
 pr:
-  number: null
-  url: null
+  number: 8
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/8"
 
 changes:
   files:

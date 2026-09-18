@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "execution"
+stage: "verification"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "Live CI derive failed on a malformed non-Memphis feed row (empty position word) during person-id resolution; B3 agent resumed to make the resolution index lenient. PR opens after CI is green."
+  current_focus: "Verification: PR #8 open; reviewer-1 and tester-1 running against it. Live CI green on 04f0d88; DB counts match offline run."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -36,9 +36,9 @@ artifacts:
   implementation_report: "docs/mvp-one-season-reset/implementation-report.yaml"
 
 pr:
-  number: null
-  url: null
-  status: "not_opened"
+  number: 8
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/8"
+  status: "open"
 
 agents:
   - id: "orchestrator"
@@ -141,10 +141,10 @@ agents:
     actual_reasoning: "inherited"
     routing_enforced: true
     escalation_count: 0
-    status: "running"
+    status: "completed"
     stage: "execution"
     task: "T3.2 parser, pick events, corrections, derive, timeline against the 86-row fixture"
-    last_update: "Resumed (loop 1): fix strict name parsing over full-feed rows in resolve_person_ids."
+    last_update: "Loop-1 fix done: lenient identity index in snapshot+derive; 126 tests; CI green."
     blocker: ""
   - id: "data-engineer-b4"
     role: "data-engineer"
@@ -160,6 +160,36 @@ agents:
     stage: "execution"
     task: "B4 validate/export/render + load chain; persist transaction.note; fix 2 tests"
     last_update: "Completed: 115 tests; offline load chain green."
+    blocker: ""
+  - id: "reviewer-1"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "verification"
+    task: "Code review of PR #8; post findings as PR review."
+    last_update: "Spawned."
+    blocker: ""
+  - id: "tester-1"
+    role: "tester"
+    task_profile: "test_design"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "verification"
+    task: "Independent verification of PR #8: run suite, probe gaps, post findings as PR review."
+    last_update: "Spawned."
     blocker: ""
 
 loops:
@@ -200,6 +230,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Read captured payload back via Supabase MCP; spawn B3 data-engineer for parser/derive."
+next_action: "Integrate reviewer/tester findings; fix or stop at loop cap; report PR #8 ready."
 next_recommended_command: "$work"
 user_input_needed: true
