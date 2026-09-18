@@ -68,7 +68,7 @@ review_summary:
     - "mise tasks carried a sandbox --cache-dir; README fetch flags undocumented."
 
 test_summary:
-  status: failures_fixed
+  status: passed_b6
   checks_run:
     - "pytest x2: 126 passed, stable"
     - "offline load chain: 34 tx / 81 movements / 0 errors / 16 warnings"
