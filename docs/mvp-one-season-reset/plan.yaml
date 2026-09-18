@@ -23,6 +23,10 @@ approach:
     - "Pick identity is a natural key `{draft_year}-R{round}-{original_team}` so picks are stable across trades."
     - "Derive reads exactly one feed source_record (max fetched_at) plus the curated snapshot source_record, truncates and rebuilds transaction/asset_movement/player/pick inside one DB transaction, and inserts rows in a fully deterministic order (occurred_on, group_key, asset_type, asset_id). counterparties is a denormalized convenience column, not truth."
     - "Corrections are applied after parsing, before load, as declarative row overrides/additions keyed by (source group key, asset id)."
+    - "REVISED after capturing the real feed (2026-09-18): the feed itemizes players only. Pick movement appears solely as a 'draft consideration' leg (PLAYER_ID 0, no year/round), and draft selections appear only as later 'Rookie Scale Contract' signings. Therefore pick truth is curated in data/pick_events.json (keyed by feed GroupSort) rather than parsed from text; the feed's draft-consideration legs become a deterministic cross-check that validate enforces (warn when a leg has no curated picks, fail with --strict)."
+    - "Feed Transaction_Type values observed: Signing, Waive, Trade, ContractConverted, AwardOnWaivers. Kind mapping: Trade->trade; Waive->waiver; ContractConverted->two_way_conversion; AwardOnWaivers->signing; Signing-> two_way_signing if description contains 'Two-Way Contract', ten_day if '10-Day Contract', else signing (covers 'Contract', 'Rookie Scale Contract', 'Rest-of-Season Contract', 'Veteran Extension'). contract_type from the same keywords: two_way | ten_day | standard."
+    - "Re-signings, extensions and conversions are MEM->MEM movements carrying the new contract_type; they are legitimate nodes that do not change the holder."
+    - "Asset origin rule: an asset's first movement has from_holder NULL (baseline) or an entering holder (FA, DRAFT, or a non-MEM team code); every later movement's from_holder equals the previous to_holder."
     - "Fetch uses a browser-like User-Agent and stores payload_sha256; identical payloads are not stored twice."
     - "Window start = as_of date in data/opening_snapshot_2025_26.json; rows before it are dropped except those needed to explain a baseline holding (none expected)."
     - "SVG: x = time, one horizontal lane per asset (players top, picks below), a node marker per transaction date spanning the lanes it touches; hand-written SVG strings, no library."
@@ -43,7 +47,7 @@ contracts:
     - "pyproject.toml rewritten: package `lineage`, script `lineage = lineage.cli:main`, deps pydantic, psycopg[binary], httpx; dev pytest."
     - "mise.toml rewritten (python 3.11, uv; node removed)."
     - ".gitignore trimmed; `exports/` and `.env` ignored."
-    - "data/opening_snapshot_2025_26.json (players + ALL Memphis-owned future draft picks as of opening night) and data/corrections.json added."
+    - "data/opening_snapshot_2025_26.json (players + ALL Memphis-owned future draft picks as of opening night), data/pick_events.json (curated pick movements per trade GroupSort + 2026 draft selections), data/corrections.json added."
 
 branching:
   strategy: "single-branch"
@@ -114,11 +118,11 @@ execution_batches:
         parallelizable: true
         expected_validation: ["JSON schema check in tests", "user review"]
       - id: "T3.2"
-        title: "Feed parser, pick grammar, corrections, derive verb"
+        title: "Feed parser, pick events, corrections, derive verb, timeline"
         objective: "Map feed rows (filtered to Memphis-involved, date >= window start) to transaction + asset_movement; group trade rows by group key; strict pick grammar over description text producing pick rows with natural keys; apply data/corrections.json; fail loudly on unparseable pick text or unknown transaction type; load in one DB transaction after truncating derived tables. Description text with swap-rights phrasing (more/less favorable, swap) is recognized, excluded from strict-grammar failure, and logged for a corrections.json entry rather than raising. Also loads the curated snapshot as a source_record + OPENING-2025-26 baseline transaction. Built against the real payload captured in T2.1."
         assigned_domain: "data-engineer"
         model_routing: {task_profile: implementation, uncertainty: high, consequence: high, scope_size: bounded, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "Claude Opus 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "feed shape contradicts assumptions"}
-        owned_scope: ["src/lineage/parse.py", "src/lineage/picks.py", "src/lineage/derive.py", "src/lineage/timeline.py", "src/lineage/cli.py (derive)", "tests/fixtures/", "tests/test_parse.py", "tests/test_picks.py", "tests/test_derive.py"]
+        owned_scope: ["src/lineage/parse.py", "src/lineage/picks.py", "src/lineage/derive.py", "src/lineage/timeline.py", "src/lineage/snapshot.py", "src/lineage/cli.py (derive)", "tests/fixtures/", "tests/test_parse.py", "tests/test_picks.py", "tests/test_derive.py"]
         forbidden_scope: ["sql/", "data/*.json except adding corrections entries with a note"]
         dependencies: ["T2.1 real payload available", "T3.1"]
         parallelizable: false
