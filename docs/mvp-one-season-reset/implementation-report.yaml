@@ -9,10 +9,10 @@ based_on: "docs/mvp-one-season-reset/plan.yaml"
 
 summary:
   scope_executed: "B0 wipe + skeleton; B1 schema + migrate + live drop/apply; B2 fetch + CI workflow + first real capture; B3 parser/pick events/corrections/derive/timeline; B4 validate/export/render/load chain. RLS enabled at user request."
-  outcome: "B5 (owner feedback): 10-day contracts now expire via synthetic expiry nodes; render v2 draws Memphis tenure only on reusable slot lanes with hub connectors showing convergence/divergence at each transaction (1600x800). Earlier: repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
+  outcome: "B6 (owner feedback round 2): researched pick truth (2026 ORL 1st added; Boozer #3, Lopez #21, Saunders #32 unsigned as draft_rights; trade pick packages), Brandon Clarke contract_void node, render v3 with color-by-contract-type and color-by-kind hubs, full-season ordering, numbered legend. Earlier B5: 10-day contracts now expire via synthetic expiry nodes; render v2 draws Memphis tenure only on reusable slot lanes with hub connectors showing convergence/divergence at each transaction (1600x800). Earlier: repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
 
-task_batches_attempted: ["B0", "B1", "B2", "B3", "B4", "B5"]
-task_batches_completed: ["B0", "B1", "B2", "B3", "B4", "B5"]
+task_batches_attempted: ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]
+task_batches_completed: ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]
 
 domains_touched: ["generalist-developer", "data-engineer"]
 
@@ -26,6 +26,9 @@ model_usage:
     - {task_id: "T4.1+T4.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 75, wall_time_seconds: 656}
     - {task_id: "T5.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 58, wall_time_seconds: 347}
     - {task_id: "T5.2", role: "generalist-developer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 38, wall_time_seconds: 689}
+    - {task_id: "T6.1", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: false, escalation_count: 0}
+    - {task_id: "T6.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 106, wall_time_seconds: 808}
+    - {task_id: "T6.3", role: "generalist-developer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 59, wall_time_seconds: 740}
   routing_notes:
     - "T0.1 bumped fast->balanced because it rewrote AGENTS/README and deleted the whole tree."
     - "T3.1 (snapshot) drafted from model knowledge, then corrected from the captured feed; 8/18 player rows verified by feed evidence, 10 await owner confirmation."
@@ -81,9 +84,10 @@ test_summary:
     - "A missing feed row (e.g. a dropped trade leg) is undetectable by validate — inherent to a single-source model."
 
 open_issues:
-  - "data/pick_events.json: 4 trades and 2 draft selections need pick details from the owner."
-  - "10 snapshot player rows and all 15 pick rows are verified:false pending owner confirmation."
-  - "Repeated 10-day signings render as MEM->MEM because the feed has no expiry rows (source limitation)."
+  - "NOP 2026-09-08 second-round pick and swap: year/origin unverified (footnote only) — for the owner's later pick-audit pass."
+  - "Own 2nd-round picks 2027-2032 unverified (low confidence); RealGM/Spotrac tables unreachable from the sandbox."
+  - "10 snapshot player rows verified:false pending owner confirmation."
+  - "Draft-night swap-downs (#17 OKC, #21 DET) are footnotes, not nodes."
   - "Stale remote branch claude/blissful-shannon-sve08l cannot be deleted from this sandbox."
 
 handoff:
