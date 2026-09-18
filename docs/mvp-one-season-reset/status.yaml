@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "B3: parser/derive/timeline against the captured feed fixture (86 Memphis rows). Feed cannot itemize picks -> curated data/pick_events.json; user must fill pick details for 4 trades + 2 draft selections."
+  current_focus: "B4: validate, export (graph.json), render (graph.svg), load chain. RLS enabled live and in sql/0002 at user request."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -141,9 +141,24 @@ agents:
     actual_reasoning: "inherited"
     routing_enforced: true
     escalation_count: 0
-    status: "running"
+    status: "completed"
     stage: "execution"
     task: "T3.2 parser, pick events, corrections, derive, timeline against the 86-row fixture"
+    last_update: "Completed: build_graph pure + load_graph thin; 97 tests. Blockers resolved by orchestrator: Wells person_id from full feed; transaction.note column via sql/0002."
+    blocker: ""
+  - id: "data-engineer-b4"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "B4 validate/export/render + load chain; persist transaction.note; fix 2 tests"
     last_update: "Spawned."
     blocker: ""
 
@@ -170,6 +185,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-18: user asked to enable RLS; applied live on all five lineage tables (postgres role has bypassrls, pipeline unaffected) and recorded in sql/0002."
   - "Snapshot corrected from feed evidence: Mashack removed (two-way signed 2025-11-16), Landale confirmed on roster, opening two-ways = Small/Hall/Prosper."
   - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
   - "Mode: large-initiative (full rip-and-replace with new data model and frontend)."
