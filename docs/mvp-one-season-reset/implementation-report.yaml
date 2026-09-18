@@ -54,14 +54,29 @@ local_validation:
     - "Live derive against Supabase runs only in CI (sandbox cannot reach the feed; CI run triggered by push d6ef26c)."
 
 review_summary:
-  status: not_started
-  key_findings: []
+  status: changes_requested
+  key_findings:
+    - "render.py iterates a set when drawing node circles; SVG bytes vary across processes (blocking)."
+    - "validate W4 can never fire (blocking) — removed."
+    - "No tests for ContractConverted / AwardOnWaivers / rarer contract phrasings; Exhibit 10 never appears in the feed."
+    - "push trigger on work/** contradicts manual-only decision — removed."
+    - "mise tasks carried a sandbox --cache-dir; README fetch flags undocumented."
 
 test_summary:
-  status: not_started
-  checks_run: []
-  failures: []
-  gaps: []
+  status: failures_found
+  checks_run:
+    - "pytest x2: 126 passed, stable"
+    - "offline load chain: 34 tx / 81 movements / 0 errors / 16 warnings"
+    - "export x2 byte-identical; render x2 NOT identical (PYTHONHASHSEED)"
+    - "CLI --help for all verbs; unknown Transaction_Type fails loudly; duplicate waive caught by E1; --strict exits 1"
+    - "pick_events dry-fill: pick strand MEM->USED, player DRAFT->MEM, note folds, W1/W2 drop"
+    - "graph.svg parses; 61 lanes / 34 nodes; text escaped"
+  failures:
+    - "render nondeterminism across processes"
+    - "check-db/migrate/derive traceback when DATABASE_URL missing"
+  gaps:
+    - "No live-DB exercise from the sandbox (covered by CI run 35297586232)."
+    - "A missing feed row (e.g. a dropped trade leg) is undetectable by validate — inherent to a single-source model."
 
 open_issues:
   - "data/pick_events.json: 4 trades and 2 draft selections need pick details from the owner."
