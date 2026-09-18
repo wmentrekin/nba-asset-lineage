@@ -3,7 +3,7 @@
 artifact: implementation_report
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-status: execution_complete
+status: verified
 owner_skill: work
 based_on: "docs/mvp-one-season-reset/plan.yaml"
 
@@ -54,7 +54,7 @@ local_validation:
     - "Live derive against Supabase runs only in CI (sandbox cannot reach the feed; CI run triggered by push d6ef26c)."
 
 review_summary:
-  status: changes_requested
+  status: addressed
   key_findings:
     - "render.py iterates a set when drawing node circles; SVG bytes vary across processes (blocking)."
     - "validate W4 can never fire (blocking) — removed."
@@ -63,7 +63,7 @@ review_summary:
     - "mise tasks carried a sandbox --cache-dir; README fetch flags undocumented."
 
 test_summary:
-  status: failures_found
+  status: failures_fixed
   checks_run:
     - "pytest x2: 126 passed, stable"
     - "offline load chain: 34 tx / 81 movements / 0 errors / 16 warnings"
@@ -85,6 +85,6 @@ open_issues:
   - "Stale remote branch claude/blissful-shannon-sve08l cannot be deleted from this sandbox."
 
 handoff:
-  current_state: pr_pending
-  next_owner: "orchestrator"
-  next_action: "Confirm CI Lineage Load green on d6ef26c; open PR; run reviewer + tester."
+  current_state: pr_ready_for_review
+  next_owner: "owner"
+  next_action: "Review PR #8; fill data/pick_events.json (4 trades, 2 draft selections); confirm verified:false snapshot rows; confirm merge so docs/mvp-one-season-reset/ can be removed."
