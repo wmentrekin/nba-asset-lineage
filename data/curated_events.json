@@ -106,7 +106,7 @@
       ],
       "picks_out": [],
       "footnotes": [
-        "Memphis sent three future second-round picks to DET; years not found in any source, so they are not yet modelled as outgoing movements (inventory overstates by up to three 2nds).",
+        "Memphis sent three second-round picks to DET; per the owner these were Detroit's own seconds received on 2026 draft night for the #17->#21 swap-down and returned here for Isaiah Stewart, so they net to zero within the window and are deliberately not modelled as assets.",
         "Received a 2032 second-round pick swap right from WAS.",
         "Memphis sent the draft rights to Tarik Biberovic (non-roster; not modelled)."
       ]
@@ -150,7 +150,7 @@
       "verified": true,
       "confidence": "high",
       "footnotes": [
-        "Acquired ORL 1st swapped down on draft night: to #17 with OKC, then #21 with DET, netting second-round picks (years unknown; not modelled). Rookie scale contract signed 2026-07-29 (feed)."
+        "Acquired ORL 1st swapped down on draft night: to #17 with OKC, then #21 with DET, netting three DET second-round picks that were sent back to DET on 2026-07-08 for Isaiah Stewart (net zero; not modelled). Rookie scale contract signed 2026-07-29 (feed)."
       ]
     },
     {

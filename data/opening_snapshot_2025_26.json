@@ -182,7 +182,7 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     },
     {
       "draft_year": 2028,
@@ -200,7 +200,7 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     },
     {
       "draft_year": 2029,
@@ -218,7 +218,7 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     },
     {
       "draft_year": 2030,
@@ -246,7 +246,7 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     },
     {
       "draft_year": 2031,
@@ -264,7 +264,7 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     },
     {
       "draft_year": 2032,
@@ -282,14 +282,14 @@
       "protections": null,
       "verified": false,
       "confidence": "low",
-      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
     }
   ],
   "known_omissions_to_verify": [
     "Jahmai Mashack removed: his two-way signing is dated 2025-11-16 (replacing waived PJ Hall), so the opening-night two-ways were Small, Hall, Prosper."
   ],
   "pick_inventory_caveats": [
-    "Own 2nd-round picks 2027-2032 are unverified (low confidence). Three future MEM 2nds are owed to Detroit from the 2026-07-08 trade; years unknown, so at most four of the six remain Memphis's.",
+    "Own 2nd-round picks 2027-2032 are unverified (low confidence): no source found either way. (The three seconds sent to Detroit on 2026-07-08 were Detroit's own picks from the draft-night swap-down, not Memphis's, so they do not reduce this list.)",
     "Not owned as of 2025-10-22 (already sent to Portland 2025-06-25 in the Cedric Coward trade): 2028-R1-ORL, 2027-R2 via ATL, 2028-R2 via SAC.",
     "Swap rights are footnotes, not assets: 2029 1st swap with ORL (top-2 protected)."
   ]
