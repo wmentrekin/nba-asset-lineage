@@ -1,6 +1,9 @@
 """Tests for lineage.render: hand-written SVG from a graph.json export."""
 
-import datetime as dt
+import os
+import pathlib
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -10,6 +13,23 @@ from lineage.export import build_export
 from lineage.render import render_svg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# Builds the fixture-derived graph.json's SVG and prints it to stdout, so it can be run as a
+# separate process per PYTHONHASHSEED value.
+_RENDER_SCRIPT = """
+import json, pathlib
+from lineage.derive import build_graph, load_inputs
+from lineage.export import build_export
+from lineage.render import render_svg
+
+snapshot, pick_events, corrections = load_inputs(pathlib.Path("data"))
+feed = json.load(open("tests/fixtures/nba_player_movement_mem_2025_26.json"))
+graph = build_graph(feed, snapshot, pick_events, corrections)
+export = build_export(graph, snapshot.as_of)
+import sys
+sys.stdout.write(render_svg(export))
+"""
 
 
 @pytest.fixture
@@ -62,6 +82,25 @@ def test_landale_segment_ends_at_the_trade_nodes_x(svg):
 
 def test_render_is_byte_identical_across_two_runs(export):
     assert render_svg(export) == render_svg(export)
+
+
+def _run_render_script(hash_seed: str) -> str:
+    result = subprocess.run(
+        [sys.executable, "-c", _RENDER_SCRIPT],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+        env={**os.environ, "PYTHONHASHSEED": hash_seed},
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def test_render_is_byte_identical_across_processes_regardless_of_hash_seed():
+    first = _run_render_script("1")
+    second = _run_render_script("2")
+
+    assert first == second
 
 
 def test_all_text_is_escaped(export):

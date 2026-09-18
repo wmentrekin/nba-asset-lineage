@@ -1,11 +1,30 @@
 """Tests for lineage.export: the graph.json contract."""
 
 import datetime as dt
+import os
+import pathlib
+import subprocess
+import sys
 
 import pytest
 
 from lineage.derive import build_graph
 from lineage.export import build_export, pick_label
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+_EXPORT_SCRIPT = """
+import json, pathlib
+from lineage.derive import build_graph, load_inputs
+from lineage.export import build_export
+
+snapshot, pick_events, corrections = load_inputs(pathlib.Path("data"))
+feed = json.load(open("tests/fixtures/nba_player_movement_mem_2025_26.json"))
+graph = build_graph(feed, snapshot, pick_events, corrections)
+export = build_export(graph, snapshot.as_of)
+import sys
+sys.stdout.write(json.dumps(export, sort_keys=True))
+"""
 
 
 @pytest.fixture
@@ -86,3 +105,18 @@ def test_a_referenced_pick_becomes_a_labelled_asset(feed_payload, resolvable_inp
 
     asset = next(a for a in export["assets"] if a["id"] == "2031-R2-UTA")
     assert asset == {"id": "2031-R2-UTA", "type": "pick", "label": "2031 R2 (UTA)"}
+
+
+def test_export_is_byte_identical_across_processes_regardless_of_hash_seed():
+    def run(hash_seed: str) -> str:
+        result = subprocess.run(
+            [sys.executable, "-c", _EXPORT_SCRIPT],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+            env={**os.environ, "PYTHONHASHSEED": hash_seed},
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout
+
+    assert run("1") == run("2")

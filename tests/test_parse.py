@@ -117,6 +117,47 @@ def test_unknown_transaction_type_raises():
         classify(Group(group_key="Mystery 1", rows=tuple(rows)))
 
 
+def _single_row_group(group_key, transaction_type, description):
+    rows = feed_rows(
+        {
+            "NBA_Player_Movement": {
+                "rows": [
+                    {
+                        "GroupSort": group_key,
+                        "TEAM_ID": 1610612763.0,
+                        "Additional_Sort": 0.0,
+                        "PLAYER_ID": 1.0,
+                        "PLAYER_SLUG": "x",
+                        "TEAM_SLUG": "grizzlies",
+                        "TRANSACTION_DATE": "2026-01-01T00:00:00",
+                        "Transaction_Type": transaction_type,
+                        "TRANSACTION_DESCRIPTION": description,
+                    }
+                ]
+            }
+        }
+    )
+    return Group(group_key=group_key, rows=tuple(rows))
+
+
+def test_classify_contract_converted():
+    group = _single_row_group(
+        "ContractConverted 1",
+        "ContractConverted",
+        "Toronto Raptors converted the contract of guard A.J. Lawson to an NBA Contract.",
+    )
+    assert classify(group) == "two_way_conversion"
+
+
+def test_classify_award_on_waivers():
+    group = _single_row_group(
+        "AwardOnWaivers 1",
+        "AwardOnWaivers",
+        "Memphis Grizzlies claimed guard Tony Wroten off waivers.",
+    )
+    assert classify(group) == "signing"
+
+
 @pytest.mark.parametrize(
     ("description", "expected"),
     [
@@ -133,6 +174,16 @@ def test_unknown_transaction_type_raises():
         ),
         (
             "Memphis Grizzlies re-signed forward Jaren Jackson Jr. to a Veteran Extension.",
+            "standard",
+        ),
+        # The other two real signing tails, per the full ~9,800-row feed history: Rookie
+        # Scale Extension (101 occurrences) and Substitute Player Contract (15).
+        (
+            "Memphis Grizzlies signed forward Sample Player to a Rookie Scale Extension.",
+            "standard",
+        ),
+        (
+            "Memphis Grizzlies signed guard Sample Player to a Substitute Player Contract.",
             "standard",
         ),
     ],
@@ -180,6 +231,17 @@ def test_every_fixture_description_yields_a_name_matching_its_slug(feed_payload)
         (
             "Memphis Grizzlies received guard-forward Sample Name from Utah Jazz.",
             "Sample Name",
+        ),
+        # AwardOnWaivers: the name extractor must stop at " off waivers".
+        (
+            "Memphis Grizzlies claimed guard Tony Wroten off waivers.",
+            "Tony Wroten",
+        ),
+        # ContractConverted: note the "to an" article, not "to a".
+        (
+            "Toronto Raptors converted the contract of guard A.J. Lawson to an NBA "
+            "Contract.",
+            "A.J. Lawson",
         ),
     ],
 )

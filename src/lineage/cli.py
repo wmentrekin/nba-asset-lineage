@@ -5,6 +5,8 @@ import json
 import pathlib
 import sys
 
+import psycopg
+
 from lineage.db import check_db, connect
 from lineage.derive import (
     CURATED_SOURCES,
@@ -32,6 +34,12 @@ VERBS = [
     "render",
     "load",
 ]
+
+# RuntimeError: DATABASE_URL missing (lineage.config.get_database_url). OperationalError:
+# psycopg couldn't reach or authenticate to the configured database. Both are ordinary,
+# expected failure modes for every DB-touching verb, so the CLI reports them the same way
+# it reports a DERIVE_ERRORS failure: one line, no traceback.
+DB_ERRORS = (RuntimeError, psycopg.OperationalError)
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SQL_DIR = REPO_ROOT / "sql"
@@ -181,28 +189,40 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.verb == "check-db":
-        check_db()
-        return 0
+        try:
+            check_db()
+            return 0
+        except DB_ERRORS as exc:
+            print(f"check-db failed: {exc}", file=sys.stderr)
+            return 1
 
     if args.verb == "migrate":
-        with connect() as conn:
-            apply_migrations(conn, SQL_DIR)
-        return 0
+        try:
+            with connect() as conn:
+                apply_migrations(conn, SQL_DIR)
+            return 0
+        except DB_ERRORS as exc:
+            print(f"migrate failed: {exc}", file=sys.stderr)
+            return 1
 
     if args.verb == "fetch":
-        return _run_fetch(args)
+        try:
+            return _run_fetch(args)
+        except DB_ERRORS as exc:
+            print(f"fetch failed: {exc}", file=sys.stderr)
+            return 1
 
     if args.verb == "derive":
         try:
             return _run_derive(args)
-        except DERIVE_ERRORS as exc:
+        except (*DERIVE_ERRORS, *DB_ERRORS) as exc:
             print(f"derive failed: {exc}", file=sys.stderr)
             return 1
 
     if args.verb == "validate":
         try:
             return run_validate(args.feed_fixture, DATA_DIR, args.strict)
-        except DERIVE_ERRORS as exc:
+        except (*DERIVE_ERRORS, *DB_ERRORS) as exc:
             print(f"validate failed: {exc}", file=sys.stderr)
             return 1
 
@@ -210,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             run_export(args.feed_fixture, DATA_DIR, pathlib.Path(args.out))
             return 0
-        except DERIVE_ERRORS as exc:
+        except (*DERIVE_ERRORS, *DB_ERRORS) as exc:
             print(f"export failed: {exc}", file=sys.stderr)
             return 1
 
@@ -221,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.verb == "load":
         try:
             return _run_load(args)
-        except DERIVE_ERRORS as exc:
+        except (*DERIVE_ERRORS, *DB_ERRORS) as exc:
             print(f"load failed: {exc}", file=sys.stderr)
             return 1
 

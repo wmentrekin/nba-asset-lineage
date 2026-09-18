@@ -8,36 +8,36 @@ run = "uv sync"
 
 [tasks.check_db]
 description = "Confirm the app can connect to DATABASE_URL"
-run = "uv --cache-dir /tmp/uv-cache run lineage check-db"
+run = "uv run lineage check-db"
 
 [tasks.migrate]
 description = "Apply the lineage schema"
-run = "uv --cache-dir /tmp/uv-cache run lineage migrate"
+run = "uv run lineage migrate"
 
 [tasks.fetch]
 description = "Pull the raw player-movement feed and store it"
-run = "uv --cache-dir /tmp/uv-cache run lineage fetch --save-to exports/nba_player_movement.json"
+run = "uv run lineage fetch --save-to exports/nba_player_movement.json"
 
 [tasks.derive]
 description = "Rebuild transaction/asset rows from raw payloads and data files"
-run = "uv --cache-dir /tmp/uv-cache run lineage derive"
+run = "uv run lineage derive"
 
 [tasks.validate]
 description = "Check the derived data against graph invariants"
-run = "uv --cache-dir /tmp/uv-cache run lineage validate"
+run = "uv run lineage validate"
 
 [tasks.export]
 description = "Write graph.json"
-run = "uv --cache-dir /tmp/uv-cache run lineage export"
+run = "uv run lineage export"
 
 [tasks.render]
 description = "Draw graph.svg from graph.json"
-run = "uv --cache-dir /tmp/uv-cache run lineage render"
+run = "uv run lineage render"
 
 [tasks.load]
 description = "Run fetch, derive, validate, export, render in sequence"
-run = "uv --cache-dir /tmp/uv-cache run lineage load"
+run = "uv run lineage load"
 
 [tasks.test]
 description = "Run the offline pytest suite"
-run = "uv --cache-dir /tmp/uv-cache run pytest"
+run = "uv run pytest"

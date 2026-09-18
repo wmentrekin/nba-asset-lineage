@@ -5,10 +5,33 @@ import pathlib
 import subprocess
 import sys
 
+from lineage import cli
 from lineage.cli import VERBS
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 FEED_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "nba_player_movement_mem_2025_26.json"
+
+
+def test_check_db_reports_a_missing_database_url_without_a_traceback(monkeypatch, capsys):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    exit_code = cli.main(["check-db"])
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "check-db failed: DATABASE_URL is not set" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_migrate_reports_a_missing_database_url_without_a_traceback(monkeypatch, capsys):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    exit_code = cli.main(["migrate"])
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "migrate failed: DATABASE_URL is not set" in captured.err
+    assert "Traceback" not in captured.err
 
 
 def test_help_lists_all_verbs():

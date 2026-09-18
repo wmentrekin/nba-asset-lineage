@@ -18,10 +18,10 @@ from lineage.derive import (
     load_graph,
     select_feed_payload,
 )
-from lineage.corrections import DropRow
+from lineage.corrections import Corrections, DropRow
 from lineage.parse import FeedParseError
-from lineage.picks import UNCURATED_NOTE, PickMove
-from lineage.snapshot import UnresolvedPlayerError
+from lineage.picks import UNCURATED_NOTE, PickEvents, PickMove
+from lineage.snapshot import Snapshot, UnresolvedPlayerError
 from lineage.timeline import Segment, build_timelines
 
 BASELINE_ID = "OPENING-2025-26"
@@ -376,3 +376,63 @@ def test_a_malformed_memphis_row_still_fails_loudly(feed_payload, resolvable_inp
 
     with pytest.raises(FeedParseError, match="inscrutable"):
         build_graph(feed_payload, snapshot, pick_events, corrections)
+
+
+def _synthetic_row(group_key, transaction_type, description, player_id, player_slug):
+    return {
+        "GroupSort": group_key,
+        "TEAM_ID": 1610612763.0,  # MEM
+        "Additional_Sort": 0.0,
+        "PLAYER_ID": float(player_id),
+        "PLAYER_SLUG": player_slug,
+        "TEAM_SLUG": "grizzlies",
+        "TRANSACTION_DATE": "2026-01-02T00:00:00",
+        "Transaction_Type": transaction_type,
+        "TRANSACTION_DESCRIPTION": description,
+    }
+
+
+def test_contract_converted_and_award_on_waivers_produce_the_expected_movements():
+    """Derive-level regression for the two real feed shapes B4 review flagged: a
+    ContractConverted row (MEM->MEM, standard) and an AwardOnWaivers row (FA->MEM,
+    standard) - both drawn from real observed phrasings, not synthesized text."""
+    snapshot = Snapshot(team="MEM", season="2025-26", as_of=dt.date(2026, 1, 1), players=[], picks=[])
+    pick_events = PickEvents(trades=[], draft_selections=[])
+    corrections = Corrections()
+    feed_payload = {
+        "NBA_Player_Movement": {
+            "rows": [
+                _synthetic_row(
+                    "ContractConverted 9001",
+                    "ContractConverted",
+                    "Memphis Grizzlies converted the contract of guard A.J. Lawson to an "
+                    "NBA Contract.",
+                    9001,
+                    "aj-lawson",
+                ),
+                _synthetic_row(
+                    "AwardOnWaivers 9002",
+                    "AwardOnWaivers",
+                    "Memphis Grizzlies claimed guard Tony Wroten off waivers.",
+                    9002,
+                    "tony-wroten",
+                ),
+            ]
+        }
+    }
+
+    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    movements = {movement.asset_id: movement for movement in graph.movements}
+
+    converted = movements["9001"]
+    assert (converted.from_holder, converted.to_holder, converted.contract_type) == (
+        "MEM",
+        "MEM",
+        "standard",
+    )
+    claimed = movements["9002"]
+    assert (claimed.from_holder, claimed.to_holder, claimed.contract_type) == (
+        "FA",
+        "MEM",
+        "standard",
+    )

@@ -64,5 +64,5 @@ mise run test       # run the offline pytest suite
 A task is done only when:
 
 - The offline pytest suite passes.
-- `mise run load` is green in CI.
+- The Lineage Load workflow (fetch, derive, validate, export, render) is green in CI.
 - README.md reflects any changed behavior or commands.

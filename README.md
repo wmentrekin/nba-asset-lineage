@@ -22,7 +22,7 @@ payloads plus curated data files into transaction and asset-movement rows.
 | `setup` | `uv sync` the project dependencies |
 | `check_db` | Confirm the app can connect to `DATABASE_URL` |
 | `migrate` | Apply the `lineage` schema |
-| `fetch` | Pull the raw player-movement feed and store it |
+| `fetch` | Pull the raw player-movement feed and store it (`--payload-file PATH` to read a saved payload instead of the network, `--save-to PATH` to also write the raw bytes to disk) |
 | `derive` | Rebuild transaction/asset rows from raw payloads + data files (`--feed-fixture PATH`, `--dry-run`) |
 | `validate` | Check the derived data against graph invariants (`--feed-fixture PATH`, `--strict`) |
 | `export` | Write `graph.json` (`--feed-fixture PATH`, `--out PATH`) |
@@ -49,6 +49,10 @@ of loading them.
 Locally, set `DATABASE_URL` in a `.env` file. In CI it is a repo secret. This
 development sandbox cannot reach NBA hosts, so live fetches only run in
 GitHub Actions or on a machine with real network access.
+
+The Lineage Load workflow is `workflow_dispatch`-only (manual trigger from the
+Actions tab), and that only works once the workflow file is on the default
+branch. On a feature branch, run `mise run load` locally instead.
 
 The previous multi-season implementation lives in git history on `main`
 before this reset.

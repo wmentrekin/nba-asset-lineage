@@ -95,7 +95,6 @@ def validate_graph(
     findings += _check_uncurated_draft_considerations(graph)  # W1
     findings += _check_todo_draft_selections(pick_events)  # W2
     findings += _check_unverified_snapshot_players(snapshot)  # W3
-    findings += _check_final_holder_sanity(graph)  # W4
     return findings
 
 
@@ -286,25 +285,6 @@ def _check_unverified_snapshot_players(snapshot: Snapshot) -> list[Finding]:
         for player in snapshot.players
         if not player.verified
     ]
-
-
-def _check_final_holder_sanity(graph: DerivedGraph) -> list[Finding]:
-    """W4: an asset's final holder should always trace back to a movement that put it there."""
-    findings: list[Finding] = []
-    for (asset_type, asset_id), movements in by_asset(graph.movements).items():
-        final_holder = movements[-1].to_holder
-        if final_holder == MEM:
-            continue
-        if not any(movement.to_holder == final_holder for movement in movements):
-            findings.append(
-                Finding(
-                    LEVEL_WARN,
-                    "W4",
-                    f"{asset_type} {asset_id}: final holder {final_holder!r} is not MEM and "
-                    "no movement ever sent it there",
-                )
-            )
-    return findings
 
 
 def format_report(findings: list[Finding]) -> str:

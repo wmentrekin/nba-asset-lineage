@@ -125,7 +125,7 @@ def render_svg(export: dict[str, Any]) -> str:
 
     strands_by_id = {strand["asset_id"]: strand for strand in export["strands"]}
     node_dates = {node["id"]: _parse_date(node["date"]) for node in nodes}
-    touched_lanes = _touched_lanes(nodes, strands_by_id)
+    touched_lanes = _touched_lanes(nodes, assets, strands_by_id)
     parts.append(
         _render_segments(assets, strands_by_id, lane_centers, scale, node_dates, end)
     )
@@ -226,16 +226,28 @@ def _render_segments(
 
 
 def _touched_lanes(
-    nodes: list[dict[str, Any]], strands_by_id: dict[str, dict[str, Any]]
-) -> dict[str, set[str]]:
+    nodes: list[dict[str, Any]],
+    assets: list[dict[str, Any]],
+    strands_by_id: dict[str, dict[str, Any]],
+) -> dict[str, list[str]]:
     """A lane is "touched" by a node when a segment starts there, i.e. some movement in
-    that transaction affected that asset."""
-    touched: dict[str, set[str]] = {node["id"]: set() for node in nodes}
-    for asset_id, strand in strands_by_id.items():
+    that transaction affected that asset.
+
+    Returns plain lists, each in lane order (the fixed `assets` order), never sets: a set's
+    iteration order for string keys depends on PYTHONHASHSEED, which would make the emitted
+    circle order - and so the SVG bytes - vary across processes.
+    """
+    touched: dict[str, list[str]] = {node["id"]: [] for node in nodes}
+    seen: dict[str, set[str]] = {node["id"]: set() for node in nodes}
+    for asset in assets:
+        strand = strands_by_id.get(asset["id"])
+        if strand is None:
+            continue
         for segment in strand["segments"]:
             from_node = segment["from_node"]
-            if from_node in touched:
-                touched[from_node].add(asset_id)
+            if from_node in touched and asset["id"] not in seen[from_node]:
+                touched[from_node].append(asset["id"])
+                seen[from_node].add(asset["id"])
     return touched
 
 
@@ -243,7 +255,7 @@ def _render_nodes(
     nodes: list[dict[str, Any]],
     lane_centers: dict[str, float],
     scale: Scale,
-    touched_lanes: dict[str, set[str]],
+    touched_lanes: dict[str, list[str]],
 ) -> str:
     return "".join(
         _render_one_node(node, lane_centers, scale, touched_lanes[node["id"]])
@@ -255,7 +267,7 @@ def _render_one_node(
     node: dict[str, Any],
     lane_centers: dict[str, float],
     scale: Scale,
-    touched_asset_ids: set[str],
+    touched_asset_ids: list[str],
 ) -> str:
     x = scale(_parse_date(node["date"]))
     ys = [lane_centers[asset_id] for asset_id in touched_asset_ids if asset_id in lane_centers]

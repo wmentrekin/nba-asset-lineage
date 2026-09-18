@@ -27,7 +27,7 @@ _POSITION_RE = re.compile(
 # "Denver Nuggets signed  Bryce Hopkins to a Two-Way Contract." No well-formed description
 # contains a run of whitespace, so this only ever fires where a position word is missing.
 _EMPTY_POSITION_RE = re.compile(r"\s\s+")
-_NAME_TERMINATORS = (" from ", " to a ", " to an ")
+_NAME_TERMINATORS = (" from ", " to a ", " to an ", " off waivers")
 
 KIND_TRADE = "trade"
 KIND_WAIVER = "waiver"
@@ -40,12 +40,15 @@ CONTRACT_TWO_WAY = "two_way"
 CONTRACT_TEN_DAY = "ten_day"
 CONTRACT_STANDARD = "standard"
 
-# Feed phrases that mean a plain standard contract.
+# Feed phrases that mean a plain standard contract. "Exhibit 10 Contract" never occurs in
+# the feed (checked against the full ~9,800-row history): Exhibit-10 deals surface as plain
+# "... to a Contract." signings, indistinguishable from any other standard deal in this source.
 _STANDARD_CONTRACT_PHRASES = (
     "Rookie Scale Contract",
+    "Rookie Scale Extension",
     "Rest-of-Season Contract",
     "Veteran Extension",
-    "Exhibit 10 Contract",
+    "Substitute Player Contract",
     "to a Contract",
     "to an Extension",
 )
