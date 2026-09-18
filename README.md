@@ -23,11 +23,11 @@ payloads plus curated data files into transaction and asset-movement rows.
 | `check_db` | Confirm the app can connect to `DATABASE_URL` |
 | `migrate` | Apply the `lineage` schema |
 | `fetch` | Pull the raw player-movement feed and store it |
-| `derive` | Rebuild transaction/asset rows from raw payloads + data files |
-| `validate` | Check the derived data against graph invariants |
-| `export` | Write `graph.json` |
-| `render` | Draw `graph.svg` from `graph.json` |
-| `load` | Run fetch, derive, validate, export, render in sequence |
+| `derive` | Rebuild transaction/asset rows from raw payloads + data files (`--feed-fixture PATH`, `--dry-run`) |
+| `validate` | Check the derived data against graph invariants (`--feed-fixture PATH`, `--strict`) |
+| `export` | Write `graph.json` (`--feed-fixture PATH`, `--out PATH`) |
+| `render` | Draw `graph.svg` from `graph.json` (`--in PATH`, `--out PATH`) |
+| `load` | Run fetch, derive, validate, export, render in sequence (`--feed-fixture PATH`) |
 | `test` | Run the offline pytest suite |
 
 ## Data files

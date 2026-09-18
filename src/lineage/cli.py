@@ -16,8 +16,11 @@ from lineage.derive import (
     print_counts,
     select_feed_payload,
 )
+from lineage.export import run_export
 from lineage.fetch import FEED_URL, fetch_payload, store_payload
 from lineage.migrate import apply_migrations
+from lineage.render import run_render
+from lineage.validate import run_validate
 
 VERBS = [
     "check-db",
@@ -30,11 +33,11 @@ VERBS = [
     "load",
 ]
 
-NOT_IMPLEMENTED = {"validate", "export", "render", "load"}
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
 SQL_DIR = REPO_ROOT / "sql"
 DATA_DIR = REPO_ROOT / "data"
+DEFAULT_EXPORT_PATH = REPO_ROOT / "exports" / "graph.json"
+DEFAULT_RENDER_PATH = REPO_ROOT / "exports" / "graph.svg"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -60,6 +63,43 @@ def build_parser() -> argparse.ArgumentParser:
                 "--dry-run",
                 action="store_true",
                 help="Print the derived rows as JSON instead of loading them",
+            )
+        if verb == "validate":
+            sub.add_argument(
+                "--feed-fixture",
+                help="Validate a graph built from this feed payload instead of the database",
+            )
+            sub.add_argument(
+                "--strict",
+                action="store_true",
+                help="Exit non-zero if there are any warnings, not just errors",
+            )
+        if verb == "export":
+            sub.add_argument(
+                "--feed-fixture",
+                help="Export a graph built from this feed payload instead of the database",
+            )
+            sub.add_argument(
+                "--out",
+                default=str(DEFAULT_EXPORT_PATH),
+                help="Where to write graph.json (default: exports/graph.json)",
+            )
+        if verb == "render":
+            sub.add_argument(
+                "--in",
+                dest="in_path",
+                default=str(DEFAULT_EXPORT_PATH),
+                help="graph.json to render (default: exports/graph.json)",
+            )
+            sub.add_argument(
+                "--out",
+                default=str(DEFAULT_RENDER_PATH),
+                help="Where to write graph.svg (default: exports/graph.svg)",
+            )
+        if verb == "load":
+            sub.add_argument(
+                "--feed-fixture",
+                help="Run fetch+derive+validate+export+render offline from this feed payload",
             )
     return parser
 
@@ -116,6 +156,26 @@ def _run_derive(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_load(args: argparse.Namespace) -> int:
+    """fetch (unless a fixture is given) -> derive -> validate -> export -> render, fail fast."""
+    if not args.feed_fixture:
+        raw = fetch_payload(FEED_URL)
+        with connect() as conn:
+            store_payload(conn, raw, FEED_URL)
+
+    derive_rc = _run_derive(argparse.Namespace(feed_fixture=args.feed_fixture, dry_run=False))
+    if derive_rc != 0:
+        return derive_rc
+
+    validate_rc = run_validate(args.feed_fixture, DATA_DIR, strict=False)
+    if validate_rc != 0:
+        return validate_rc
+
+    run_export(args.feed_fixture, DATA_DIR, DEFAULT_EXPORT_PATH)
+    run_render(DEFAULT_EXPORT_PATH, DEFAULT_RENDER_PATH)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -139,9 +199,31 @@ def main(argv: list[str] | None = None) -> int:
             print(f"derive failed: {exc}", file=sys.stderr)
             return 1
 
-    if args.verb in NOT_IMPLEMENTED:
-        print(f"{args.verb}: not implemented yet")
-        return 2
+    if args.verb == "validate":
+        try:
+            return run_validate(args.feed_fixture, DATA_DIR, args.strict)
+        except DERIVE_ERRORS as exc:
+            print(f"validate failed: {exc}", file=sys.stderr)
+            return 1
+
+    if args.verb == "export":
+        try:
+            run_export(args.feed_fixture, DATA_DIR, pathlib.Path(args.out))
+            return 0
+        except DERIVE_ERRORS as exc:
+            print(f"export failed: {exc}", file=sys.stderr)
+            return 1
+
+    if args.verb == "render":
+        run_render(pathlib.Path(args.in_path), pathlib.Path(args.out))
+        return 0
+
+    if args.verb == "load":
+        try:
+            return _run_load(args)
+        except DERIVE_ERRORS as exc:
+            print(f"load failed: {exc}", file=sys.stderr)
+            return 1
 
     parser.error(f"unknown verb: {args.verb}")
     return 2

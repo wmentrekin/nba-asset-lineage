@@ -80,8 +80,8 @@ INSERT_PICK_SQL = (
 )
 INSERT_TRANSACTION_SQL = (
     "insert into lineage.transaction "
-    "(id, occurred_on, kind, description, group_key, source_record_id, counterparties) "
-    "values (%s, %s, %s, %s, %s, %s, %s)"
+    "(id, occurred_on, kind, description, group_key, source_record_id, counterparties, note) "
+    "values (%s, %s, %s, %s, %s, %s, %s, %s)"
 )
 INSERT_MOVEMENT_SQL = (
     "insert into lineage.asset_movement "
@@ -224,6 +224,19 @@ def _baseline_transaction(snapshot: Snapshot, person_ids: dict[str, int]) -> Tra
     return transaction
 
 
+def _draft_consideration_note(transaction: Transaction) -> str:
+    """Summarize a trade's draft-consideration legs as `draft consideration: MEM<-DAL; ...`.
+
+    Order matches `transaction.draft_considerations`, i.e. the order the feed rows were
+    parsed in, so the note is deterministic.
+    """
+    legs = "; ".join(
+        f"{consideration.receiving}<-{consideration.sending}"
+        for consideration in transaction.draft_considerations
+    )
+    return f"draft consideration: {legs}"
+
+
 def _attach_pick_events(
     transactions: list[Transaction], pick_events: PickEvents, notes: list[str]
 ) -> None:
@@ -244,6 +257,7 @@ def _attach_pick_events(
             transaction.note = UNCURATED_NOTE
             notes.append(f"{transaction.id}: {UNCURATED_NOTE}")
             continue
+        transaction.note = _draft_consideration_note(transaction)
         for move in trade.picks:
             parse_pick_id(move.pick_id)
             transaction.movements.append(
@@ -474,6 +488,7 @@ def load_graph(conn, graph: DerivedGraph, source_record_ids: dict[str, int]) -> 
                     transaction.group_key,
                     source_record_ids[transaction.source_key],
                     transaction.counterparties,
+                    transaction.note,
                 )
                 for transaction in graph.transactions
             ],

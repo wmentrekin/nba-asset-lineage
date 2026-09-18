@@ -36,6 +36,12 @@ def test_build_graph_fails_loudly_on_an_unresolvable_snapshot_player(
     feed_payload, curated_inputs
 ):
     snapshot, pick_events, corrections = curated_inputs
+    snapshot = snapshot.model_copy(deep=True)
+    # Jaylen Wells never appears by name or slug in the captured fixture, so nulling his
+    # person_id here (regardless of what data/opening_snapshot_2025_26.json currently has)
+    # reliably exercises the unresolvable-player path.
+    wells = next(player for player in snapshot.players if player.name == "Jaylen Wells")
+    wells.person_id = None
 
     with pytest.raises(UnresolvedPlayerError, match="Jaylen Wells"):
         build_graph(feed_payload, snapshot, pick_events, corrections)
@@ -304,6 +310,24 @@ def test_load_graph_stamps_each_transaction_with_its_source_record(graph):
 
     assert source_ids[BASELINE_ID] == 11
     assert source_ids["Signing-1139430"] == 22
+
+
+def test_load_graph_inserts_each_transaction_note(feed_payload, resolvable_inputs):
+    snapshot, pick_events, corrections = resolvable_inputs
+    trade = next(t for t in pick_events.trades if t.group_key == "Trade 2025022")
+    trade.picks = [PickMove(pick_id="2031-R2-UTA", from_holder="UTA", to_holder="MEM")]
+    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    conn = FakeConnection()
+
+    load_graph(
+        conn, graph, {"snapshot": 11, "feed": 22, "pick_events": 33, "corrections": 44}
+    )
+    transaction_rows = conn.calls[3][2]
+    notes = {row[0]: row[7] for row in transaction_rows}
+
+    assert notes[BASELINE_ID] is None
+    assert notes["Trade-2025022"] == "draft consideration: MEM<-UTA"
+    assert notes["Trade-2025037"] == UNCURATED_NOTE
 
 
 def test_load_graph_refuses_a_missing_source_record_id(graph):

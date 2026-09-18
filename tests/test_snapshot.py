@@ -84,12 +84,15 @@ def test_resolve_person_ids_resolves_a_null_id_by_name_and_by_slug(feed_payload)
 
 
 def test_resolve_person_ids_fails_loudly_naming_the_player(feed_payload):
-    snapshot = load_snapshot(SNAPSHOT_PATH)
+    # Built here rather than relying on data/opening_snapshot_2025_26.json having an
+    # unresolved row: Jaylen Wells never appears by name or slug in the captured fixture,
+    # so nulling his person_id on a copy of the loaded snapshot reliably exercises this.
+    snapshot = load_snapshot(SNAPSHOT_PATH).model_copy(deep=True)
+    wells = next(player for player in snapshot.players if player.name == "Jaylen Wells")
+    wells.person_id = None
 
     with pytest.raises(UnresolvedPlayerError) as excinfo:
         resolve_person_ids(snapshot, feed_rows(feed_payload))
 
-    # Jaylen Wells is the one snapshot row with person_id null, and his only feed
-    # appearance predates the captured window.
     assert "Jaylen Wells" in str(excinfo.value)
     assert "opening_snapshot_2025_26.json" in str(excinfo.value)
