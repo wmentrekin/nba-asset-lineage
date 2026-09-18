@@ -1,0 +1,75 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "mvp-one-season-reset"
+mode: "large-initiative"
+status: execution_complete
+owner_skill: work
+based_on: "docs/mvp-one-season-reset/plan.yaml"
+
+summary:
+  scope_executed: "B0 wipe + skeleton; B1 schema + migrate + live drop/apply; B2 fetch + CI workflow + first real capture; B3 parser/pick events/corrections/derive/timeline; B4 validate/export/render/load chain. RLS enabled at user request."
+  outcome: "Repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
+
+task_batches_attempted: ["B0", "B1", "B2", "B3", "B4"]
+task_batches_completed: ["B0", "B1", "B2", "B3", "B4"]
+
+domains_touched: ["generalist-developer", "data-engineer"]
+
+model_usage:
+  tasks:
+    - {task_id: "T0.1", role: "generalist-developer", requested_tier: "fast", requested_model: "Claude Haiku 4.5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 37, wall_time_seconds: 162}
+    - {task_id: "T1.1+T2.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 27, wall_time_seconds: 135}
+    - {task_id: "T1.2", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: true, escalation_count: 0}
+    - {task_id: "T3.1", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: false, escalation_count: 0}
+    - {task_id: "T3.2", role: "data-engineer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 41, wall_time_seconds: 859}
+    - {task_id: "T4.1+T4.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 75, wall_time_seconds: 656}
+  routing_notes:
+    - "T0.1 bumped fast->balanced because it rewrote AGENTS/README and deleted the whole tree."
+    - "T3.1 (snapshot) drafted from model knowledge, then corrected from the captured feed; 8/18 player rows verified by feed evidence, 10 await owner confirmation."
+    - "Two orchestrator-sized fixes after T3.2: Wells person_id resolved from the full feed; transaction.note column added (sql/0002)."
+
+pr:
+  number: null
+  url: null
+
+changes:
+  files:
+    - "README.md, AGENTS.md, CLAUDE.md, pyproject.toml, uv.lock, mise.toml, .gitignore (rewritten)"
+    - "sql/0001_lineage.sql, sql/0002_rls_and_transaction_note.sql"
+    - "src/lineage/{__init__,cli,config,db,migrate,fetch,teams,snapshot,parse,picks,corrections,timeline,derive,validate,export,render}.py"
+    - "data/opening_snapshot_2025_26.json, data/pick_events.json, data/corrections.json"
+    - "tests/* (115 tests), tests/fixtures/nba_player_movement_mem_2025_26.json"
+    - ".github/workflows/lineage-load.yml (new), db-keepalive.yml (check-db verb), db-backup.yml (data dump added)"
+  modules: ["lineage"]
+  docs_updated: ["README.md", "AGENTS.md"]
+
+local_validation:
+  checks_run:
+    - "uv run pytest: 115 passed"
+    - "lineage load --feed-fixture ...: derive 34 tx / 81 movements; validate 0 errors, 16 warnings; export nodes=34 assets=61 strands=61; render graph.svg"
+    - "workflow YAML parses"
+  failures: []
+  skipped:
+    - "Live derive against Supabase runs only in CI (sandbox cannot reach the feed; CI run triggered by push d6ef26c)."
+
+review_summary:
+  status: not_started
+  key_findings: []
+
+test_summary:
+  status: not_started
+  checks_run: []
+  failures: []
+  gaps: []
+
+open_issues:
+  - "data/pick_events.json: 4 trades and 2 draft selections need pick details from the owner."
+  - "10 snapshot player rows and all 15 pick rows are verified:false pending owner confirmation."
+  - "Repeated 10-day signings render as MEM->MEM because the feed has no expiry rows (source limitation)."
+  - "Stale remote branch claude/blissful-shannon-sve08l cannot be deleted from this sandbox."
+
+handoff:
+  current_state: pr_pending
+  next_owner: "orchestrator"
+  next_action: "Confirm CI Lineage Load green on d6ef26c; open PR; run reviewer + tester."
