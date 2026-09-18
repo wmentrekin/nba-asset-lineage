@@ -191,6 +191,36 @@ agents:
     task: "Independent verification of PR #8: run suite, probe gaps, post findings as PR review."
     last_update: "Completed: 126 tests x2 stable; render nondeterminism confirmed via PYTHONHASHSEED; DB-path verbs traceback without DATABASE_URL; pick_events dry-fill behaves as designed. Posted as PR review."
     blocker: ""
+  - id: "data-engineer-t51"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T5.1 ten-day expiry transactions + validate E6 + export"
+    last_update: "Spawned."
+    blocker: ""
+  - id: "developer-t52"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "opus (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T5.2 render v2: slot lanes with reuse, node hubs with in/out connectors"
+    last_update: "Spawned."
+    blocker: ""
 
 loops:
   planning_review:
