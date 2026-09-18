@@ -1,0 +1,296 @@
+{
+  "$comment": "Curated opening-night snapshot for the Memphis Grizzlies, 2025-26. Drafted by the orchestrator from model knowledge; every row starts verified:false and must be confirmed by the repo owner against the cited sources before the MVP is called ready. person_id may be null here; derive resolves ids by name from the NBA player-movement feed and fails loudly if it cannot. Rows marked verified:true with a feed note were confirmed against the captured feed; the remaining players were on the roster before the feed window and still need owner confirmation.",
+  "team": "MEM",
+  "season": "2025-26",
+  "as_of": "2025-10-22",
+  "as_of_note": "Memphis regular-season opener (vs New Orleans, FedExForum). Confirm date and use the roster as finalized on 2025-10-20/21 (opening-night roster release).",
+  "sources": {
+    "roster": "https://www.nba.com/grizzlies/news/grizzlies-finalize-2025-26-opening-night-roster",
+    "picks": "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Future_Drafts",
+    "picks_alt": "https://www.spotrac.com/nba/memphis-grizzlies/draft",
+    "picks_research_note": "Inventory researched 2026-09-18 via web search (RealGM/Spotrac not directly reachable from the build sandbox); rows carry confidence."
+  },
+  "players": [
+    {
+      "person_id": 1629630,
+      "name": "Ja Morant",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1628991,
+      "name": "Jaren Jackson Jr.",
+      "contract_type": "standard",
+      "verified": false
+    },
+    {
+      "person_id": 1641744,
+      "name": "Zach Edey",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "Injured (ankle) at opening night; still on roster. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1630583,
+      "name": "Santi Aldama",
+      "contract_type": "standard",
+      "verified": true,
+      "note": "Re-signed 2025-07-15. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1629634,
+      "name": "Brandon Clarke",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1630590,
+      "name": "Scotty Pippen Jr.",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1642377,
+      "name": "Jaylen Wells",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "2024 second-round pick; contract signed 2024-07-06. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1642907,
+      "name": "Cedric Coward",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "2025 #11 pick; rookie scale contract signed 2025-07-07. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 203484,
+      "name": "Kentavious Caldwell-Pope",
+      "contract_type": "standard",
+      "verified": true,
+      "note": "Acquired from Orlando 2025-06-15 (Bane trade); waived 2026-07-25. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1629660,
+      "name": "Ty Jerome",
+      "contract_type": "standard",
+      "verified": true,
+      "note": "Signed 2025-07-14. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1631246,
+      "name": "Vince Williams Jr.",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1629723,
+      "name": "John Konchar",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1641713,
+      "name": "GG Jackson",
+      "contract_type": "standard",
+      "verified": false,
+      "note": "Feed name is 'GG Jackson'. Two-way 2023-08-31, converted 2024-02-09. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
+    },
+    {
+      "person_id": 1642285,
+      "name": "Cam Spencer",
+      "contract_type": "standard",
+      "verified": true,
+      "note": "Re-signed 'to a Contract' (standard) 2025-07-14. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1629111,
+      "name": "Jock Landale",
+      "contract_type": "standard",
+      "verified": true,
+      "note": "Signed 2025-07-15, traded to Utah 2026-02-03 -> on the opening-night roster. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1641765,
+      "name": "Olivier-Maxence Prosper",
+      "contract_type": "two_way",
+      "verified": true,
+      "note": "Two-way contract signed before opening night; no waiver before it. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1641790,
+      "name": "PJ Hall",
+      "contract_type": "two_way",
+      "verified": true,
+      "note": "Two-way contract signed before opening night; no waiver before it. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    },
+    {
+      "person_id": 1642914,
+      "name": "Javon Small",
+      "contract_type": "two_way",
+      "verified": true,
+      "note": "Two-way contract signed before opening night; no waiver before it. Confirmed via NBA player-movement feed (source_record id=1, fetched 2026-09-17)."
+    }
+  ],
+  "picks": [
+    {
+      "draft_year": 2026,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2026,
+      "round": 1,
+      "original_team": "ORL",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "From the Desmond Bane trade (2025-06-15). Carried an inherited swap complex vs PHX/WAS from the 2023 Beal chain (mechanics medium confidence); resolved on draft night 2026 via swap-downs to #17 (OKC) then #21 (DET), used on Karim Lopez.",
+      "source_url": "https://www.espn.com/nba/story/_/id/45517668/sources-grizzlies-trade-desmond-bane-magic-blockbuster-deal"
+    },
+    {
+      "draft_year": 2026,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Used at #32 on Richie Saunders (2026-06-24)."
+    },
+    {
+      "draft_year": 2027,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2027,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    },
+    {
+      "draft_year": 2028,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2028,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    },
+    {
+      "draft_year": 2029,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22. Memphis holds a top-2-protected right to swap this pick with Orlando's 2029 1st (Bane trade, 2025-06-15); swap rights are footnotes, not assets."
+    },
+    {
+      "draft_year": 2029,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    },
+    {
+      "draft_year": 2030,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2030,
+      "round": 1,
+      "original_team": "ORL",
+      "protections": "unprotected",
+      "verified": true,
+      "confidence": "high",
+      "note": "From the Desmond Bane trade (2025-06-15).",
+      "source_url": "https://www.espn.com/nba/story/_/id/45517668/sources-grizzlies-trade-desmond-bane-magic-blockbuster-deal"
+    },
+    {
+      "draft_year": 2030,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    },
+    {
+      "draft_year": 2031,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2031,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    },
+    {
+      "draft_year": 2032,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2032,
+      "round": 2,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22."
+    }
+  ],
+  "known_omissions_to_verify": [
+    "Jahmai Mashack removed: his two-way signing is dated 2025-11-16 (replacing waived PJ Hall), so the opening-night two-ways were Small, Hall, Prosper."
+  ],
+  "pick_inventory_caveats": [
+    "Own 2nd-round picks 2027-2032 are unverified (low confidence): no source found either way. (The three seconds sent to Detroit on 2026-07-08 were Detroit's own picks from the draft-night swap-down, not Memphis's, so they do not reduce this list.)",
+    "Not owned as of 2025-10-22 (already sent to Portland 2025-06-25 in the Cedric Coward trade): 2028-R1-ORL, 2027-R2 via ATL, 2028-R2 via SAC.",
+    "Swap rights are footnotes, not assets: 2029 1st swap with ORL (top-2 protected)."
+  ]
+}

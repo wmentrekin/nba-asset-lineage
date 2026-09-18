@@ -1,177 +1,90 @@
 # nba-asset-lineage
 
-This repository is being rebuilt from scratch around a smaller and more
-trustworthy goal:
+## What this is
 
-- one Memphis-only Astro page
-- one 10-year asset evolution graph
-- transactions as graph nodes
-- asset continuity as graph strands
-- no narrative, chaptering, or editorial layer in the base product
+A Memphis Grizzlies asset-lineage graph. Scoped to the 2025-26 season only:
+opening night through today. Transactions are nodes; players and
+Memphis-owned future draft picks are strands running between them.
 
-The repo is intentionally in a reset phase. The previous staged redesign and
-frontend prototype were not discarded, but they are no longer the active target
-architecture.
+## How it works
 
-## Current Objective
+A raw NBA player-movement JSON feed is fetched and stored verbatim in a
+`lineage` schema in Supabase (5 tables: `source_record`, `player`, `pick`,
+`transaction`, `asset_movement`). A deterministic `derive` step turns the raw
+payloads plus curated data files into transaction and asset-movement rows.
+`validate` checks the result for graph invariants, then `export` writes
+`graph.json` and `render` draws `graph.svg` from it.
 
-The current build order is:
+## The rendered graph
 
-1. define the minimum graph output we actually need
-2. define the source systems required for that output
-3. define the durable Supabase storage model
-4. ingest and validate the source data
-5. group events and build lineage truth
-6. export a graph-ready lineage dataset
-7. render that dataset in Astro
+`graph.svg` is 1600px wide, hand-written (no plotting library), and drawn as
+slot lanes with node hubs. Time runs left to right. A lane is a *roster slot*,
+not an asset: only Memphis tenure is drawn, so when an asset leaves the team its
+lane frees and the next asset arriving at that transaction takes it over —
+players in a top band, Memphis-owned picks in a band below. Within the player
+band, assets Memphis has held for the entire window sort to the top; everyone
+else follows in lane-reuse order. Every transaction that starts or ends a
+Memphis tenure is a hub: a marker on the transaction's date with one curve per
+departing asset flowing into it and one per arriving asset flowing out, so a
+trade reads as convergence then divergence. Every bar is the same thickness;
+color carries the contract type instead (standard, two-way, 10-day, draft
+rights, and a fifth muted color for pick strands). The hub marker itself is
+colored by the kind of transaction it represents (trade, a signing family, a
+waiver family, or a draft selection) while its connector curves stay a
+neutral, darker stroke so the hub reads as the colored element. An asset that
+leaves Memphis ends in a plain end-cap marker (destination is in the
+`<title>` tooltip, not drawn as text); the opening-night baseline and 10-day
+`expiry` nodes are plain end-caps rather than hubs. When a tenure is too short
+for its name to fit, its bar gets a small numbered marker instead of a
+truncated label, keyed to a numbered legend block at the bottom of the image.
+A color legend for both contract types and hub kinds sits above that block.
+Two runs over the same `graph.json` produce byte-identical SVG.
 
-The important constraint is that schema and frontend work should follow the data
-truth, not get ahead of it.
+## Commands
 
-## Active Repo Structure
+| `mise run` task | What it does |
+| --- | --- |
+| `setup` | `uv sync` the project dependencies |
+| `check_db` | Confirm the app can connect to `DATABASE_URL` |
+| `migrate` | Apply the `lineage` schema |
+| `fetch` | Pull the raw player-movement feed and store it (`--payload-file PATH` to read a saved payload instead of the network, `--save-to PATH` to also write the raw bytes to disk) |
+| `derive` | Rebuild transaction/asset rows from raw payloads + data files (`--feed-fixture PATH`, `--dry-run`) |
+| `validate` | Check the derived data against graph invariants (`--feed-fixture PATH`, `--strict`) |
+| `export` | Write `graph.json` (`--feed-fixture PATH`, `--out PATH`) |
+| `render` | Draw `graph.svg` from `graph.json` (`--in PATH`, `--out PATH`) |
+| `load` | Run fetch, derive, validate, export, render in sequence (`--feed-fixture PATH`) |
+| `test` | Run the offline pytest suite |
 
-- [`src/foundation/`](src/foundation)
-  - reset-era data models and scaffolding for the smaller lineage system
-- [`src/redesign_cli.py`](src/redesign_cli.py)
-  - minimal reset-era CLI
-- [`src/db_config.py`](src/db_config.py)
-  - local `.env` database configuration loader
-- [`frontend/`](frontend)
-  - Astro shell for the next graph implementation
-- [`docs/foundation/`](docs/foundation)
-  - reset-era architecture notes
-- [`docs/frontend/`](docs/frontend)
-  - current frontend reset notes
-- [`configs/data/`](configs/data)
-  - reserved for active reset-era tracked config/data inputs
+## Data files
 
-## Archived Material
+- `data/opening_snapshot_2025_26.json` — curated opening-night roster plus
+  every Memphis-owned future draft pick, as of 2025-26 opening night.
+- `data/curated_events.json` — curated truth the feed can't supply: trade
+  `picks_in`/`picks_out` (the feed marks pick movement only as an
+  unlabelled "draft consideration" leg, so pick truth is curated rather
+  than parsed), `draft_selections` (a pick strand ends and a player strand
+  begins, `contract_type=draft_rights`, until a later signing re-signs it
+  standard), and standalone `events` such as a contract void. A drafted
+  player with no NBA person id yet (unsigned, so the feed has never named
+  them) gets a deterministic synthetic negative id
+  (`-(draft_year * 100 + pick_no)`), replaced automatically once a real
+  signing resolves the same slot.
+- `data/corrections.json` — declarative overrides for feed rows the parser
+  can't handle on its own.
 
-Earlier implementation material is preserved in [`legacy/`](legacy/README.md):
-
-- staged redesign source code
-- staged SQL bootstrap files
-- old tests tied to the staged implementation
-- old frontend reset/readiness docs
-- the previous Astro prototype
-- earlier config bundles and overrides
-
-That material is available for reference and logic-mining only.
-
-## Temporary Command Surface
-
-The current `mise` tasks are deliberately minimal while the repo is being
-redefined:
-
-```bash
-mise run setup
-mise run db_check
-mise run frontend_setup
-mise run frontend_dev
-mise run frontend_check
-mise run frontend_test
-mise run frontend_build
-mise run foundation_test
-```
-
-These are temporary scaffolding commands, not the long-term workflow.
-
-## Safe Refresh Tooling
-
-The next live offseason refresh is deliberately blocked behind the reviewed
-safe-refresh tooling described in
-[`docs/foundation/safe-refresh-tooling/`](docs/foundation/safe-refresh-tooling).
-It is designed to make an eventual refresh reproducible, previewable, and
-recoverable; this repository has not used it to capture sources or change a
-database yet.
-
-The safety boundary is intentionally strict:
-
-- source capture writes raw response bytes only to a restricted local
-  `tmp/<refresh-id>/` artifact directory; later normalization, preview, and
-  execution must consume the locked bundle and its reviewed SHA-256 digest;
-- projection starts from one read-only foundation baseline and produces
-  sanitized counts, IDs, changed-field names, blockers, and checksums. It does
-  not write a database;
-- a human-supplied, closed approval record binds the exact payload, fixture,
-  projection, snapshot, code, environment, dirty-tree, schema, database, plan,
-  and prefix fingerprints before a future write-capable runner can start;
-- the runner accepts only a sealed, fixed-order plan from that artifact leaf;
-  its CLI does not accept caller-selected steps, SQL, tables, or input files;
-- restore is destructive and always needs a separate
-  `action=restore_snapshot` approval. An `execute_refresh` approval cannot
-  authorize it.
-
-The operational commands are deliberately not a general-purpose data-loading
-interface. `preview-refresh-projection`,
-`run-approved-foundation-refresh`, and
-`restore-foundation-refresh-snapshot` each take only
-`--artifact-directory` (plus `--execute` for a write-capable command). Their
-inputs are the fixed, digest-linked files inside that private leaf. The one
-approval command additionally receives a reviewed external approval document;
-it validates and records that document, but cannot manufacture consent or run
-a refresh. See the [safe refresh operator guide](docs/foundation/safe-refresh-tooling/README.md)
-before using any of these commands.
-
-The checked-in Python CLI now also supports reset-era foundation tasks such as:
-
-- DB inspection and reset
-- foundation table row-count inspection
-- read-only foundation data coverage audit
-- read-only draft-selection to pick-asset resolution preview
-- read-only curated draft-slot resolution preview
-- guarded curated draft-slot resolution write path
-- guarded future pick obligation and snapshot-pick inventory load paths
-- foundation ingest bootstrap
-- foundation context bootstrap for aliases, roster snapshots, draft selections,
-  and lottery context
-- normalization workbench preview
-- sample ingest bundle build
-- derived entity preview/load from the live `source_event` baseline
-- live Basketball-Reference transaction preview/load
-- live Basketball-Reference roster and draft preview/load
-- live NBA stats reference preview/load
-- full-span foundation load orchestration from summer 2016 to present
-
-The first graph-ready export contract is intentionally narrow:
-
-- it reads from current `foundation.player`, `foundation.pick`,
-  `foundation.asset`, `foundation.canonical_event`, and
-  `foundation.event_asset_transition` tables
-- it can enrich `player_assets` from `foundation.roster_baseline_player`
-  when baseline roster data exists
-- it emits `events`, `player_assets`, `pick_assets`, `transitions`, and
-  `roster_snapshots`
-- `roster_snapshots` is populated when checkpoint rows have been built
-- roster snapshots include `future_pick_asset_ids` plus richer `future_picks`
-  metadata when `foundation.roster_snapshot_pick` has been projected
-- it does not yet include roster-state validation or frontend layout semantics
-
-Current source mechanics:
-
-- Basketball-Reference transactions, rosters, and drafts are ingested by HTML
-  scraping.
-- NBA stats player/roster reference data is ingested through JSON endpoints.
-- Future pick inventory is loaded from a curated, source-backed fixture into a
-  durable obligation ledger, then projected into roster checkpoints.
-- Draft lottery is contextual for now and is not required for the base graph; it
-  now stores explicit owner/original-team semantics for Memphis-perspective
-  rows.
-- Two-way versus standard contract status is modeled, but still needs stronger
-  source coverage than the current BRef roster loader.
+`lineage derive --feed-fixture PATH` derives from a saved feed payload without
+touching the database, and `--dry-run` prints the derived rows as JSON instead
+of loading them.
 
 ## Environment
 
-Use local `.env` only.
+Locally, set `DATABASE_URL` in a `.env` file. In CI it is a repo secret. This
+development sandbox cannot reach NBA hosts, so live fetches only run in
+GitHub Actions or on a machine with real network access.
 
-Database connectivity is currently still expected through the existing Postgres
-variables consumed by [`src/db_config.py`](src/db_config.py).
+The Lineage Load workflow is `workflow_dispatch`-only (manual trigger from the
+Actions tab), and that only works once the workflow file is on the default
+branch. On a feature branch, run `mise run load` locally instead.
 
-## Working Rule
-
-Until the new source/data model is settled:
-
-- prefer defining smaller contracts over implementing bigger systems
-- prefer preserving old work in `legacy/` over deleting potentially useful logic
-- do not reintroduce narrative/editorial/frontend complexity into the base graph
-- do not freeze new SQL or Supabase schema prematurely
+The previous multi-season implementation lives in git history on `main`
+before this reset.

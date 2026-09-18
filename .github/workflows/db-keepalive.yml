@@ -38,4 +38,4 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          uv run python -m redesign_cli check-db
+          uv run lineage check-db

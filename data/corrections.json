@@ -1,0 +1,6 @@
+{
+  "$comment": "Declarative overrides applied by derive after parsing the feed and before loading. Keep this empty unless the feed is wrong or incomplete for a specific row. Each entry names the feed GroupSort and asset it touches.",
+  "drop_rows": [],
+  "override_movements": [],
+  "add_movements": []
+}
