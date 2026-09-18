@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "verification"
+stage: "planning"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "B5 landed on PR #8; owner to eyeball render v2 PNG. Remaining: pick_events curation, snapshot verification, merge-time docs cleanup."
+  current_focus: "B6 planning: pick truth researched (ORL 2026 R1 was missing; Boozer #3 own, Lopez #21 ORL, Saunders #32 unsigned; trade pick packages found); owner render feedback round 2 captured. Plan drafted; reviewer + checkpoint next."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -224,7 +224,7 @@ agents:
 
 loops:
   planning_review:
-    count: 1
+    count: 0
     max: 2
   execution_verification:
     count: 0
@@ -245,6 +245,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-18 B6 owner direction: research pick logic properly; pick->player draft nodes; Saunders unsigned as draft_rights; Clarke contract_void node drawn like a waiver; no destination flags yet; full-season players on top; legend for unlabelled short tenures; node color by kind; strand color by contract type. Loop counters reset."
   - "2026-09-18: owner reviewed graph.svg: no convergence/divergence at nodes, departed assets never end, 10-days never expire, image too tall. Chose slot-conversion lineage and to keep iterating on PR #8. B5 added; verification loop counter reset by user direction."
   - "2026-09-18: user asked to enable RLS; applied live on all five lineage tables (postgres role has bypassrls, pipeline unaffected) and recorded in sql/0002."
   - "Snapshot corrected from feed evidence: Mashack removed (two-way signed 2025-11-16), Landale confirmed on roster, opening two-ways = Small/Hall/Prosper."
@@ -261,6 +262,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Owner reviews render v2 and PR #8; further render iterations or merge."
+next_action: "Plan review; checkpoint; execute T6.1 (orchestrator) + T6.3 in parallel, then T6.2."
 next_recommended_command: "$work"
 user_input_needed: true

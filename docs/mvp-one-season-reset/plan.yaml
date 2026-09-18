@@ -175,6 +175,40 @@ execution_batches:
         parallelizable: true
         expected_validation: ["pytest", "cross-process byte-identical SVG", "owner eyeballs rasterized PNG"]
 
+  - id: "B6"
+    goal: "Pick truth + owner render feedback round 2 (PR #8 review, 2026-09-18)"
+    tasks:
+      - id: "T6.1"
+        title: "Curated pick and event truth from research"
+        objective: "Rewrite data/opening_snapshot_2025_26.json picks from the researched inventory (add 2026-R1-ORL; keep 2030-R1-ORL; own 1sts 2026-2032; own 2nds flagged low-confidence). Rename data/pick_events.json -> data/curated_events.json with sections: trades[] (group_key, picks in/out with pick_id/from/to/protections/source_url; swap rights as footnotes[]), draft_selections[] (Boozer 2026-R1-MEM #3; Lopez 2026-R1-ORL #21 with swap-down footnote; Saunders 2026-R2-MEM #32 unsigned), events[] (Brandon Clarke contract_void: date + source_url, movement MEM->none). Every row carries verified and confidence. Unknowns (DET 2nds years, NOP 2nd year, PHI/WAS 2032 swaps) recorded as footnotes, not assets."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: research, uncertainty: high, consequence: high, scope_size: narrow, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "session model (orchestrator)", routing_enforced: false, escalation_tier: frontier, escalation_condition: "a fact cannot be sourced; leave verified:false"}
+        owned_scope: ["data/"]
+        forbidden_scope: ["src/"]
+        dependencies: []
+        parallelizable: true
+        expected_validation: ["json loads", "derive dry-run consumes it"]
+      - id: "T6.2"
+        title: "Derive/validate/export: curated events, draft rights, contract_void"
+        objective: "picks.py -> events.py reading curated_events.json (trades picks in AND out; draft_selections producing pick MEM->USED + player DRAFT->MEM contract_type draft_rights; events producing e.g. contract_void MEM->none with kind contract_void). A later Rookie Scale signing on a draft_rights player is MEM->MEM standard (already handled as a re-sign). Pick ids referenced but absent from the snapshot are created from the id. validate: W1 unchanged; E5 updated for draft_rights; new W5 for footnotes referencing uncurated assets. export: contract_type draft_rights flows through. sql/0004 (already applied live) adds kind contract_void and contract_type draft_rights."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: high, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "curated schema cannot express a researched fact"}
+        owned_scope: ["src/lineage/picks.py->events.py", "src/lineage/derive.py", "src/lineage/validate.py", "src/lineage/export.py", "src/lineage/cli.py", "tests/"]
+        forbidden_scope: ["src/lineage/render.py", "sql/", "data/ (except reading)"]
+        dependencies: ["T6.1"]
+        parallelizable: false
+        expected_validation: ["pytest", "offline load: draft nodes present; Clarke node present; pick strands enter/exit trade hubs; 0 errors"]
+      - id: "T6.3"
+        title: "Render v3: color semantics, ordering, legend"
+        objective: "Strand color by contract_type (standard / two_way / ten_day / draft_rights) — same thickness; picks a fifth muted color. Node hub color by kind (trade / signing family / waiver+contract_void / draft_selection; expiry stays an end-cap). Remove destination flags (UTA/FA/DAL caps) — plain end-cap only. Player band ordering: assets held by MEM for the entire window first (in snapshot order), then everything else. Short tenures whose label does not fit get a numbered marker and a numbered legend block at the bottom listing name + dates. Legend updated for colors."
+        assigned_domain: "generalist-developer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: low, scope_size: bounded, determinism: interpretive, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "palette cannot pass the dataviz validator with five hues"}
+        owned_scope: ["src/lineage/render.py", "tests/test_render.py", "README.md render section"]
+        forbidden_scope: ["derive/validate/export", "sql/", "data/"]
+        dependencies: []
+        parallelizable: true
+        expected_validation: ["pytest", "cross-process determinism", "owner eyeballs PNG"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."
@@ -204,4 +238,4 @@ review:
 
 checkpoint:
   required_before_execution: true
-  status: approved (B0-B4 2026-09-17; B5 by owner direction on PR #8 review 2026-09-18)
+  status: approved (B0-B4 2026-09-17; B5 2026-09-18); B6 pending owner checkpoint
