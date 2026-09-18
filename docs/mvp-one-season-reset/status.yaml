@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "planning"
+stage: "execution"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "B6 planning: pick truth researched (ORL 2026 R1 was missing; Boozer #3 own, Lopez #21 ORL, Saunders #32 unsigned; trade pick packages found); owner render feedback round 2 captured. Plan drafted; reviewer + checkpoint next."
+  current_focus: "B6 execution: T6.1 curated truth committed (0062364); T6.2 derive/validate for curated events and T6.3 render v3 running in parallel."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -191,6 +191,66 @@ agents:
     task: "Independent verification of PR #8: run suite, probe gaps, post findings as PR review."
     last_update: "Completed: 126 tests x2 stable; render nondeterminism confirmed via PYTHONHASHSEED; DB-path verbs traceback without DATABASE_URL; pick_events dry-fill behaves as designed. Posted as PR review."
     blocker: ""
+  - id: "platform-researcher-2"
+    role: "platform-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Memphis pick inventory, 2026 draft, trade pick packages, Clarke dates (WebSearch only)"
+    last_update: "Completed in three passes; RealGM/Spotrac tables unreachable, own 2nds stay low-confidence."
+    blocker: ""
+  - id: "plan-reviewer-b6"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "planning"
+    task: "Critique B6 plan"
+    last_update: "Changes requested (5 wording/data guardrails); all adopted in T6.1 data and T6.2/T6.3 handoffs."
+    blocker: ""
+  - id: "data-engineer-t62"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T6.2 curated_events.json in derive; draft_rights; contract_void; validate updates"
+    last_update: "Spawned."
+    blocker: ""
+  - id: "developer-t63"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T6.3 render v3: color by contract type and node kind, full-window ordering, numbered legend, no destination flags"
+    last_update: "Spawned."
+    blocker: ""
   - id: "data-engineer-t51"
     role: "data-engineer"
     task_profile: "implementation"
@@ -224,7 +284,7 @@ agents:
 
 loops:
   planning_review:
-    count: 0
+    count: 1
     max: 2
   execution_verification:
     count: 0
@@ -245,6 +305,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-18 B6 checkpoint: proceed. Unknown pick years stay footnotes (audit pass later); own 2nds kept low-confidence since RealGM/Spotrac tables are unreachable from the sandbox and absent from search snippets."
   - "2026-09-18 B6 owner direction: research pick logic properly; pick->player draft nodes; Saunders unsigned as draft_rights; Clarke contract_void node drawn like a waiver; no destination flags yet; full-season players on top; legend for unlabelled short tenures; node color by kind; strand color by contract type. Loop counters reset."
   - "2026-09-18: owner reviewed graph.svg: no convergence/divergence at nodes, departed assets never end, 10-days never expire, image too tall. Chose slot-conversion lineage and to keep iterating on PR #8. B5 added; verification loop counter reset by user direction."
   - "2026-09-18: user asked to enable RLS; applied live on all five lineage tables (postgres role has bypassrls, pipeline unaffected) and recorded in sql/0002."
@@ -262,6 +323,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Plan review; checkpoint; execute T6.1 (orchestrator) + T6.3 in parallel, then T6.2."
+next_action: "Commit T6.2 and T6.3; re-render; show owner the PNG; tester pass."
 next_recommended_command: "$work"
 user_input_needed: true
