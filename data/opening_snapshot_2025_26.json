@@ -14,7 +14,8 @@
       "person_id": 1629630,
       "name": "Ja Morant",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1628991,
@@ -27,7 +28,7 @@
       "name": "Zach Edey",
       "contract_type": "standard",
       "verified": false,
-      "note": "Injured (ankle) at opening night; still on roster."
+      "note": "Injured (ankle) at opening night; still on roster. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1630583,
@@ -40,19 +41,22 @@
       "person_id": 1629634,
       "name": "Brandon Clarke",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1630590,
       "name": "Scotty Pippen Jr.",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
-      "person_id": null,
+      "person_id": 1642377,
       "name": "Jaylen Wells",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "2024 second-round pick; contract signed 2024-07-06. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1642907,
@@ -79,19 +83,22 @@
       "person_id": 1631246,
       "name": "Vince Williams Jr.",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1629723,
       "name": "John Konchar",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1641713,
-      "name": "GG Jackson II",
+      "name": "GG Jackson",
       "contract_type": "standard",
-      "verified": false
+      "verified": false,
+      "note": "Feed name is 'GG Jackson'. Two-way 2023-08-31, converted 2024-02-09. person_id confirmed from the full NBA player-movement feed (source_record id=1)."
     },
     {
       "person_id": 1642285,

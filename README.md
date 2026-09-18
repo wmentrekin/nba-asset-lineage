@@ -34,8 +34,15 @@ payloads plus curated data files into transaction and asset-movement rows.
 
 - `data/opening_snapshot_2025_26.json` — curated opening-night roster plus
   every Memphis-owned future draft pick, as of 2025-26 opening night.
+- `data/pick_events.json` — curated pick movements per trade and draft
+  selections. The feed marks pick movement only as an unlabelled "draft
+  consideration" leg, so pick truth is curated rather than parsed.
 - `data/corrections.json` — declarative overrides for feed rows the parser
   can't handle on its own.
+
+`lineage derive --feed-fixture PATH` derives from a saved feed payload without
+touching the database, and `--dry-run` prints the derived rows as JSON instead
+of loading them.
 
 ## Environment
 
