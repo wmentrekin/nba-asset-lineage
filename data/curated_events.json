@@ -1,0 +1,188 @@
+{
+  "$comment": "Curated truth the NBA player-movement feed cannot supply. trades[] are keyed by the feed GroupSort: picks_in/picks_out become pick movements at that transaction; footnotes are recorded on the node but never become assets (swap rights, unknown-year picks, draft rights of non-roster players). draft_selections[] create a node where a pick strand ends (MEM->USED) and a player strand begins (DRAFT->MEM, contract_type draft_rights). events[] are curated roster transactions absent from the feed. Every row carries verified and confidence; unknown facts stay footnotes.",
+  "pick_row_shape": {
+    "pick_id": "{draft_year}-R{round}-{original_team}",
+    "from": "team code (picks_in)",
+    "to": "team code (picks_out)",
+    "protections": "text or null",
+    "source_url": "url",
+    "verified": false,
+    "confidence": "high|medium|low"
+  },
+  "trades": [
+    {
+      "group_key": "Trade 2025022",
+      "date": "2026-02-03",
+      "counterparty": "UTA",
+      "verified": true,
+      "confidence": "high",
+      "picks_in": [
+        {
+          "pick_id": "2027-R1-LAL",
+          "from": "UTA",
+          "protections": "unprotected",
+          "source_url": "https://www.espn.com/nba/story/_/id/47818224/sources-grizzlies-trade-jaren-jackson-jr-jazz-8-player-deal",
+          "verified": true,
+          "confidence": "high"
+        },
+        {
+          "pick_id": "2031-R1-PHX",
+          "from": "UTA",
+          "protections": null,
+          "source_url": "https://www.hoopsrumors.com/2026/02/grizzlies-trading-jaren-jackson-jr-to-jazz.html",
+          "verified": true,
+          "confidence": "high"
+        }
+      ],
+      "picks_out": [],
+      "footnotes": [
+        "Also received a 2027 1st: the most favorable of UTA/CLE/MIN. Not an asset until it resolves to one team's pick."
+      ]
+    },
+    {
+      "group_key": "Trade 2025037",
+      "date": "2026-02-05",
+      "counterparty": "PHI",
+      "verified": true,
+      "confidence": "medium",
+      "picks_in": [],
+      "picks_out": [],
+      "footnotes": [
+        "Received a 2032 second-round pick swap right from PHI (swap rights are footnotes).",
+        "Memphis sent the draft rights to Justinian Jessup (non-roster; not modelled)."
+      ]
+    },
+    {
+      "group_key": "Trade 2025063",
+      "date": "2026-06-29",
+      "counterparty": "POR",
+      "verified": true,
+      "confidence": "high",
+      "picks_in": [],
+      "picks_out": [],
+      "footnotes": [
+        "No draft picks changed hands (Morant for Grant + Murray + $1M cash to POR)."
+      ]
+    },
+    {
+      "group_key": "Trade 2026006",
+      "date": "2026-07-08",
+      "counterparty": "DAL/WAS/DET (six-team incl. LAC, MIL)",
+      "verified": true,
+      "confidence": "medium",
+      "picks_in": [
+        {
+          "pick_id": "2029-R2-DAL",
+          "from": "DAL",
+          "protections": null,
+          "source_url": "https://www.nba.com/grizzlies/news/grizzlies-acquire-isaiah-stewart-aj-johnson-dangelo-russell-conditional-first-round-pick-three-second-round-picks-and-second-round-pick-swap-in-six-team-trade",
+          "verified": true,
+          "confidence": "high"
+        },
+        {
+          "pick_id": "2029-R2-WAS",
+          "from": "WAS",
+          "protections": null,
+          "source_url": "https://www.nba.com/grizzlies/news/grizzlies-acquire-isaiah-stewart-aj-johnson-dangelo-russell-conditional-first-round-pick-three-second-round-picks-and-second-round-pick-swap-in-six-team-trade",
+          "verified": true,
+          "confidence": "high"
+        },
+        {
+          "pick_id": "2030-R1-GSW",
+          "from": "DAL",
+          "protections": "top-20 protected; converts to a second if not conveyed",
+          "source_url": "https://www.hoopsrumors.com/2026/07/sorting-out-the-six-team-trade-involving-stewart-aldama-others.html",
+          "verified": false,
+          "confidence": "medium"
+        },
+        {
+          "pick_id": "2033-R2-WAS",
+          "from": "WAS",
+          "protections": null,
+          "source_url": "https://www.nba.com/grizzlies/news/grizzlies-acquire-isaiah-stewart-aj-johnson-dangelo-russell-conditional-first-round-pick-three-second-round-picks-and-second-round-pick-swap-in-six-team-trade",
+          "verified": true,
+          "confidence": "high"
+        }
+      ],
+      "picks_out": [],
+      "footnotes": [
+        "Memphis sent three future second-round picks to DET; years not found in any source, so they are not yet modelled as outgoing movements (inventory overstates by up to three 2nds).",
+        "Received a 2032 second-round pick swap right from WAS.",
+        "Memphis sent the draft rights to Tarik Biberovic (non-roster; not modelled)."
+      ]
+    },
+    {
+      "group_key": "Trade 2026014",
+      "date": "2026-09-08",
+      "counterparty": "NOP",
+      "verified": false,
+      "confidence": "low",
+      "picks_in": [],
+      "picks_out": [],
+      "footnotes": [
+        "Received a future second-round pick and a second-round pick swap; year and origin unverified (one unconfirmed summary said TOR 2031 2nd + 2032 swap). Audit before modelling."
+      ]
+    }
+  ],
+  "draft_selections": [
+    {
+      "date": "2026-06-23",
+      "pick_no": 3,
+      "pick_id": "2026-R1-MEM",
+      "player_id": 1643409,
+      "player_name": "Cameron Boozer",
+      "signed": true,
+      "source_url": "https://en.wikipedia.org/wiki/2026_NBA_draft",
+      "verified": true,
+      "confidence": "high",
+      "footnotes": [
+        "Own pick; landed #3 in the lottery. Rookie scale contract signed 2026-07-13 (feed)."
+      ]
+    },
+    {
+      "date": "2026-06-23",
+      "pick_no": 21,
+      "pick_id": "2026-R1-ORL",
+      "player_id": 1643510,
+      "player_name": "Karim Lopez",
+      "signed": true,
+      "source_url": "https://www.nba.com/news/grizzlies-swap-first-round-picks-thunder-pistons",
+      "verified": true,
+      "confidence": "high",
+      "footnotes": [
+        "Acquired ORL 1st swapped down on draft night: to #17 with OKC, then #21 with DET, netting second-round picks (years unknown; not modelled). Rookie scale contract signed 2026-07-29 (feed)."
+      ]
+    },
+    {
+      "date": "2026-06-24",
+      "pick_no": 32,
+      "pick_id": "2026-R2-MEM",
+      "player_id": null,
+      "player_name": "Richie Saunders",
+      "signed": false,
+      "source_url": "https://www.si.com/nba/grizzlies/onsi/grizzlies-draft-richie-saunders-with-32nd-pick-in-2026-nba-draft-01kvy1a2a1v3",
+      "verified": true,
+      "confidence": "high",
+      "footnotes": [
+        "Unsigned as of 2026-09 (ACL recovery); Memphis holds his draft rights. No NBA person id in the feed yet: derive assigns a deterministic synthetic negative id until a signing row supplies the real one."
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "Void-2026-07-03-1629634",
+      "date": "2026-07-03",
+      "kind": "contract_void",
+      "player_id": 1629634,
+      "player_name": "Brandon Clarke",
+      "to_holder": "VOID",
+      "description": "Contract voided following Brandon Clarke's death on 2026-05-11.",
+      "source_url": "https://frontofficesports.com/brandon-clarkes-nba-contract-death/",
+      "verified": true,
+      "confidence": "medium",
+      "footnotes": [
+        "Voiding date corroborated by two outlets; later reporting on the estate payment is unresolved and not modelled."
+      ]
+    }
+  ]
+}

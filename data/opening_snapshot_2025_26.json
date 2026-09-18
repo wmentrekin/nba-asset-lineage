@@ -7,7 +7,8 @@
   "sources": {
     "roster": "https://www.nba.com/grizzlies/news/grizzlies-finalize-2025-26-opening-night-roster",
     "picks": "https://basketball.realgm.com/nba/teams/Memphis-Grizzlies/14/Future_Drafts",
-    "picks_alt": "https://www.spotrac.com/nba/memphis-grizzlies/draft"
+    "picks_alt": "https://www.spotrac.com/nba/memphis-grizzlies/draft",
+    "picks_research_note": "Inventory researched 2026-09-18 via web search (RealGM/Spotrac not directly reachable from the build sandbox); rows carry confidence."
   },
   "players": [
     {
@@ -142,115 +143,154 @@
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
+    },
+    {
+      "draft_year": 2026,
+      "round": 1,
+      "original_team": "ORL",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "From the Desmond Bane trade (2025-06-15). Carried an inherited swap complex vs PHX/WAS from the 2023 Beal chain (mechanics medium confidence); resolved on draft night 2026 via swap-downs to #17 (OKC) then #21 (DET), used on Karim Lopez.",
+      "source_url": "https://www.espn.com/nba/story/_/id/45517668/sources-grizzlies-trade-desmond-bane-magic-blockbuster-deal"
     },
     {
       "draft_year": 2026,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false,
-      "note": "UNCERTAIN whether Memphis still owns its own 2026 2nd."
+      "verified": true,
+      "confidence": "high",
+      "note": "Used at #32 on Richie Saunders (2026-06-24)."
     },
     {
       "draft_year": 2027,
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
     },
     {
       "draft_year": 2027,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
     },
     {
       "draft_year": 2028,
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
     },
     {
       "draft_year": 2028,
       "round": 2,
-      "original_team": "MEM",
-      "protections": null,
-      "verified": false
-    },
-    {
-      "draft_year": 2029,
-      "round": 1,
       "original_team": "MEM",
       "protections": null,
       "verified": false,
-      "note": "Memphis holds the right to swap this pick with Orlando's 2029 1st (Bane trade). Swap right is a footnote for now, not an asset."
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
+    },
+    {
+      "draft_year": 2029,
+      "round": 1,
+      "original_team": "MEM",
+      "protections": null,
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22. Memphis holds a top-2-protected right to swap this pick with Orlando's 2029 1st (Bane trade, 2025-06-15); swap rights are footnotes, not assets."
     },
     {
       "draft_year": 2029,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
     },
     {
       "draft_year": 2030,
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
     },
     {
       "draft_year": 2030,
       "round": 1,
       "original_team": "ORL",
-      "protections": null,
-      "verified": false,
-      "note": "Unprotected, from the Desmond Bane trade."
+      "protections": "unprotected",
+      "verified": true,
+      "confidence": "high",
+      "note": "From the Desmond Bane trade (2025-06-15).",
+      "source_url": "https://www.espn.com/nba/story/_/id/45517668/sources-grizzlies-trade-desmond-bane-magic-blockbuster-deal"
     },
     {
       "draft_year": 2030,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
     },
     {
       "draft_year": 2031,
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
     },
     {
       "draft_year": 2031,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
     },
     {
       "draft_year": 2032,
       "round": 1,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": true,
+      "confidence": "high",
+      "note": "Own first; no trade found sending it out before 2025-10-22."
     },
     {
       "draft_year": 2032,
       "round": 2,
       "original_team": "MEM",
       "protections": null,
-      "verified": false
+      "verified": false,
+      "confidence": "low",
+      "note": "No source found either way on whether Memphis still owns this 2nd as of 2025-10-22. Three future MEM 2nds were later sent to Detroit (2026-07-08) with years unspecified, so the own-2nds list is an upper bound."
     }
   ],
   "known_omissions_to_verify": [
-    "Jahmai Mashack removed: his two-way signing is dated 2025-11-16 (replacing waived PJ Hall), so the opening-night two-ways were Small, Hall, Prosper.",
-    "2028 ORL 1st (Bane trade) \u2014 believed sent to Portland in the June 2025 move from #16 to #11 (Cedric Coward); if Memphis still owns it, add it.",
-    "Any second-round picks Memphis owns from other teams (Memphis has historically held several) \u2014 add from the RealGM future-picks page.",
-    "Any Memphis second-round picks already owed to other teams as of opening night \u2014 remove them.",
-    "Protections on any of the above."
+    "Jahmai Mashack removed: his two-way signing is dated 2025-11-16 (replacing waived PJ Hall), so the opening-night two-ways were Small, Hall, Prosper."
+  ],
+  "pick_inventory_caveats": [
+    "Own 2nd-round picks 2027-2032 are unverified (low confidence). Three future MEM 2nds are owed to Detroit from the 2026-07-08 trade; years unknown, so at most four of the six remain Memphis's.",
+    "Not owned as of 2025-10-22 (already sent to Portland 2025-06-25 in the Cedric Coward trade): 2028-R1-ORL, 2027-R2 via ATL, 2028-R2 via SAC.",
+    "Swap rights are footnotes, not assets: 2029 1st swap with ORL (top-2 protected)."
   ]
 }
