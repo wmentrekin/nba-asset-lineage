@@ -15,6 +15,21 @@ payloads plus curated data files into transaction and asset-movement rows.
 `validate` checks the result for graph invariants, then `export` writes
 `graph.json` and `render` draws `graph.svg` from it.
 
+## The rendered graph
+
+`graph.svg` is 1600px wide, hand-written (no plotting library), and drawn as
+slot lanes with node hubs. Time runs left to right. A lane is a *roster slot*,
+not an asset: only Memphis tenure is drawn, so when an asset leaves the team its
+lane frees and the next asset arriving at that transaction takes it over —
+players in a top band, Memphis-owned picks in a band below. Every transaction
+that starts or ends a Memphis tenure is a hub: a marker on the transaction's
+date with one curve per departing asset flowing into it and one per arriving
+asset flowing out, so a trade reads as convergence then divergence. Bar
+thickness is the contract type (standard, two-way, 10-day); an asset that leaves
+Memphis ends in an arrow capped with its destination (`UTA`, `FA`, `USED`); the
+opening-night baseline and 10-day `expiry` nodes are plain end-caps rather than
+hubs. Two runs over the same `graph.json` produce byte-identical SVG.
+
 ## Commands
 
 | `mise run` task | What it does |
