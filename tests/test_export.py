@@ -18,9 +18,9 @@ import json, pathlib
 from lineage.derive import build_graph, load_inputs
 from lineage.export import build_export
 
-snapshot, pick_events, corrections = load_inputs(pathlib.Path("data"))
+snapshot, curated, corrections = load_inputs(pathlib.Path("data"))
 feed = json.load(open("tests/fixtures/nba_player_movement_mem_2025_26.json"))
-graph = build_graph(feed, snapshot, pick_events, corrections)
+graph = build_graph(feed, snapshot, curated, corrections)
 export = build_export(graph, snapshot.as_of)
 import sys
 sys.stdout.write(json.dumps(export, sort_keys=True))
@@ -29,8 +29,8 @@ sys.stdout.write(json.dumps(export, sort_keys=True))
 
 @pytest.fixture
 def graph(feed_payload, resolvable_inputs):
-    snapshot, pick_events, corrections = resolvable_inputs
-    return build_graph(feed_payload, snapshot, pick_events, corrections)
+    snapshot, curated, corrections = resolvable_inputs
+    return build_graph(feed_payload, snapshot, curated, corrections)
 
 
 @pytest.fixture
@@ -52,7 +52,16 @@ def test_nodes_are_ordered_by_date_then_id_and_carry_the_contract_fields(export)
     assert set(baseline) == {"id", "date", "kind", "description", "counterparties", "note"}
 
     trade = next(n for n in nodes if n["id"] == "Trade-2025022")
-    assert trade["note"] == "draft consideration: picks not yet curated"
+    assert trade["note"].startswith("draft consideration: MEM<-UTA")
+
+    uncurated = next(n for n in nodes if n["id"] == "Trade-2025037")
+    assert uncurated["note"].startswith("draft consideration: footnotes only: ")
+
+    draft = next(n for n in nodes if n["id"] == "Draft-2026-06-23-2026-R1-MEM")
+    assert draft["kind"] == "draft_selection"
+
+    void = next(n for n in nodes if n["id"] == "Void-2026-07-03-1629634")
+    assert void["kind"] == "contract_void"
 
 
 def test_assets_are_players_then_picks_ordered_by_label(export):
@@ -94,17 +103,25 @@ def test_strands_are_in_asset_order_and_match_the_timeline(export):
 
 
 def test_a_referenced_pick_becomes_a_labelled_asset(feed_payload, resolvable_inputs):
-    from lineage.picks import PickMove
+    from lineage.events import PickIn
 
-    snapshot, pick_events, corrections = resolvable_inputs
-    trade = next(t for t in pick_events.trades if t.group_key == "Trade 2025022")
-    trade.picks = [PickMove(pick_id="2031-R2-UTA", from_holder="UTA", to_holder="MEM")]
+    snapshot, curated, corrections = resolvable_inputs
+    trade = next(t for t in curated.trades if t.group_key == "Trade 2025022")
+    trade.picks_in = trade.picks_in + [PickIn(pick_id="2031-R2-UTA", from_holder="UTA")]
 
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
     export = build_export(graph, snapshot.as_of)
 
     asset = next(a for a in export["assets"] if a["id"] == "2031-R2-UTA")
     assert asset == {"id": "2031-R2-UTA", "type": "pick", "label": "2031 R2 (UTA)"}
+
+
+def test_draft_rights_contract_type_flows_through_export(export):
+    strands = export["strands"]
+    boozer = next(s for s in strands if s["asset_id"] == "1643409")
+
+    assert boozer["segments"][0]["contract_type"] == "draft_rights"
+    assert boozer["segments"][1]["contract_type"] == "standard"
 
 
 def test_export_is_byte_identical_across_processes_regardless_of_hash_seed():

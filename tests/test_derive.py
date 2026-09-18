@@ -6,6 +6,8 @@ import json
 import pytest
 
 from lineage.derive import (
+    CONTRACT_DRAFT_RIGHTS,
+    HOLDER_VOID,
     INSERT_MOVEMENT_SQL,
     INSERT_PICK_SQL,
     INSERT_PLAYER_SQL,
@@ -19,8 +21,8 @@ from lineage.derive import (
     select_feed_payload,
 )
 from lineage.corrections import Corrections, DropRow
+from lineage.events import CuratedEvents, PickIn
 from lineage.parse import FeedParseError
-from lineage.picks import UNCURATED_NOTE, PickEvents, PickMove
 from lineage.snapshot import Snapshot, UnresolvedPlayerError
 from lineage.timeline import Segment, build_timelines
 
@@ -29,14 +31,14 @@ BASELINE_ID = "OPENING-2025-26"
 
 @pytest.fixture
 def graph(feed_payload, resolvable_inputs):
-    snapshot, pick_events, corrections = resolvable_inputs
-    return build_graph(feed_payload, snapshot, pick_events, corrections)
+    snapshot, curated, corrections = resolvable_inputs
+    return build_graph(feed_payload, snapshot, curated, corrections)
 
 
 def test_build_graph_fails_loudly_on_an_unresolvable_snapshot_player(
     feed_payload, curated_inputs
 ):
-    snapshot, pick_events, corrections = curated_inputs
+    snapshot, curated, corrections = curated_inputs
     snapshot = snapshot.model_copy(deep=True)
     # Jaylen Wells never appears by name or slug in the captured fixture, so nulling his
     # person_id here (regardless of what data/opening_snapshot_2025_26.json currently has)
@@ -45,7 +47,7 @@ def test_build_graph_fails_loudly_on_an_unresolvable_snapshot_player(
     wells.person_id = None
 
     with pytest.raises(UnresolvedPlayerError, match="Jaylen Wells"):
-        build_graph(feed_payload, snapshot, pick_events, corrections)
+        build_graph(feed_payload, snapshot, curated, corrections)
 
 
 def test_baseline_node_holds_the_whole_opening_inventory(graph):
@@ -58,7 +60,7 @@ def test_baseline_node_holds_the_whole_opening_inventory(graph):
     assert baseline.group_key is None
     assert baseline.source_key == "snapshot"
     assert sum(1 for m in movements if m.asset_type == "player") == 18
-    assert sum(1 for m in movements if m.asset_type == "pick") == 15
+    assert sum(1 for m in movements if m.asset_type == "pick") == 16
     assert all(m.from_holder is None and m.to_holder == "MEM" for m in movements)
 
 
@@ -196,71 +198,189 @@ def test_adama_bals_ten_days_exactly_ten_days_apart_supersede_instead_of_expirin
     ]
 
 
-def test_expiries_add_twelve_transactions_and_movements_to_the_fixture(graph):
+def test_expiries_add_twelve_transactions_to_the_fixture(graph):
     """The fixture's 16 MEM ten-day signings minus the 4 that are superseded by a same-
     or next-day movement (Rupert's two-way, Jarreau's and Adama Bal's and Williamson's
     second 10-day, each exactly 10 days out) leaves 12 synthetic expiry transactions."""
     expiries = [t for t in graph.transactions if t.kind == "expiry"]
     assert len(expiries) == 12
-    assert len(graph.transactions) == 34 + 12
-    assert len(graph.movements) == 81 + 12
+    # 46 feed-derived transactions (baseline + parsed groups + 12 expiries), plus the 3
+    # curated draft-selection nodes and the 1 curated contract_void event.
+    assert len(graph.transactions) == 46 + 3 + 1 == 50
 
 
-def test_uncurated_draft_considerations_become_notes(graph):
-    uncurated = {t.id for t in graph.transactions if t.note == UNCURATED_NOTE}
+def test_movements_add_up_across_baseline_curated_trades_draft_and_void(graph):
+    """Baseline (18 players + 16 picks) plus the 6 curated pick-in movements (LAL 2027 R1,
+    PHX 2031 R1, DAL 2029 R2, WAS 2029 R2, GSW 2030 R1, WAS 2033 R2) plus the 3 draft
+    selections (a pick-used and a player-drafted movement each) plus the 1 contract_void,
+    on top of the feed's own non-baseline movements."""
+    baseline_movements = [m for m in graph.movements if m.transaction_id == BASELINE_ID]
+    assert len(baseline_movements) == 34
 
-    assert uncurated == {
-        "Trade-2025022",
-        "Trade-2025037",
-        "Trade-2026006",
-        "Trade-2026014",
+    curated_pick_ins = {
+        (m.transaction_id, m.asset_id)
+        for m in graph.movements
+        if m.asset_type == "pick" and m.from_holder != "MEM" and m.to_holder == "MEM"
     }
-    assert not [m for m in graph.movements if m.asset_type == "pick" and m.transaction_id
-                in uncurated]
-    assert all(f"{t}: {UNCURATED_NOTE}" in graph.notes for t in uncurated)
+    assert curated_pick_ins >= {
+        ("Trade-2025022", "2027-R1-LAL"),
+        ("Trade-2025022", "2031-R1-PHX"),
+        ("Trade-2026006", "2029-R2-DAL"),
+        ("Trade-2026006", "2029-R2-WAS"),
+        ("Trade-2026006", "2030-R1-GSW"),
+        ("Trade-2026006", "2033-R2-WAS"),
+    }
+
+    draft_movements = [m for m in graph.movements if m.transaction_id.startswith("Draft-")]
+    assert len(draft_movements) == 6  # 3 selections x (pick used + player drafted)
+
+    void_movements = [m for m in graph.movements if m.transaction_id.startswith("Void-")]
+    assert len(void_movements) == 1
+
+    assert len(graph.movements) == 107
 
 
-def test_todo_draft_selections_are_skipped_with_a_note(graph):
-    assert not [t for t in graph.transactions if t.kind == "draft_selection"]
-    assert any("Cameron Boozer" in note and "TODO" in note for note in graph.notes)
-    assert any("Karim Lopez" in note and "TODO" in note for note in graph.notes)
+def test_trade_2025022_has_four_players_and_two_picks_in_each_direction(graph):
+    movements = [m for m in graph.movements if m.transaction_id == "Trade-2025022"]
+
+    players_in = [m for m in movements if m.asset_type == "player" and m.to_holder == "MEM"]
+    players_out = [m for m in movements if m.asset_type == "player" and m.from_holder == "MEM"]
+    picks_in = [m for m in movements if m.asset_type == "pick" and m.to_holder == "MEM"]
+
+    assert len(players_in) == 4
+    assert len(players_out) == 4
+    assert len(picks_in) == 2
+    assert len(movements) == 10
 
 
-def test_curated_draft_selection_becomes_a_node_with_two_movements(
+def test_trade_2026006_has_four_curated_pick_movements(graph):
+    pick_movements = [
+        m for m in graph.movements if m.transaction_id == "Trade-2026006" and m.asset_type == "pick"
+    ]
+
+    assert {m.asset_id for m in pick_movements} == {
+        "2029-R2-DAL",
+        "2029-R2-WAS",
+        "2030-R1-GSW",
+        "2033-R2-WAS",
+    }
+    assert all((m.from_holder, m.to_holder) == (m.from_holder, "MEM") for m in pick_movements)
+
+
+def test_a_trade_with_no_curated_picks_and_no_footnotes_keeps_the_uncurated_note(
     feed_payload, resolvable_inputs
 ):
-    snapshot, pick_events, corrections = resolvable_inputs
-    pick_events.draft_selections[0].pick_id = "2026-R1-MEM"
+    from lineage.events import UNCURATED_NOTE
 
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
-    node = next(t for t in graph.transactions if t.kind == "draft_selection")
+    snapshot, curated, corrections = resolvable_inputs
+    trade = next(t for t in curated.trades if t.group_key == "Trade 2025037")
+    trade.footnotes = []
+
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+    transaction = next(t for t in graph.transactions if t.id == "Trade-2025037")
+
+    assert transaction.note == UNCURATED_NOTE
+    assert f"Trade-2025037: {UNCURATED_NOTE}" in graph.notes
+
+
+def test_a_trade_with_footnotes_but_no_curated_picks_gets_a_footnotes_only_note(graph):
+    transaction = next(t for t in graph.transactions if t.id == "Trade-2025037")
+
+    assert transaction.note.startswith("draft consideration: footnotes only: ")
+    assert "Justinian Jessup" in transaction.note
+
+
+def test_a_trade_with_curated_picks_folds_footnotes_after_the_marker_text(graph):
+    transaction = next(t for t in graph.transactions if t.id == "Trade-2025022")
+
+    assert transaction.note.startswith("draft consideration: MEM<-UTA")
+    assert "footnotes:" in transaction.note
+    assert "most favorable of UTA/CLE/MIN" in transaction.note
+
+
+def test_a_trade_with_no_feed_markers_gets_a_plain_footnotes_note_and_no_w1(graph):
+    """Trade 2025063 (Morant-to-Portland) moved no picks and has no feed draft-consideration
+    leg at all, so it is not "uncurated": its note carries the footnote without the
+    `draft consideration:` prefix that would make it look like an unresolved marker."""
+    transaction = next(t for t in graph.transactions if t.id == "Trade-2025063")
+
+    assert transaction.note == (
+        "footnotes: No draft picks changed hands (Morant for Grant + Murray + $1M cash to POR)."
+    )
+    assert not transaction.note.startswith("draft consideration:")
+
+
+def test_curated_draft_selection_becomes_a_node_with_two_movements(graph):
+    node = next(t for t in graph.transactions if t.id == "Draft-2026-06-23-2026-R1-MEM")
     movements = {
         (m.asset_type, m.asset_id): (m.from_holder, m.to_holder, m.contract_type)
         for m in graph.movements
         if m.transaction_id == node.id
     }
 
-    assert node.id == "Draft-2026-06-24-1643409"
-    assert node.source_key == "pick_events"
+    assert node.kind == "draft_selection"
+    assert node.source_key == "events"
+    assert node.description.startswith("Drafted Cameron Boozer #3 with 2026-R1-MEM.")
     assert movements[("pick", "2026-R1-MEM")] == ("MEM", "USED", None)
-    assert movements[("player", "1643409")] == ("DRAFT", "MEM", None)
+    assert movements[("player", "1643409")] == ("DRAFT", "MEM", CONTRACT_DRAFT_RIGHTS)
+
+
+def test_saunders_gets_a_deterministic_synthetic_player_id_and_a_note(graph):
+    node = next(t for t in graph.transactions if t.id == "Draft-2026-06-24-2026-R2-MEM")
+    movement = next(
+        m
+        for m in graph.movements
+        if m.transaction_id == node.id and m.asset_type == "player"
+    )
+
+    assert movement.asset_id == "-202632"
+    assert movement.contract_type == CONTRACT_DRAFT_RIGHTS
+    assert any("-202632" in note for note in graph.notes)
+    assert any(p.full_name == "Richie Saunders" for p in graph.players if p.id == -202632)
+
+
+def test_boozer_and_lopez_re_sign_from_draft_rights_to_standard_at_mem(graph):
+    timelines = build_timelines(graph.movements)
+
+    boozer = timelines[("player", "1643409")]
+    assert boozer[0].holder == "MEM" and boozer[0].contract_type == CONTRACT_DRAFT_RIGHTS
+    assert boozer[1].holder == "MEM" and boozer[1].contract_type == "standard"
+    assert boozer[1].from_node == "Signing-1153118"
+
+    lopez = timelines[("player", "1643510")]
+    assert lopez[0].holder == "MEM" and lopez[0].contract_type == CONTRACT_DRAFT_RIGHTS
+    assert lopez[1].holder == "MEM" and lopez[1].contract_type == "standard"
+
+
+def test_clarke_void_resolves_from_the_baseline_mem_holder(graph):
+    timelines = build_timelines(graph.movements)
+
+    assert timelines[("player", "1629634")] == [
+        Segment(
+            from_node=BASELINE_ID, to_node="Void-2026-07-03-1629634", holder="MEM",
+            contract_type="standard",
+        ),
+        Segment(
+            from_node="Void-2026-07-03-1629634", to_node=None, holder=HOLDER_VOID,
+            contract_type=None,
+        ),
+    ]
+    node = next(t for t in graph.transactions if t.id == "Void-2026-07-03-1629634")
+    assert node.kind == "contract_void"
+    assert node.source_key == "events"
+    assert "Brandon Clarke" in node.description
 
 
 def test_a_referenced_pick_outside_the_snapshot_is_created_from_its_id(
     feed_payload, resolvable_inputs
 ):
-    snapshot, pick_events, corrections = resolvable_inputs
-    trade = next(t for t in pick_events.trades if t.group_key == "Trade 2025022")
-    trade.picks = [
-        PickMove(
-            pick_id="2031-R2-UTA",
-            from_holder="UTA",
-            to_holder="MEM",
-            protections="top-3",
-        )
+    snapshot, curated, corrections = resolvable_inputs
+    trade = next(t for t in curated.trades if t.group_key == "Trade 2025022")
+    trade.picks_in = trade.picks_in + [
+        PickIn(pick_id="2031-R2-UTA", from_holder="UTA", protections="top-3")
     ]
 
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
     created = next(p for p in graph.picks if p.id == "2031-R2-UTA")
     movement = next(m for m in graph.movements if m.asset_id == "2031-R2-UTA")
 
@@ -270,12 +390,12 @@ def test_a_referenced_pick_outside_the_snapshot_is_created_from_its_id(
     assert movement.transaction_id == "Trade-2025022"
 
 
-def test_pick_events_naming_an_unknown_group_key_raises(feed_payload, resolvable_inputs):
-    snapshot, pick_events, corrections = resolvable_inputs
-    pick_events.trades[0].group_key = "Trade 9999999"
+def test_curated_events_naming_an_unknown_group_key_raises(feed_payload, resolvable_inputs):
+    snapshot, curated, corrections = resolvable_inputs
+    curated.trades[0].group_key = "Trade 9999999"
 
     with pytest.raises(ValueError, match="Trade 9999999"):
-        build_graph(feed_payload, snapshot, pick_events, corrections)
+        build_graph(feed_payload, snapshot, curated, corrections)
 
 
 def test_rows_are_ordered_deterministically(graph):
@@ -294,10 +414,10 @@ def test_rows_are_ordered_deterministically(graph):
 def test_build_graph_twice_yields_identical_serialized_output(
     feed_payload, resolvable_inputs
 ):
-    snapshot, pick_events, corrections = resolvable_inputs
+    snapshot, curated, corrections = resolvable_inputs
 
-    first = graph_to_json(build_graph(feed_payload, snapshot, pick_events, corrections))
-    second = graph_to_json(build_graph(feed_payload, snapshot, pick_events, corrections))
+    first = graph_to_json(build_graph(feed_payload, snapshot, curated, corrections))
+    second = graph_to_json(build_graph(feed_payload, snapshot, curated, corrections))
 
     assert first == second
     assert json.loads(first)["movements"][0]["transaction_id"] == BASELINE_ID
@@ -310,10 +430,10 @@ def test_every_movement_is_unique_per_transaction_and_asset(graph):
 
 
 def test_corrections_can_drop_a_feed_row(feed_payload, resolvable_inputs):
-    snapshot, pick_events, corrections = resolvable_inputs
+    snapshot, curated, corrections = resolvable_inputs
     corrections.drop_rows = [DropRow(group_key="Waive 1140530", player_id=1641790)]
 
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
 
     assert "Waive-1140530" not in {t.id for t in graph.transactions}
     assert build_timelines(graph.movements)[("player", "1641790")][-1].holder == "MEM"
@@ -372,7 +492,7 @@ def test_load_graph_truncates_then_inserts_in_dependency_order(graph):
     conn = FakeConnection()
 
     load_graph(
-        conn, graph, {"snapshot": 1, "feed": 2, "pick_events": 3, "corrections": 4}
+        conn, graph, {"snapshot": 1, "feed": 2, "events": 3, "corrections": 4}
     )
 
     assert [(kind, sql) for kind, sql, _ in conn.calls] == [
@@ -391,36 +511,46 @@ def test_load_graph_truncates_then_inserts_in_dependency_order(graph):
     ]
     assert conn.committed is True
 
+    # The fake connection exercised a real graph carrying every new kind and contract type
+    # this task adds, so this doubles as the "load includes the new kinds/contract types"
+    # check: nothing about truncate/insert ordering needed to change for them.
+    transaction_rows = conn.calls[3][2]
+    kinds = {row[2] for row in transaction_rows}
+    assert {"draft_selection", "contract_void"} <= kinds
+    movement_rows = conn.calls[4][2]
+    contract_types = {row[5] for row in movement_rows}
+    assert "draft_rights" in contract_types
+
 
 def test_load_graph_stamps_each_transaction_with_its_source_record(graph):
     conn = FakeConnection()
 
     load_graph(
-        conn, graph, {"snapshot": 11, "feed": 22, "pick_events": 33, "corrections": 44}
+        conn, graph, {"snapshot": 11, "feed": 22, "events": 33, "corrections": 44}
     )
     transaction_rows = conn.calls[3][2]
     source_ids = {row[0]: row[5] for row in transaction_rows}
 
     assert source_ids[BASELINE_ID] == 11
     assert source_ids["Signing-1139430"] == 22
+    assert source_ids["Draft-2026-06-23-2026-R1-MEM"] == 33
+    assert source_ids["Void-2026-07-03-1629634"] == 33
 
 
 def test_load_graph_inserts_each_transaction_note(feed_payload, resolvable_inputs):
-    snapshot, pick_events, corrections = resolvable_inputs
-    trade = next(t for t in pick_events.trades if t.group_key == "Trade 2025022")
-    trade.picks = [PickMove(pick_id="2031-R2-UTA", from_holder="UTA", to_holder="MEM")]
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    snapshot, curated, corrections = resolvable_inputs
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
     conn = FakeConnection()
 
     load_graph(
-        conn, graph, {"snapshot": 11, "feed": 22, "pick_events": 33, "corrections": 44}
+        conn, graph, {"snapshot": 11, "feed": 22, "events": 33, "corrections": 44}
     )
     transaction_rows = conn.calls[3][2]
     notes = {row[0]: row[7] for row in transaction_rows}
 
     assert notes[BASELINE_ID] is None
-    assert notes["Trade-2025022"] == "draft consideration: MEM<-UTA"
-    assert notes["Trade-2025037"] == UNCURATED_NOTE
+    assert notes["Trade-2025022"].startswith("draft consideration: MEM<-UTA")
+    assert notes["Trade-2026014"].startswith("draft consideration: footnotes only: ")
 
 
 def test_load_graph_refuses_a_missing_source_record_id(graph):
@@ -446,12 +576,12 @@ def test_build_graph_ignores_a_malformed_row_from_another_team(
 ):
     """Regression: CI died on `derive failed: no position word in description: 'Denver
     Nuggets signed  Bryce Hopkins to a Two-Way Contract.'` while scanning the full feed."""
-    snapshot, pick_events, corrections = resolvable_inputs
+    snapshot, curated, corrections = resolvable_inputs
 
     with_bad_row = build_graph(
-        feed_payload_with_malformed_row, snapshot, pick_events, corrections
+        feed_payload_with_malformed_row, snapshot, curated, corrections
     )
-    clean = build_graph(feed_payload, snapshot, pick_events, corrections)
+    clean = build_graph(feed_payload, snapshot, curated, corrections)
 
     # The Denver row is not a Memphis group, so it changes nothing about the graph.
     assert graph_to_json(with_bad_row) == graph_to_json(clean)
@@ -460,14 +590,14 @@ def test_build_graph_ignores_a_malformed_row_from_another_team(
 
 def test_a_malformed_memphis_row_still_fails_loudly(feed_payload, resolvable_inputs):
     """Tolerance is for the identity index only; Memphis movements stay strict."""
-    snapshot, pick_events, corrections = resolvable_inputs
+    snapshot, curated, corrections = resolvable_inputs
     rows = feed_payload["NBA_Player_Movement"]["rows"]
     bad = dict(next(r for r in rows if r["GroupSort"] == "Waive 1140530"))
     bad["TRANSACTION_DESCRIPTION"] = "Memphis Grizzlies did something inscrutable."
     rows[rows.index(next(r for r in rows if r["GroupSort"] == "Waive 1140530"))] = bad
 
     with pytest.raises(FeedParseError, match="inscrutable"):
-        build_graph(feed_payload, snapshot, pick_events, corrections)
+        build_graph(feed_payload, snapshot, curated, corrections)
 
 
 def _synthetic_row(group_key, transaction_type, description, player_id, player_slug):
@@ -489,7 +619,7 @@ def test_contract_converted_and_award_on_waivers_produce_the_expected_movements(
     ContractConverted row (MEM->MEM, standard) and an AwardOnWaivers row (FA->MEM,
     standard) - both drawn from real observed phrasings, not synthesized text."""
     snapshot = Snapshot(team="MEM", season="2025-26", as_of=dt.date(2026, 1, 1), players=[], picks=[])
-    pick_events = PickEvents(trades=[], draft_selections=[])
+    curated = CuratedEvents(trades=[], draft_selections=[], events=[])
     corrections = Corrections()
     feed_payload = {
         "NBA_Player_Movement": {
@@ -513,7 +643,7 @@ def test_contract_converted_and_award_on_waivers_produce_the_expected_movements(
         }
     }
 
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
     movements = {movement.asset_id: movement for movement in graph.movements}
 
     converted = movements["9001"]

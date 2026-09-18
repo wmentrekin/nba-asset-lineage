@@ -21,14 +21,24 @@ payloads plus curated data files into transaction and asset-movement rows.
 slot lanes with node hubs. Time runs left to right. A lane is a *roster slot*,
 not an asset: only Memphis tenure is drawn, so when an asset leaves the team its
 lane frees and the next asset arriving at that transaction takes it over —
-players in a top band, Memphis-owned picks in a band below. Every transaction
-that starts or ends a Memphis tenure is a hub: a marker on the transaction's
-date with one curve per departing asset flowing into it and one per arriving
-asset flowing out, so a trade reads as convergence then divergence. Bar
-thickness is the contract type (standard, two-way, 10-day); an asset that leaves
-Memphis ends in an arrow capped with its destination (`UTA`, `FA`, `USED`); the
-opening-night baseline and 10-day `expiry` nodes are plain end-caps rather than
-hubs. Two runs over the same `graph.json` produce byte-identical SVG.
+players in a top band, Memphis-owned picks in a band below. Within the player
+band, assets Memphis has held for the entire window sort to the top; everyone
+else follows in lane-reuse order. Every transaction that starts or ends a
+Memphis tenure is a hub: a marker on the transaction's date with one curve per
+departing asset flowing into it and one per arriving asset flowing out, so a
+trade reads as convergence then divergence. Every bar is the same thickness;
+color carries the contract type instead (standard, two-way, 10-day, draft
+rights, and a fifth muted color for pick strands). The hub marker itself is
+colored by the kind of transaction it represents (trade, a signing family, a
+waiver family, or a draft selection) while its connector curves stay a
+neutral, darker stroke so the hub reads as the colored element. An asset that
+leaves Memphis ends in a plain end-cap marker (destination is in the
+`<title>` tooltip, not drawn as text); the opening-night baseline and 10-day
+`expiry` nodes are plain end-caps rather than hubs. When a tenure is too short
+for its name to fit, its bar gets a small numbered marker instead of a
+truncated label, keyed to a numbered legend block at the bottom of the image.
+A color legend for both contract types and hub kinds sits above that block.
+Two runs over the same `graph.json` produce byte-identical SVG.
 
 ## Commands
 
@@ -49,9 +59,16 @@ hubs. Two runs over the same `graph.json` produce byte-identical SVG.
 
 - `data/opening_snapshot_2025_26.json` — curated opening-night roster plus
   every Memphis-owned future draft pick, as of 2025-26 opening night.
-- `data/pick_events.json` — curated pick movements per trade and draft
-  selections. The feed marks pick movement only as an unlabelled "draft
-  consideration" leg, so pick truth is curated rather than parsed.
+- `data/curated_events.json` — curated truth the feed can't supply: trade
+  `picks_in`/`picks_out` (the feed marks pick movement only as an
+  unlabelled "draft consideration" leg, so pick truth is curated rather
+  than parsed), `draft_selections` (a pick strand ends and a player strand
+  begins, `contract_type=draft_rights`, until a later signing re-signs it
+  standard), and standalone `events` such as a contract void. A drafted
+  player with no NBA person id yet (unsigned, so the feed has never named
+  them) gets a deterministic synthetic negative id
+  (`-(draft_year * 100 + pick_no)`), replaced automatically once a real
+  signing resolves the same slot.
 - `data/corrections.json` — declarative overrides for feed rows the parser
   can't handle on its own.
 

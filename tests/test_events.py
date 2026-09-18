@@ -1,51 +1,90 @@
-"""Tests for lineage.picks: loading curated pick truth and pick-id parsing."""
+"""Tests for lineage.events: loading curated trade/draft/event truth and pick-id parsing."""
 
 import datetime as dt
 
 import pytest
 
-from lineage.picks import (
-    PickEventsError,
+from lineage.events import (
+    CuratedEventsError,
+    DraftSelection,
     draft_transaction_id,
-    load_pick_events,
+    load_curated_events,
     parse_pick_id,
+    synthetic_player_id,
 )
 
 from tests.conftest import DATA_DIR
 
-PICK_EVENTS_PATH = DATA_DIR / "pick_events.json"
+CURATED_EVENTS_PATH = DATA_DIR / "curated_events.json"
 
 
-def test_load_pick_events_reads_the_curated_file():
-    pick_events = load_pick_events(PICK_EVENTS_PATH)
+def test_load_curated_events_reads_the_curated_file():
+    curated = load_curated_events(CURATED_EVENTS_PATH)
 
-    assert [trade.group_key for trade in pick_events.trades] == [
+    assert [trade.group_key for trade in curated.trades] == [
         "Trade 2025022",
         "Trade 2025037",
+        "Trade 2025063",
         "Trade 2026006",
         "Trade 2026014",
     ]
-    # Nothing is curated yet, so every trade is an uncurated draft consideration.
-    assert all(trade.picks == [] for trade in pick_events.trades)
-    assert len(pick_events.draft_selections) == 2
-    assert all(selection.is_todo for selection in pick_events.draft_selections)
+    assert len(curated.draft_selections) == 3
+    assert len(curated.events) == 1
+    assert curated.events[0].kind == "contract_void"
 
 
-def test_pick_move_reads_the_from_and_to_aliases():
-    from lineage.picks import PickMove
+def test_pick_in_reads_the_from_alias():
+    from lineage.events import PickIn
 
-    move = PickMove.model_validate(
+    pick_in = PickIn.model_validate(
         {
             "pick_id": "2030-R1-ORL",
             "from": "ORL",
-            "to": "MEM",
             "protections": "top-5 protected",
             "source_url": "https://example.com/trade",
+            "verified": True,
+            "confidence": "high",
         }
     )
 
-    assert (move.from_holder, move.to_holder) == ("ORL", "MEM")
-    assert move.protections == "top-5 protected"
+    assert pick_in.from_holder == "ORL"
+    assert pick_in.protections == "top-5 protected"
+
+
+def test_pick_out_reads_the_to_alias():
+    from lineage.events import PickOut
+
+    pick_out = PickOut.model_validate(
+        {
+            "pick_id": "2030-R1-ORL",
+            "to": "ORL",
+            "protections": None,
+            "source_url": None,
+            "verified": True,
+            "confidence": "high",
+        }
+    )
+
+    assert pick_out.to_holder == "ORL"
+
+
+def test_trade_entry_forbids_unknown_fields():
+    from lineage.events import TradeEntry
+
+    with pytest.raises(ValueError):
+        TradeEntry.model_validate(
+            {
+                "group_key": "Trade 2025022",
+                "date": "2026-02-03",
+                "counterparty": "UTA",
+                "verified": True,
+                "confidence": "high",
+                "picks_in": [],
+                "picks_out": [],
+                "footnotes": [],
+                "unexpected": "nope",
+            }
+        )
 
 
 @pytest.mark.parametrize(
@@ -68,17 +107,28 @@ def test_parse_pick_id_rejects_junk(pick_id):
 
 
 def test_draft_transaction_id():
-    from lineage.picks import DraftSelection
-
     selection = DraftSelection(
         date=dt.date(2026, 6, 24),
-        pick_id="2026-R1-MEM",
-        player_id=1643409,
-        player_name="Cameron Boozer",
+        pick_no=32,
+        pick_id="2026-R2-MEM",
+        player_id=None,
+        player_name="Richie Saunders",
     )
 
-    assert draft_transaction_id(selection) == "Draft-2026-06-24-1643409"
+    assert draft_transaction_id(selection) == "Draft-2026-06-24-2026-R2-MEM"
 
 
-def test_pick_events_error_is_a_value_error():
-    assert issubclass(PickEventsError, ValueError)
+def test_synthetic_player_id_is_deterministic_and_negative():
+    selection = DraftSelection(
+        date=dt.date(2026, 6, 24),
+        pick_no=32,
+        pick_id="2026-R2-MEM",
+        player_id=None,
+        player_name="Richie Saunders",
+    )
+
+    assert synthetic_player_id(selection) == -202632
+
+
+def test_curated_events_error_is_a_value_error():
+    assert issubclass(CuratedEventsError, ValueError)

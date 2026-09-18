@@ -132,11 +132,11 @@ def _run_fetch(args: argparse.Namespace) -> int:
 
 
 def _run_derive(args: argparse.Namespace) -> int:
-    snapshot, pick_events, corrections = load_inputs(DATA_DIR)
+    snapshot, curated, corrections = load_inputs(DATA_DIR)
 
     if args.feed_fixture:
         feed_payload = json.loads(pathlib.Path(args.feed_fixture).read_text())
-        graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+        graph = build_graph(feed_payload, snapshot, curated, corrections)
         if args.dry_run:
             print(graph_to_json(graph))
         else:
@@ -155,7 +155,7 @@ def _run_derive(args: argparse.Namespace) -> int:
         }
         feed_record_id, feed_payload = select_feed_payload(conn)
         source_record_ids["feed"] = feed_record_id
-        graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+        graph = build_graph(feed_payload, snapshot, curated, corrections)
         if args.dry_run:
             print(graph_to_json(graph))
             return 0

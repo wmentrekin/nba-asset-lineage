@@ -26,7 +26,7 @@ def test_load_snapshot_reads_the_curated_file():
     assert snapshot.season == "2025-26"
     assert snapshot.as_of == dt.date(2025, 10, 22)
     assert len(snapshot.players) == 18
-    assert len(snapshot.picks) == 15
+    assert len(snapshot.picks) == 16
 
 
 def test_pick_ids_are_built_from_the_natural_key():

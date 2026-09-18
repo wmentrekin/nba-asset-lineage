@@ -1,6 +1,6 @@
 """Validates a DerivedGraph against the invariants the whole pipeline depends on.
 
-`validate_graph` is a pure function of (DerivedGraph, Snapshot, PickEvents) - offline,
+`validate_graph` is a pure function of (DerivedGraph, Snapshot, CuratedEvents) - offline,
 deterministic, no database - so it can run against a feed fixture or against the DB inputs
 `derive` itself would read. Each check produces zero or more `Finding`s; errors fail the load,
 warnings are informational (or fail it too, under `--strict`).
@@ -13,7 +13,9 @@ from dataclasses import dataclass
 
 from lineage.db import connect
 from lineage.derive import (
+    CONTRACT_DRAFT_RIGHTS,
     KIND_BASELINE,
+    KIND_CONTRACT_VOID,
     KIND_DRAFT_SELECTION,
     KIND_EXPIRY,
     DerivedGraph,
@@ -33,7 +35,7 @@ from lineage.parse import (
     KIND_WAIVER,
     PICK_USED,
 )
-from lineage.picks import PickEvents, UNCURATED_NOTE
+from lineage.events import CuratedEvents
 from lineage.snapshot import Snapshot
 from lineage.teams import MEM, TRICODES
 from lineage.timeline import by_asset
@@ -52,6 +54,7 @@ ALLOWED_KINDS = frozenset(
         KIND_TEN_DAY,
         KIND_DRAFT_SELECTION,
         KIND_EXPIRY,
+        KIND_CONTRACT_VOID,
     }
 )
 
@@ -70,24 +73,24 @@ class Finding:
 
 def load_graph_for_validation(
     feed_fixture: str | None, data_dir: pathlib.Path
-) -> tuple[DerivedGraph, Snapshot, PickEvents]:
+) -> tuple[DerivedGraph, Snapshot, CuratedEvents]:
     """Build the graph to validate, offline from a fixture or from the DB inputs.
 
     Reuses derive's own input-loading helpers (`load_inputs`, `select_feed_payload`,
     `build_graph`) rather than re-reading the curated files or the feed a second way.
     """
-    snapshot, pick_events, corrections = load_inputs(data_dir)
+    snapshot, curated, corrections = load_inputs(data_dir)
     if feed_fixture:
         feed_payload = json.loads(pathlib.Path(feed_fixture).read_text())
     else:
         with connect() as conn:
             _, feed_payload = select_feed_payload(conn)
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
-    return graph, snapshot, pick_events
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+    return graph, snapshot, curated
 
 
 def validate_graph(
-    graph: DerivedGraph, snapshot: Snapshot, pick_events: PickEvents
+    graph: DerivedGraph, snapshot: Snapshot, curated: CuratedEvents
 ) -> list[Finding]:
     """Run every check and return all findings, errors before warnings."""
     findings: list[Finding] = []
@@ -98,8 +101,10 @@ def validate_graph(
     findings += _check_draft_selection_movements(graph)  # E5
     findings += _check_ten_day_expiry(graph)  # E6
     findings += _check_uncurated_draft_considerations(graph)  # W1
-    findings += _check_todo_draft_selections(pick_events)  # W2
+    findings += _check_null_player_id_draft_selections(curated)  # W2
     findings += _check_unverified_snapshot_players(snapshot)  # W3
+    findings += _check_uncurated_trade_footnotes(curated)  # W5
+    findings += _check_unverified_snapshot_picks(snapshot)  # W6
     return findings
 
 
@@ -232,7 +237,8 @@ def _check_baseline(graph: DerivedGraph, snapshot: Snapshot) -> list[Finding]:
 
 
 def _check_draft_selection_movements(graph: DerivedGraph) -> list[Finding]:
-    """E5: every draft_selection transaction has exactly its pick-used + player-drafted pair."""
+    """E5: every draft_selection transaction has exactly its pick-used + player-drafted pair,
+    the player movement carrying `contract_type=draft_rights`."""
     findings: list[Finding] = []
     for transaction in graph.transactions:
         if transaction.kind != KIND_DRAFT_SELECTION:
@@ -246,7 +252,10 @@ def _check_draft_selection_movements(graph: DerivedGraph) -> list[Finding]:
         player_drafted = [
             m
             for m in movements
-            if m.asset_type == "player" and m.from_holder == DRAFT_POOL and m.to_holder == MEM
+            if m.asset_type == "player"
+            and m.from_holder == DRAFT_POOL
+            and m.to_holder == MEM
+            and m.contract_type == CONTRACT_DRAFT_RIGHTS
         ]
         if len(movements) != 2 or len(pick_used) != 1 or len(player_drafted) != 1:
             findings.append(
@@ -254,7 +263,8 @@ def _check_draft_selection_movements(graph: DerivedGraph) -> list[Finding]:
                     LEVEL_ERROR,
                     "E5",
                     f"draft selection {transaction.id} does not have exactly one MEM->USED "
-                    "pick movement and one DRAFT->MEM player movement",
+                    "pick movement and one DRAFT->MEM contract_type=draft_rights player "
+                    "movement",
                 )
             )
     return findings
@@ -290,25 +300,36 @@ def _check_ten_day_expiry(graph: DerivedGraph) -> list[Finding]:
 
 
 def _check_uncurated_draft_considerations(graph: DerivedGraph) -> list[Finding]:
-    """W1: a trade with draft-consideration markers but no curated pick movements."""
+    """W1: a trade with feed draft-consideration markers but no curated pick movements.
+
+    Fires iff markers exist and no pick movements were attached: `_attach_curated_trades`
+    only ever writes a `"draft consideration: ..."`-prefixed note on a trade that has
+    markers, and only leaves that trade without a pick movement when none was curated.
+    """
+    pick_movement_transactions = {
+        m.transaction_id for m in graph.movements if m.asset_type == "pick"
+    }
     return [
-        Finding(LEVEL_WARN, "W1", f"{transaction.id}: {UNCURATED_NOTE}")
+        Finding(LEVEL_WARN, "W1", f"{transaction.id}: {transaction.note}")
         for transaction in graph.transactions
-        if transaction.note == UNCURATED_NOTE
+        if transaction.kind == KIND_TRADE
+        and transaction.note is not None
+        and transaction.note.startswith("draft consideration:")
+        and transaction.id not in pick_movement_transactions
     ]
 
 
-def _check_todo_draft_selections(pick_events: PickEvents) -> list[Finding]:
-    """W2: a draft_selections entry with pick_id == 'TODO'."""
+def _check_null_player_id_draft_selections(curated: CuratedEvents) -> list[Finding]:
+    """W2: a draft_selections entry with a null player_id (synthetic id in use)."""
     return [
         Finding(
             LEVEL_WARN,
             "W2",
-            f"draft selection of {selection.player_name} ({selection.player_id}) on "
-            f"{selection.date.isoformat()} has pick_id TODO",
+            f"draft selection of {selection.player_name} on {selection.date.isoformat()} "
+            "has a null player_id (synthetic id in use)",
         )
-        for selection in pick_events.draft_selections
-        if selection.is_todo
+        for selection in curated.draft_selections
+        if selection.player_id is None
     ]
 
 
@@ -318,6 +339,31 @@ def _check_unverified_snapshot_players(snapshot: Snapshot) -> list[Finding]:
         Finding(LEVEL_WARN, "W3", f"snapshot player {player.name!r} is not verified")
         for player in snapshot.players
         if not player.verified
+    ]
+
+
+def _check_uncurated_trade_footnotes(curated: CuratedEvents) -> list[Finding]:
+    """W5: a trade footnote flags an asset that is not (yet) modelled - a soft reminder."""
+    markers = ("not modelled", "unverified", "years not found")
+    findings: list[Finding] = []
+    for trade in curated.trades:
+        if any(marker in footnote.lower() for footnote in trade.footnotes for marker in markers):
+            findings.append(
+                Finding(
+                    LEVEL_WARN,
+                    "W5",
+                    f"{trade.group_key}: footnote flags an uncurated asset",
+                )
+            )
+    return findings
+
+
+def _check_unverified_snapshot_picks(snapshot: Snapshot) -> list[Finding]:
+    """W6: a snapshot pick row with verified: false."""
+    return [
+        Finding(LEVEL_WARN, "W6", f"snapshot pick {pick.pick_id!r} is not verified")
+        for pick in snapshot.picks
+        if not pick.verified
     ]
 
 
@@ -335,8 +381,8 @@ def format_report(findings: list[Finding]) -> str:
 
 def run_validate(feed_fixture: str | None, data_dir: pathlib.Path, strict: bool) -> int:
     """Build, validate and print a report; return the process exit code."""
-    graph, snapshot, pick_events = load_graph_for_validation(feed_fixture, data_dir)
-    findings = validate_graph(graph, snapshot, pick_events)
+    graph, snapshot, curated = load_graph_for_validation(feed_fixture, data_dir)
+    findings = validate_graph(graph, snapshot, curated)
     print(format_report(findings))
 
     has_errors = any(f.level == LEVEL_ERROR for f in findings)

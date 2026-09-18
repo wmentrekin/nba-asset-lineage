@@ -6,6 +6,7 @@ and out. These tests derive the expected hubs and lane reuse straight from graph
 they check the layout contract rather than restating the renderer's arithmetic.
 """
 
+import copy
 import os
 import pathlib
 import subprocess
@@ -22,6 +23,7 @@ SVG_NS = "{http://www.w3.org/2000/svg}"
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 TRADE = "Trade-2025022"
+WAIVER = "Waive-1140530"
 LANDALE = "1629111"
 KYLE_ANDERSON = "203937"
 FLAT_KINDS = {"baseline", "expiry"}
@@ -99,6 +101,29 @@ def _hub_nodes(export):
     return hubs
 
 
+def _full_window_player_ids(export):
+    """Player asset ids MEM held for the entire window, computed straight from graph.json.
+
+    First MEM segment starts at the baseline node, last MEM segment has `to_node is None` -
+    still held at window end. A MEM->MEM re-sign/conversion in between doesn't break this,
+    since it's read off the raw segment list rather than merged tenures.
+    """
+    baseline_ids = {node["id"] for node in export["nodes"] if node["kind"] == "baseline"}
+    assets_by_id = {asset["id"]: asset for asset in export["assets"]}
+    full_window = []
+    for strand in export["strands"]:
+        asset = assets_by_id[strand["asset_id"]]
+        if asset["type"] != "player":
+            continue
+        mem_segments = [s for s in strand["segments"] if s["holder"] == "MEM"]
+        if not mem_segments:
+            continue
+        first, last = mem_segments[0], mem_segments[-1]
+        if first["from_node"] in baseline_ids and last["to_node"] is None:
+            full_window.append(strand["asset_id"])
+    return full_window
+
+
 def _hub(root, node_id):
     return next(
         group
@@ -109,6 +134,10 @@ def _hub(root, node_id):
 
 def _hub_x(root, node_id):
     return float(_hub(root, node_id).find(f'{SVG_NS}circle[@class="hub-marker"]').get("cx"))
+
+
+def _hub_fill(root, node_id):
+    return _hub(root, node_id).find(f'{SVG_NS}circle[@class="hub-marker"]').get("fill")
 
 
 def _strand(root, asset_id, from_node):
@@ -167,7 +196,7 @@ def test_connector_counts_match_each_hubs_in_and_out_assets(root, export):
 
 @pytest.mark.parametrize(
     ("node_id", "expected"),
-    [("Trade-2025022", (4, 4)), ("Trade-2026006", (1, 3))],
+    [("Trade-2025022", (4, 6)), ("Trade-2026006", (1, 7))],
 )
 def test_the_known_trades_converge_and_diverge(root, export, node_id, expected):
     assert _hub_nodes(export)[node_id] == expected
@@ -191,7 +220,6 @@ def test_a_departing_bar_stops_short_of_the_hub_and_gets_an_exit_cap(root):
         if group.get("data-asset-id") == LANDALE
     )
     assert cap.get("data-destination") == "UTA"
-    assert cap.find(f'{SVG_NS}text[@class="exit-label"]').text == "UTA"
 
 
 def test_an_arriving_bar_starts_past_the_hub_in_a_lane_the_trade_freed(root, export):
@@ -225,9 +253,11 @@ def test_only_memphis_segments_are_drawn_as_bars(root, export):
     assert {bar.get("data-holder") for bar in bars} == {"MEM"}
 
 
-def test_the_image_is_short_enough_to_read_at_full_width(root):
+def test_the_image_is_full_width_and_a_reasonable_height(root):
     assert int(root.get("width")) == 1600
-    assert int(root.get("height")) <= 900
+    # The legend block grows with the number of unlabelled short tenures, so this is a sanity
+    # bound rather than the old hard 900px cap.
+    assert int(root.get("height")) <= 1100
 
 
 def test_render_is_byte_identical_across_two_runs(export):
@@ -265,3 +295,127 @@ def test_all_text_is_escaped(export):
     ET.fromstring(svg)  # must still parse
     assert "A & B <weird>" not in svg
     assert "A &amp; B &lt;weird&gt;" in svg
+
+
+# --- Render v3: color semantics, ordering, legend (owner feedback round 2) ----------------
+
+
+def test_no_exit_cap_carries_visible_destination_text(root):
+    assert not root.findall(f'.//{SVG_NS}text[@class="exit-label"]')
+    for group in root.findall(f'.//{SVG_NS}g[@class="exit"]'):
+        for text in group.findall(f"{SVG_NS}text"):
+            assert len(text.text or "") != 3
+
+
+def test_two_way_and_standard_bars_share_height_but_differ_in_color(root):
+    two_way = _strand(root, "1641790", "OPENING-2025-26").find(f'{SVG_NS}rect[@class="segment"]')
+    standard = _strand(root, "1642285", "OPENING-2025-26").find(f'{SVG_NS}rect[@class="segment"]')
+
+    assert two_way.get("height") == standard.get("height")
+    assert two_way.get("fill") != standard.get("fill")
+    assert two_way.get("data-contract-type") == "two_way"
+    assert standard.get("data-contract-type") == "standard"
+
+
+def test_hub_marker_fill_differs_between_a_trade_and_a_waiver(root):
+    assert _hub_fill(root, TRADE) != _hub_fill(root, WAIVER)
+
+
+def test_full_window_players_occupy_the_first_lanes(root, export):
+    baseline_id = next(node["id"] for node in export["nodes"] if node["kind"] == "baseline")
+    full_window = set(_full_window_player_ids(export))
+    assert full_window  # the fixture must actually exercise this
+
+    assets_by_label = {asset["id"]: asset["label"] for asset in export["assets"]}
+    morant = next(aid for aid, label in assets_by_label.items() if label == "Ja Morant")
+    wells = next(aid for aid, label in assets_by_label.items() if label == "Jaylen Wells")
+    assert morant not in full_window
+    assert wells in full_window
+
+    starting_at_baseline = [
+        group
+        for group in root.findall(f'.//{SVG_NS}g[@class="strand"]')
+        if group.get("data-band") == "player"
+        and group.find(f"{SVG_NS}rect").get("data-from-node") == baseline_id
+    ]
+    front_lane_assets = {
+        group.get("data-asset-id")
+        for group in starting_at_baseline
+        if int(group.get("data-lane")) < len(full_window)
+    }
+
+    assert front_lane_assets == full_window
+
+
+def test_a_dropped_label_gets_a_numbered_marker_and_a_matching_legend_entry(root):
+    # The PJ Hall lane carries several short 10-days that don't fit their label.
+    markers = root.findall(f'.//{SVG_NS}g[@class="short-tenure-marker"]')
+    assert markers
+
+    legend_texts = [
+        text.text or ""
+        for text in root.findall(f'.//{SVG_NS}g[@class="short-tenure-legend"]/{SVG_NS}text')
+    ]
+    assert legend_texts
+
+    numbers_on_chart = {marker.get("data-number") for marker in markers}
+    numbers_in_legend = {text.split(".", 1)[0] for text in legend_texts}
+    assert numbers_on_chart == numbers_in_legend
+
+    first_marker = markers[0]
+    matching_entry = next(
+        text for text in legend_texts if text.startswith(f"{first_marker.get('data-number')}.")
+    )
+    assert first_marker.find(f"{SVG_NS}title").text in matching_entry
+    assert "→" in matching_entry
+
+
+def test_synthetic_contract_void_and_draft_rights_get_their_family_colors(export):
+    """Tolerates the upcoming graph.json values from the concurrent derive/export change."""
+    synthetic = copy.deepcopy(export)
+    synthetic["nodes"].append(
+        {
+            "id": "Void-9999999",
+            "date": synthetic["window"]["end"],
+            "kind": "contract_void",
+            "description": "Synthetic contract void",
+            "counterparties": [],
+            "note": None,
+        }
+    )
+    synthetic["assets"].append({"id": "9999999", "type": "player", "label": "Synthetic Player"})
+    synthetic["strands"].append(
+        {
+            "asset_id": "9999999",
+            "asset_type": "player",
+            "segments": [
+                {
+                    "from_node": "OPENING-2025-26",
+                    "to_node": "Void-9999999",
+                    "holder": "MEM",
+                    "contract_type": "draft_rights",
+                },
+            ],
+        }
+    )
+
+    root = ET.fromstring(render_svg(synthetic))
+
+    void_hub = next(
+        group
+        for group in root.findall(f'.//{SVG_NS}g[@class="hub"]')
+        if group.get("data-node-id") == "Void-9999999"
+    )
+    waiver_hub = _hub(root, WAIVER)
+    assert void_hub.find(f"{SVG_NS}circle").get("fill") == waiver_hub.find(
+        f"{SVG_NS}circle"
+    ).get("fill")
+
+    synthetic_bar = next(
+        group
+        for group in root.findall(f'.//{SVG_NS}g[@class="strand"]')
+        if group.get("data-asset-id") == "9999999"
+    ).find(f'{SVG_NS}rect[@class="segment"]')
+    assert synthetic_bar.get("data-contract-type") == "draft_rights"
+    other_bar = _strand(root, KYLE_ANDERSON, TRADE).find(f'{SVG_NS}rect[@class="segment"]')
+    assert synthetic_bar.get("fill") != other_bar.get("fill")

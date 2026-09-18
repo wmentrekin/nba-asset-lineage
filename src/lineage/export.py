@@ -96,13 +96,13 @@ def build_export_from_inputs(
     feed_fixture: str | None, data_dir: pathlib.Path
 ) -> tuple[dict[str, Any], Snapshot]:
     """Build the graph the same way `derive`/`validate` do, then export it."""
-    snapshot, pick_events, corrections = load_inputs(data_dir)
+    snapshot, curated, corrections = load_inputs(data_dir)
     if feed_fixture:
         feed_payload = json.loads(pathlib.Path(feed_fixture).read_text())
     else:
         with connect() as conn:
             _, feed_payload = select_feed_payload(conn)
-    graph = build_graph(feed_payload, snapshot, pick_events, corrections)
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
     return build_export(graph, snapshot.as_of), snapshot
 
 

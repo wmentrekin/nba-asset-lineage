@@ -33,13 +33,14 @@ from lineage.parse import (
     memphis_groups,
     try_player_ref,
 )
-from lineage.picks import (
+from lineage.events import (
     UNCURATED_NOTE,
-    PickEvents,
-    PickEventsError,
+    CuratedEvents,
+    CuratedEventsError,
     draft_transaction_id,
-    load_pick_events,
+    load_curated_events,
     parse_pick_id,
+    synthetic_player_id,
 )
 from lineage.snapshot import (
     Snapshot,
@@ -54,21 +55,25 @@ from lineage.timeline import Movement, resolve_from_holders
 KIND_BASELINE = "baseline"
 KIND_DRAFT_SELECTION = "draft_selection"
 KIND_EXPIRY = "expiry"
+KIND_CONTRACT_VOID = "contract_void"
+
+HOLDER_VOID = "VOID"
+CONTRACT_DRAFT_RIGHTS = "draft_rights"
 
 BASELINE_DESCRIPTION = "Opening-night roster and owned pick inventory"
 
 SOURCE_FEED = "nba_player_movement"
 SOURCE_SNAPSHOT = "curated_snapshot"
-SOURCE_PICK_EVENTS = "curated_pick_events"
+SOURCE_EVENTS = "curated_events"
 SOURCE_CORRECTIONS = "curated_corrections"
 
 SOURCE_KEY_FEED = "feed"
 SOURCE_KEY_SNAPSHOT = "snapshot"
-SOURCE_KEY_PICK_EVENTS = "pick_events"
+SOURCE_KEY_EVENTS = "events"
 
 CURATED_SOURCES: dict[str, tuple[str, str]] = {
     SOURCE_KEY_SNAPSHOT: (SOURCE_SNAPSHOT, "opening_snapshot_2025_26.json"),
-    SOURCE_KEY_PICK_EVENTS: (SOURCE_PICK_EVENTS, "pick_events.json"),
+    SOURCE_KEY_EVENTS: (SOURCE_EVENTS, "curated_events.json"),
     "corrections": (SOURCE_CORRECTIONS, "corrections.json"),
 }
 
@@ -100,9 +105,9 @@ class DeriveError(ValueError):
 # Every way a bad input can stop a derivation; the CLI reports these instead of traceback.
 DERIVE_ERRORS = (
     CorrectionError,
+    CuratedEventsError,
     DeriveError,
     FeedParseError,
-    PickEventsError,
     UnresolvedPlayerError,
 )
 
@@ -149,7 +154,7 @@ class DerivedGraph:
 def build_graph(
     feed_payload: dict[str, Any],
     snapshot: Snapshot,
-    pick_events: PickEvents,
+    curated: CuratedEvents,
     corrections: Corrections,
 ) -> DerivedGraph:
     """Derive the whole graph from raw payloads plus curated files. Pure and deterministic."""
@@ -162,8 +167,9 @@ def build_graph(
     transactions += [
         group_to_transaction(group) for group in memphis_groups(rows, snapshot.as_of)
     ]
-    _attach_pick_events(transactions, pick_events, notes)
-    transactions += _draft_selection_transactions(pick_events, notes)
+    _attach_curated_trades(transactions, curated, notes)
+    transactions += _draft_selection_transactions(curated, notes)
+    transactions += _event_transactions(curated)
 
     apply_movement_corrections(transactions, corrections)
     transactions += _expiry_transactions(transactions)
@@ -172,8 +178,8 @@ def build_graph(
     movements = _flatten_movements(transactions)
 
     return DerivedGraph(
-        players=_player_rows(movements, identity, snapshot, person_ids, pick_events),
-        picks=_pick_rows(snapshot, pick_events, movements),
+        players=_player_rows(movements, identity, snapshot, person_ids, curated),
+        picks=_pick_rows(snapshot, curated, movements),
         transactions=[
             TransactionRow(
                 id=transaction.id,
@@ -250,64 +256,108 @@ def _draft_consideration_note(transaction: Transaction) -> str:
     return f"draft consideration: {legs}"
 
 
-def _attach_pick_events(
-    transactions: list[Transaction], pick_events: PickEvents, notes: list[str]
+def _footnote_text(footnotes: list[str]) -> str:
+    return "; ".join(footnotes)
+
+
+def _attach_curated_trades(
+    transactions: list[Transaction], curated: CuratedEvents, notes: list[str]
 ) -> None:
-    """Attach curated pick movements to the trade transactions they belong to."""
+    """Attach curated pick movements (in and out) to the trade transactions they belong to.
+
+    A trade with feed draft-consideration markers but no curated pick movements stays
+    uncurated (W1): its note is the plain marker text when it has no footnotes either, or
+    `"draft consideration: footnotes only: ..."` when the curator left a footnote instead of
+    a pick row. A trade that does have curated pick movements gets the normal leg summary,
+    with any footnotes folded in afterward so they persist onto the transaction.
+    """
     by_group = {
         transaction.group_key: transaction
         for transaction in transactions
         if transaction.group_key is not None
     }
-    for trade in pick_events.trades:
+    for trade in curated.trades:
         transaction = by_group.get(trade.group_key)
         if transaction is None:
-            raise PickEventsError(
-                f"pick_events names group_key {trade.group_key!r}, which is not a parsed "
+            raise CuratedEventsError(
+                f"curated_events names group_key {trade.group_key!r}, which is not a parsed "
                 "in-window Memphis transaction"
             )
-        if not trade.picks:
-            transaction.note = UNCURATED_NOTE
-            notes.append(f"{transaction.id}: {UNCURATED_NOTE}")
-            continue
-        transaction.note = _draft_consideration_note(transaction)
-        for move in trade.picks:
-            parse_pick_id(move.pick_id)
-            transaction.movements.append(
+
+        pick_moves: list[MovementSpec] = []
+        for pick_in in trade.picks_in:
+            parse_pick_id(pick_in.pick_id)
+            pick_moves.append(
                 MovementSpec(
                     asset_type="pick",
-                    asset_id=move.pick_id,
-                    from_holder=move.from_holder,
-                    to_holder=move.to_holder,
-                    note=move.source_url,
+                    asset_id=pick_in.pick_id,
+                    from_holder=pick_in.from_holder,
+                    to_holder=MEM,
+                    note=pick_in.source_url,
+                )
+            )
+        for pick_out in trade.picks_out:
+            parse_pick_id(pick_out.pick_id)
+            pick_moves.append(
+                MovementSpec(
+                    asset_type="pick",
+                    asset_id=pick_out.pick_id,
+                    from_holder=MEM,
+                    to_holder=pick_out.to_holder,
+                    note=pick_out.source_url,
                 )
             )
 
+        has_markers = bool(transaction.draft_considerations)
+        has_footnotes = bool(trade.footnotes)
+
+        if pick_moves:
+            transaction.movements.extend(pick_moves)
+            note = _draft_consideration_note(transaction) if has_markers else None
+            if has_footnotes:
+                suffix = f"footnotes: {_footnote_text(trade.footnotes)}"
+                note = f"{note}; {suffix}" if note else suffix
+            transaction.note = note
+        elif has_markers:
+            if has_footnotes:
+                transaction.note = (
+                    f"draft consideration: footnotes only: {_footnote_text(trade.footnotes)}"
+                )
+            else:
+                transaction.note = UNCURATED_NOTE
+            notes.append(f"{transaction.id}: {transaction.note}")
+        elif has_footnotes:
+            transaction.note = f"footnotes: {_footnote_text(trade.footnotes)}"
+
 
 def _draft_selection_transactions(
-    pick_events: PickEvents, notes: list[str]
+    curated: CuratedEvents, notes: list[str]
 ) -> list[Transaction]:
     """Turn curated draft selections into nodes where a pick strand becomes a player strand."""
     transactions: list[Transaction] = []
-    for selection in pick_events.draft_selections:
-        if selection.is_todo:
-            notes.append(
-                f"draft selection {selection.player_name} ({selection.player_id}) on "
-                f"{selection.date.isoformat()} skipped: pick_id is TODO"
-            )
-            continue
+    for selection in curated.draft_selections:
         parse_pick_id(selection.pick_id)
+        if selection.player_id is not None:
+            player_id = selection.player_id
+        else:
+            player_id = synthetic_player_id(selection)
+            notes.append(
+                f"draft selection {selection.player_name} on {selection.date.isoformat()} "
+                f"has no NBA person id yet: assigned synthetic id {player_id}"
+            )
+
+        description = f"Drafted {selection.player_name} #{selection.pick_no} with {selection.pick_id}."
+        if selection.footnotes:
+            description = f"{description} {' '.join(selection.footnotes)}"
+
         transaction = Transaction(
             id=draft_transaction_id(selection),
             occurred_on=selection.date,
             kind=KIND_DRAFT_SELECTION,
-            description=(
-                f"Memphis Grizzlies selected {selection.player_name} with pick "
-                f"{selection.pick_id}."
-            ),
+            description=description,
             group_key=None,
             counterparties=[],
-            source_key=SOURCE_KEY_PICK_EVENTS,
+            source_key=SOURCE_KEY_EVENTS,
         )
         transaction.movements.append(
             MovementSpec(
@@ -320,9 +370,40 @@ def _draft_selection_transactions(
         transaction.movements.append(
             MovementSpec(
                 asset_type="player",
-                asset_id=str(selection.player_id),
+                asset_id=str(player_id),
                 from_holder=DRAFT_POOL,
                 to_holder=MEM,
+                contract_type=CONTRACT_DRAFT_RIGHTS,
+            )
+        )
+        transactions.append(transaction)
+    return transactions
+
+
+def _event_transactions(curated: CuratedEvents) -> list[Transaction]:
+    """Turn curated roster events (e.g. a contract void) into transactions."""
+    transactions: list[Transaction] = []
+    for event in curated.events:
+        description = event.description
+        if event.footnotes:
+            description = f"{description} {' '.join(event.footnotes)}"
+
+        transaction = Transaction(
+            id=event.id,
+            occurred_on=event.date,
+            kind=event.kind,
+            description=description,
+            group_key=None,
+            counterparties=[],
+            source_key=SOURCE_KEY_EVENTS,
+        )
+        transaction.movements.append(
+            MovementSpec(
+                asset_type="player",
+                asset_id=str(event.player_id),
+                to_holder=event.to_holder,
+                from_holder_placeholder=True,
+                entering_holder=MEM,
             )
         )
         transactions.append(transaction)
@@ -445,14 +526,19 @@ def _player_rows(
     identity: dict[int, PlayerRef],
     snapshot: Snapshot,
     person_ids: dict[str, int],
-    pick_events: PickEvents,
+    curated: CuratedEvents,
 ) -> list[Player]:
     """One row per player that appears in a movement, named from the feed where possible."""
     snapshot_names = {person_id: name for name, person_id in person_ids.items()}
     curated_names = {
-        selection.player_id: selection.player_name
-        for selection in pick_events.draft_selections
+        (selection.player_id if selection.player_id is not None else synthetic_player_id(selection)): (
+            selection.player_name
+        )
+        for selection in curated.draft_selections
     }
+    curated_names.update(
+        {event.player_id: event.player_name for event in curated.events}
+    )
 
     players: list[Player] = []
     for person_id in sorted(
@@ -470,7 +556,7 @@ def _player_rows(
 
 
 def _pick_rows(
-    snapshot: Snapshot, pick_events: PickEvents, movements: list[Movement]
+    snapshot: Snapshot, curated: CuratedEvents, movements: list[Movement]
 ) -> list[Pick]:
     """Snapshot inventory plus any pick referenced in-window, parsed from its natural key."""
     picks: dict[str, Pick] = {}
@@ -483,11 +569,12 @@ def _pick_rows(
             protections=snapshot_pick.protections,
         )
 
-    protections = {
-        move.pick_id: move.protections
-        for trade in pick_events.trades
-        for move in trade.picks
-    }
+    protections: dict[str, str | None] = {}
+    for trade in curated.trades:
+        for pick_in in trade.picks_in:
+            protections[pick_in.pick_id] = pick_in.protections
+        for pick_out in trade.picks_out:
+            protections[pick_out.pick_id] = pick_out.protections
     for movement in movements:
         if movement.asset_type != "pick" or movement.asset_id in picks:
             continue
@@ -609,11 +696,11 @@ def select_feed_payload(conn) -> tuple[int, dict[str, Any]]:
     return row[0], payload
 
 
-def load_inputs(data_dir: Path) -> tuple[Snapshot, PickEvents, Corrections]:
+def load_inputs(data_dir: Path) -> tuple[Snapshot, CuratedEvents, Corrections]:
     """Read the three curated data files."""
     return (
         load_snapshot(data_dir / "opening_snapshot_2025_26.json"),
-        load_pick_events(data_dir / "pick_events.json"),
+        load_curated_events(data_dir / "curated_events.json"),
         load_corrections(data_dir / "corrections.json"),
     )
 
