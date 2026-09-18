@@ -151,6 +151,30 @@ execution_batches:
         parallelizable: true
         expected_validation: ["pytest", "SVG well-formed (xml.etree parse)", "user eyeballs graph.svg from CI artifact"]
 
+  - id: "B5"
+    goal: "Lineage render v2 + contract-expiry truth (owner feedback on PR #8: no convergence/divergence at nodes; departed assets never end; 10-days never expire; image too tall)"
+    tasks:
+      - id: "T5.1"
+        title: "Ten-day expiry + strand termination semantics"
+        objective: "derive emits a synthetic transaction `Expire-<signing group>` (kind expiry, occurred_on = signing date + 10 days, description '10-day contract expired', source_record = the feed record) with movement MEM->FA, unless the player has another movement on/before that date. A second 10-day re-signs FA->MEM. validate E1 stays consistent; export carries kind expiry; sql/0003 adds the kind (already applied live)."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: medium, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "expiry rule conflicts with observed feed sequences"}
+        owned_scope: ["src/lineage/derive.py", "src/lineage/timeline.py", "src/lineage/validate.py", "src/lineage/export.py", "tests/test_derive.py", "tests/test_validate.py", "tests/test_export.py", "tests/test_timeline.py"]
+        forbidden_scope: ["src/lineage/render.py", "sql/", "data/"]
+        dependencies: ["B4"]
+        parallelizable: true
+        expected_validation: ["pytest", "offline load: expiry nodes present for every ten_day not followed by another movement within 10 days; 0 errors"]
+      - id: "T5.2"
+        title: "Render v2: slot lanes with reuse, node hubs with converging/diverging connectors"
+        objective: "Lanes are slots, not assets: an asset occupies a lane only while held by MEM; when it exits at a node the lane frees and an incoming asset at that node takes it (or the nearest free lane below the outgoing group). Each node is a hub at x=date; outgoing strands curve into the hub, incoming strands curve out of it. No post-exit segments; exit end-caps carry the destination (team code / FA / USED). expiry nodes are end-caps, not hubs. Target ~1600x<=900 for current data. Deterministic."
+        assigned_domain: "generalist-developer"
+        model_routing: {task_profile: implementation, uncertainty: high, consequence: medium, scope_size: bounded, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "Claude Opus 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "lane-reuse heuristic cannot avoid crossings in current data"}
+        owned_scope: ["src/lineage/render.py", "tests/test_render.py", "README.md (render paragraph)"]
+        forbidden_scope: ["derive/timeline/validate/export logic", "sql/", "data/"]
+        dependencies: ["B4"]
+        parallelizable: true
+        expected_validation: ["pytest", "cross-process byte-identical SVG", "owner eyeballs rasterized PNG"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."
@@ -180,4 +204,4 @@ review:
 
 checkpoint:
   required_before_execution: true
-  status: pending
+  status: approved (B0-B4 2026-09-17; B5 by owner direction on PR #8 review 2026-09-18)

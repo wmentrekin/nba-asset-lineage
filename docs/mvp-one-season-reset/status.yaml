@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "verification"
+stage: "execution"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "PR #8 ready for owner review. Remaining items are data curation (pick_events, snapshot verification) and merge-time cleanup of docs/mvp-one-season-reset/."
+  current_focus: "B5 (owner feedback on render): T5.1 ten-day expiry + termination semantics; T5.2 render v2 with slot lanes and node hubs. Same PR #8."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -197,7 +197,7 @@ loops:
     count: 1
     max: 2
   execution_verification:
-    count: 2
+    count: 0
     max: 2
 
 checkpoint:
@@ -215,6 +215,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-18: owner reviewed graph.svg: no convergence/divergence at nodes, departed assets never end, 10-days never expire, image too tall. Chose slot-conversion lineage and to keep iterating on PR #8. B5 added; verification loop counter reset by user direction."
   - "2026-09-18: user asked to enable RLS; applied live on all five lineage tables (postgres role has bypassrls, pipeline unaffected) and recorded in sql/0002."
   - "Snapshot corrected from feed evidence: Mashack removed (two-way signed 2025-11-16), Landale confirmed on roster, opening two-ways = Small/Hall/Prosper."
   - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
@@ -230,6 +231,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Owner: review PR #8, fill data/pick_events.json, confirm snapshot rows; on merge confirmation, git rm -r docs/mvp-one-season-reset/ and push."
+next_action: "Spawn T5.1 (Sonnet) and T5.2 (Opus) in parallel; commit; re-render; show owner the PNG."
 next_recommended_command: "$work"
 user_input_needed: true
