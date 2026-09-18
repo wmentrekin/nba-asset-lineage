@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "Execution complete. Confirming live CI run, then opening PR and starting verification."
+  current_focus: "Live CI derive failed on a malformed non-Memphis feed row (empty position word) during person-id resolution; B3 agent resumed to make the resolution index lenient. PR opens after CI is green."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -141,10 +141,10 @@ agents:
     actual_reasoning: "inherited"
     routing_enforced: true
     escalation_count: 0
-    status: "completed"
+    status: "running"
     stage: "execution"
     task: "T3.2 parser, pick events, corrections, derive, timeline against the 86-row fixture"
-    last_update: "Completed: build_graph pure + load_graph thin; 97 tests. Blockers resolved by orchestrator: Wells person_id from full feed; transaction.note column via sql/0002."
+    last_update: "Resumed (loop 1): fix strict name parsing over full-feed rows in resolve_person_ids."
     blocker: ""
   - id: "data-engineer-b4"
     role: "data-engineer"
@@ -167,7 +167,7 @@ loops:
     count: 1
     max: 2
   execution_verification:
-    count: 0
+    count: 1
     max: 2
 
 checkpoint:
