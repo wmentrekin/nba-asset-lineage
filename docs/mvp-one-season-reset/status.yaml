@@ -131,6 +131,21 @@ agents:
     task: "T1.1 schema + migrate; T2.1 fetch + lineage-load.yml"
     last_update: "Completed: 5-table DDL, migrate/fetch verbs, workflow; 15 tests pass."
     blocker: ""
+  - id: "data-engineer-b3"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "opus (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "running"
+    stage: "execution"
+    task: "T3.2 parser, pick events, corrections, derive, timeline against the 86-row fixture"
+    last_update: "Spawned."
+    blocker: ""
 
 loops:
   planning_review:
