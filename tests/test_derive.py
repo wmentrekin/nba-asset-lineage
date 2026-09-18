@@ -19,6 +19,7 @@ from lineage.derive import (
     select_feed_payload,
 )
 from lineage.corrections import DropRow
+from lineage.parse import FeedParseError
 from lineage.picks import UNCURATED_NOTE, PickMove
 from lineage.snapshot import UnresolvedPlayerError
 from lineage.timeline import Segment, build_timelines
@@ -346,3 +347,32 @@ def test_select_feed_payload_reads_the_newest_record():
 def test_select_feed_payload_raises_when_nothing_is_stored():
     with pytest.raises(DeriveError, match="lineage fetch"):
         select_feed_payload(FakeConnection(rows=[]))
+
+
+def test_build_graph_ignores_a_malformed_row_from_another_team(
+    feed_payload, feed_payload_with_malformed_row, resolvable_inputs
+):
+    """Regression: CI died on `derive failed: no position word in description: 'Denver
+    Nuggets signed  Bryce Hopkins to a Two-Way Contract.'` while scanning the full feed."""
+    snapshot, pick_events, corrections = resolvable_inputs
+
+    with_bad_row = build_graph(
+        feed_payload_with_malformed_row, snapshot, pick_events, corrections
+    )
+    clean = build_graph(feed_payload, snapshot, pick_events, corrections)
+
+    # The Denver row is not a Memphis group, so it changes nothing about the graph.
+    assert graph_to_json(with_bad_row) == graph_to_json(clean)
+    assert 1641801 not in {player.id for player in with_bad_row.players}
+
+
+def test_a_malformed_memphis_row_still_fails_loudly(feed_payload, resolvable_inputs):
+    """Tolerance is for the identity index only; Memphis movements stay strict."""
+    snapshot, pick_events, corrections = resolvable_inputs
+    rows = feed_payload["NBA_Player_Movement"]["rows"]
+    bad = dict(next(r for r in rows if r["GroupSort"] == "Waive 1140530"))
+    bad["TRANSACTION_DESCRIPTION"] = "Memphis Grizzlies did something inscrutable."
+    rows[rows.index(next(r for r in rows if r["GroupSort"] == "Waive 1140530"))] = bad
+
+    with pytest.raises(FeedParseError, match="inscrutable"):
+        build_graph(feed_payload, snapshot, pick_events, corrections)

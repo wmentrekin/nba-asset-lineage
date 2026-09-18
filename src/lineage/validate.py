@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 from lineage.db import connect
 from lineage.derive import (
-    DERIVE_ERRORS,
     KIND_BASELINE,
     KIND_DRAFT_SELECTION,
     DerivedGraph,

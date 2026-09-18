@@ -23,6 +23,10 @@ PICK_USED = "USED"
 _POSITION_RE = re.compile(
     r"\b(?:guard-forward|forward-guard|forward-center|center-forward|guard|forward|center)\s+"
 )
+# The feed sometimes omits the position word entirely, leaving the double space behind:
+# "Denver Nuggets signed  Bryce Hopkins to a Two-Way Contract." No well-formed description
+# contains a run of whitespace, so this only ever fires where a position word is missing.
+_EMPTY_POSITION_RE = re.compile(r"\s\s+")
 _NAME_TERMINATORS = (" from ", " to a ", " to an ")
 
 KIND_TRADE = "trade"
@@ -238,33 +242,59 @@ def contract_type(description: str) -> str:
     raise FeedParseError(f"unrecognized contract phrasing: {description!r}")
 
 
+def try_player_name_from_description(description: str) -> str | None:
+    """Lenient counterpart of `player_name_from_description`: None instead of raising.
+
+    Use this when scanning descriptions the graph does not depend on - the cumulative feed
+    carries ~9,800 rows for all 30 teams since 2015, and one malformed row from an unrelated
+    team must not stop a Memphis derivation.
+    """
+    match = _POSITION_RE.search(description) or _EMPTY_POSITION_RE.search(description)
+    if match is None:
+        return None
+    tail = description[match.end() :]
+    for terminator in _NAME_TERMINATORS:
+        index = tail.find(terminator)
+        if index != -1:
+            tail = tail[:index]
+            break
+    else:
+        if tail.endswith("."):
+            tail = tail[:-1]
+    return tail.strip() or None
+
+
 def player_name_from_description(description: str) -> str:
     """Extract a player's full name from a formulaic feed description.
 
     The name sits between the position word and " from "/" to a ", or runs to the end of the
     sentence. Trailing sentence periods are stripped one at a time so that "Charlie Brown
     Jr.." yields "Charlie Brown Jr.".
+
+    Strict by design: this is the path every Memphis movement goes through, so a description
+    it cannot read is a load-stopping error rather than a silently dropped asset.
     """
-    match = _POSITION_RE.search(description)
-    if match is None:
-        raise FeedParseError(f"no position word in description: {description!r}")
-    tail = description[match.end() :]
-    for terminator in _NAME_TERMINATORS:
-        index = tail.find(terminator)
-        if index != -1:
-            return tail[:index].strip()
-    if tail.endswith("."):
-        tail = tail[:-1]
-    return tail.strip()
+    name = try_player_name_from_description(description)
+    if name is None:
+        raise FeedParseError(f"no player name in description: {description!r}")
+    return name
 
 
 def player_ref(row: FeedRow) -> PlayerRef:
-    """Build a PlayerRef from an itemized (PLAYER_ID > 0) feed row."""
+    """Build a PlayerRef from an itemized (PLAYER_ID > 0) feed row, strictly."""
     return PlayerRef(
         id=row.player_id,
         full_name=player_name_from_description(row.description),
         slug=row.player_slug,
     )
+
+
+def try_player_ref(row: FeedRow) -> PlayerRef | None:
+    """Leniently build a PlayerRef, returning None for a description we cannot read."""
+    full_name = try_player_name_from_description(row.description)
+    if full_name is None:
+        return None
+    return PlayerRef(id=row.player_id, full_name=full_name, slug=row.player_slug)
 
 
 def _counterparties(group: Group) -> list[str]:

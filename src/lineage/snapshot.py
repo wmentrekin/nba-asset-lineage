@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lineage.parse import FeedRow, player_name_from_description, slugify_name
+from lineage.parse import FeedRow, slugify_name, try_player_name_from_description
 from lineage.teams import require_tricode
 
 ContractType = Literal["standard", "two_way", "ten_day"]
@@ -67,6 +67,12 @@ def load_snapshot(path: str | Path) -> Snapshot:
 def feed_identity_index(rows: list[FeedRow]) -> tuple[dict[str, int], dict[str, int]]:
     """Return (slug -> person id, full name -> person id) built from itemized feed rows.
 
+    This index is built over the whole cumulative feed - every team, back to 2015 - purely to
+    look up ids the curated snapshot left null. None of it becomes graph rows, so it is
+    deliberately tolerant: PLAYER_SLUG needs no parsing at all, and a description the name
+    extractor cannot read is skipped rather than raising. Strictness belongs on the Memphis
+    movement path in `parse.group_to_transaction`, not here.
+
     A slug or name that the feed maps to more than one person id is dropped from the index
     rather than resolved arbitrarily.
     """
@@ -77,9 +83,9 @@ def feed_identity_index(rows: list[FeedRow]) -> tuple[dict[str, int], dict[str, 
             continue
         if row.player_slug:
             by_slug.setdefault(row.player_slug, set()).add(row.player_id)
-        by_name.setdefault(
-            player_name_from_description(row.description), set()
-        ).add(row.player_id)
+        full_name = try_player_name_from_description(row.description)
+        if full_name is not None:
+            by_name.setdefault(full_name, set()).add(row.player_id)
     return (
         {slug: next(iter(ids)) for slug, ids in by_slug.items() if len(ids) == 1},
         {name: next(iter(ids)) for name, ids in by_name.items() if len(ids) == 1},
@@ -100,9 +106,11 @@ def resolve_person_ids(snapshot: Snapshot, rows: list[FeedRow]) -> dict[str, int
         if player.person_id is not None:
             resolved[player.name] = player.person_id
             continue
-        person_id = by_name.get(player.name)
+        # Slug first: it is feed data, not parsed text, so it survives a malformed
+        # description for the very player being resolved.
+        person_id = by_slug.get(slugify_name(player.name))
         if person_id is None:
-            person_id = by_slug.get(slugify_name(player.name))
+            person_id = by_name.get(player.name)
         if person_id is None:
             unresolved.append(player.name)
             continue

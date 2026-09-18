@@ -6,7 +6,6 @@ import pytest
 
 from lineage.derive import build_graph
 from lineage.validate import (
-    Finding,
     format_report,
     validate_graph,
 )

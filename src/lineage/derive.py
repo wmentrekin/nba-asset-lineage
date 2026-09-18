@@ -29,7 +29,7 @@ from lineage.parse import (
     feed_rows,
     group_to_transaction,
     memphis_groups,
-    player_ref,
+    try_player_ref,
 )
 from lineage.picks import (
     UNCURATED_NOTE,
@@ -189,11 +189,20 @@ def build_graph(
 
 
 def _feed_identity(rows: list[FeedRow]) -> dict[int, PlayerRef]:
-    """Player identity from every feed row, including rows before the window."""
+    """Player identity from every feed row, including rows before the window.
+
+    Lenient for the same reason as `snapshot.feed_identity_index`: this scans the whole
+    cumulative feed, so a description from an unrelated team that the extractor cannot read
+    is skipped, leaving a later row for the same player free to supply the name. Memphis rows
+    that become movements still go through the strict extractor in `parse`.
+    """
     identity: dict[int, PlayerRef] = {}
     for row in rows:
-        if row.player_id > 0 and row.player_id not in identity:
-            identity[row.player_id] = player_ref(row)
+        if row.player_id <= 0 or row.player_id in identity:
+            continue
+        ref = try_player_ref(row)
+        if ref is not None:
+            identity[row.player_id] = ref
     return identity
 
 

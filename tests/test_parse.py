@@ -16,6 +16,7 @@ from lineage.parse import (
     player_name_from_description,
     slugify_name,
     transaction_id,
+    try_player_name_from_description,
 )
 
 WINDOW_START = dt.date(2025, 10, 22)
@@ -186,9 +187,48 @@ def test_player_name_from_description(description, expected):
     assert player_name_from_description(description) == expected
 
 
-def test_player_name_requires_a_position_word():
+def test_player_name_reads_a_missing_position_word_from_the_double_space():
+    # The full feed really contains this row; the position word is simply absent.
+    assert (
+        player_name_from_description(
+            "Denver Nuggets signed  Bryce Hopkins to a Two-Way Contract."
+        )
+        == "Bryce Hopkins"
+    )
+    assert (
+        player_name_from_description("Denver Nuggets waived  Bryce Hopkins.")
+        == "Bryce Hopkins"
+    )
+
+
+def test_player_name_requires_a_readable_description():
     with pytest.raises(FeedParseError):
         player_name_from_description("Memphis Grizzlies did something inscrutable.")
+
+
+@pytest.mark.parametrize(
+    ("description", "expected"),
+    [
+        ("Memphis Grizzlies waived forward Tyler Burton.", "Tyler Burton"),
+        (
+            "Denver Nuggets signed  Bryce Hopkins to a Two-Way Contract.",
+            "Bryce Hopkins",
+        ),
+        ("Memphis Grizzlies did something inscrutable.", None),
+        ("Memphis Grizzlies received draft consideration from Orlando Magic.", None),
+        ("", None),
+    ],
+)
+def test_lenient_extractor_returns_none_instead_of_raising(description, expected):
+    assert try_player_name_from_description(description) == expected
+
+
+def test_lenient_and_strict_agree_on_every_fixture_description(feed_payload):
+    for row in feed_rows(feed_payload):
+        if row.player_id > 0:
+            assert try_player_name_from_description(
+                row.description
+            ) == player_name_from_description(row.description)
 
 
 def test_transaction_id_replaces_the_space():
