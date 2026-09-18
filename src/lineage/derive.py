@@ -19,7 +19,9 @@ from lineage.corrections import (
     load_corrections,
 )
 from lineage.parse import (
+    CONTRACT_TEN_DAY,
     DRAFT_POOL,
+    FREE_AGENCY,
     PICK_USED,
     FeedParseError,
     FeedRow,
@@ -51,6 +53,7 @@ from lineage.timeline import Movement, resolve_from_holders
 
 KIND_BASELINE = "baseline"
 KIND_DRAFT_SELECTION = "draft_selection"
+KIND_EXPIRY = "expiry"
 
 BASELINE_DESCRIPTION = "Opening-night roster and owned pick inventory"
 
@@ -163,6 +166,7 @@ def build_graph(
     transactions += _draft_selection_transactions(pick_events, notes)
 
     apply_movement_corrections(transactions, corrections)
+    transactions += _expiry_transactions(transactions)
 
     transactions.sort(key=lambda transaction: (transaction.occurred_on, transaction.id))
     movements = _flatten_movements(transactions)
@@ -323,6 +327,72 @@ def _draft_selection_transactions(
         )
         transactions.append(transaction)
     return transactions
+
+
+def _expiry_transactions(transactions: list[Transaction]) -> list[Transaction]:
+    """Synthesize an `expiry` transaction for every ten-day signing nothing else resolves.
+
+    An NBA 10-day contract runs 10 days (or 3 games, whichever is longer); we approximate
+    with a flat 10 days since the feed never records the expiration itself. A signing is
+    skipped here when the same player has any other movement dated after the signing and
+    on/before the would-be expiry date - a second 10-day, a rest-of-season deal, a waiver, a
+    trade - since that movement already ends the 10-day strand (a movement dated exactly on
+    the 10th day wins the tie). For a second consecutive 10-day, this naturally attaches the
+    expiry to the second signing instead of the first, because each ten-day movement is
+    checked independently against the real movements already in `transactions`.
+    """
+    expiries: list[Transaction] = []
+    for transaction in transactions:
+        for movement in transaction.movements:
+            if (
+                movement.asset_type != "player"
+                or movement.contract_type != CONTRACT_TEN_DAY
+                or movement.to_holder != MEM
+            ):
+                continue
+            expiry_date = transaction.occurred_on + dt.timedelta(days=10)
+            if _has_superseding_movement(
+                transactions, movement.asset_id, transaction.occurred_on, expiry_date
+            ):
+                continue
+            digits = transaction.group_key.split()[-1]
+            expiry = Transaction(
+                id=f"Expire-{digits}",
+                occurred_on=expiry_date,
+                kind=KIND_EXPIRY,
+                description="10-day contract expired",
+                group_key=None,
+                counterparties=[],
+                source_key=transaction.source_key,
+            )
+            expiry.movements.append(
+                MovementSpec(
+                    asset_type="player",
+                    asset_id=movement.asset_id,
+                    from_holder=MEM,
+                    to_holder=FREE_AGENCY,
+                )
+            )
+            expiries.append(expiry)
+    return expiries
+
+
+def _has_superseding_movement(
+    transactions: list[Transaction],
+    asset_id: str,
+    signing_date: dt.date,
+    expiry_date: dt.date,
+) -> bool:
+    """True if `asset_id` has a player movement after `signing_date` and up to `expiry_date`."""
+    for other in transactions:
+        if not (signing_date < other.occurred_on <= expiry_date):
+            continue
+        if any(
+            spec.asset_type == "player" and spec.asset_id == asset_id
+            for spec in other.movements
+        ):
+            return True
+    return False
 
 
 def _flatten_movements(transactions: list[Transaction]) -> list[Movement]:

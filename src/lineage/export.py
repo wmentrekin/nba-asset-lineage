@@ -77,7 +77,11 @@ def _strands(graph: DerivedGraph, assets: list[dict[str, Any]]) -> list[dict[str
 
 
 def build_export(graph: DerivedGraph, as_of: dt.date) -> dict[str, Any]:
-    """Return the graph.json dict for `graph`, windowed from `as_of` to its last transaction."""
+    """Return the graph.json dict for `graph`, windowed from `as_of` to its last transaction.
+
+    `end` is simply the max `occurred_on` over every transaction, `expiry` ones included, even
+    though a 10-day expiry can land after the last real feed transaction.
+    """
     end = max((t.occurred_on for t in graph.transactions), default=as_of)
     assets = _assets(graph)
     return {

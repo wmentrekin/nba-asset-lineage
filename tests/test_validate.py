@@ -77,6 +77,17 @@ def test_a_planted_duplicate_movement_is_an_e2_error(graph, snapshot_and_pick_ev
     assert any(f.code == "E2" for f in errors)
 
 
+def test_a_missing_expiry_for_a_ten_day_is_an_e6_error(graph, snapshot_and_pick_events):
+    snapshot, pick_events = snapshot_and_pick_events
+    graph.transactions = [t for t in graph.transactions if t.id != "Expire-1139430"]
+    graph.movements = [m for m in graph.movements if m.transaction_id != "Expire-1139430"]
+
+    findings = validate_graph(graph, snapshot, pick_events)
+
+    errors = [f for f in findings if f.level == "error"]
+    assert any(f.code == "E6" and "1629646" in f.message for f in errors)
+
+
 def test_strict_exits_nonzero_on_the_current_data_via_run_validate(tmp_path, monkeypatch):
     import pathlib
 

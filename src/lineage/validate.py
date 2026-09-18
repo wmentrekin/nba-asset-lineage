@@ -6,6 +6,7 @@ deterministic, no database - so it can run against a feed fixture or against the
 warnings are informational (or fail it too, under `--strict`).
 """
 
+import datetime as dt
 import json
 import pathlib
 from dataclasses import dataclass
@@ -14,12 +15,14 @@ from lineage.db import connect
 from lineage.derive import (
     KIND_BASELINE,
     KIND_DRAFT_SELECTION,
+    KIND_EXPIRY,
     DerivedGraph,
     build_graph,
     load_inputs,
     select_feed_payload,
 )
 from lineage.parse import (
+    CONTRACT_TEN_DAY,
     DRAFT_POOL,
     FREE_AGENCY,
     KIND_SIGNING,
@@ -48,6 +51,7 @@ ALLOWED_KINDS = frozenset(
         KIND_TWO_WAY_CONVERSION,
         KIND_TEN_DAY,
         KIND_DRAFT_SELECTION,
+        KIND_EXPIRY,
     }
 )
 
@@ -92,6 +96,7 @@ def validate_graph(
     findings += _check_kinds_and_asset_existence(graph)  # E3
     findings += _check_baseline(graph, snapshot)  # E4
     findings += _check_draft_selection_movements(graph)  # E5
+    findings += _check_ten_day_expiry(graph)  # E6
     findings += _check_uncurated_draft_considerations(graph)  # W1
     findings += _check_todo_draft_selections(pick_events)  # W2
     findings += _check_unverified_snapshot_players(snapshot)  # W3
@@ -252,6 +257,35 @@ def _check_draft_selection_movements(graph: DerivedGraph) -> list[Finding]:
                     "pick movement and one DRAFT->MEM player movement",
                 )
             )
+    return findings
+
+
+def _check_ten_day_expiry(graph: DerivedGraph) -> list[Finding]:
+    """E6: every ten_day MEM movement is followed, per asset, by a movement on/before the
+    10-day mark - a real move that supersedes it, or the synthetic `expiry` transaction
+    derive guarantees for one that isn't. This is an error, not a warning, because derive
+    itself is responsible for emitting that expiry; failing here means derive's own
+    invariant broke.
+    """
+    findings: list[Finding] = []
+    for (asset_type, asset_id), movements in by_asset(graph.movements).items():
+        if asset_type != "player":
+            continue
+        for index, movement in enumerate(movements):
+            if movement.contract_type != CONTRACT_TEN_DAY or movement.to_holder != MEM:
+                continue
+            expiry_date = movement.occurred_on + dt.timedelta(days=10)
+            next_movement = movements[index + 1] if index + 1 < len(movements) else None
+            if next_movement is None or next_movement.occurred_on > expiry_date:
+                findings.append(
+                    Finding(
+                        LEVEL_ERROR,
+                        "E6",
+                        f"player {asset_id}: ten_day signing {movement.transaction_id} on "
+                        f"{movement.occurred_on} has no superseding movement or expiry by "
+                        f"{expiry_date}",
+                    )
+                )
     return findings
 
 

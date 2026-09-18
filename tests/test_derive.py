@@ -114,6 +114,98 @@ def test_pj_hall_goes_from_a_two_way_baseline_to_free_agency(graph):
     ]
 
 
+def test_basseys_ten_day_expires_ten_days_later_since_nothing_else_moves_him(graph):
+    timelines = build_timelines(graph.movements)
+
+    assert timelines[("player", "1629646")] == [
+        Segment(
+            from_node="Signing-1139430",
+            to_node="Expire-1139430",
+            holder="MEM",
+            contract_type="ten_day",
+        ),
+        Segment(from_node="Expire-1139430", to_node=None, holder="FA", contract_type=None),
+    ]
+    expiry = next(t for t in graph.transactions if t.id == "Expire-1139430")
+    assert expiry.kind == "expiry"
+    assert expiry.occurred_on == dt.date(2025, 11, 6)
+    assert expiry.description == "10-day contract expired"
+    assert expiry.group_key is None
+    assert expiry.counterparties == []
+    assert expiry.source_key == "feed"
+    expiry_movement = next(m for m in graph.movements if m.transaction_id == "Expire-1139430")
+    assert (expiry_movement.from_holder, expiry_movement.to_holder) == ("MEM", "FA")
+    assert expiry_movement.contract_type is None
+
+
+def test_kolokos_two_ten_days_eleven_days_apart_each_get_their_own_expiry(graph):
+    timelines = build_timelines(graph.movements)
+
+    assert timelines[("player", "1631132")] == [
+        Segment(
+            from_node="Signing-1142557",
+            to_node="Expire-1142557",
+            holder="MEM",
+            contract_type="ten_day",
+        ),
+        Segment(from_node="Expire-1142557", to_node="Signing-1143016", holder="FA", contract_type=None),
+        Segment(
+            from_node="Signing-1143016",
+            to_node="Expire-1143016",
+            holder="MEM",
+            contract_type="ten_day",
+        ),
+        Segment(from_node="Expire-1143016", to_node=None, holder="FA", contract_type=None),
+    ]
+    first_expiry = next(t for t in graph.transactions if t.id == "Expire-1142557")
+    second_expiry = next(t for t in graph.transactions if t.id == "Expire-1143016")
+    assert first_expiry.occurred_on == dt.date(2026, 1, 1)  # 11 days > 10: expires first
+    assert second_expiry.occurred_on == dt.date(2026, 1, 12)
+
+
+def test_tyler_burtons_two_ten_days_eleven_days_apart_also_both_expire(graph):
+    expiry_ids = {t.id for t in graph.transactions if t.id in ("Expire-1146960", "Expire-1147490")}
+    assert expiry_ids == {"Expire-1146960", "Expire-1147490"}
+    first_expiry = next(t for t in graph.transactions if t.id == "Expire-1146960")
+    second_expiry = next(t for t in graph.transactions if t.id == "Expire-1147490")
+    assert first_expiry.occurred_on == dt.date(2026, 3, 22)
+    assert second_expiry.occurred_on == dt.date(2026, 4, 2)
+
+
+def test_adama_bals_ten_days_exactly_ten_days_apart_supersede_instead_of_expiring(graph):
+    """03-28 -> 04-07 is exactly 10 days: the second signing supersedes the first (a
+    movement dated == the expiry date wins the tie), so only the second signing expires."""
+    expiry_ids = {t.id for t in graph.transactions if t.id in ("Expire-1147703", "Expire-1148392")}
+    assert expiry_ids == {"Expire-1148392"}
+
+    timelines = build_timelines(graph.movements)
+    assert timelines[("player", "1642380")] == [
+        Segment(
+            from_node="Signing-1147703",
+            to_node="Signing-1148392",
+            holder="MEM",
+            contract_type="ten_day",
+        ),
+        Segment(
+            from_node="Signing-1148392",
+            to_node="Expire-1148392",
+            holder="MEM",
+            contract_type="ten_day",
+        ),
+        Segment(from_node="Expire-1148392", to_node=None, holder="FA", contract_type=None),
+    ]
+
+
+def test_expiries_add_twelve_transactions_and_movements_to_the_fixture(graph):
+    """The fixture's 16 MEM ten-day signings minus the 4 that are superseded by a same-
+    or next-day movement (Rupert's two-way, Jarreau's and Adama Bal's and Williamson's
+    second 10-day, each exactly 10 days out) leaves 12 synthetic expiry transactions."""
+    expiries = [t for t in graph.transactions if t.kind == "expiry"]
+    assert len(expiries) == 12
+    assert len(graph.transactions) == 34 + 12
+    assert len(graph.movements) == 81 + 12
+
+
 def test_uncurated_draft_considerations_become_notes(graph):
     uncurated = {t.id for t in graph.transactions if t.note == UNCURATED_NOTE}
 
