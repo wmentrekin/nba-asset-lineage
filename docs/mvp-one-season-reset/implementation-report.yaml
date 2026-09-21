@@ -9,10 +9,10 @@ based_on: "docs/mvp-one-season-reset/plan.yaml"
 
 summary:
   scope_executed: "B0 wipe + skeleton; B1 schema + migrate + live drop/apply; B2 fetch + CI workflow + first real capture; B3 parser/pick events/corrections/derive/timeline; B4 validate/export/render/load chain. RLS enabled at user request."
-  outcome: "B6 (owner feedback round 2): researched pick truth (2026 ORL 1st added; Boozer #3, Lopez #21, Saunders #32 unsigned as draft_rights; trade pick packages), Brandon Clarke contract_void node, render v3 with color-by-contract-type and color-by-kind hubs, full-season ordering, numbered legend. Earlier B5: 10-day contracts now expire via synthetic expiry nodes; render v2 draws Memphis tenure only on reusable slot lanes with hub connectors showing convergence/divergence at each transaction (1600x800). Earlier: repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
+  outcome: "B7 (owner feedback round 3): render v4 compacting tenure-ordered stack with a three-row two-way band and a compact sorted picks band; conversions and draft selections rise into the roster; export carries tenure_start/tier changes/pick sort_key; snapshot carries mem_since. Earlier B6: researched pick truth (2026 ORL 1st added; Boozer #3, Lopez #21, Saunders #32 unsigned as draft_rights; trade pick packages), Brandon Clarke contract_void node, render v3 with color-by-contract-type and color-by-kind hubs, full-season ordering, numbered legend. Earlier B5: 10-day contracts now expire via synthetic expiry nodes; render v2 draws Memphis tenure only on reusable slot lanes with hub connectors showing convergence/divergence at each transaction (1600x800). Earlier: repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
 
-task_batches_attempted: ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]
-task_batches_completed: ["B0", "B1", "B2", "B3", "B4", "B5", "B6"]
+task_batches_attempted: ["B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7"]
+task_batches_completed: ["B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7"]
 
 domains_touched: ["generalist-developer", "data-engineer"]
 
@@ -29,6 +29,8 @@ model_usage:
     - {task_id: "T6.1", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: false, escalation_count: 0}
     - {task_id: "T6.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 106, wall_time_seconds: 808}
     - {task_id: "T6.3", role: "generalist-developer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 59, wall_time_seconds: 740}
+    - {task_id: "T7.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 54, wall_time_seconds: 357}
+    - {task_id: "T7.2", role: "generalist-developer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 45, wall_time_seconds: 945}
   routing_notes:
     - "T0.1 bumped fast->balanced because it rewrote AGENTS/README and deleted the whole tree."
     - "T3.1 (snapshot) drafted from model knowledge, then corrected from the captured feed; 8/18 player rows verified by feed evidence, 10 await owner confirmation."
