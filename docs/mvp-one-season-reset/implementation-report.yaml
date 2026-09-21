@@ -70,7 +70,7 @@ review_summary:
     - "mise tasks carried a sandbox --cache-dir; README fetch flags undocumented."
 
 test_summary:
-  status: passed_b6
+  status: passed_b7
   checks_run:
     - "pytest x2: 126 passed, stable"
     - "offline load chain: 34 tx / 81 movements / 0 errors / 16 warnings"
@@ -86,6 +86,7 @@ test_summary:
     - "A missing feed row (e.g. a dropped trade leg) is undetectable by validate — inherent to a single-source model."
 
 open_issues:
+  - "Render legibility (owner call): solo-departure hub marker overlaps the exit cap; numbered badges collide with markers in 10-day clusters; Mar 4 conversion curve crosses labels; Sep 8 connectors cross strands."
   - "NOP 2026-09-08 second-round pick and swap: year/origin unverified (footnote only) — for the owner's later pick-audit pass."
   - "Own 2nd-round picks 2027-2032 unverified (low confidence); RealGM/Spotrac tables unreachable from the sandbox."
   - "10 snapshot player rows verified:false pending owner confirmation."

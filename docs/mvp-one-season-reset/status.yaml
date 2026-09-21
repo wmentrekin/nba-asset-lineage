@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "B7 landed (9a5c055); render v4 shown to owner; tester-b7 verifying."
+  current_focus: "B7 verified; PR #8 ready for owner review. Four legibility items queued for the owner's call (visual cleanup pass)."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -306,10 +306,10 @@ agents:
     actual_reasoning: "inherited"
     routing_enforced: true
     escalation_count: 0
-    status: "running"
+    status: "completed"
     stage: "verification"
     task: "Verify B7 layout truth probes, determinism, visual defects; post PR review."
-    last_update: "Spawned."
+    last_update: "PASS: 179 tests x2; byte-identical across seeds; all 8 layout probes hold. 4 legibility defects listed (fused marker+cap on solo departures; badge/hub collisions in 10-day clusters; Mar 4 conversion curve crossing labels; Sep 8 connectors crossing strands). Posted as PR review."
     blocker: ""
   - id: "data-engineer-t51"
     role: "data-engineer"
@@ -384,6 +384,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Fold tester findings; owner reviews v4; next round or merge."
+next_action: "Owner reviews v4; choose: visual cleanup pass, more logic, or merge (then git rm -r docs/mvp-one-season-reset/)."
 next_recommended_command: "$work"
 user_input_needed: true
