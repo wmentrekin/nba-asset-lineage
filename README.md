@@ -13,32 +13,47 @@ A raw NBA player-movement JSON feed is fetched and stored verbatim in a
 `transaction`, `asset_movement`). A deterministic `derive` step turns the raw
 payloads plus curated data files into transaction and asset-movement rows.
 `validate` checks the result for graph invariants, then `export` writes
-`graph.json` and `render` draws `graph.svg` from it.
+`graph.json` and `render` draws `graph.svg` from it. In `graph.json`, each
+player asset carries a `tenure_start` (and, on a two-way conversion or a
+drafted rookie's signing, `tenure_tier_changes`) and each pick asset carries
+a `sort_key`, so the renderer can order strands without recomputing tenure.
 
 ## The rendered graph
 
-`graph.svg` is 1600px wide, hand-written (no plotting library), and drawn as
-slot lanes with node hubs. Time runs left to right. A lane is a *roster slot*,
-not an asset: only Memphis tenure is drawn, so when an asset leaves the team its
-lane frees and the next asset arriving at that transaction takes it over —
-players in a top band, Memphis-owned picks in a band below. Within the player
-band, assets Memphis has held for the entire window sort to the top; everyone
-else follows in lane-reuse order. Every transaction that starts or ends a
-Memphis tenure is a hub: a marker on the transaction's date with one curve per
-departing asset flowing into it and one per arriving asset flowing out, so a
-trade reads as convergence then divergence. Every bar is the same thickness;
-color carries the contract type instead (standard, two-way, 10-day, draft
-rights, and a fifth muted color for pick strands). The hub marker itself is
-colored by the kind of transaction it represents (trade, a signing family, a
-waiver family, or a draft selection) while its connector curves stay a
-neutral, darker stroke so the hub reads as the colored element. An asset that
-leaves Memphis ends in a plain end-cap marker (destination is in the
-`<title>` tooltip, not drawn as text); the opening-night baseline and 10-day
-`expiry` nodes are plain end-caps rather than hubs. When a tenure is too short
-for its name to fit, its bar gets a small numbered marker instead of a
-truncated label, keyed to a numbered legend block at the bottom of the image.
-A color legend for both contract types and hub kinds sits above that block.
-Two runs over the same `graph.json` produce byte-identical SVG.
+`graph.svg` is 1600px wide, hand-written (no plotting library), and drawn as a
+*compacting stack*. Time runs left to right and a row is a **rank**, not a fixed
+slot: only Memphis tenure is drawn, and at every transaction date the assets
+Memphis currently holds are re-ranked, so a strand's y is a step function of x
+and every rank change is a short cubic S-curve just after the transaction that
+caused it.
+
+Three bands stack top to bottom. The **roster** band holds every player on a
+standard, 10-day or draft-rights contract, ordered by tenure with the
+longest-serving on top — which is why an arrival (signing, trade, draft,
+conversion) always lands at the bottom of the stack, and why everyone below a
+departing player slides up one row when he leaves. The **two-way** band is the
+three rows the NBA rules allow, ordered the same way. The **picks** band is
+compact — only picks Memphis currently owns, ordered by round, then draft year,
+then original team, with a half-row gap between draft years, so a pick acquired
+in a trade is inserted at its sorted position rather than appended.
+
+Two things cross bands, and both are drawn as one continuous strand curving up
+into the bottom of the roster band while its color changes: a **two-way
+conversion** (the player's tenure clock restarts there) and a **draft
+selection**, where the pick strand leaves its row and continues as the drafted
+player. Every strand is the same thickness; color carries the contract type
+(standard, two-way, 10-day, draft rights, and a fifth muted color for pick
+strands). Each transaction gets a marker colored by its kind (trade, a signing
+family, a waiver family, or a draft selection); a trade additionally converges
+its departing strands into that marker and diverges the arriving ones back out
+to their new rows. An asset that leaves Memphis ends in a plain end-cap marker
+(destination is in the `<title>` tooltip, not drawn as text); the opening-night
+baseline and 10-day `expiry` nodes are plain end-caps rather than markers. A
+name sits at the left edge of its strand when it fits and otherwise on the
+strand's roomiest flat stretch; when it fits nowhere the strand gets a small
+numbered marker keyed to a numbered legend block at the bottom of the image,
+below the color legend. Two runs over the same `graph.json` produce
+byte-identical SVG.
 
 ## Commands
 

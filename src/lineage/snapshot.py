@@ -25,6 +25,8 @@ class SnapshotPlayer(BaseModel):
     contract_type: ContractType
     verified: bool = False
     note: str | None = None
+    mem_since: dt.date | None = None
+    mem_since_note: str | None = None
 
 
 class SnapshotPick(BaseModel):

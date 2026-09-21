@@ -29,6 +29,14 @@ def test_load_snapshot_reads_the_curated_file():
     assert len(snapshot.picks) == 16
 
 
+def test_mem_since_parses_as_a_date_with_its_note():
+    snapshot = load_snapshot(SNAPSHOT_PATH)
+    jjj = next(player for player in snapshot.players if player.name == "Jaren Jackson Jr.")
+
+    assert jjj.mem_since == dt.date(2018, 7, 1)
+    assert jjj.mem_since_note is not None and "Rookie scale" in jjj.mem_since_note
+
+
 def test_pick_ids_are_built_from_the_natural_key():
     snapshot = load_snapshot(SNAPSHOT_PATH)
     pick_ids = [pick.pick_id for pick in snapshot.picks]

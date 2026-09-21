@@ -1,6 +1,5 @@
 """Tests for lineage.export: the graph.json contract."""
 
-import datetime as dt
 import os
 import pathlib
 import subprocess
@@ -21,10 +20,16 @@ from lineage.export import build_export
 snapshot, curated, corrections = load_inputs(pathlib.Path("data"))
 feed = json.load(open("tests/fixtures/nba_player_movement_mem_2025_26.json"))
 graph = build_graph(feed, snapshot, curated, corrections)
-export = build_export(graph, snapshot.as_of)
+export = build_export(graph, snapshot)
 import sys
 sys.stdout.write(json.dumps(export, sort_keys=True))
 """
+
+
+@pytest.fixture
+def snapshot(resolvable_inputs):
+    snapshot, _, _ = resolvable_inputs
+    return snapshot
 
 
 @pytest.fixture
@@ -34,8 +39,8 @@ def graph(feed_payload, resolvable_inputs):
 
 
 @pytest.fixture
-def export(graph):
-    return build_export(graph, dt.date(2025, 10, 22))
+def export(graph, snapshot):
+    return build_export(graph, snapshot)
 
 
 def test_window_spans_as_of_to_the_last_transaction(export):
@@ -110,10 +115,15 @@ def test_a_referenced_pick_becomes_a_labelled_asset(feed_payload, resolvable_inp
     trade.picks_in = trade.picks_in + [PickIn(pick_id="2031-R2-UTA", from_holder="UTA")]
 
     graph = build_graph(feed_payload, snapshot, curated, corrections)
-    export = build_export(graph, snapshot.as_of)
+    export = build_export(graph, snapshot)
 
     asset = next(a for a in export["assets"] if a["id"] == "2031-R2-UTA")
-    assert asset == {"id": "2031-R2-UTA", "type": "pick", "label": "2031 R2 (UTA)"}
+    assert asset == {
+        "id": "2031-R2-UTA",
+        "type": "pick",
+        "label": "2031 R2 (UTA)",
+        "sort_key": [2, 2031, "UTA"],
+    }
 
 
 def test_draft_rights_contract_type_flows_through_export(export):
@@ -122,6 +132,73 @@ def test_draft_rights_contract_type_flows_through_export(export):
 
     assert boozer["segments"][0]["contract_type"] == "draft_rights"
     assert boozer["segments"][1]["contract_type"] == "standard"
+
+
+def test_every_player_asset_carries_a_tenure_start(export):
+    players = [a for a in export["assets"] if a["type"] == "player"]
+    assert players
+    for player in players:
+        assert isinstance(player["tenure_start"], str) and player["tenure_start"]
+
+
+def test_tenure_start_for_snapshot_baseline_players(export):
+    players = {a["id"]: a for a in export["assets"] if a["type"] == "player"}
+
+    assert players["1628991"]["tenure_start"] == "2018-07-01"  # Jaren Jackson Jr.
+    # Conversion restarts tenure: mem_since is already the conversion date.
+    assert players["1629723"]["tenure_start"] == "2020-11-22"  # John Konchar
+
+
+def test_tenure_start_for_players_acquired_during_the_season(export):
+    players = {a["id"]: a for a in export["assets"] if a["type"] == "player"}
+
+    assert players["203937"]["tenure_start"] == "2026-02-03"  # Kyle Anderson, traded in
+    assert players["1643409"]["tenure_start"] == "2026-06-23"  # Cameron Boozer, draft day
+    assert players["1629646"]["tenure_start"] == "2025-10-27"  # Charles Bassey, 10-day signing
+    assert players["-202632"]["tenure_start"] == "2026-06-24"  # Richie Saunders, draft day
+
+
+def test_prosper_tier_change_at_conversion(export):
+    players = {a["id"]: a for a in export["assets"] if a["type"] == "player"}
+    prosper = players["1641765"]
+
+    assert prosper["tenure_tier_changes"] == [
+        {
+            "node": "Signing-1146537",
+            "date": "2026-03-04",
+            "to_contract_type": "standard",
+        }
+    ]
+
+
+def test_boozer_tier_change_at_rookie_signing(export):
+    players = {a["id"]: a for a in export["assets"] if a["type"] == "player"}
+    boozer = players["1643409"]
+
+    assert boozer["tenure_tier_changes"] == [
+        {
+            "node": "Signing-1153118",
+            "date": "2026-07-13",
+            "to_contract_type": "standard",
+        }
+    ]
+
+
+def test_pick_sort_key(export):
+    picks = {a["id"]: a for a in export["assets"] if a["type"] == "pick"}
+    assert picks["2030-R1-ORL"]["sort_key"] == [1, 2030, "ORL"]
+
+
+def test_snapshot_player_without_mem_since_fails_loudly(feed_payload, resolvable_inputs):
+    snapshot, curated, corrections = resolvable_inputs
+    snapshot = snapshot.model_copy(deep=True)
+    jjj = next(player for player in snapshot.players if player.name == "Jaren Jackson Jr.")
+    jjj.mem_since = None
+
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+
+    with pytest.raises(ValueError, match="Jaren Jackson Jr."):
+        build_export(graph, snapshot)
 
 
 def test_export_is_byte_identical_across_processes_regardless_of_hash_seed():
