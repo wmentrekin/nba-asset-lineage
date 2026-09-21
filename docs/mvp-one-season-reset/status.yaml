@@ -1,0 +1,389 @@
+# Contract: live coordination artifact maintained by $work
+
+artifact: status
+feature: "mvp-one-season-reset"
+mode: "large-initiative"
+stage: "verification"
+owner_skill: work
+
+objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
+
+repository_sync:
+  completed_before_work: true
+  checked_at: "2026-09-17"
+  repositories:
+    - path: "/home/user/nba-asset-lineage"
+      remote: "https://github.com/wmentrekin/nba-asset-lineage"
+      relevant_branch: "main"
+      local_commit_before: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      remote_commit_after_fetch: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      local_commit_after: "a42b0bafae9f53cd50989e7fb98fd10b4d02f829"
+      result: "current"
+      notes: "Clean tree; feature branch already checked out at main."
+
+branching:
+  branch_name: "work/mvp"
+  notes: "Renamed from session branch to work/mvp at user direction."
+
+summary:
+  current_focus: "B7 verified; PR #8 ready for owner review. Four legibility items queued for the owner's call (visual cleanup pass)."
+  last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
+  current_blocker: ""
+
+artifacts:
+  requirements: "docs/mvp-one-season-reset/requirements.yaml"
+  plan: "docs/mvp-one-season-reset/plan.yaml"
+  implementation_report: "docs/mvp-one-season-reset/implementation-report.yaml"
+
+pr:
+  number: 8
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/8"
+  status: "open"
+
+agents:
+  - id: "orchestrator"
+    role: "orchestrator"
+    task_profile: "orchestration"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "session default (Claude Fable 5.1 reported by harness)"
+    actual_reasoning: "session default"
+    routing_enforced: false
+    escalation_count: 0
+    status: "active"
+    stage: "verification"
+    task: "Hand off PR #8."
+    last_update: "Verification complete; loop cap reached and closed clean."
+    blocker: ""
+  - id: "repo-researcher-1"
+    role: "repo-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Identify what in the current repo is worth keeping/mining for a one-season MVP; everything else is deletion candidate."
+    last_update: "Spawned."
+    blocker: ""
+  - id: "platform-researcher-1"
+    role: "platform-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Find reliable, accessible sources for Memphis 2025-26 opening roster and every transaction through 2026-09-17."
+    last_update: "Completed: all nine candidate hosts egress-blocked from sandbox; NBA player-movement JSON is best machine-readable lead."
+    blocker: ""
+  - id: "plan-reviewer-1"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "planning"
+    task: "Critique plan.yaml against requirements before checkpoint."
+    last_update: "Changes requested; all applied."
+    blocker: ""
+  - id: "developer-b0"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "fast"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Haiku 4.5"
+    actual_model: "sonnet (Agent model param) — substituted up one tier because the task rewrites AGENTS/README content and deletes the whole tree"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T0.1 wipe + skeleton"
+    last_update: "Completed: tree wiped to skeleton; uv sync ok; 8 tests pass."
+    blocker: ""
+  - id: "data-engineer-b1b2"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T1.1 schema + migrate; T2.1 fetch + lineage-load.yml"
+    last_update: "Completed: 5-table DDL, migrate/fetch verbs, workflow; 15 tests pass."
+    blocker: ""
+  - id: "data-engineer-b3"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "opus (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T3.2 parser, pick events, corrections, derive, timeline against the 86-row fixture"
+    last_update: "Loop-1 fix done: lenient identity index in snapshot+derive; 126 tests; CI green."
+    blocker: ""
+  - id: "data-engineer-b4"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "verification"
+    task: "B4 validate/export/render + load chain; persist transaction.note; fix 2 tests"
+    last_update: "Completed loop 2/2: all reviewer+tester findings addressed; 137 tests; SVG byte-identical across hash seeds."
+    blocker: ""
+  - id: "reviewer-1"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "verification"
+    task: "Code review of PR #8; post findings as PR review."
+    last_update: "Completed: changes requested — render set-iteration nondeterminism (blocking), dead W4 (blocking), parser coverage, push trigger, mise nit. Posted as PR review."
+    blocker: ""
+  - id: "tester-1"
+    role: "tester"
+    task_profile: "test_design"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "verification"
+    task: "Independent verification of PR #8: run suite, probe gaps, post findings as PR review."
+    last_update: "Completed: 126 tests x2 stable; render nondeterminism confirmed via PYTHONHASHSEED; DB-path verbs traceback without DATABASE_URL; pick_events dry-fill behaves as designed. Posted as PR review."
+    blocker: ""
+  - id: "platform-researcher-2"
+    role: "platform-researcher"
+    task_profile: "research"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "discovery"
+    task: "Memphis pick inventory, 2026 draft, trade pick packages, Clarke dates (WebSearch only)"
+    last_update: "Completed in three passes; RealGM/Spotrac tables unreachable, own 2nds stay low-confidence."
+    blocker: ""
+  - id: "plan-reviewer-b6"
+    role: "reviewer"
+    task_profile: "review"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "planning"
+    task: "Critique B6 plan"
+    last_update: "Changes requested (5 wording/data guardrails); all adopted in T6.1 data and T6.2/T6.3 handoffs."
+    blocker: ""
+  - id: "data-engineer-t62"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T6.2 curated_events.json in derive; draft_rights; contract_void; validate updates"
+    last_update: "Completed: 50 tx / 107 movements / 22 picks; 171 tests; 0 errors, 22 warnings."
+    blocker: ""
+  - id: "developer-t63"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T6.3 render v3: color by contract type and node kind, full-window ordering, numbered legend, no destination flags"
+    last_update: "Completed: 1600x940; palette validated; 21 render tests."
+    blocker: ""
+  - id: "tester-b6"
+    role: "tester"
+    task_profile: "test_design"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "verification"
+    task: "Verify B6 truth probes, determinism, SVG structure, data lint; post PR review."
+    last_update: "PASS: 171 tests x2; byte-identical across hash seeds; all truth probes; 0 errors / 22 warnings; planted E1 fires; SVG structure ok. Posted as PR review."
+    blocker: ""
+  - id: "data-engineer-t71"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T7.1 export: tenure_start, tenure_tier_changes, pick sort_key; snapshot mem_since typed"
+    last_update: "Completed: 162 non-render tests; build_export now takes the Snapshot."
+    blocker: ""
+  - id: "developer-t72"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "opus (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T7.2 render v4 compacting tenure-ordered stack with two-way and picks bands"
+    last_update: "Completed: 1600x901; 20 render tests; 179 total."
+    blocker: ""
+  - id: "tester-b7"
+    role: "tester"
+    task_profile: "test_design"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "verification"
+    task: "Verify B7 layout truth probes, determinism, visual defects; post PR review."
+    last_update: "PASS: 179 tests x2; byte-identical across seeds; all 8 layout probes hold. 4 legibility defects listed (fused marker+cap on solo departures; badge/hub collisions in 10-day clusters; Mar 4 conversion curve crossing labels; Sep 8 connectors crossing strands). Posted as PR review."
+    blocker: ""
+  - id: "data-engineer-t51"
+    role: "data-engineer"
+    task_profile: "implementation"
+    requested_model_tier: "balanced"
+    requested_reasoning: "medium"
+    requested_provider_model: "Claude Sonnet 5"
+    actual_model: "sonnet (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T5.1 ten-day expiry transactions + validate E6 + export"
+    last_update: "Completed: 12 expiry nodes on fixture; E6; 143 tests."
+    blocker: ""
+  - id: "developer-t52"
+    role: "generalist-developer"
+    task_profile: "implementation"
+    requested_model_tier: "frontier"
+    requested_reasoning: "high"
+    requested_provider_model: "Claude Opus 5"
+    actual_model: "opus (Agent model param)"
+    actual_reasoning: "inherited"
+    routing_enforced: true
+    escalation_count: 0
+    status: "completed"
+    stage: "execution"
+    task: "T5.2 render v2: slot lanes with reuse, node hubs with in/out connectors"
+    last_update: "Completed: 1600x800, 23 player + 15 pick lanes for 61 assets, 28 hubs, 25 exit caps; 150 tests."
+    blocker: ""
+
+loops:
+  planning_review:
+    count: 1
+    max: 2
+  execution_verification:
+    count: 0
+    max: 2
+
+checkpoint:
+  pre_execution_required: true
+  pre_execution_status: approved
+  options:
+    - proceed
+    - revise_plan
+    - narrow_scope
+    - stop
+
+blockers: []
+completed_destructive_ops:
+  - "2026-09-17: user said Drop; foundation schema dropped and lineage schema applied via Supabase MCP (project gjotcimniipqwhdgqutp). Backup: run 35280990596 on work/mvp, artifact supabase-backup-35280990596 (backup-data.sql 16.35 MB, backup-schema.sql 37.6 KB), expires 2026-12-16."
+decisions:
+  - "Checkpoint: user chose proceed (2026-09-17)."
+  - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-21 B7 owner direction: rows ordered by tenure (longest on top), arrivals take topmost open row, departures shift rows up (S-curve); separate 3-row two-way band; conversions and draft picks curve up into the bottom of the roster band; picks compact, ordered round/year/team with year gaps; tenure = continuous stint at current tier, conversions restart; draft rights live in the roster band. Loop counters reset."
+  - "2026-09-18 B6 checkpoint: proceed. Unknown pick years stay footnotes (audit pass later); own 2nds kept low-confidence since RealGM/Spotrac tables are unreachable from the sandbox and absent from search snippets."
+  - "2026-09-18 B6 owner direction: research pick logic properly; pick->player draft nodes; Saunders unsigned as draft_rights; Clarke contract_void node drawn like a waiver; no destination flags yet; full-season players on top; legend for unlabelled short tenures; node color by kind; strand color by contract type. Loop counters reset."
+  - "2026-09-18: owner reviewed graph.svg: no convergence/divergence at nodes, departed assets never end, 10-days never expire, image too tall. Chose slot-conversion lineage and to keep iterating on PR #8. B5 added; verification loop counter reset by user direction."
+  - "2026-09-18: user asked to enable RLS; applied live on all five lineage tables (postgres role has bypassrls, pipeline unaffected) and recorded in sql/0002."
+  - "Snapshot corrected from feed evidence: Mashack removed (two-way signed 2025-11-16), Landale confirmed on roster, opening two-ways = Small/Hall/Prosper."
+  - "User answers: wipe to framework skeleton; Supabase fresh minimal schema (drop foundation after backup); automated+deterministic ingestion; no frontend page this pass; GitHub Actions manual-trigger runtime; Python only; nodes = trades, signings/waivers, two-way/10-day/conversions, 2026 draft picks; curated opening-roster snapshot; assets = players + Memphis-owned future picks; swap rights deferred; parse picks from text with corrections file; rolling window end; no G League nodes; SVG only."
+  - "Mode: large-initiative (full rip-and-replace with new data model and frontend)."
+  - "Use session-pinned branch work/mvp as the feature branch."
+  - "No deletion until discovery questions are answered and the plan is approved."
+
+model_routing:
+  provider: "Claude Code / Anthropic"
+  provider_map_verified_at: "2026-09-07"
+  substitutions:
+    - "Orchestrator runs on the session model (Fable 5.1) rather than Opus 5."
+  unresolved_limitations:
+    - "Subagent reasoning level inherits from main session; not independently controllable."
+
+next_action: "Owner reviews v4; choose: visual cleanup pass, more logic, or merge (then git rm -r docs/mvp-one-season-reset/)."
+next_recommended_command: "$work"
+user_input_needed: true
