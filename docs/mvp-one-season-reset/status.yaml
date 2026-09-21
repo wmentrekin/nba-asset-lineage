@@ -3,7 +3,7 @@
 artifact: status
 feature: "mvp-one-season-reset"
 mode: "large-initiative"
-stage: "verification"
+stage: "execution"
 owner_skill: work
 
 objective: "Start over: delete the existing implementation and build a very simple, working MVP of the Memphis asset-lineage graph scoped to one season (2025-26 opening roster through today) on a pinned minimal data model with reliable transaction data."
@@ -26,7 +26,7 @@ branching:
   notes: "Renamed from session branch to work/mvp at user direction."
 
 summary:
-  current_focus: "B6 verified; PR #8 ready for owner review again. Open data item: NOP 2nd/swap year (audit pass later)."
+  current_focus: "B7 execution: render v4 compacting tenure-ordered stack; export gains tenure_start / pick sort_key; snapshot gained mem_since."
   last_completed: "B0 wipe + skeleton committed; draft opening snapshot committed (verified:false). Earlier: discovery: 4 rounds of user questions answered; repo salvage and source-reachability research done; requirements.yaml + plan.yaml written."
   current_blocker: ""
 
@@ -320,6 +320,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-09-21 B7 owner direction: rows ordered by tenure (longest on top), arrivals take topmost open row, departures shift rows up (S-curve); separate 3-row two-way band; conversions and draft picks curve up into the bottom of the roster band; picks compact, ordered round/year/team with year gaps; tenure = continuous stint at current tier, conversions restart; draft rights live in the roster band. Loop counters reset."
   - "2026-09-18 B6 checkpoint: proceed. Unknown pick years stay footnotes (audit pass later); own 2nds kept low-confidence since RealGM/Spotrac tables are unreachable from the sandbox and absent from search snippets."
   - "2026-09-18 B6 owner direction: research pick logic properly; pick->player draft nodes; Saunders unsigned as draft_rights; Clarke contract_void node drawn like a waiver; no destination flags yet; full-season players on top; legend for unlabelled short tenures; node color by kind; strand color by contract type. Loop counters reset."
   - "2026-09-18: owner reviewed graph.svg: no convergence/divergence at nodes, departed assets never end, 10-days never expire, image too tall. Chose slot-conversion lineage and to keep iterating on PR #8. B5 added; verification loop counter reset by user direction."
@@ -338,6 +339,6 @@ model_routing:
   unresolved_limitations:
     - "Subagent reasoning level inherits from main session; not independently controllable."
 
-next_action: "Owner reviews render v3 / PR #8; next feedback round or merge (then git rm -r docs/mvp-one-season-reset/)."
+next_action: "Spawn T7.1 (Sonnet) and T7.2 (Opus); commit; re-render; show owner."
 next_recommended_command: "$work"
 user_input_needed: true

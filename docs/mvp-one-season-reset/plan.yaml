@@ -209,6 +209,30 @@ execution_batches:
         parallelizable: true
         expected_validation: ["pytest", "cross-process determinism", "owner eyeballs PNG"]
 
+  - id: "B7"
+    goal: "Render v4: compacting tenure-ordered stack (owner feedback round 3, 2026-09-21)"
+    tasks:
+      - id: "T7.1"
+        title: "Tenure data + export contract"
+        objective: "Snapshot players carry mem_since (done by orchestrator from the full feed: continuous stint at current tier; converted two-ways restart at conversion). export.py adds to each player asset `tenure_start` (baseline players: snapshot mem_since; others: date of their first MEM movement whose contract_type is not two_way; two-way-only players: date of first MEM movement) and to each pick asset `sort_key` [round, draft_year, original_team]. Segments already carry contract_type. No schema change."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: low, consequence: medium, scope_size: narrow, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "none expected"}
+        owned_scope: ["src/lineage/export.py", "src/lineage/snapshot.py (mem_since field)", "tests/test_export.py", "tests/test_snapshot.py"]
+        forbidden_scope: ["src/lineage/render.py", "sql/", "derive/validate"]
+        dependencies: []
+        parallelizable: true
+        expected_validation: ["pytest", "graph.json carries tenure_start for all 47 players"]
+      - id: "T7.2"
+        title: "Render v4: compacting stack"
+        objective: "Rows are ranks, not slots. Three bands top to bottom: roster (standard + draft_rights + ten_day), two-way (3 rows), picks. At every node x, roster order = tenure_start ascending (longest tenure on top), ties by asset label; arrivals take the topmost open rank (which, by tenure, is the bottom of the current stack); departures make everything below shift up via a short S-curve after the node. Two-way band ordered the same way; a conversion (two_way -> standard at a MEM->MEM movement) or a draft selection curves the strand up into the bottom of the roster band with the color change. Picks band compact: only currently held picks, ordered round, draft_year, original_team with a half-row gap between draft years; trade arrivals insert in sorted position, departures (USED/traded) shift the rest up. Hubs/connectors, colors, numbered legend, no destination flags as in v3. Deterministic."
+        assigned_domain: "generalist-developer"
+        model_routing: {task_profile: implementation, uncertainty: high, consequence: medium, scope_size: bounded, determinism: interpretive, requested_tier: frontier, requested_reasoning: high, provider_model: "Claude Opus 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "rank changes produce unreadable crossings on current data"}
+        owned_scope: ["src/lineage/render.py", "tests/test_render.py", "README.md render section"]
+        forbidden_scope: ["export/derive/validate", "sql/", "data/"]
+        dependencies: ["T7.1 contract (tenure_start, sort_key) — may stub until export lands"]
+        parallelizable: true
+        expected_validation: ["pytest", "cross-process determinism", "owner eyeballs PNG"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."
@@ -238,4 +262,4 @@ review:
 
 checkpoint:
   required_before_execution: true
-  status: approved (B0-B4 2026-09-17; B5 2026-09-18); B6 pending owner checkpoint
+  status: approved (B0-B4 2026-09-17; B5 2026-09-18); B6 approved 2026-09-18; B7 approved 2026-09-21 (owner answered the four layout questions)
