@@ -35,9 +35,9 @@ artifacts:
   implementation_report: "docs/remove-supabase-crons/implementation-report.yaml"
 
 pr:
-  number: null
-  url: null
-  status: "not_opened"
+  number: 9
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/9"
+  status: "open"
 
 agents:
   - id: "orchestrator"
