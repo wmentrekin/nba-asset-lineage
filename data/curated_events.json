@@ -1,5 +1,5 @@
 {
-  "$comment": "Curated truth the NBA player-movement feed cannot supply. trades[] are keyed by the feed GroupSort: picks_in/picks_out become pick movements at that transaction; footnotes are recorded on the node but never become assets (swap rights, unknown-year picks, draft rights of non-roster players). draft_selections[] create a node where a pick strand ends (MEM->USED) and a player strand begins (DRAFT->MEM, contract_type draft_rights). events[] are curated roster transactions absent from the feed. Every row carries verified and confidence; unknown facts stay footnotes.",
+  "$comment": "Curated truth the NBA player-movement feed cannot supply. trades[] are keyed by the feed GroupSort: picks_in/picks_out become pick movements at that transaction; footnotes are recorded on the node but never become assets (swap rights, unknown-year picks, draft rights of non-roster players). draft_selections[] create a node where a pick strand ends (MEM->USED) and a player strand begins (DRAFT->MEM, contract_type draft_rights). events[] are curated roster transactions absent from the feed. contract_expirations[] are contracts that ran out without a feed row (player_id, player_name, date, source_url, verified, confidence, footnotes); each becomes an expiry node MEM->FA and wins over the automatic signed-elsewhere rule for the same player and year. Every row carries verified and confidence; unknown facts stay footnotes.",
   "pick_row_shape": {
     "pick_id": "{draft_year}-R{round}-{original_team}",
     "from": "team code (picks_in)",
@@ -184,5 +184,6 @@
         "Voiding date corroborated by two outlets; later reporting on the estate payment is unresolved and not modelled."
       ]
     }
-  ]
+  ],
+  "contract_expirations": []
 }

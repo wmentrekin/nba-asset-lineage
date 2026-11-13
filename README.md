@@ -94,6 +94,14 @@ of loading them. The feed omits training-camp signings but lists the camp cuts, 
 one) and `validate` reports every skip as a W7 warning; any other kind of move for a
 non-held player still fails E1.
 
+The feed never records a contract simply running out. When a player Memphis still holds
+next appears in the feed on another team, `derive` ends his Memphis strand with an `expiry`
+node (`Expire-Contract-<person id>-<year>`) on the latest June 30 before that row; with no
+June 30 in between it uses the other team's date and `validate` reports a W8 warning.
+`contract_expirations[]` in `data/curated_events.json` adds expiries by hand and wins over
+the automatic rule for the same player and year. `validate` E8 fails any date on which MEM
+holds more than three two-way contracts.
+
 ## Environment
 
 Locally, set `DATABASE_URL` in a `.env` file. In CI it is a repo secret. This

@@ -39,6 +39,7 @@ from lineage.events import (
     CuratedEvents,
     CuratedEventsError,
     draft_transaction_id,
+    expiry_transaction_id,
     load_curated_events,
     parse_pick_id,
     synthetic_player_id,
@@ -50,7 +51,7 @@ from lineage.snapshot import (
     pick_id_for,
     resolve_person_ids,
 )
-from lineage.teams import MEM
+from lineage.teams import MEM, MEM_TEAM_ID, TEAM_ID_TO_TRICODE
 from lineage.timeline import (
     Movement,
     by_asset,
@@ -68,6 +69,10 @@ CONTRACT_DRAFT_RIGHTS = "draft_rights"
 
 # Marks the notes `_skip_unheld_waivers` records; validate's W7 keys off it.
 SKIPPED_WAIVER_MARKER = ": skipped waiver of "
+
+# Marks the notes `_signed_elsewhere_expiries` records for an in-season gap; validate's W8
+# keys off it.
+EXPIRY_FALLBACK_MARKER = ": no June 30 between "
 
 BASELINE_DESCRIPTION = "Opening-night roster and owned pick inventory"
 
@@ -179,9 +184,11 @@ def build_graph(
     _attach_curated_trades(transactions, curated, notes)
     transactions += _draft_selection_transactions(curated, notes)
     transactions += _event_transactions(curated)
+    transactions += _curated_expiry_transactions(curated)
 
     apply_movement_corrections(transactions, corrections)
     transactions += _expiry_transactions(transactions)
+    transactions += _signed_elsewhere_expiries(transactions, rows, notes)
 
     transactions.sort(key=lambda transaction: (transaction.occurred_on, transaction.id))
     numbered = _number_movements(transactions)
@@ -427,6 +434,135 @@ def _event_transactions(curated: CuratedEvents) -> list[Transaction]:
     return transactions
 
 
+def _expiry_transaction(
+    transaction_id: str,
+    occurred_on: dt.date,
+    description: str,
+    player_id: str,
+    source_key: str,
+    note: str | None = None,
+) -> Transaction:
+    """A contract-ran-out node: one MEM -> FA movement."""
+    expiry = Transaction(
+        id=transaction_id,
+        occurred_on=occurred_on,
+        kind=KIND_EXPIRY,
+        description=description,
+        group_key=None,
+        counterparties=[],
+        source_key=source_key,
+        note=note,
+    )
+    expiry.movements.append(
+        MovementSpec(
+            asset_type="player", asset_id=player_id, from_holder=MEM, to_holder=FREE_AGENCY
+        )
+    )
+    return expiry
+
+
+def _curated_expiry_transactions(curated: CuratedEvents) -> list[Transaction]:
+    """Turn curated contract expirations into `expiry` nodes."""
+    transactions: list[Transaction] = []
+    for entry in curated.contract_expirations:
+        description = "Contract expired (curated)"
+        if entry.footnotes:
+            description = f"{description} {' '.join(entry.footnotes)}"
+        transactions.append(
+            _expiry_transaction(
+                expiry_transaction_id(entry.player_id, entry.date.year),
+                entry.date,
+                description,
+                str(entry.player_id),
+                SOURCE_KEY_EVENTS,
+            )
+        )
+    return transactions
+
+
+def _latest_june_30(after: dt.date, on_or_before: dt.date) -> dt.date | None:
+    """The latest June 30 with after < date <= on_or_before, or None."""
+    year = on_or_before.year
+    candidate = dt.date(year, 6, 30)
+    if candidate > on_or_before:
+        candidate = dt.date(year - 1, 6, 30)
+    return candidate if candidate > after else None
+
+
+def _signed_elsewhere_expiries(
+    transactions: list[Transaction], rows: list[FeedRow], notes: list[str]
+) -> list[Transaction]:
+    """End the Memphis strand of a player whose contract ran out, as the feed shows it.
+
+    The feed never records a contract expiring. When a player Memphis still holds next
+    appears in the feed on another team (a signing, trade receipt or claim dated after his
+    last Memphis movement), his deal must have ended: the expiry lands on the latest June 30
+    in (last Memphis movement, that row's date]. With no June 30 in that interval (an
+    in-season departure the feed missed) it lands on the other team's date and a note is
+    recorded for validate's W8. Rows about Memphis itself are already handled elsewhere, and a
+    player whose last movement is already an exit (including a curated expiry, which wins) is
+    left alone.
+    """
+    last_movement: dict[str, tuple[dt.date, str, str]] = {}
+    for transaction in sorted(transactions, key=lambda t: (t.occurred_on, t.id)):
+        for spec in transaction.movements:
+            if spec.asset_type == "player":
+                last_movement[spec.asset_id] = (
+                    transaction.occurred_on,
+                    transaction.id,
+                    spec.to_holder,
+                )
+    existing_ids = {transaction.id for transaction in transactions}
+
+    expiries: list[Transaction] = []
+    for asset_id in sorted(last_movement, key=int):
+        last_date, _, holder = last_movement[asset_id]
+        if holder != MEM:
+            continue
+        candidates = [
+            row
+            for row in rows
+            if row.player_id == int(asset_id)
+            and row.team_id != MEM_TEAM_ID
+            and row.additional_sort != MEM_TEAM_ID
+            and row.team_id in TEAM_ID_TO_TRICODE
+            and row.occurred_on > last_date
+        ]
+        if not candidates:
+            continue
+        other = min(candidates, key=lambda row: row.sort_key)
+        expiry_date = _latest_june_30(last_date, other.occurred_on)
+        fallback = expiry_date is None
+        if expiry_date is None:
+            expiry_date = other.occurred_on
+        expiry_id = expiry_transaction_id(asset_id, expiry_date.year)
+        if expiry_id in existing_ids:
+            continue
+        tricode = TEAM_ID_TO_TRICODE[other.team_id]
+        note = None
+        if fallback:
+            note = (
+                f"no June 30 between {last_date.isoformat()} and "
+                f"{other.occurred_on.isoformat()}: expiry placed on the {tricode} row's date"
+            )
+            notes.append(
+                f"{expiry_id}{EXPIRY_FALLBACK_MARKER}{last_date.isoformat()} and "
+                f"{other.occurred_on.isoformat()} (player {asset_id}): expiry placed on "
+                f"the {tricode} row's date"
+            )
+        expiries.append(
+            _expiry_transaction(
+                expiry_id,
+                expiry_date,
+                f"Contract expired; next signed by {tricode} on {other.occurred_on.isoformat()}",
+                asset_id,
+                SOURCE_KEY_FEED,
+                note,
+            )
+        )
+    return expiries
+
+
 def _expiry_transactions(transactions: list[Transaction]) -> list[Transaction]:
     """Synthesize an `expiry` transaction for every ten-day signing nothing else resolves.
 
@@ -602,6 +738,9 @@ def _player_rows(
     }
     curated_names.update(
         {event.player_id: event.player_name for event in curated.events}
+    )
+    curated_names.update(
+        {entry.player_id: entry.player_name for entry in curated.contract_expirations}
     )
 
     players: list[Player] = []

@@ -233,6 +233,20 @@ execution_batches:
         parallelizable: true
         expected_validation: ["pytest", "cross-process determinism", "owner eyeballs PNG"]
 
+  - id: "B8"
+    goal: "Contract expirations across the season boundary (owner, 2026-11-13)"
+    tasks:
+      - id: "T8.1"
+        title: "Signed-elsewhere expiry, curated expirations, two-way cap"
+        objective: "derive: when the feed shows another team signing or acquiring a player Memphis holds, end his Memphis strand with an `expiry` node on the last June 30 before that row (fallback: the other team's date, with a W8 warning, if no June 30 lies between). curated_events.json gains `contract_expirations[]` (player_id, date, source_url, verified, confidence, footnotes) applied the same way. validate E8: more than 3 two-way contracts held on any date is an error. Prosper stays (owner: contract runs through 2026-27)."
+        assigned_domain: "data-engineer"
+        model_routing: {task_profile: implementation, uncertainty: medium, consequence: high, scope_size: bounded, determinism: deterministic, requested_tier: balanced, requested_reasoning: medium, provider_model: "Claude Sonnet 5", routing_enforced: true, escalation_tier: frontier, escalation_condition: "feed shows a pattern the rule can't place"}
+        owned_scope: ["src/lineage/{derive,events,validate}.py", "tests/", "data/curated_events.json (empty contract_expirations list only)", "README.md"]
+        forbidden_scope: ["sql/", "render.py"]
+        dependencies: []
+        parallelizable: false
+        expected_validation: ["pytest", "Rupert ends at Expire 2026-06-30", "two-way band <= 3 on the November feed"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from lineage.db import connect
 from lineage.derive import (
     CONTRACT_DRAFT_RIGHTS,
+    EXPIRY_FALLBACK_MARKER,
     SKIPPED_WAIVER_MARKER,
     KIND_BASELINE,
     KIND_CONTRACT_VOID,
@@ -34,12 +35,15 @@ from lineage.parse import (
     KIND_TWO_WAY_CONVERSION,
     KIND_TWO_WAY_SIGNING,
     KIND_WAIVER,
+    CONTRACT_TWO_WAY,
     PICK_USED,
 )
 from lineage.events import CuratedEvents
 from lineage.snapshot import Snapshot
 from lineage.teams import MEM, TRICODES
 from lineage.timeline import by_asset
+
+TWO_WAY_CAP = 3
 
 LEVEL_ERROR = "error"
 LEVEL_WARN = "warn"
@@ -101,12 +105,14 @@ def validate_graph(
     findings += _check_baseline(graph, snapshot)  # E4
     findings += _check_draft_selection_movements(graph)  # E5
     findings += _check_ten_day_expiry(graph)  # E6
+    findings += _check_two_way_cap(graph)  # E8
     findings += _check_uncurated_draft_considerations(graph)  # W1
     findings += _check_null_player_id_draft_selections(curated)  # W2
     findings += _check_unverified_snapshot_players(snapshot)  # W3
     findings += _check_uncurated_trade_footnotes(curated)  # W5
     findings += _check_unverified_snapshot_picks(snapshot)  # W6
     findings += _check_skipped_waivers(graph)  # W7
+    findings += _check_expiry_fallbacks(graph)  # W8
     return findings
 
 
@@ -301,6 +307,49 @@ def _check_ten_day_expiry(graph: DerivedGraph) -> list[Finding]:
     return findings
 
 
+def _check_two_way_cap(graph: DerivedGraph) -> list[Finding]:
+    """E8: no more than TWO_WAY_CAP players held by MEM on two-way contracts on any date.
+
+    Each date is checked on its end-of-day state, where every player's holder and contract
+    come from his last movement on or before that date (so a same-day departure has already
+    happened before the arrival that would fill the slot). One finding is raised when a
+    breach starts or its set of players changes, not once per day it persists.
+    """
+    names = {str(player.id): player.full_name for player in graph.players}
+    by_date: dict[dt.date, list] = {}
+    for movement in graph.movements:
+        if movement.asset_type == "player":
+            by_date.setdefault(movement.occurred_on, []).append(movement)
+
+    state: dict[str, tuple[str, str | None]] = {}
+    findings: list[Finding] = []
+    previous_breach: frozenset[str] = frozenset()
+    for day in sorted(by_date):
+        for movement in sorted(by_date[day], key=lambda m: m.sequence):
+            state[movement.asset_id] = (movement.to_holder, movement.contract_type)
+        holders = frozenset(
+            asset_id
+            for asset_id, (holder, contract) in state.items()
+            if holder == MEM and contract == CONTRACT_TWO_WAY
+        )
+        breach = holders if len(holders) > TWO_WAY_CAP else frozenset()
+        if breach and breach != previous_breach:
+            listed = ", ".join(
+                f"{names.get(asset_id, asset_id)} ({asset_id})"
+                for asset_id in sorted(breach, key=int)
+            )
+            findings.append(
+                Finding(
+                    LEVEL_ERROR,
+                    "E8",
+                    f"{day.isoformat()}: {len(breach)} players on two-way contracts at MEM "
+                    f"(cap {TWO_WAY_CAP}): {listed}",
+                )
+            )
+        previous_breach = breach
+    return findings
+
+
 def _check_uncurated_draft_considerations(graph: DerivedGraph) -> list[Finding]:
     """W1: a trade with feed draft-consideration markers but no curated pick movements.
 
@@ -375,6 +424,15 @@ def _check_skipped_waivers(graph: DerivedGraph) -> list[Finding]:
         Finding(LEVEL_WARN, "W7", note)
         for note in graph.notes
         if SKIPPED_WAIVER_MARKER in note
+    ]
+
+
+def _check_expiry_fallbacks(graph: DerivedGraph) -> list[Finding]:
+    """W8: an expiry placed on the other team's date because no June 30 fell in the gap."""
+    return [
+        Finding(LEVEL_WARN, "W8", note)
+        for note in graph.notes
+        if EXPIRY_FALLBACK_MARKER in note
     ]
 
 

@@ -90,6 +90,20 @@ class EventEntry(BaseModel):
     footnotes: list[str] = Field(default_factory=list)
 
 
+class ExpirationEntry(BaseModel):
+    """A contract that simply ran out, which the feed never records."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    player_id: int
+    player_name: str
+    date: dt.date
+    source_url: str | None = None
+    verified: bool = False
+    confidence: Confidence = "low"
+    footnotes: list[str] = Field(default_factory=list)
+
+
 class CuratedEvents(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -98,6 +112,7 @@ class CuratedEvents(BaseModel):
     trades: list[TradeEntry] = Field(default_factory=list)
     draft_selections: list[DraftSelection] = Field(default_factory=list)
     events: list[EventEntry] = Field(default_factory=list)
+    contract_expirations: list[ExpirationEntry] = Field(default_factory=list)
 
 
 def load_curated_events(path: str | Path) -> CuratedEvents:
@@ -123,3 +138,8 @@ def synthetic_player_id(selection: DraftSelection) -> int:
     """Deterministic negative id for a drafted player the feed has no NBA person id for."""
     draft_year, _, _ = parse_pick_id(selection.pick_id)
     return -(draft_year * 100 + selection.pick_no)
+
+
+def expiry_transaction_id(player_id: int | str, year: int) -> str:
+    """Transaction id for a contract expiry (curated or derived from the feed)."""
+    return f"Expire-Contract-{player_id}-{year}"
