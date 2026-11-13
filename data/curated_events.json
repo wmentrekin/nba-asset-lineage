@@ -185,5 +185,15 @@
       ]
     }
   ],
-  "contract_expirations": []
+  "contract_expirations": [],
+  "drafts": [
+    {
+      "year": 2026,
+      "round1_date": "2026-06-23",
+      "round2_date": "2026-06-24",
+      "source_url": "https://www.nba.com/news/nba-draft-2026-set-barclays-center-june-23-24",
+      "verified": true,
+      "confidence": "high"
+    }
+  ]
 }

@@ -104,6 +104,19 @@ class ExpirationEntry(BaseModel):
     footnotes: list[str] = Field(default_factory=list)
 
 
+class DraftEntry(BaseModel):
+    """One NBA draft: the day after `round2_date`, year + 7 picks become tradeable."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: int
+    round1_date: dt.date
+    round2_date: dt.date
+    source_url: str | None = None
+    verified: bool = False
+    confidence: Confidence = "low"
+
+
 class CuratedEvents(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -113,6 +126,7 @@ class CuratedEvents(BaseModel):
     draft_selections: list[DraftSelection] = Field(default_factory=list)
     events: list[EventEntry] = Field(default_factory=list)
     contract_expirations: list[ExpirationEntry] = Field(default_factory=list)
+    drafts: list[DraftEntry] = Field(default_factory=list)
 
 
 def load_curated_events(path: str | Path) -> CuratedEvents:
@@ -138,6 +152,11 @@ def synthetic_player_id(selection: DraftSelection) -> int:
     """Deterministic negative id for a drafted player the feed has no NBA person id for."""
     draft_year, _, _ = parse_pick_id(selection.pick_id)
     return -(draft_year * 100 + selection.pick_no)
+
+
+def horizon_transaction_id(horizon_year: int) -> str:
+    """Transaction id for the day a draft year becomes tradeable."""
+    return f"Horizon-{horizon_year}"
 
 
 def expiry_transaction_id(player_id: int | str, year: int) -> str:

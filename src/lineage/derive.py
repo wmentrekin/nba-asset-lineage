@@ -40,6 +40,7 @@ from lineage.events import (
     CuratedEventsError,
     draft_transaction_id,
     expiry_transaction_id,
+    horizon_transaction_id,
     load_curated_events,
     parse_pick_id,
     synthetic_player_id,
@@ -63,6 +64,12 @@ KIND_BASELINE = "baseline"
 KIND_DRAFT_SELECTION = "draft_selection"
 KIND_EXPIRY = "expiry"
 KIND_CONTRACT_VOID = "contract_void"
+KIND_PICK_HORIZON = "pick_horizon"
+
+# Picks for a draft year are tradeable up to this many drafts out.
+PICK_HORIZON_YEARS = 7
+# Holder a pick enters from when its draft year first becomes tradeable (pick_horizon only).
+HOLDER_NEW = "NEW"
 
 HOLDER_VOID = "VOID"
 CONTRACT_DRAFT_RIGHTS = "draft_rights"
@@ -189,6 +196,7 @@ def build_graph(
     apply_movement_corrections(transactions, corrections)
     transactions += _expiry_transactions(transactions)
     transactions += _signed_elsewhere_expiries(transactions, rows, notes)
+    transactions += _pick_horizon_transactions(transactions, snapshot, curated)
 
     transactions.sort(key=lambda transaction: (transaction.occurred_on, transaction.id))
     numbered = _number_movements(transactions)
@@ -432,6 +440,43 @@ def _event_transactions(curated: CuratedEvents) -> list[Transaction]:
         )
         transactions.append(transaction)
     return transactions
+
+
+def _pick_horizon_transactions(
+    transactions: list[Transaction], snapshot: Snapshot, curated: CuratedEvents
+) -> list[Transaction]:
+    """The day after each curated draft, Memphis's own R1/R2 for year + 7 enter the graph.
+
+    Only drafts whose day-after date falls inside the window (after the snapshot's as_of,
+    up to the last other transaction) produce a node; earlier years are in the snapshot.
+    """
+    window_end = max((t.occurred_on for t in transactions), default=snapshot.as_of)
+    result: list[Transaction] = []
+    for draft in curated.drafts:
+        on = draft.round2_date + dt.timedelta(days=1)
+        if not snapshot.as_of < on <= window_end:
+            continue
+        horizon_year = draft.year + PICK_HORIZON_YEARS
+        transaction = Transaction(
+            id=horizon_transaction_id(horizon_year),
+            occurred_on=on,
+            kind=KIND_PICK_HORIZON,
+            description=f"{horizon_year} picks become tradeable",
+            group_key=None,
+            counterparties=[],
+            source_key=SOURCE_KEY_EVENTS,
+        )
+        for round_ in (1, 2):
+            transaction.movements.append(
+                MovementSpec(
+                    asset_type="pick",
+                    asset_id=f"{horizon_year}-R{round_}-{MEM}",
+                    from_holder=HOLDER_NEW,
+                    to_holder=MEM,
+                )
+            )
+        result.append(transaction)
+    return result
 
 
 def _expiry_transaction(

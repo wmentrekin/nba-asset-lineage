@@ -20,6 +20,8 @@ from lineage.derive import (
     KIND_CONTRACT_VOID,
     KIND_DRAFT_SELECTION,
     KIND_EXPIRY,
+    KIND_PICK_HORIZON,
+    HOLDER_NEW,
     DerivedGraph,
     build_graph,
     load_inputs,
@@ -60,6 +62,7 @@ ALLOWED_KINDS = frozenset(
         KIND_DRAFT_SELECTION,
         KIND_EXPIRY,
         KIND_CONTRACT_VOID,
+        KIND_PICK_HORIZON,
     }
 )
 
@@ -119,12 +122,19 @@ def validate_graph(
 def _check_chain_continuity(graph: DerivedGraph) -> list[Finding]:
     """E1: every asset's movement chain is continuous."""
     findings: list[Finding] = []
+    horizon_ids = {t.id for t in graph.transactions if t.kind == KIND_PICK_HORIZON}
     for (asset_type, asset_id), movements in by_asset(graph.movements).items():
         previous_to_holder: str | None = None
         for index, movement in enumerate(movements):
             if index == 0:
-                if movement.from_holder is not None and movement.from_holder not in (
-                    _ENTERING_HOLDERS
+                new_ok = (
+                    movement.from_holder == HOLDER_NEW
+                    and movement.transaction_id in horizon_ids
+                )
+                if (
+                    movement.from_holder is not None
+                    and movement.from_holder not in _ENTERING_HOLDERS
+                    and not new_ok
                 ):
                     findings.append(
                         Finding(

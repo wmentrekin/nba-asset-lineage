@@ -191,3 +191,14 @@ def test_strict_exits_nonzero_on_the_current_data_via_run_validate(tmp_path, mon
 
     assert run_validate(str(fixture_path), data_dir, strict=False) == 0
     assert run_validate(str(fixture_path), data_dir, strict=True) == 1
+
+
+def test_pick_horizon_new_origin_is_valid_but_only_for_pick_horizon(graph, snapshot_and_curated):
+    snapshot, curated = snapshot_and_curated
+    assert not [f for f in validate_graph(graph, snapshot, curated) if f.level == "error"]
+
+    move = next(m for m in graph.movements if m.transaction_id == "Horizon-2033")
+    wrong = dataclasses.replace(move, transaction_id="Trade-2025022")
+    graph.movements[graph.movements.index(move)] = wrong
+    findings = validate_graph(graph, snapshot, curated)
+    assert any(f.code == "E1" and "NEW" in f.message for f in findings)

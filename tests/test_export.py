@@ -54,7 +54,9 @@ def test_nodes_are_ordered_by_date_then_id_and_carry_the_contract_fields(export)
 
     baseline = nodes[0]
     assert baseline["id"] == "OPENING-2025-26"
-    assert set(baseline) == {"id", "date", "kind", "description", "counterparties", "note"}
+    assert set(baseline) == {
+        "id", "date", "kind", "description", "counterparties", "note", "hidden",
+    }
 
     trade = next(n for n in nodes if n["id"] == "Trade-2025022")
     assert trade["note"].startswith("draft consideration: MEM<-UTA")
@@ -122,7 +124,7 @@ def test_a_referenced_pick_becomes_a_labelled_asset(feed_payload, resolvable_inp
         "id": "2031-R2-UTA",
         "type": "pick",
         "label": "2031 R2 (UTA)",
-        "sort_key": [2, 2031, "UTA"],
+        "sort_key": [2031, 2, 1, "UTA"],
     }
 
 
@@ -186,7 +188,63 @@ def test_boozer_tier_change_at_rookie_signing(export):
 
 def test_pick_sort_key(export):
     picks = {a["id"]: a for a in export["assets"] if a["type"] == "pick"}
-    assert picks["2030-R1-ORL"]["sort_key"] == [1, 2030, "ORL"]
+    assert picks["2030-R1-ORL"]["sort_key"] == [2030, 1, 1, "ORL"]
+    assert picks["2027-R1-MEM"]["sort_key"] == [2027, 1, 0, "MEM"]
+
+
+def test_2027_picks_sort_mem_r1_then_lal_r1_then_mem_r2(export):
+    keys = {
+        a["id"]: a["sort_key"]
+        for a in export["assets"]
+        if a["type"] == "pick" and a["sort_key"][0] == 2027
+    }
+    assert sorted(keys, key=keys.get) == ["2027-R1-MEM", "2027-R1-LAL", "2027-R2-MEM"]
+
+
+HIDDEN_PLAYERS = {
+    "Charles Bassey", "Kobe Bufkin", "Christian Koloko", "Lawson Lovering", "Tyler Burton",
+    "DeJon Jarreau", "Adama Bal", "Lucas Williamson", "Dariq Whitehead", "Toby Okani",
+}
+
+
+def test_hidden_players_are_the_ten_day_only_signings(export):
+    players = [a for a in export["assets"] if a["type"] == "player"]
+    assert all(isinstance(a["hidden"], bool) for a in players)
+    assert {a["label"] for a in players if a["hidden"]} == HIDDEN_PLAYERS
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Rayan Rupert", "Georges Niang", "Eric Gordon", "Kyle Anderson", "Taj Gibson"],
+)
+def test_visible_players_with_other_arrivals_or_contracts(export, name):
+    asset = next(a for a in export["assets"] if a["label"] == name)
+    assert asset["hidden"] is False
+
+
+def test_nodes_are_hidden_only_when_every_movement_touches_hidden_players(export, graph):
+    hidden_ids = {a["id"] for a in export["assets"] if a["type"] == "player" and a["hidden"]}
+    nodes = {n["id"]: n for n in export["nodes"]}
+    assert nodes["Signing-" + "1153251"]["hidden"] is False
+    for node_id, node in nodes.items():
+        moves = [m for m in graph.movements if m.transaction_id == node_id]
+        expected = all(m.asset_type == "player" and m.asset_id in hidden_ids for m in moves)
+        assert node["hidden"] is expected
+    assert any(n["hidden"] for n in nodes.values())
+    assert nodes["Trade-2026014"]["hidden"] is False
+
+
+def test_horizon_node_and_strands(export):
+    node = next(n for n in export["nodes"] if n["id"] == "Horizon-2033")
+    assert (node["date"], node["kind"], node["hidden"]) == (
+        "2026-06-25", "pick_horizon", False,
+    )
+    assert node["description"] == "2033 picks become tradeable"
+    strands = {s["asset_id"]: s["segments"] for s in export["strands"]}
+    for pick_id in ("2033-R1-MEM", "2033-R2-MEM"):
+        assert strands[pick_id] == [
+            {"from_node": "Horizon-2033", "to_node": None, "holder": "MEM", "contract_type": None}
+        ]
 
 
 def test_snapshot_player_without_mem_since_fails_loudly(feed_payload, resolvable_inputs):

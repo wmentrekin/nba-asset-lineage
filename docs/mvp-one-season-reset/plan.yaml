@@ -247,6 +247,20 @@ execution_batches:
         parallelizable: false
         expected_validation: ["pytest", "Rupert ends at Expire 2026-06-30", "two-way band <= 3 on the November feed"]
 
+  - id: "B9"
+    goal: "Picture readability round 4 (owner, 2026-11-13)"
+    tasks:
+      - id: "T9.1"
+        title: "Pick horizon, pick sort order, hidden 10-day-only players"
+        objective: "curated_events.json gains drafts[] (year, round1_date, round2_date; 2026 = 06-23/06-24). derive adds Memphis's own R1/R2 for year Y+7 the day after the year-Y draft via a `pick_horizon` transaction (2033 picks on 2026-06-25); sql/0005 adds the kind. export: pick sort_key = [draft_year, round, own_first (0 for MEM), original_team]; player assets get `hidden: true` when every Memphis segment is ten_day and the player arrived by signing (not trade/draft); nodes whose movements only touch hidden assets get `hidden: true`."
+        assigned_domain: "data-engineer"
+        owned_scope: ["src/lineage/{derive,events,export,validate}.py", "data/curated_events.json (drafts only)", "tests/", "README.md"]
+      - id: "T9.2"
+        title: "Render v5: wider canvas, separated shifts, fixed pick year blocks"
+        objective: "Width 2400 with longer S-curves; a rank shift caused by a departure starts after a visible gap past the node so it cannot read as coming from that node; trade hubs get more horizontal room. Hidden assets and nodes are not drawn. Picks band = one block per draft year (only years currently tradeable/held), each block with a fixed slot per pick ever held in that year in sort_key order, so arrivals fill an empty slot without moving anything; blocks move only when a draft year empties after its draft (one synchronized upward shift) and a new year block appears at the bottom at its horizon date."
+        assigned_domain: "generalist-developer"
+        owned_scope: ["src/lineage/render.py", "tests/test_render.py", "README.md render section"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."

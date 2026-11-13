@@ -8,6 +8,7 @@ layout contract rather than the renderer's arithmetic.
 """
 
 import copy
+import datetime as dt
 import os
 import pathlib
 import re
@@ -19,21 +20,24 @@ import pytest
 
 from lineage.derive import build_graph
 from lineage.export import build_export
-from lineage.render import render_svg
+from lineage.render import PLOT_X0, PLOT_X1, SHIFT_GAP, TRANSITION, Scale, render_svg
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 BASELINE = "OPENING-2025-26"
 TRADE = "Trade-2025022"  # Feb 3: JJJ, Konchar, Williams and Landale out
-WAIVER = "Waive-1140530"
+WAIVER = "Waive-1140530"  # Nov 16: PJ Hall's two-way waived...
+MASHACK_SIGNING = "Signing-1140528"  # ...and Jahmai Mashack's two-way signed the same day
 CONVERSION = "Signing-1146537"  # Mar 4: Prosper's two-way becomes a real contract
 FIRST_DRAFT = "Draft-2026-06-23-2026-R1-MEM"
+LAST_DRAFT = "Draft-2026-06-24-2026-R2-MEM"
+HIDDEN_PLAYER = "1629646"  # Charles Bassey: one 10-day contract, nothing else
+HIDDEN_NODE = "Signing-1139430"  # his 10-day signing
 JJJ = "1628991"
 MORANT = "1629630"
 PROSPER = "1641765"
 BOOZER = "1643409"
-V3_HEIGHT = 940  # the slot-lane render this one replaces
 
 # Builds the fixture-derived graph.json's SVG and prints it to stdout, so it can be run as a
 # separate process per PYTHONHASHSEED value.
@@ -108,6 +112,17 @@ def _y_at(points, x):
         if px <= x + 0.01:
             found = py
     return found if found is not None else points[0][1]
+
+
+def _shift_start(points):
+    """The x where a strand's first y change begins: the `L` vertex before its first curve.
+
+    A curve is `L x1,y1 C mid,y1 mid,y2 x2,y2`, so the first point at a new y is the second
+    control point, two points after the curve's start.
+    """
+    first_y = points[0][1]
+    index = next(i for i, (_, y) in enumerate(points) if abs(y - first_y) > 0.01)
+    return points[index - 2][0]
 
 
 def _x_range(points):
@@ -192,9 +207,8 @@ def test_svg_parses_as_xml(root):
     assert root.tag == f"{SVG_NS}svg"
 
 
-def test_the_image_is_full_width_and_shorter_than_the_slot_lane_render(root):
-    assert int(root.get("width")) == 1600
-    assert int(root.get("height")) < V3_HEIGHT
+def test_the_image_is_2400_wide(root):
+    assert int(root.get("width")) == 2400
 
 
 def test_render_is_byte_identical_across_two_runs(export):
@@ -313,23 +327,24 @@ def test_the_two_way_band_holds_the_three_two_way_players_in_tenure_order(root, 
 def test_the_stack_closes_up_when_a_player_above_leaves(root, bands):
     x = _node_x(root, TRADE)
     morant = _strand_points(root, MORANT)
-    _, _, row_height = bands["roster"]
 
     before = _rank(bands, "roster", _y_at(morant, x - 5))
-    after = _rank(bands, "roster", _y_at(morant, x + 3 * row_height))
+    shift = _shift_start(morant)
+    after = _rank(bands, "roster", _y_at(morant, shift + TRANSITION + 1))
 
-    # Jaren Jackson Jr. sat directly above him and left in this trade.
+    # Jaren Jackson Jr. sat directly above him and left in this trade; the knock-on shift waits
+    # a clear gap past the trade rather than starting at its hub.
     assert _y_at(_strand_points(root, JJJ), x - 5) < _y_at(morant, x - 5)
+    assert shift >= x + SHIFT_GAP - 0.01
     assert after == before - 1
 
 
 def test_a_conversion_lifts_the_strand_out_of_the_two_way_band(root, bands):
     x = _node_x(root, CONVERSION)
     prosper = _strand_points(root, PROSPER)
-    _, _, row_height = bands["roster"]
 
     assert _band_at(bands, _y_at(prosper, x - 5)) == "two_way"
-    assert _band_at(bands, _y_at(prosper, x + 3 * row_height)) == "roster"
+    assert _band_at(bands, _y_at(prosper, x + TRANSITION + 1)) == "roster"
 
     types = [
         (segment.get("data-from-node"), segment.get("data-contract-type"))
@@ -343,7 +358,6 @@ def test_a_drafted_pick_leaves_the_picks_band_and_continues_as_the_player(root, 
     x = _node_x(root, FIRST_DRAFT)
     pick = _strand_points(root, "2026-R1-MEM")
     player = _strand_points(root, BOOZER)
-    _, _, row_height = bands["roster"]
 
     assert _band_at(bands, _y_at(pick, x - 5)) == "pick"
     assert _x_range(pick)[1] == pytest.approx(x, abs=0.01)
@@ -351,7 +365,7 @@ def test_a_drafted_pick_leaves_the_picks_band_and_continues_as_the_player(root, 
     # The player picks the strand up exactly where the pick put it down.
     assert _x_range(player)[0] == pytest.approx(x, abs=0.01)
     assert player[0][1] == pytest.approx(_y_at(pick, x), abs=0.01)
-    assert _band_at(bands, _y_at(player, x + 3 * row_height)) == "roster"
+    assert _band_at(bands, _y_at(player, x + TRANSITION + 1)) == "roster"
 
     # A pick that becomes a player is not also capped off as having left Memphis.
     assert not [
@@ -361,41 +375,139 @@ def test_a_drafted_pick_leaves_the_picks_band_and_continues_as_the_player(root, 
     ]
 
 
-def test_picks_are_ordered_by_round_then_year_with_a_gap_between_draft_years(
-    root, bands, export
-):
-    labels = _labels(export)
+def _pick_blocks(root):
+    """{year: pick-year group} straight off the drawn picks band."""
+    return {
+        int(group.get("data-year")): group
+        for group in root.findall(f'.//{SVG_NS}g[@class="pick-year"]')
+    }
 
-    stacked = _stack_at(root, bands, 101.0, "pick")
 
-    assert [labels[asset_id] for asset_id in stacked] == [
-        labels[asset_id] for asset_id in _baseline_holdings(export, "pick")
+def _block_offsets(group):
+    return [
+        (float(x), float(offset))
+        for x, offset in (item.split(":") for item in group.get("data-offsets").split())
     ]
-    assert labels[stacked[0]] == "2026 R1 (MEM)"
-    assert labels[stacked[1]] == "2026 R1 (ORL)"
-    assert labels[stacked[2]] == "2027 R1 (MEM)"
 
+
+def _date_x(export, date):
+    scale = Scale(
+        dt.date.fromisoformat(export["window"]["start"]),
+        dt.date.fromisoformat(export["window"]["end"]),
+        PLOT_X0,
+        PLOT_X1,
+    )
+    return scale(dt.date.fromisoformat(date))
+
+
+def test_the_2027_block_reserves_a_slot_per_pick_in_sort_key_order(root, bands):
+    blocks = _pick_blocks(root)
     _, _, row_height = bands["pick"]
-    ys = {labels[asset_id]: _y_at(_strand_points(root, asset_id), 101.0) for asset_id in stacked}
-    assert ys["2026 R1 (ORL)"] - ys["2026 R1 (MEM)"] == pytest.approx(row_height, abs=0.01)
-    assert ys["2027 R1 (MEM)"] - ys["2026 R1 (ORL)"] > row_height
+
+    assert blocks[2027].get("data-slots").split() == ["2027-R1-MEM", "2027-R1-LAL", "2027-R2-MEM"]
+
+    # Before the trade the LAL slot is already there, empty, between the two MEM picks.
+    own_first = _strand_points(root, "2027-R1-MEM")
+    own_second = _strand_points(root, "2027-R2-MEM")
+    assert _y_at(own_second, 101.0) - _y_at(own_first, 101.0) == pytest.approx(2 * row_height)
+
+    after = _node_x(root, TRADE) + 100
+    lal = _strand_points(root, "2027-R1-LAL")
+    assert _y_at(lal, after) - _y_at(own_first, after) == pytest.approx(row_height)
+    assert _y_at(own_second, after) - _y_at(lal, after) == pytest.approx(row_height)
 
 
-def test_a_traded_in_pick_is_inserted_in_sorted_position_not_appended(root, bands, export):
-    labels = _labels(export)
-    x = _node_x(root, TRADE) + 40
+def test_a_traded_in_pick_fills_its_slot_and_nothing_else_in_its_year_moves(root):
+    x = _node_x(root, TRADE)
+    block_shift = _block_offsets(_pick_blocks(root)[2027])[1][0]
+    lal = _strand_points(root, "2027-R1-LAL")
 
-    stacked = [labels[asset_id] for asset_id in _stack_at(root, bands, x, "pick")]
+    # The arriving pick holds one y from its connector's end to its block's one shift.
+    entry = _x_range(lal)[0]
+    assert {round(y, 2) for px, y in lal if entry <= px <= block_shift} == {
+        round(_y_at(lal, entry), 2)
+    }
+    for asset_id in ("2027-R1-MEM", "2027-R2-MEM"):
+        points = _strand_points(root, asset_id)
+        assert _y_at(points, x - 5) == _y_at(points, x + 100)
+        assert _shift_start(points) == pytest.approx(block_shift)
 
-    assert "2027 R1 (LAL)" in stacked
-    assert stacked.index("2027 R1 (LAL)") == stacked.index("2027 R1 (MEM)") - 1
-    assert stacked.index("2027 R1 (LAL)") == stacked.index("2026 R1 (ORL)") + 1
-    assert stacked.index("2031 R1 (PHX)") == stacked.index("2031 R1 (MEM)") + 1
-    assert stacked[-1] != "2031 R1 (PHX)"
+
+def test_after_the_draft_the_2026_block_is_gone_and_every_block_below_moves_up_together(
+    root, bands
+):
+    blocks = _pick_blocks(root)
+    draft_x = _node_x(root, LAST_DRAFT)
+
+    assert float(blocks[2026].get("data-last-x")) == pytest.approx(draft_x)
+
+    moves = {year: _block_offsets(blocks[year]) for year in range(2027, 2034)}
+    assert all(len(offsets) == 2 for offsets in moves.values())
+    shift_xs = {round(offsets[1][0], 2) for offsets in moves.values()}
+    deltas = {offsets[1][1] - offsets[0][1] for offsets in moves.values()}
+    assert len(shift_xs) == 1 and shift_xs.pop() >= draft_x + SHIFT_GAP
+    assert len(deltas) == 1 and deltas.pop() < 0
+
+    # The strands follow their blocks: every pick held across the shift rises by the same y.
+    rises = set()
+    for year in range(2027, 2033):
+        for asset_id in blocks[year].get("data-slots").split():
+            points = _strand_points(root, asset_id)
+            if _x_range(points)[1] >= PLOT_X1:
+                rises.add(round(_y_at(points, PLOT_X1) - _y_at(points, draft_x - 1), 2))
+    assert len(rises) == 1
+
+
+def test_the_2033_block_appears_at_its_horizon_below_2032(root, export):
+    blocks = _pick_blocks(root)
+    horizon = next(node for node in export["nodes"] if node["kind"] == "pick_horizon")
+    x = _date_x(export, horizon["date"])
+
+    assert float(blocks[2033].get("data-first-x")) == pytest.approx(x, abs=0.01)
+    assert _x_range(_strand_points(root, "2033-R1-MEM"))[0] == pytest.approx(x, abs=0.01)
+    assert _block_offsets(blocks[2033])[0][1] > _block_offsets(blocks[2032])[0][1]
+    # A horizon is not a transaction with two sides, so it gets no marker.
+    assert horizon["id"] not in {
+        group.get("data-node-id") for group in root.findall(f'.//{SVG_NS}g[@class="hub"]')
+    }
+
+
+def test_hidden_players_and_their_nodes_are_not_drawn(root, export):
+    hidden = [asset for asset in export["assets"] if asset.get("hidden")]
+    assert HIDDEN_PLAYER in [asset["id"] for asset in hidden]
+
+    drawn_ids = {
+        group.get("data-asset-id")
+        for group in root.iter(f"{SVG_NS}g")
+        if group.get("data-asset-id") is not None
+    }
+    texts = " ".join(text.text or "" for text in root.iter(f"{SVG_NS}text"))
+    for asset in hidden:
+        assert asset["id"] not in drawn_ids
+        assert asset["label"] not in texts
+
+    hubs = {group.get("data-node-id") for group in root.findall(f'.//{SVG_NS}g[@class="hub"]')}
+    assert HIDDEN_NODE not in hubs
+    hidden_nodes = [node["id"] for node in export["nodes"] if node.get("hidden")]
+    assert hidden_nodes
+    assert not [node_id for node_id in hidden_nodes if node_id in hubs]
+
+
+def test_a_knock_on_shift_waits_a_clear_gap_past_the_node_that_caused_it(root):
+    # PJ Hall's waiver and Mashack's signing share one x; Prosper steps up into Hall's row,
+    # but only well clear of Mashack's signing marker.
+    x = _node_x(root, WAIVER)
+    assert _node_x(root, MASHACK_SIGNING) == pytest.approx(x)
+    prosper = _strand_points(root, PROSPER)
+
+    assert _shift_start(prosper) >= x + SHIFT_GAP - 0.01
+    assert _y_at(prosper, x + SHIFT_GAP - 1) == _y_at(prosper, x - 5)
 
 
 def test_the_two_way_band_never_exceeds_the_three_contracts_the_rules_allow(root, bands, export):
-    assert bands["two_way"][1] == 3
+    # Three rows by rule, plus at most one transient row where a same-day signing waits for
+    # the row a waived two-way left to close up.
+    assert 3 <= bands["two_way"][1] <= 4
 
     for node in export["nodes"]:
         hub = [

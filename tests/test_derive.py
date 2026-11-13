@@ -205,9 +205,9 @@ def test_expiries_add_twelve_transactions_to_the_fixture(graph):
     second 10-day, each exactly 10 days out) leaves 12 synthetic expiry transactions."""
     expiries = [t for t in graph.transactions if t.kind == "expiry"]
     assert len(expiries) == 12
-    # 46 feed-derived transactions (baseline + parsed groups + 12 expiries), plus the 3
+    # 46 feed-derived transactions (baseline + parsed groups + 12 expiries), plus the 1 pick_horizon, the 3
     # curated draft-selection nodes and the 1 curated contract_void event.
-    assert len(graph.transactions) == 46 + 3 + 1 == 50
+    assert len(graph.transactions) == 46 + 3 + 1 + 1 == 51
 
 
 def test_movements_add_up_across_baseline_curated_trades_draft_and_void(graph):
@@ -238,7 +238,7 @@ def test_movements_add_up_across_baseline_curated_trades_draft_and_void(graph):
     void_movements = [m for m in graph.movements if m.transaction_id.startswith("Void-")]
     assert len(void_movements) == 1
 
-    assert len(graph.movements) == 107
+    assert len(graph.movements) == 109  # 107 + 2 pick_horizon
 
 
 def test_trade_2025022_has_four_players_and_two_picks_in_each_direction(graph):
@@ -725,3 +725,30 @@ def test_contract_converted_and_award_on_waivers_produce_the_expected_movements(
         "MEM",
         "standard",
     )
+
+
+def test_pick_horizon_adds_2033_picks_the_day_after_the_2026_draft(graph):
+    transaction = next(t for t in graph.transactions if t.id == "Horizon-2033")
+    assert (transaction.occurred_on, transaction.kind, transaction.source_key) == (
+        dt.date(2026, 6, 25), "pick_horizon", "events",
+    )
+    assert transaction.description == "2033 picks become tradeable"
+    moves = [m for m in graph.movements if m.transaction_id == "Horizon-2033"]
+    assert {(m.asset_id, m.from_holder, m.to_holder) for m in moves} == {
+        ("2033-R1-MEM", "NEW", "MEM"),
+        ("2033-R2-MEM", "NEW", "MEM"),
+    }
+    picks = {p.id: p for p in graph.picks}
+    assert picks["2033-R1-MEM"].round == 1 and picks["2033-R2-MEM"].original_team == "MEM"
+
+
+def test_pick_horizon_is_skipped_when_outside_the_window(feed_payload, resolvable_inputs):
+    snapshot, curated, corrections = resolvable_inputs
+    curated = curated.model_copy(
+        update={"drafts": [
+            curated.drafts[0].model_copy(update={"year": 2024, "round1_date": dt.date(2024, 6, 26), "round2_date": dt.date(2024, 6, 27)}),
+            curated.drafts[0].model_copy(update={"year": 2030, "round2_date": dt.date(2030, 6, 27)}),
+        ]}
+    )
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+    assert not [t for t in graph.transactions if t.kind == "pick_horizon"]

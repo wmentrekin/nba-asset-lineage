@@ -1,25 +1,32 @@
 """Hand-written SVG rendering of graph.json: no plotting library, no PNG.
 
 Layout ("compacting stack"): x is time (linear, window.start to window.end) and a row is a
-*rank*, not a slot. Only Memphis tenure is drawn. At every transaction date the assets
-Memphis currently holds are re-ranked inside three bands stacked top to bottom — the roster
+*rank*, not a slot. Only Memphis tenure is drawn, and assets/nodes graph.json marks `hidden`
+(10-day-only signings) are not drawn at all. Three bands stack top to bottom: the roster
 (standard / 10-day / draft-rights contracts), the three reserved two-way rows, and the
-Memphis-owned picks — so a strand's y is a step function of x. Every rank change is a short
-cubic S-curve just after the transaction that caused it: when a player leaves, everyone below
-him slides up one row; when one arrives he lands at the bottom of the stack.
+Memphis-owned picks.
 
-Roster and two-way rows are ordered by tenure, longest-serving on top, which is why an
-arrival always enters at the bottom. A two-way conversion and a draft selection are the two
-places a strand crosses bands: the strand leaves its two-way row (or its pick row, continuing
-as the drafted player) and curves up into the bottom of the roster band, changing color at
-that node. Picks are ordered by (round, draft year, original team) with a half-row gap
-between draft years, so a traded-in pick is inserted at its sorted position rather than
-appended.
+Roster and two-way rows are ordered by tenure, longest-serving on top, so an arrival always
+enters at the bottom. A strand's own transaction is drawn at its node: an arrival starts there,
+a departure ends there, and a two-way conversion or a draft selection curves up into the bottom
+of the roster band right there, changing color. The *knock-on* re-rank a departure causes (the
+rows below closing up) is deliberately not drawn at the node: it waits a clear gap past it and
+then runs as one synchronized S-curve in the first stretch of x free of markers, so a strand
+sliding up never reads as coming out of another transaction's marker. Until then the stack
+keeps its hole and a same-day arrival waits in the row below the last occupied one (which is
+why the two-way band can show a transient fourth row the day a two-way is swapped).
+
+The picks band is a column of fixed per-draft-year blocks, in year order: a block exists from
+the first day Memphis holds one of that year's picks (or the year becomes tradeable at its
+`pick_horizon` node) to the day its last pick is used or traded. Every pick of that year Memphis
+holds at any point in the window owns one fixed slot in the block, in graph.json `sort_key`
+order (round, Memphis's own first, original team), so a traded-in pick fills an empty slot and
+nothing else moves. Blocks move only when one disappears after its draft: every block below
+then shifts up together, once, under the same gap-and-quiet-stretch rule.
 
 Stroke color encodes contract type (categorical, never thickness — every strand is the same
-width); hub markers are colored by the kind of transaction they represent, and trades keep
-the v3 convergence/divergence: connectors run from each departing strand's current y into the
-hub and back out to each arriving strand's row.
+width); hub markers are colored by the kind of transaction they represent, and trades converge
+departing strands into the hub and diverge arriving ones back out to their rows.
 
 Two runs over the same graph.json produce byte-identical output: every list here is built in
 a fixed order derived from graph.json's own ordering, no set is ever iterated for emission,
@@ -34,7 +41,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
-WIDTH = 1600
+WIDTH = 2400
 PLOT_X0 = 100
 PLOT_X1 = WIDTH - 90
 # A tenure MEM still holds runs past the axis end into this overhang, so an asset acquired on
@@ -48,16 +55,20 @@ TOP_MARGIN = 110
 # v3's reusable lanes while the strand itself stays the same visual weight.
 ROW_HEIGHT = 13.0
 BAND_GAP = 22.0
-# The picks band separates draft years by half a row so the year groups read as groups.
-YEAR_GAP_ROWS = 0.5
+# Draft-year blocks in the picks band are separated by this many empty rows.
+YEAR_GAP_ROWS = 1.0
 # NBA rule: a team may carry three two-way contracts, so that band is three rows whatever the
 # data says.
 TWO_WAY_ROWS = 3
 
-# A rank change is drawn as a cubic S-curve this wide, starting at the node that caused it.
-TRANSITION = 24.0
-# At a trade a strand stops this far short of the hub; the gap is where the connector lives.
-CONNECTOR_OFFSET = 24.0
+# Every rank change is drawn as a cubic S-curve this wide.
+TRANSITION = 48.0
+# A knock-on shift starts at least this far past the node that caused it.
+SHIFT_GAP = 1.5 * TRANSITION
+# At a trade a strand stops this far short of the hub; the gap is where the connector fans.
+CONNECTOR_OFFSET = 56.0
+# Half-width of the stretch of x around a non-trade marker that no knock-on shift may cross.
+MARKER_CLEARANCE = 10.0
 MIN_RUN = 4.0
 HUB_RADIUS = 4.5
 STRAND_WIDTH = 7.0
@@ -73,9 +84,10 @@ LABEL_FONT = 9
 LABEL_CHAR_WIDTH = LABEL_FONT * 0.52
 MIN_LABEL_WIDTH = 24.0
 
-# Nodes of these kinds never get a marker: a baseline is the left edge of the window and an
-# expiry is a 10-day contract simply lapsing, so neither has two sides to route between.
-FLAT_NODE_KINDS = frozenset({"baseline", "expiry"})
+# Nodes of these kinds never get a marker: a baseline is the left edge of the window, an
+# expiry is a 10-day contract simply lapsing, and a pick_horizon is a draft year becoming
+# tradeable (its year block appearing says that), so none of them has two sides to route.
+FLAT_NODE_KINDS = frozenset({"baseline", "expiry", "pick_horizon"})
 LABELLED_NODE_KINDS = frozenset({"trade", "draft_selection"})
 
 # Hub-marker kind families (owner feedback round 2): every transaction kind that starts or
@@ -173,10 +185,22 @@ def _segment_band(asset_type: str, segment: dict[str, Any]) -> str:
     return TWO_WAY if segment["contract_type"] == "two_way" else ROSTER
 
 
-def _pick_sort_key(asset: dict[str, Any]) -> tuple[int, int, str]:
-    """A pick's (round, draft year, original team) ordering key, as graph.json carries it."""
+def _pick_sort_key(asset: dict[str, Any]) -> tuple[int, int, int, str]:
+    """A pick's (draft year, round, own_first, original team) key, as graph.json carries it.
+
+    An export from before the four-part key carried (round, draft year, original team); it is
+    read into the same shape, with Memphis's own pick first.
+    """
     key = asset["sort_key"]
-    return (int(key[0]), int(key[1]), str(key[2]))
+    if len(key) == 4:
+        return (int(key[0]), int(key[1]), int(key[2]), str(key[3]))
+    team = str(key[2])
+    return (int(key[1]), int(key[0]), 0 if team == "MEM" else 1, team)
+
+
+def _pick_short_label(pick_key: tuple[int, int, int, str]) -> str:
+    """'R1 LAL': the year is already on the block, so a slot only names round and team."""
+    return f"R{pick_key[1]} {pick_key[3]}"
 
 
 @dataclass
@@ -192,7 +216,7 @@ class Tenure:
     end_node: str | None
     exit_holder: str | None
     sort_start: dt.date
-    pick_key: tuple[int, int, str] | None
+    pick_key: tuple[int, int, int, str] | None
     restart_nodes: list[str]
     # Filled in by the rank walk and the placement pass.
     placements: list[tuple[float, str, float]] = field(default_factory=list)
@@ -208,6 +232,13 @@ class Tenure:
         if self.pick_key is not None:
             return (*self.pick_key, self.asset_id)
         return (self.sort_start, self.label, self.asset_id)
+
+    @property
+    def display_label(self) -> str:
+        """The name drawn beside the strand (a pick drops the year its block already shows)."""
+        if self.pick_key is not None:
+            return _pick_short_label(self.pick_key)
+        return self.label
 
     def y_at(self, x: float, band_tops: dict[str, float]) -> float:
         """The row y this strand sits on at `x` (its latest placement at or before `x`)."""
@@ -253,14 +284,17 @@ def _tenures(
     node_date: dict[str, dt.date],
     window_start: dt.date,
 ) -> list[Tenure]:
-    """Split every strand into its MEM tenures, in graph.json asset order.
+    """Split every visible strand into its MEM tenures, in graph.json asset order.
 
+    An asset graph.json marks `hidden` never becomes a tenure, so it never takes a row.
     Consecutive MEM segments (a two-way conversion, a re-signing, a back-to-back 10-day) are
     one tenure with an internal boundary, not an exit and a re-entry.
     """
     segments_by_asset = {strand["asset_id"]: strand["segments"] for strand in strands}
     tenures: list[Tenure] = []
     for order, asset in enumerate(assets):
+        if asset.get("hidden", False):
+            continue
         segments = segments_by_asset.get(asset["id"], [])
         restarts = _restart_nodes(asset, segments)
         first = True
@@ -322,27 +356,163 @@ def _draft_continuations(
     return pairs
 
 
-def _year_gaps(ordered: list[Tenure]) -> list[float]:
-    """Cumulative half-row offsets: a gap opens wherever the draft year changes."""
-    offsets = []
-    gaps = 0.0
-    for index, tenure in enumerate(ordered):
-        if index and tenure.pick_key[1] != ordered[index - 1].pick_key[1]:
-            gaps += YEAR_GAP_ROWS
-        offsets.append(gaps)
-    return offsets
+def _busy_spans(nodes: list[dict[str, Any]], node_x: dict[str, float]) -> list[tuple[float, float]]:
+    """The x-spans a knock-on shift must not cross: each drawn marker and its trade fan."""
+    spans = []
+    for node in nodes:
+        if node.get("hidden", False) or node["kind"] in FLAT_NODE_KINDS:
+            continue
+        x = node_x[node["id"]]
+        reach = CONNECTOR_OFFSET if node["kind"] == "trade" else MARKER_CLEARANCE
+        spans.append((x - reach, x + reach))
+    return spans
+
+
+def _shift_x(anchor_x: float, busy: list[tuple[float, float]]) -> float:
+    """Where a knock-on shift caused at `anchor_x` starts: a clear gap past it, then the first
+    stretch of TRANSITION wide enough to run without crossing a marker or a trade fan."""
+    x = anchor_x + SHIFT_GAP
+    moved = True
+    while moved:
+        moved = False
+        for low, high in busy:
+            if x < high and x + TRANSITION > low:
+                x = high
+                moved = True
+    return x
+
+
+@dataclass
+class PickBlock:
+    """One draft year's block in the picks band: fixed slots, and where the block sat when."""
+
+    year: int
+    slots: list[str]
+    first_x: float = 0.0
+    # (x, rows offset of the block's first slot) every time the block is placed or moved.
+    offsets: list[tuple[float, float]] = field(default_factory=list)
+    last_x: float | None = None
+
+
+def _pick_blocks(tenures: list[Tenure]) -> dict[int, PickBlock]:
+    """{draft year: block}, each block's slots every pick of that year MEM ever holds, sorted."""
+    keys: dict[str, tuple[int, int, int, str]] = {}
+    for tenure in tenures:
+        if tenure.pick_key is not None:
+            keys[tenure.asset_id] = tenure.pick_key
+    ordered = sorted(keys, key=lambda asset_id: (keys[asset_id], asset_id))
+    blocks: dict[int, PickBlock] = {}
+    for asset_id in ordered:
+        year = keys[asset_id][0]
+        blocks.setdefault(year, PickBlock(year=year, slots=[])).slots.append(asset_id)
+    return blocks
+
+
+class _Stack:
+    """The rows every band holds at the x the walk has reached.
+
+    Roster and two-way rows are tenure ranks with holes allowed: a departure leaves its row
+    empty until the band compacts. Pick rows are a year block's offset plus a fixed slot.
+    """
+
+    def __init__(self, blocks: dict[int, PickBlock]):
+        self.rows: dict[str, list[tuple[Tenure, float]]] = {ROSTER: [], TWO_WAY: [], PICK: []}
+        self.blocks = blocks
+        self.block_offset: dict[int, float] = {}
+        self.block_live: dict[int, int] = {}
+        self.heights = {band: 0.0 for band in BANDS}
+
+    def _place(self, tenure: Tenure, x: float, band: str, rows: float) -> None:
+        if not tenure.placements or tenure.placements[-1][1:] != (band, rows):
+            tenure.placements.append((x, band, rows))
+        self.heights[band] = max(self.heights[band], rows + 1)
+
+    def remove(self, tenure: Tenure, band: str, x: float) -> None:
+        self.rows[band] = [entry for entry in self.rows[band] if entry[0] is not tenure]
+        if band == PICK:
+            year = tenure.pick_key[0]
+            self.block_live[year] -= 1
+            if not self.block_live[year]:
+                del self.block_offset[year]
+                del self.block_live[year]
+                self.blocks[year].last_x = x
+
+    def add(self, arrivals: list[Tenure], band: str, x: float) -> None:
+        """Arrivals take the rows below the band's last occupied row, in tenure order."""
+        if band == PICK:
+            for tenure in arrivals:
+                self._add_pick(tenure, x)
+            return
+        bottom = max((rows for _, rows in self.rows[band]), default=-1.0)
+        for tenure in sorted(arrivals, key=lambda t: t.sort_key()):
+            bottom += 1
+            self.rows[band].append((tenure, bottom))
+            self._place(tenure, x, band, bottom)
+
+    def _add_pick(self, tenure: Tenure, x: float) -> None:
+        year = tenure.pick_key[0]
+        block = self.blocks[year]
+        if year not in self.block_offset:
+            # A new block goes below every block on the page, held or still waiting to move up.
+            offset = 0.0
+            for other, other_offset in self.block_offset.items():
+                offset = max(offset, other_offset + len(self.blocks[other].slots) + YEAR_GAP_ROWS)
+            self.block_offset[year] = offset
+            self.block_live[year] = 0
+            block.first_x = x
+            block.offsets.append((x, offset))
+        self.block_live[year] += 1
+        rows = self.block_offset[year] + block.slots.index(tenure.asset_id)
+        self.rows[PICK].append((tenure, rows))
+        self._place(tenure, x, PICK, rows)
+
+    def needs_compaction(self, band: str) -> bool:
+        if band == PICK:
+            return self._block_offsets() != self.block_offset
+        ranks = [rows for _, rows in sorted(self.rows[band], key=lambda e: e[0].sort_key())]
+        return ranks != [float(rank) for rank in range(len(ranks))]
+
+    def _block_offsets(self) -> dict[int, float]:
+        offsets, top = {}, 0.0
+        for year in sorted(self.block_offset):
+            offsets[year] = top
+            top += len(self.blocks[year].slots) + YEAR_GAP_ROWS
+        return offsets
+
+    def compact(self, band: str, x: float) -> None:
+        """Close every hole in `band` at `x`: one synchronized shift for all who move."""
+        if band == PICK:
+            self.block_offset = self._block_offsets()
+            for year in sorted(self.block_offset):
+                block = self.blocks[year]
+                if block.offsets[-1][1] != self.block_offset[year]:
+                    block.offsets.append((x, self.block_offset[year]))
+            entries = []
+            for tenure, _ in self.rows[PICK]:
+                rows = self.block_offset[tenure.pick_key[0]] + self.blocks[
+                    tenure.pick_key[0]
+                ].slots.index(tenure.asset_id)
+                entries.append((tenure, rows))
+        else:
+            ordered = sorted(self.rows[band], key=lambda entry: entry[0].sort_key())
+            entries = [(tenure, float(rank)) for rank, (tenure, _) in enumerate(ordered)]
+        self.rows[band] = entries
+        for tenure, rows in entries:
+            self._place(tenure, x, band, rows)
 
 
 def _walk_ranks(
     tenures: list[Tenure],
     nodes: list[dict[str, Any]],
     scale: Scale,
-) -> dict[str, float]:
-    """Assign every tenure its rank on every interval; return each band's height in rows.
+    busy: list[tuple[float, float]],
+) -> tuple[dict[str, float], dict[int, PickBlock]]:
+    """Assign every tenure its rows over x; return each band's height and the pick blocks.
 
     Dates, not nodes, are the beat: two transactions on the same day land on the same x, so
-    they are applied together (departures, then tenure restarts, then arrivals) and produce one
-    re-ranking. Inside a date the nodes are still walked in (date, id) order.
+    they are applied together (departures, then tenure restarts, then arrivals) at that x. Any
+    hole they leave is closed later, by `_shift_x`; a band that is touched again before its
+    shift could run folds both dates into one shift after the later one.
     """
     arrivals: dict[str, list[Tenure]] = {}
     departures: dict[str, list[Tenure]] = {}
@@ -360,11 +530,12 @@ def _walk_ranks(
         for node in tenure.restart_nodes:
             restarts.setdefault(node, []).append(tenure)
 
+    blocks = _pick_blocks(tenures)
+    stack = _Stack(blocks)
     band_of: dict[int, str] = {
         id(tenure): _segment_band(tenure.asset_type, tenure.segments[0]) for tenure in tenures
     }
-    occupancy: dict[str, list[Tenure]] = {band: [] for band in BANDS}
-    heights = {band: 0.0 for band in BANDS}
+    pending: dict[str, float] = {}
 
     dates: list[dt.date] = []
     by_date: dict[dt.date, list[dict[str, Any]]] = {}
@@ -376,37 +547,57 @@ def _walk_ranks(
         by_date[date].append(node)
 
     for date in dates:
+        x = scale(date)
         same_day = by_date[date]
+        touched: list[str] = []
         for node in same_day:
             for tenure in departures.get(node["id"], []):
-                occupancy[band_of[id(tenure)]].remove(tenure)
+                touched.append(band_of[id(tenure)])
+            for _, from_band, to_band in moves.get(node["id"], []):
+                touched += [from_band, to_band]
+            for tenure in arrivals.get(node["id"], []):
+                touched.append(_segment_band(tenure.asset_type, tenure.segments[0]))
+
+        # A shift that finishes before today runs now; one that would not, waits and (if
+        # today touches its band) merges with today's changes into one later shift.
+        for band in BANDS:
+            if band in pending and _shift_x(pending[band], busy) + TRANSITION <= x:
+                stack.compact(band, _shift_x(pending[band], busy))
+                del pending[band]
+
+        for node in same_day:
+            for tenure in departures.get(node["id"], []):
+                stack.remove(tenure, band_of[id(tenure)], x)
             for tenure, from_band, _ in moves.get(node["id"], []):
-                occupancy[from_band].remove(tenure)
+                stack.remove(tenure, from_band, x)
         for node in same_day:
             for tenure in restarts.get(node["id"], []):
                 tenure.sort_start = date
+        incoming: dict[str, list[Tenure]] = {band: [] for band in BANDS}
         for node in same_day:
             for tenure, _, to_band in moves.get(node["id"], []):
-                occupancy[to_band].append(tenure)
+                incoming[to_band].append(tenure)
                 band_of[id(tenure)] = to_band
             for tenure in arrivals.get(node["id"], []):
                 band = _segment_band(tenure.asset_type, tenure.segments[0])
-                occupancy[band].append(tenure)
+                incoming[band].append(tenure)
                 band_of[id(tenure)] = band
-
-        x = scale(date)
         for band in BANDS:
-            ordered = sorted(occupancy[band], key=lambda tenure: tenure.sort_key())
-            occupancy[band] = ordered
-            offsets = _year_gaps(ordered) if band == PICK else [0.0] * len(ordered)
-            for rank, tenure in enumerate(ordered):
-                rows = rank + offsets[rank]
-                if not tenure.placements or tenure.placements[-1][1:] != (band, rows):
-                    tenure.placements.append((x, band, rows))
-            if ordered:
-                heights[band] = max(heights[band], len(ordered) + offsets[-1])
+            stack.add(incoming[band], band, x)
+            if band not in touched:
+                continue
+            if stack.needs_compaction(band):
+                pending[band] = x
+            else:
+                pending.pop(band, None)
+
+    for band in BANDS:
+        if band in pending:
+            stack.compact(band, _shift_x(pending[band], busy))
+
+    heights = dict(stack.heights)
     heights[TWO_WAY] = max(heights[TWO_WAY], float(TWO_WAY_ROWS))
-    return heights
+    return heights, blocks
 
 
 def _band_tops(heights: dict[str, float]) -> dict[str, float]:
@@ -477,20 +668,22 @@ def _geometry(tenure: Tenure, band_tops: dict[str, float]) -> list[tuple[str, fl
 
     pieces: list[tuple[str, float, ...]] = []
     cursor = tenure.start_x
+    current_y = stops[0][1]
     for index, (x, y) in enumerate(stops):
         if index == 0:
             continue
         start = max(x, cursor)
+        # A shift scheduled past the strand's end (the window closes first) is never drawn.
         if start >= tenure.end_x:
             break
         following = stops[index + 1][0] if index + 1 < len(stops) else tenure.end_x
         width = max(min(TRANSITION, following - start, tenure.end_x - start), 0.0)
         if start > cursor:
-            pieces.append(("H", cursor, start, stops[index - 1][1]))
-        pieces.append(("S", start, start + width, stops[index - 1][1], y))
-        cursor = start + width
+            pieces.append(("H", cursor, start, current_y))
+        pieces.append(("S", start, start + width, current_y, y))
+        cursor, current_y = start + width, y
     if cursor < tenure.end_x or not pieces:
-        pieces.append(("H", cursor, max(tenure.end_x, cursor), stops[-1][1]))
+        pieces.append(("H", cursor, max(tenure.end_x, cursor), current_y))
     return pieces
 
 
@@ -547,7 +740,7 @@ def _hub_kind_fill(kind: str) -> str:
 
 def _fits(tenure: Tenure, budget: float) -> bool:
     """Whether a tenure's full label fits in the room its row leaves before the next occupant."""
-    return budget >= MIN_LABEL_WIDTH and budget >= len(tenure.label) * LABEL_CHAR_WIDTH
+    return budget >= MIN_LABEL_WIDTH and budget >= len(tenure.display_label) * LABEL_CHAR_WIDTH
 
 
 def render_svg(export: dict[str, Any]) -> str:
@@ -563,7 +756,7 @@ def render_svg(export: dict[str, Any]) -> str:
 
     tenures = _tenures(export["assets"], export["strands"], node_date, start)
     continuations = _draft_continuations(nodes, tenures)
-    heights = _walk_ranks(tenures, nodes, scale)
+    heights, blocks = _walk_ranks(tenures, nodes, scale, _busy_spans(nodes, node_x))
     band_tops = _band_tops(heights)
     _place(tenures, node_x, node_kind, band_tops, continuations)
 
@@ -589,7 +782,7 @@ def render_svg(export: dict[str, Any]) -> str:
         f'fill="{COLOR_TEXT_PRIMARY}">{escape(TITLE)}</text>'
     )
     parts.append(_render_month_axis(start, end, scale))
-    parts.append(_render_bands(tenures, heights, band_tops))
+    parts.append(_render_bands(tenures, heights, band_tops, blocks))
     parts.append(_render_strands(tenures, geometry))
     parts.append(_render_hubs(nodes, tenures, node_x, band_tops))
     parts.append(_render_overlay(tenures, anchors, numbered, band_tops))
@@ -632,13 +825,16 @@ def _render_month_axis(start: dt.date, end: dt.date, scale: Scale) -> str:
 
 
 def _render_bands(
-    tenures: list[Tenure], heights: dict[str, float], band_tops: dict[str, float]
+    tenures: list[Tenure],
+    heights: dict[str, float],
+    band_tops: dict[str, float],
+    blocks: dict[int, PickBlock],
 ) -> str:
-    """Each band's caption and extent, plus a recessive guide line per roster/two-way row.
+    """Each band's caption and extent, a recessive guide line per roster/two-way row, and a
+    year caption beside each pick block where it first appears.
 
-    The picks band offsets its rows by half a row per draft-year boundary and those offsets
-    move as picks come and go, so a fixed grid there would be a lie: only the bands whose rows
-    sit at a constant pitch get guide lines.
+    Pick rows move with their block, so they get no fixed guide lines; the block's own
+    `pick-year` group records its slots and every (x, offset) it took, for tooling and tests.
     """
     used: dict[str, list[float]] = {band: [] for band in BANDS}
     for tenure in tenures:
@@ -656,7 +852,10 @@ def _render_bands(
             f'font-size="9" text-anchor="end" fill="{COLOR_TEXT_MUTED}">'
             f"{escape(BAND_TITLES[band])}</text>"
         )
-        if band != PICK:
+        if band == PICK:
+            for year in sorted(blocks):
+                parts.append(_render_pick_block(blocks[year], band_tops))
+        else:
             for rows in sorted(used[band]):
                 y = _row_y(band_tops, band, rows)
                 parts.append(
@@ -666,6 +865,34 @@ def _render_bands(
                     "</g>"
                 )
         parts.append("</g>")
+    return "".join(parts)
+
+
+def _render_pick_block(block: PickBlock, band_tops: dict[str, float]) -> str:
+    """The year caption, set left of the block where it first appears and, for a block still
+    held at the end, again past the right edge at the block's final position."""
+    moves = " ".join(f"{x:.2f}:{offset:g}" for x, offset in block.offsets)
+    end = "" if block.last_x is None else f' data-last-x="{block.last_x:.2f}"'
+    parts = [
+        (
+            f'<g class="pick-year" data-year="{block.year}" '
+            f'data-slots={quoteattr(" ".join(block.slots))} data-first-x="{block.first_x:.2f}"'
+            f"{end} data-offsets={quoteattr(moves)}>"
+        )
+    ]
+    captions = [
+        (PLOT_X0 - 8 if block.first_x <= PLOT_X0 else block.first_x - 6, block.offsets[0][1], "end")
+    ]
+    if block.last_x is None:
+        captions.append((OPEN_END_X + 6, block.offsets[-1][1], "start"))
+    for x, offset, anchor in captions:
+        middle = band_tops[PICK] + (offset + len(block.slots) / 2) * ROW_HEIGHT
+        parts.append(
+            f'<text class="pick-year-caption" x="{x:.2f}" y="{middle + 3:.1f}" font-size="9" '
+            f'font-weight="bold" text-anchor="{anchor}" fill="{COLOR_TEXT_SECONDARY}">'
+            f"{block.year}</text>"
+        )
+    parts.append("</g>")
     return "".join(parts)
 
 
@@ -818,7 +1045,8 @@ def _render_overlay(
 def _render_label(tenure: Tenure, x: float, y: float) -> str:
     return (
         f'<text class="asset-label" x="{x + 3:.2f}" y="{y + 3.2:.1f}" '
-        f'font-size="{LABEL_FONT}" fill="{COLOR_TEXT_PRIMARY}">{escape(tenure.label)}</text>'
+        f'font-size="{LABEL_FONT}" fill="{COLOR_TEXT_PRIMARY}">'
+        f"{escape(tenure.display_label)}</text>"
     )
 
 
@@ -869,7 +1097,7 @@ def _render_hubs(
 
     parts = []
     for node in nodes:
-        if node["kind"] in FLAT_NODE_KINDS:
+        if node["kind"] in FLAT_NODE_KINDS or node.get("hidden", False):
             continue
         node_id = node["id"]
         x = node_x[node_id]
@@ -881,7 +1109,8 @@ def _render_hubs(
         ys = (
             [tenure.last_y(band_tops) for tenure in outs]
             + [_entry_y(tenure, band_tops) for tenure in ins]
-            + [tenure.y_at(x, band_tops) for tenure in internal]
+            # A contract change curves away from the node, so its marker sits where it starts.
+            + [tenure.y_at(x - 0.01, band_tops) for tenure in internal]
         )
         hub_y = sum(ys) / len(ys)
         parts.append(
@@ -931,7 +1160,11 @@ def _connector(
 
 
 def _render_node_labels(nodes: list[dict[str, Any]], node_x: dict[str, float]) -> str:
-    labelled = [node for node in nodes if node["kind"] in LABELLED_NODE_KINDS]
+    labelled = [
+        node
+        for node in nodes
+        if node["kind"] in LABELLED_NODE_KINDS and not node.get("hidden", False)
+    ]
     if not labelled:
         return ""
     xs = sorted(node_x[node["id"]] for node in labelled)

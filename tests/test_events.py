@@ -132,3 +132,14 @@ def test_synthetic_player_id_is_deterministic_and_negative():
 
 def test_curated_events_error_is_a_value_error():
     assert issubclass(CuratedEventsError, ValueError)
+
+
+def test_curated_drafts_are_loaded_and_extra_keys_are_forbidden():
+    from lineage.events import DraftEntry
+
+    curated = load_curated_events("data/curated_events.json")
+    assert [(d.year, d.round1_date.isoformat(), d.round2_date.isoformat()) for d in curated.drafts] == [
+        (2026, "2026-06-23", "2026-06-24")
+    ]
+    with pytest.raises(Exception):
+        DraftEntry.model_validate({"year": 2026, "round1_date": "2026-06-23", "round2_date": "2026-06-24", "bogus": 1})

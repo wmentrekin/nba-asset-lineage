@@ -3,7 +3,7 @@
 `build_export` is pure - it takes a DerivedGraph plus the curated Snapshot (for `as_of` and
 each player's `mem_since`) and returns the plain dict described in
 docs/mvp-one-season-reset/plan.yaml's `graph.json` contract. Player assets carry a
-`tenure_start` (and any `tenure_tier_changes`); pick assets carry a `sort_key`. `run_export`
+`tenure_start` (and any `tenure_tier_changes`); pick assets carry a `sort_key`; player assets and nodes carry `hidden`. `run_export`
 is the thin I/O half: build the same way `derive`/`validate` do, then write the file.
 """
 
@@ -21,7 +21,13 @@ from lineage.derive import (
     load_inputs,
     select_feed_payload,
 )
-from lineage.parse import CONTRACT_TWO_WAY
+from lineage.parse import (
+    CONTRACT_TEN_DAY,
+    CONTRACT_TWO_WAY,
+    KIND_SIGNING,
+    KIND_TEN_DAY,
+    KIND_TWO_WAY_SIGNING,
+)
 from lineage.snapshot import Snapshot
 from lineage.teams import MEM
 from lineage.timeline import Movement, Segment, build_timelines, by_asset
@@ -32,10 +38,38 @@ def pick_label(pick: Pick) -> str:
     return f"{pick.draft_year} R{pick.round} ({pick.original_team})"
 
 
-def _nodes(graph: DerivedGraph) -> list[dict[str, Any]]:
+SIGNING_FAMILY = frozenset({KIND_SIGNING, KIND_TEN_DAY, KIND_TWO_WAY_SIGNING})
+
+
+def _is_hidden_player(player_movements: list[Movement], kind_by_tx: dict[str, str]) -> bool:
+    """Hidden = every Memphis-held segment is ten_day and the first Memphis arrival was a
+    signing-family transaction (not a trade or draft selection). Export-level only."""
+    mem_moves = [m for m in player_movements if m.to_holder == MEM]
+    if not mem_moves:
+        return False
+    if any(m.contract_type != CONTRACT_TEN_DAY for m in mem_moves):
+        return False
+    return kind_by_tx.get(mem_moves[0].transaction_id) in SIGNING_FAMILY
+
+
+def _hidden_nodes(graph: DerivedGraph, hidden_players: set[str]) -> set[str]:
+    """Transactions whose every movement touches a hidden player."""
+    touched: dict[str, list[Movement]] = {}
+    for movement in graph.movements:
+        touched.setdefault(movement.transaction_id, []).append(movement)
+    return {
+        tx_id
+        for tx_id, moves in touched.items()
+        if all(m.asset_type == "player" and m.asset_id in hidden_players for m in moves)
+    }
+
+
+def _nodes(graph: DerivedGraph, hidden_players: set[str]) -> list[dict[str, Any]]:
     ordered = sorted(graph.transactions, key=lambda t: (t.occurred_on, t.id))
+    hidden_nodes = _hidden_nodes(graph, hidden_players)
     return [
         {
+            "hidden": t.id in hidden_nodes,
             "id": t.id,
             "date": t.occurred_on.isoformat(),
             "kind": t.kind,
@@ -126,6 +160,7 @@ def _assets(graph: DerivedGraph, snapshot: Snapshot) -> list[dict[str, Any]]:
     mem_since_by_id = _snapshot_mem_since_by_person_id(snapshot)
     movements_by_asset = by_asset(graph.movements)
 
+    kind_by_tx = {t.id: t.kind for t in graph.transactions}
     players = []
     for player in graph.players:
         player_movements = movements_by_asset.get(("player", str(player.id)), [])
@@ -139,6 +174,7 @@ def _assets(graph: DerivedGraph, snapshot: Snapshot) -> list[dict[str, Any]]:
                 "label": player.full_name,
                 "tenure_start": tenure_start.isoformat(),
                 "tenure_tier_changes": tier_changes,
+                "hidden": _is_hidden_player(player_movements, kind_by_tx),
             }
         )
     players.sort(key=lambda asset: asset["label"])
@@ -149,7 +185,12 @@ def _assets(graph: DerivedGraph, snapshot: Snapshot) -> list[dict[str, Any]]:
                 "id": pick.id,
                 "type": "pick",
                 "label": pick_label(pick),
-                "sort_key": [pick.round, pick.draft_year, pick.original_team],
+                "sort_key": [
+                    pick.draft_year,
+                    pick.round,
+                    0 if pick.original_team == MEM else 1,
+                    pick.original_team,
+                ],
             }
             for pick in graph.picks
         ),
@@ -193,9 +234,10 @@ def build_export(graph: DerivedGraph, snapshot: Snapshot) -> dict[str, Any]:
     as_of = snapshot.as_of
     end = max((t.occurred_on for t in graph.transactions), default=as_of)
     assets = _assets(graph, snapshot)
+    hidden_players = {a["id"] for a in assets if a["type"] == "player" and a["hidden"]}
     return {
         "window": {"start": as_of.isoformat(), "end": end.isoformat()},
-        "nodes": _nodes(graph),
+        "nodes": _nodes(graph, hidden_players),
         "assets": assets,
         "strands": _strands(graph, assets),
     }

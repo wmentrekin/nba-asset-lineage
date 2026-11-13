@@ -17,42 +17,65 @@ payloads plus curated data files into transaction and asset-movement rows.
 player asset carries a `tenure_start` (and, on a two-way conversion or a
 drafted rookie's signing, `tenure_tier_changes`) and each pick asset carries
 a `sort_key`, so the renderer can order strands without recomputing tenure.
+Pick `sort_key` is `[draft_year, round, own_first, original_team]` (`own_first` is 0
+for Memphis's own pick, 1 otherwise), so 2027 reads MEM R1, LAL R1, MEM R2. Teams
+may trade picks up to 7 drafts out, so the day after each draft in
+`curated_events.json`'s `drafts[]`, derive adds a `pick_horizon` node
+(`Horizon-<year+7>`) that brings Memphis's own R1 and R2 for that year in from `NEW`.
+Player assets and nodes also carry `hidden`: a player is hidden when every Memphis
+segment is a 10-day contract and he first arrived by signing (not trade or draft), and a
+node is hidden when every movement in it touches a hidden player. It is an export-level
+flag only; data, derive, validate and the database are unchanged.
 
 ## The rendered graph
 
-`graph.svg` is 1600px wide, hand-written (no plotting library), and drawn as a
-*compacting stack*. Time runs left to right and a row is a **rank**, not a fixed
-slot: only Memphis tenure is drawn, and at every transaction date the assets
-Memphis currently holds are re-ranked, so a strand's y is a step function of x
-and every rank change is a short cubic S-curve just after the transaction that
-caused it.
+`graph.svg` is 2400px wide on a linear calendar, hand-written (no plotting
+library), and drawn as a *compacting stack*. Time runs left to right and a row
+is a **rank**, not a fixed slot: only Memphis tenure is drawn, so a strand's y
+is a step function of x and every rank change is a long cubic S-curve. Players
+`graph.json` marks `hidden` (10-day-only signings) and their nodes are not
+drawn at all and never take a row.
 
 Three bands stack top to bottom. The **roster** band holds every player on a
 standard, 10-day or draft-rights contract, ordered by tenure with the
 longest-serving on top — which is why an arrival (signing, trade, draft,
-conversion) always lands at the bottom of the stack, and why everyone below a
-departing player slides up one row when he leaves. The **two-way** band is the
-three rows the NBA rules allow, ordered the same way. The **picks** band is
-compact — only picks Memphis currently owns, ordered by round, then draft year,
-then original team, with a half-row gap between draft years, so a pick acquired
-in a trade is inserted at its sorted position rather than appended.
+conversion) always lands at the bottom of the stack. The **two-way** band is
+the three rows the NBA rules allow, ordered the same way. A strand's own
+transaction is drawn at its node; the *knock-on* re-rank a departure causes
+(everyone below sliding up) waits a clear gap past the node (1.5× the S-curve
+width) and then runs as one synchronized shift in the first stretch free of
+markers and trade fans, so a strand stepping up never reads as coming out of
+another transaction. In a busy stretch the stack keeps its holes until such a
+quiet stretch, and a same-day arrival waits one row below the last occupied
+one (for a two-way swap, a brief fourth row under the band).
+
+The **picks** band is a column of fixed **per-draft-year blocks** with a small
+year caption at the left (and at the right edge for years still held). A year's
+block exists from the first day Memphis holds one of its picks — or the day the
+year becomes tradeable at its `pick_horizon` node (2033 on 2026-06-25) — until
+its last pick is used or traded. Every pick of that year Memphis holds at any
+point in the window owns one fixed slot, labelled by round and team ("R1 LAL"),
+in `sort_key` order (round, then Memphis's own, then original team), so a
+traded-in pick fills an empty slot and nothing else moves. Blocks move only
+when one disappears after its draft: every block below shifts up together,
+once, under the same gap rule.
 
 Two things cross bands, and both are drawn as one continuous strand curving up
-into the bottom of the roster band while its color changes: a **two-way
-conversion** (the player's tenure clock restarts there) and a **draft
-selection**, where the pick strand leaves its row and continues as the drafted
+into the bottom of the roster band at their node while its color changes: a
+**two-way conversion** (the player's tenure clock restarts there) and a **draft
+selection**, where the pick strand leaves its slot and continues as the drafted
 player. Every strand is the same thickness; color carries the contract type
 (standard, two-way, 10-day, draft rights, and a fifth muted color for pick
 strands). Each transaction gets a marker colored by its kind (trade, a signing
 family, a waiver family, or a draft selection); a trade additionally converges
-its departing strands into that marker and diverges the arriving ones back out
-to their new rows. An asset that leaves Memphis ends in a plain end-cap marker
-(destination is in the `<title>` tooltip, not drawn as text); the opening-night
-baseline and 10-day `expiry` nodes are plain end-caps rather than markers. A
-name sits at the left edge of its strand when it fits and otherwise on the
-strand's roomiest flat stretch; when it fits nowhere the strand gets a small
-numbered marker keyed to a numbered legend block at the bottom of the image,
-below the color legend. Two runs over the same `graph.json` produce
+its departing strands into that marker and fans the arriving ones back out to
+their rows over a wide span. An asset that leaves Memphis ends in a plain
+end-cap marker (destination is in the `<title>` tooltip, not drawn as text);
+the opening-night baseline, 10-day `expiry` and `pick_horizon` nodes get no
+marker. A name sits at the left edge of its strand when it fits and otherwise
+on the strand's roomiest flat stretch; when it fits nowhere the strand gets a
+small numbered marker keyed to a numbered legend block at the bottom of the
+image, below the color legend. Two runs over the same `graph.json` produce
 byte-identical SVG.
 
 ## Commands

@@ -365,6 +365,7 @@ completed_destructive_ops:
 decisions:
   - "Checkpoint: user chose proceed (2026-09-17)."
   - "2026-09-18: first Lineage Load run succeeded from GitHub runners (3.2 MB payload, source_record id=1). Feed has no pick detail -> picks curated in data/pick_events.json instead of parsed; plan.yaml revised accordingly."
+  - "2026-11-13 B9 owner direction: hide 10-day-only signings from the picture (data kept); per-year pick blocks, round then Memphis own first; own picks for year Y+7 appear the day after the year-Y draft; wider canvas (2400) for trade room; shifts must not look like they come from an unrelated node."
   - "2026-11-13 B8 owner direction: end a player's strand at the June 30 before another team's signing; two-way cap of 3 is a hard validate error; curated contract_expirations list for deals that end with no feed trace; standard roster may exceed 15 in the offseason; Prosper's contract runs through 2026-27."
   - "2026-11-13: temporary push trigger on lineage-load.yml for owner review (remove before merge); camp-cut waivers skipped with W7; Saunders' real id 1643563 curated."
   - "2026-09-21 B7 owner direction: rows ordered by tenure (longest on top), arrivals take topmost open row, departures shift rows up (S-curve); separate 3-row two-way band; conversions and draft picks curve up into the bottom of the roster band; picks compact, ordered round/year/team with year gaps; tenure = continuous stint at current tier, conversions restart; draft rights live in the roster band. Loop counters reset."
