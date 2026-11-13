@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from lineage.db import connect
 from lineage.derive import (
     CONTRACT_DRAFT_RIGHTS,
+    SKIPPED_WAIVER_MARKER,
     KIND_BASELINE,
     KIND_CONTRACT_VOID,
     KIND_DRAFT_SELECTION,
@@ -105,6 +106,7 @@ def validate_graph(
     findings += _check_unverified_snapshot_players(snapshot)  # W3
     findings += _check_uncurated_trade_footnotes(curated)  # W5
     findings += _check_unverified_snapshot_picks(snapshot)  # W6
+    findings += _check_skipped_waivers(graph)  # W7
     return findings
 
 
@@ -364,6 +366,15 @@ def _check_unverified_snapshot_picks(snapshot: Snapshot) -> list[Finding]:
         Finding(LEVEL_WARN, "W6", f"snapshot pick {pick.pick_id!r} is not verified")
         for pick in snapshot.picks
         if not pick.verified
+    ]
+
+
+def _check_skipped_waivers(graph: DerivedGraph) -> list[Finding]:
+    """W7: derive skipped a waiver of a player Memphis never held in the feed (camp cut)."""
+    return [
+        Finding(LEVEL_WARN, "W7", note)
+        for note in graph.notes
+        if SKIPPED_WAIVER_MARKER in note
     ]
 
 

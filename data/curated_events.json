@@ -157,14 +157,14 @@
       "date": "2026-06-24",
       "pick_no": 32,
       "pick_id": "2026-R2-MEM",
-      "player_id": null,
+      "player_id": 1643563,
       "player_name": "Richie Saunders",
-      "signed": false,
+      "signed": true,
       "source_url": "https://www.si.com/nba/grizzlies/onsi/grizzlies-draft-richie-saunders-with-32nd-pick-in-2026-nba-draft-01kvy1a2a1v3",
       "verified": true,
       "confidence": "high",
       "footnotes": [
-        "Unsigned as of 2026-09 (ACL recovery); Memphis holds his draft rights. No NBA person id in the feed yet: derive assigns a deterministic synthetic negative id until a signing row supplies the real one."
+        "NBA person id 1643563 from the player-movement feed; signed a two-way contract 2026-11-07 (Signing-1157609)."
       ]
     }
   ],

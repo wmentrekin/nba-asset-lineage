@@ -155,7 +155,7 @@ def test_tenure_start_for_players_acquired_during_the_season(export):
     assert players["203937"]["tenure_start"] == "2026-02-03"  # Kyle Anderson, traded in
     assert players["1643409"]["tenure_start"] == "2026-06-23"  # Cameron Boozer, draft day
     assert players["1629646"]["tenure_start"] == "2025-10-27"  # Charles Bassey, 10-day signing
-    assert players["-202632"]["tenure_start"] == "2026-06-24"  # Richie Saunders, draft day
+    assert players["1643563"]["tenure_start"] == "2026-06-24"  # Richie Saunders, draft day
 
 
 def test_prosper_tier_change_at_conversion(export):

@@ -7,7 +7,7 @@ output. `load_graph` is the thin DB half: truncate, then insert in a fixed order
 
 import datetime as dt
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,7 @@ from lineage.parse import (
     CONTRACT_TEN_DAY,
     DRAFT_POOL,
     FREE_AGENCY,
+    KIND_WAIVER,
     PICK_USED,
     FeedParseError,
     FeedRow,
@@ -50,7 +51,12 @@ from lineage.snapshot import (
     resolve_person_ids,
 )
 from lineage.teams import MEM
-from lineage.timeline import Movement, resolve_from_holders
+from lineage.timeline import (
+    Movement,
+    by_asset,
+    movement_sort_key,
+    resolve_from_holders,
+)
 
 KIND_BASELINE = "baseline"
 KIND_DRAFT_SELECTION = "draft_selection"
@@ -59,6 +65,9 @@ KIND_CONTRACT_VOID = "contract_void"
 
 HOLDER_VOID = "VOID"
 CONTRACT_DRAFT_RIGHTS = "draft_rights"
+
+# Marks the notes `_skip_unheld_waivers` records; validate's W7 keys off it.
+SKIPPED_WAIVER_MARKER = ": skipped waiver of "
 
 BASELINE_DESCRIPTION = "Opening-night roster and owned pick inventory"
 
@@ -175,7 +184,15 @@ def build_graph(
     transactions += _expiry_transactions(transactions)
 
     transactions.sort(key=lambda transaction: (transaction.occurred_on, transaction.id))
-    movements = _flatten_movements(transactions)
+    numbered = _number_movements(transactions)
+    numbered, skipped_ids = _skip_unheld_waivers(numbered, transactions, notes)
+    movements = resolve_from_holders(numbered)
+    live_ids = {movement.transaction_id for movement in movements}
+    transactions = [
+        transaction
+        for transaction in transactions
+        if transaction.id in live_ids or transaction.id not in skipped_ids
+    ]
 
     return DerivedGraph(
         players=_player_rows(movements, identity, snapshot, person_ids, curated),
@@ -476,8 +493,8 @@ def _has_superseding_movement(
     return False
 
 
-def _flatten_movements(transactions: list[Transaction]) -> list[Movement]:
-    """Flatten, order and number every movement, then resolve holder placeholders."""
+def _number_movements(transactions: list[Transaction]) -> list[Movement]:
+    """Flatten, order and number every movement (holder placeholders still unresolved)."""
     flattened: list[Movement] = []
     for transaction in transactions:
         for spec in transaction.movements:
@@ -505,11 +522,58 @@ def _flatten_movements(transactions: list[Transaction]) -> list[Movement]:
         )
     )
     _reject_duplicates(flattened)
-    numbered = [
+    return [
         Movement(**{**asdict(movement), "sequence": index})
         for index, movement in enumerate(flattened, start=1)
     ]
-    return resolve_from_holders(numbered)
+
+
+def _skip_unheld_waivers(
+    movements: list[Movement], transactions: list[Transaction], notes: list[str]
+) -> tuple[list[Movement], set[str]]:
+    """Drop waiver movements for players Memphis does not hold at that point in their timeline.
+
+    The feed omits training-camp signings but lists the camp cuts, so a waiver can leave a
+    player with no prior Memphis movement (or one that already ended at FA). Only waivers are
+    skipped: any other kind leaving an unheld player stays in the graph so validate E1 fails
+    loudly. Each player's movements are walked in canonical timeline order, and a skipped
+    movement does not count as "prior". Returns the kept movements and the ids of transactions
+    that lost a row, so the caller can drop any left empty.
+    """
+    kinds = {transaction.id: transaction.kind for transaction in transactions}
+    names = {
+        str(player.id): player.full_name
+        for transaction in transactions
+        for player in transaction.players
+    }
+    skipped: list[Movement] = []
+    for (asset_type, asset_id), asset_movements in by_asset(movements).items():
+        if asset_type != "player":
+            continue
+        holder: str | None = None
+        for movement in asset_movements:
+            if (
+                kinds[movement.transaction_id] == KIND_WAIVER
+                and movement.from_holder == MEM
+                and holder != MEM
+            ):
+                skipped.append(movement)
+                continue
+            holder = movement.to_holder
+
+    skipped_sequences = {movement.sequence for movement in skipped}
+    for movement in sorted(skipped, key=movement_sort_key):
+        notes.append(
+            f"{movement.transaction_id}{SKIPPED_WAIVER_MARKER}{names[movement.asset_id]} "
+            f"({movement.asset_id}): not held by MEM (camp signing absent from feed)"
+        )
+    kept = [
+        replace(movement, sequence=index)
+        for index, movement in enumerate(
+            (m for m in movements if m.sequence not in skipped_sequences), start=1
+        )
+    ]
+    return kept, {movement.transaction_id for movement in skipped}
 
 
 def _reject_duplicates(movements: list[Movement]) -> None:

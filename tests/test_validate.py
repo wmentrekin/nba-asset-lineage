@@ -37,11 +37,11 @@ def test_current_data_has_no_errors_and_the_expected_warning_counts(
     by_code = {}
     for finding in warnings:
         by_code[finding.code] = by_code.get(finding.code, 0) + 1
-    # W1: Trade-2025037, Trade-2026014 (draft-consideration markers with no curated picks).
-    # W2: Richie Saunders (null player_id). W3: 10 unverified snapshot players. W5: three
-    # trades whose footnotes flag an uncurated asset (2025037, 2026006, 2026014). W6: six
-    # unverified snapshot picks (the 2nds with no source either way).
-    assert by_code == {"W1": 2, "W2": 1, "W3": 10, "W5": 3, "W6": 6}
+    # W1: Trade-2025037, Trade-2026014 (above). W2: none (Saunders has his real person id).
+    # W3: 10 unverified snapshot players. W5: three trades whose footnotes flag an uncurated
+    # asset (2025037, 2026006, 2026014). W6: six unverified snapshot picks (the 2nds with no
+    # source either way). W7: none (no camp cuts in the captured fixture).
+    assert by_code == {"W1": 2, "W3": 10, "W5": 3, "W6": 6}
 
 
 def test_report_groups_findings_by_level_with_counts(graph, snapshot_and_curated):
@@ -51,8 +51,56 @@ def test_report_groups_findings_by_level_with_counts(graph, snapshot_and_curated
     report = format_report(findings)
 
     assert "Errors (0):" in report
-    assert "Warnings (22):" in report
-    assert all(f"[{code}]" in report for code in ("W1", "W2", "W3", "W5", "W6"))
+    assert "Warnings (21):" in report
+    assert all(f"[{code}]" in report for code in ("W1", "W3", "W5", "W6"))
+
+
+def test_camp_cut_waivers_raise_w7_warnings_and_no_errors(
+    feed_payload_with_camp_cuts, resolvable_inputs
+):
+    snapshot, curated, corrections = resolvable_inputs
+    graph = build_graph(feed_payload_with_camp_cuts, snapshot, curated, corrections)
+
+    findings = validate_graph(graph, snapshot, curated)
+
+    assert [f for f in findings if f.level == "error"] == []
+    w7 = [f for f in findings if f.code == "W7"]
+    assert [f.message for f in w7] == [
+        "Waive-1154381: skipped waiver of Yuri Collins (1641879): not held by MEM "
+        "(camp signing absent from feed)",
+        "Waive-1154444: skipped waiver of Lawson Lovering (1643133): not held by MEM "
+        "(camp signing absent from feed)",
+    ]
+    assert all(f.level == "warn" for f in w7)
+
+
+def test_a_non_waiver_exit_of_an_unheld_player_is_still_an_e1_error(
+    feed_payload, resolvable_inputs
+):
+    snapshot, curated, corrections = resolvable_inputs
+    feed_payload["NBA_Player_Movement"]["rows"].append(
+        {
+            "TEAM_ID": 1610612753.0,  # ORL receives, from MEM
+            "GroupSort": "Trade 9100001",
+            "PLAYER_ID": 9100001.0,
+            "TEAM_SLUG": "magic",
+            "PLAYER_SLUG": "test-player",
+            "Additional_Sort": 1610612763.0,
+            "TRANSACTION_DATE": "2026-09-29T00:00:00",
+            "Transaction_Type": "Trade",
+            "TRANSACTION_DESCRIPTION": (
+                "Orlando Magic received guard Test Player from Memphis Grizzlies."
+            ),
+        }
+    )
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+
+    findings = validate_graph(graph, snapshot, curated)
+
+    assert any(
+        f.level == "error" and f.code == "E1" and "9100001" in f.message for f in findings
+    )
+    assert not [f for f in findings if f.code == "W7"]
 
 
 def test_a_planted_discontinuity_is_an_e1_error(graph, snapshot_and_curated):

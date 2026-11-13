@@ -42,6 +42,56 @@ def feed_payload_with_malformed_row(feed_payload):
     return feed_payload
 
 
+# Training-camp cuts as the November feed carries them: the camp signing itself is absent.
+# Collins was never signed by Memphis in the feed; Lovering's last Memphis movement is his
+# February 10-day, which expires to FA long before this waiver.
+COLLINS_CAMP_CUT_ROW = {
+    "TEAM_ID": 1610612763.0,
+    "GroupSort": "Waive 1154381",
+    "PLAYER_ID": 1641879.0,
+    "TEAM_SLUG": "grizzlies",
+    "PLAYER_SLUG": "yuri-collins",
+    "Additional_Sort": 0.0,
+    "TRANSACTION_DATE": "2026-09-26T00:00:00",
+    "Transaction_Type": "Waive",
+    "TRANSACTION_DESCRIPTION": "Memphis Grizzlies waived guard Yuri Collins.",
+}
+LOVERING_CAMP_CUT_ROW = {
+    "TEAM_ID": 1610612763.0,
+    "GroupSort": "Waive 1154444",
+    "PLAYER_ID": 1643133.0,
+    "TEAM_SLUG": "grizzlies",
+    "PLAYER_SLUG": "lawson-lovering",
+    "Additional_Sort": 0.0,
+    "TRANSACTION_DATE": "2026-09-28T00:00:00",
+    "Transaction_Type": "Waive",
+    "TRANSACTION_DESCRIPTION": "Memphis Grizzlies waived center Lawson Lovering.",
+}
+SAUNDERS_TWO_WAY_SIGNING_ROW = {
+    "TEAM_ID": 1610612763.0,
+    "GroupSort": "Signing 1157609",
+    "PLAYER_ID": 1643563.0,
+    "TEAM_SLUG": "grizzlies",
+    "PLAYER_SLUG": "richie-saunders",
+    "Additional_Sort": 0.0,
+    "TRANSACTION_DATE": "2026-11-07T00:00:00",
+    "Transaction_Type": "Signing",
+    "TRANSACTION_DESCRIPTION": (
+        "Memphis Grizzlies signed guard Richie Saunders to a Two-Way Contract."
+    ),
+}
+
+
+@pytest.fixture
+def feed_payload_with_camp_cuts(feed_payload):
+    """The captured fixture plus two camp-cut waivers of players Memphis does not hold."""
+    feed_payload["NBA_Player_Movement"]["rows"] += [
+        COLLINS_CAMP_CUT_ROW,
+        LOVERING_CAMP_CUT_ROW,
+    ]
+    return feed_payload
+
+
 @pytest.fixture
 def curated_inputs():
     return load_inputs(DATA_DIR)

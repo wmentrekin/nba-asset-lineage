@@ -25,6 +25,7 @@ from lineage.events import CuratedEvents, PickIn
 from lineage.parse import FeedParseError
 from lineage.snapshot import Snapshot, UnresolvedPlayerError
 from lineage.timeline import Segment, build_timelines
+from tests.conftest import SAUNDERS_TWO_WAY_SIGNING_ROW
 
 BASELINE_ID = "OPENING-2025-26"
 
@@ -325,7 +326,7 @@ def test_curated_draft_selection_becomes_a_node_with_two_movements(graph):
     assert movements[("player", "1643409")] == ("DRAFT", "MEM", CONTRACT_DRAFT_RIGHTS)
 
 
-def test_saunders_gets_a_deterministic_synthetic_player_id_and_a_note(graph):
+def test_saunders_draft_selection_uses_the_curated_real_player_id(graph):
     node = next(t for t in graph.transactions if t.id == "Draft-2026-06-24-2026-R2-MEM")
     movement = next(
         m
@@ -333,10 +334,76 @@ def test_saunders_gets_a_deterministic_synthetic_player_id_and_a_note(graph):
         if m.transaction_id == node.id and m.asset_type == "player"
     )
 
-    assert movement.asset_id == "-202632"
+    assert movement.asset_id == "1643563"
     assert movement.contract_type == CONTRACT_DRAFT_RIGHTS
-    assert any("-202632" in note for note in graph.notes)
-    assert any(p.full_name == "Richie Saunders" for p in graph.players if p.id == -202632)
+    assert not any("synthetic" in note for note in graph.notes)
+    assert any(p.full_name == "Richie Saunders" for p in graph.players if p.id == 1643563)
+    assert not any(p.id < 0 for p in graph.players)
+    # The Nov 7 two-way signing is not in the Sep-17 fixture: the rights strand stays open.
+    assert build_timelines(graph.movements)[("player", "1643563")] == [
+        Segment(node.id, None, "MEM", CONTRACT_DRAFT_RIGHTS)
+    ]
+
+
+def test_saunders_two_way_signing_continues_his_draft_rights_strand(
+    feed_payload, resolvable_inputs
+):
+    snapshot, curated, corrections = resolvable_inputs
+    feed_payload["NBA_Player_Movement"]["rows"].append(SAUNDERS_TWO_WAY_SIGNING_ROW)
+
+    graph = build_graph(feed_payload, snapshot, curated, corrections)
+
+    assert [p.id for p in graph.players if p.full_name == "Richie Saunders"] == [1643563]
+    movements = [m for m in graph.movements if m.asset_id == "1643563"]
+    assert [(m.from_holder, m.to_holder, m.contract_type) for m in movements] == [
+        ("DRAFT", "MEM", CONTRACT_DRAFT_RIGHTS),
+        ("MEM", "MEM", "two_way"),
+    ]
+    assert build_timelines(graph.movements)[("player", "1643563")] == [
+        Segment("Draft-2026-06-24-2026-R2-MEM", "Signing-1157609", "MEM", CONTRACT_DRAFT_RIGHTS),
+        Segment("Signing-1157609", None, "MEM", "two_way"),
+    ]
+
+
+def test_camp_cut_waivers_of_unheld_players_are_skipped_with_a_note(
+    feed_payload_with_camp_cuts, resolvable_inputs
+):
+    snapshot, curated, corrections = resolvable_inputs
+
+    graph = build_graph(feed_payload_with_camp_cuts, snapshot, curated, corrections)
+
+    transaction_ids = {t.id for t in graph.transactions}
+    assert "Waive-1154381" not in transaction_ids
+    assert "Waive-1154444" not in transaction_ids
+    assert 1641879 not in {p.id for p in graph.players}
+    assert not any(m.asset_id == "1641879" for m in graph.movements)
+    # Lovering keeps his real history: 10-day signing, then the February expiry.
+    lovering = build_timelines(graph.movements)[("player", "1643133")]
+    assert lovering[-1] == Segment("Expire-1145049", None, "FA", None)
+    assert graph.notes[-2:] == [
+        "Waive-1154381: skipped waiver of Yuri Collins (1641879): not held by MEM "
+        "(camp signing absent from feed)",
+        "Waive-1154444: skipped waiver of Lawson Lovering (1643133): not held by MEM "
+        "(camp signing absent from feed)",
+    ]
+    assert [m.sequence for m in graph.movements] == list(range(1, len(graph.movements) + 1))
+
+
+def test_waivers_of_held_players_are_never_skipped(graph):
+    # PJ Hall was on the roster when Memphis waived him on 2025-11-16.
+    assert "Waive-1140530" in {t.id for t in graph.transactions}
+    assert not any("skipped waiver" in note for note in graph.notes)
+
+
+def test_build_graph_with_camp_cuts_is_deterministic(
+    feed_payload_with_camp_cuts, resolvable_inputs
+):
+    snapshot, curated, corrections = resolvable_inputs
+
+    first = build_graph(feed_payload_with_camp_cuts, snapshot, curated, corrections)
+    second = build_graph(feed_payload_with_camp_cuts, snapshot, curated, corrections)
+
+    assert graph_to_json(first) == graph_to_json(second)
 
 
 def test_boozer_and_lopez_re_sign_from_draft_rights_to_standard_at_mem(graph):

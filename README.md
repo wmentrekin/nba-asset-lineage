@@ -82,14 +82,17 @@ byte-identical SVG.
   standard), and standalone `events` such as a contract void. A drafted
   player with no NBA person id yet (unsigned, so the feed has never named
   them) gets a deterministic synthetic negative id
-  (`-(draft_year * 100 + pick_no)`), replaced automatically once a real
-  signing resolves the same slot.
+  (`-(draft_year * 100 + pick_no)`); once the feed names them, set
+  `player_id` in the draft selection to the real id.
 - `data/corrections.json` — declarative overrides for feed rows the parser
   can't handle on its own.
 
 `lineage derive --feed-fixture PATH` derives from a saved feed payload without
 touching the database, and `--dry-run` prints the derived rows as JSON instead
-of loading them.
+of loading them. The feed omits training-camp signings but lists the camp cuts, so
+`derive` skips any waiver of a player Memphis does not hold at that date (noting each
+one) and `validate` reports every skip as a W7 warning; any other kind of move for a
+non-held player still fails E1.
 
 ## Environment
 
