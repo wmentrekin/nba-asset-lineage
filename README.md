@@ -32,9 +32,19 @@ flag only; data, derive, validate and the database are unchanged.
 `graph.svg` is 2400px wide on a linear calendar, hand-written (no plotting
 library), and drawn as a *compacting stack*. Time runs left to right and a row
 is a **rank**, not a fixed slot: only Memphis tenure is drawn, so a strand's y
-is a step function of x and every rank change is a long cubic S-curve. Players
-`graph.json` marks `hidden` (10-day-only signings) and their nodes are not
-drawn at all and never take a row.
+is a step function of x and every rank change is a horizontal-tangent S-curve.
+Players `graph.json` marks `hidden` (10-day-only signings) and their nodes are
+not drawn at all and never take a row.
+
+It is styled to sit on the Grizzlies page of the owner's personal site: the
+project's navy band (`#1b2a5c`) as the canvas, pale blue (`#aebfe8`) strands
+and text, the gold accent (`#f6b61c`) for trades and one highlighted lineage,
+and the site's red (`#ef6b5e`) for exits. Titles, band captions and years are
+set in Newsreader and names and the legend in Instrument Sans (both with
+system fallbacks, since an offline SVG cannot load web fonts), in Title Case
+with tabular numerals. There are no grid or lane lines, badges or shadows:
+bands are separated by space and one faint hairline, and every strand has
+round caps like the project artwork.
 
 Three bands stack top to bottom. The **roster** band holds every player on a
 standard, 10-day or draft-rights contract, ordered by tenure with the
@@ -42,40 +52,49 @@ longest-serving on top — which is why an arrival (signing, trade, draft,
 conversion) always lands at the bottom of the stack. The **two-way** band is
 the three rows the NBA rules allow, ordered the same way. A strand's own
 transaction is drawn at its node; the *knock-on* re-rank a departure causes
-(everyone below sliding up) waits a clear gap past the node (1.5× the S-curve
-width) and then runs as one synchronized shift in the first stretch free of
-markers and trade fans, so a strand stepping up never reads as coming out of
-another transaction. In a busy stretch the stack keeps its holes until such a
-quiet stretch, and a same-day arrival waits one row below the last occupied
-one (for a two-way swap, a brief fourth row under the band).
+(everyone below sliding up) starts a fixed gap (1.5× the S-curve width) past
+the node that caused it, whatever else is nearby, so the stack closes within
+about two weeks. Each date's holes close in their own shift; when two shifts
+overlap, a strand caught by both runs one curve from the first start to the
+later finish. The two-way band never draws a fourth row: a same-day two-way
+swap closes its hole at the node.
 
-The **picks** band is a column of fixed **per-draft-year blocks** with a small
-year caption at the left (and at the right edge for years still held). A year's
-block exists from the first day Memphis holds one of its picks — or the day the
-year becomes tradeable at its `pick_horizon` node (2033 on 2026-06-25) — until
-its last pick is used or traded. Every pick of that year Memphis holds at any
-point in the window owns one fixed slot, labelled by round and team ("R1 LAL"),
-in `sort_key` order (round, then Memphis's own, then original team), so a
-traded-in pick fills an empty slot and nothing else moves. Blocks move only
-when one disappears after its draft: every block below shifts up together,
-once, under the same gap rule.
+The **picks** band is a column of fixed **per-draft-year blocks** with the
+year at the left (and at the right edge for years still held). A year's block
+exists from the first day Memphis holds one of its picks — or the day the year
+becomes tradeable at its `pick_horizon` node (2033 on 2026-06-25) — until its
+last pick is used or traded. Every pick of that year Memphis holds at any
+point in the window owns one fixed slot, labelled by round and team ("R1
+LAL"), in `sort_key` order (round, then Memphis's own, then original team), so
+a traded-in pick fills an empty slot and nothing else moves. When a block
+disappears after its draft, every block below shifts up together, once, the
+same fixed gap past that draft.
 
 Two things cross bands, and both are drawn as one continuous strand curving up
-into the bottom of the roster band at their node while its color changes: a
-**two-way conversion** (the player's tenure clock restarts there) and a **draft
-selection**, where the pick strand leaves its slot and continues as the drafted
-player. Every strand is the same thickness; color carries the contract type
-(standard, two-way, 10-day, draft rights, and a fifth muted color for pick
-strands). Each transaction gets a marker colored by its kind (trade, a signing
-family, a waiver family, or a draft selection); a trade additionally converges
-its departing strands into that marker and fans the arriving ones back out to
-their rows over a wide span. An asset that leaves Memphis ends in a plain
-end-cap marker (destination is in the `<title>` tooltip, not drawn as text);
-the opening-night baseline, 10-day `expiry` and `pick_horizon` nodes get no
-marker. A name sits at the left edge of its strand when it fits and otherwise
-on the strand's roomiest flat stretch; when it fits nowhere the strand gets a
-small numbered marker keyed to a numbered legend block at the bottom of the
-image, below the color legend. Two runs over the same `graph.json` produce
+into the bottom of the roster band at their node: a **two-way conversion**
+(the player's tenure clock restarts there) and a **draft selection**, where
+the pick strand leaves its slot and continues as the drafted player. Every
+strand is the same thickness; contract type is a *shade* of the palette, not a
+new hue: standard is full pale blue, 10-day and two-way are progressively
+fainter, picks fainter still, and draft rights are a faint gold.
+
+One **lineage is highlighted** in full gold and drawn on top:
+`lineage render --highlight <asset_id>` (default `1628991`, Jaren Jackson Jr.;
+`--highlight none` turns it off). The lineage is the seed asset plus,
+transitively, everything Memphis received in a trade a highlighted asset left
+in, plus the player a highlighted pick was used on. The title area names it in
+one sentence.
+
+Markers are colored by kind: a trade is a gold dot (it also converges its
+departing strands into the dot and fans the arriving ones back out), a signing
+or conversion a pale blue dot, a waiver, contract void or expiry a red dot,
+and a draft selection a hollow gold ring. The opening-night baseline and
+`pick_horizon` nodes get no marker. An asset that leaves Memphis ends in a
+filled dot in its strand's own shade (destination is in the `<title>`
+tooltip, not drawn as text). A name sits at the left edge of its strand when
+it fits and otherwise on the strand's roomiest flat stretch; when it fits
+nowhere the strand gets a small numeral keyed to a numbered list at the bottom
+of the image, below the legend. Two runs over the same `graph.json` produce
 byte-identical SVG.
 
 ## Commands
@@ -89,7 +108,7 @@ byte-identical SVG.
 | `derive` | Rebuild transaction/asset rows from raw payloads + data files (`--feed-fixture PATH`, `--dry-run`) |
 | `validate` | Check the derived data against graph invariants (`--feed-fixture PATH`, `--strict`) |
 | `export` | Write `graph.json` (`--feed-fixture PATH`, `--out PATH`) |
-| `render` | Draw `graph.svg` from `graph.json` (`--in PATH`, `--out PATH`) |
+| `render` | Draw `graph.svg` from `graph.json` (`--in PATH`, `--out PATH`, `--highlight ASSET_ID\|none`) |
 | `load` | Run fetch, derive, validate, export, render in sequence (`--feed-fixture PATH`) |
 | `test` | Run the offline pytest suite |
 

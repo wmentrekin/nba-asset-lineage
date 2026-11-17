@@ -9,6 +9,7 @@ layout contract rather than the renderer's arithmetic.
 
 import copy
 import datetime as dt
+import json
 import os
 import pathlib
 import re
@@ -18,9 +19,22 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
+from lineage.cli import main
 from lineage.derive import build_graph
 from lineage.export import build_export
-from lineage.render import PLOT_X0, PLOT_X1, SHIFT_GAP, TRANSITION, Scale, render_svg
+from lineage.render import (
+    COLOR_ACCENT,
+    COLOR_BACKGROUND,
+    COLOR_BAD,
+    COLOR_FOREGROUND,
+    PLOT_X0,
+    PLOT_X1,
+    SHIFT_GAP,
+    TRANSITION,
+    TWO_WAY_ROWS,
+    Scale,
+    render_svg,
+)
 
 SVG_NS = "{http://www.w3.org/2000/svg}"
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -38,6 +52,11 @@ JJJ = "1628991"
 MORANT = "1629630"
 PROSPER = "1641765"
 BOOZER = "1643409"
+KYLE_ANDERSON = "203937"
+MASHACK = "1642942"
+# The September fixture plus the Memphis rows from the November 2026 capture (Sep/Oct waivers,
+# camp cuts, Saunders' two-way) and Rayan Rupert's Philadelphia signing.
+NOVEMBER_FEED = pathlib.Path(__file__).parent / "fixtures" / "nba_player_movement_mem_2026_11.json"
 
 # Builds the fixture-derived graph.json's SVG and prints it to stdout, so it can be run as a
 # separate process per PYTHONHASHSEED value.
@@ -267,18 +286,149 @@ def test_every_drawn_segment_is_a_memphis_strand_tagged_with_its_contract_type(r
         assert segment.get("stroke-width") == "7.0"
 
 
-def test_two_way_and_standard_strands_differ_in_color_not_in_weight(root):
+def test_two_way_and_standard_strands_differ_in_shade_not_in_hue_or_weight(root):
     two_way = _strand(root, "1642914").find(f'{SVG_NS}path[@class="segment"]')
     standard = _strand(root, MORANT).find(f'{SVG_NS}path[@class="segment"]')
 
     assert two_way.get("data-contract-type") == "two_way"
     assert standard.get("data-contract-type") == "standard"
-    assert two_way.get("stroke") != standard.get("stroke")
+    assert two_way.get("stroke") == standard.get("stroke") == COLOR_FOREGROUND
     assert two_way.get("stroke-width") == standard.get("stroke-width")
+    assert float(two_way.get("stroke-opacity")) < float(standard.get("stroke-opacity"))
 
 
-def test_hub_marker_fill_differs_between_a_trade_and_a_waiver(root):
-    assert _hub_fill(root, TRADE) != _hub_fill(root, WAIVER)
+def test_the_canvas_is_the_navy_band_with_no_light_background(root):
+    background = root.find(f"{SVG_NS}rect")
+
+    assert background.get("fill") == COLOR_BACKGROUND
+    assert float(background.get("width")) == float(root.get("width"))
+    for element in root.iter():
+        fill = (element.get("fill") or "").lower()
+        assert fill not in ("#fff", "#ffffff", "white", "#fcfcfb")
+        if element.tag == f"{SVG_NS}rect":
+            assert fill == COLOR_BACKGROUND.lower()
+
+
+def test_every_strand_and_connector_has_round_caps(root):
+    paths = root.findall(f'.//{SVG_NS}path[@class="segment"]')
+    paths += root.findall(f'.//{SVG_NS}path[@class="in"]')
+    paths += root.findall(f'.//{SVG_NS}path[@class="out"]')
+
+    assert paths
+    assert {path.get("stroke-linecap") for path in paths} == {"round"}
+
+
+def _gold_strands(root):
+    """Asset ids with at least one full-opacity gold segment."""
+    found = []
+    for path in root.findall(f'.//{SVG_NS}path[@class="segment"]'):
+        hot = path.get("stroke") == COLOR_ACCENT and float(path.get("stroke-opacity")) == 1.0
+        if hot and path.get("data-asset-id") not in found:
+            found.append(path.get("data-asset-id"))
+    return found
+
+
+def test_the_jaren_jackson_jr_trade_tree_is_highlighted_in_gold_by_default(root):
+    gold = _gold_strands(root)
+
+    for asset_id in (JJJ, KYLE_ANDERSON, "2027-R1-LAL", "2031-R1-PHX"):
+        assert asset_id in gold
+    assert MORANT not in gold
+    assert "Jaren Jackson Jr. trade tree" in ET.tostring(root, encoding="unicode")
+    # Highlighted strands are drawn after (on top of) every other strand.
+    strands = root.findall(f'.//{SVG_NS}g[@class="strand"]')
+    flags = [group.get("data-highlighted") == "true" for group in strands]
+    assert flags == sorted(flags)
+
+
+def test_the_highlight_follows_the_lineage_from_any_seed(export):
+    # Kris Murray arrived for Ja Morant, so seeding Morant pulls in that trade's arrivals.
+    trade = next(
+        segment["to_node"]
+        for strand in export["strands"]
+        if strand["asset_id"] == MORANT
+        for segment in strand["segments"]
+        if segment["holder"] == "MEM" and segment["to_node"]
+    )
+    received = [
+        strand["asset_id"]
+        for strand in export["strands"]
+        for segment in strand["segments"]
+        if segment["holder"] == "MEM" and segment["from_node"] == trade
+    ]
+
+    gold = _gold_strands(ET.fromstring(render_svg(export, MORANT)))
+
+    assert received
+    assert sorted(gold) == sorted([MORANT, *received])
+
+
+def test_highlight_none_draws_no_gold_strands(export):
+    root = ET.fromstring(render_svg(export, None))
+
+    assert _gold_strands(root) == []
+    assert "trade tree" not in ET.tostring(root, encoding="unicode")
+    # Draft rights keep their faint gold.
+    faint = [
+        path
+        for path in root.findall(f'.//{SVG_NS}path[@class="segment"]')
+        if path.get("stroke") == COLOR_ACCENT
+    ]
+    assert faint
+    assert {path.get("data-contract-type") for path in faint} == {"draft_rights"}
+    assert all(float(path.get("stroke-opacity")) < 0.5 for path in faint)
+
+
+def test_render_cli_takes_a_highlight_flag(tmp_path, export):
+    graph = tmp_path / "graph.json"
+    graph.write_text(json.dumps(export))
+
+    assert main(["render", "--in", str(graph), "--out", str(tmp_path / "a.svg")]) == 0
+    assert main(
+        ["render", "--in", str(graph), "--out", str(tmp_path / "b.svg"), "--highlight", "none"]
+    ) == 0
+    assert main(
+        ["render", "--in", str(graph), "--out", str(tmp_path / "c.svg"), "--highlight", "nope"]
+    ) == 1
+
+    assert JJJ in _gold_strands(ET.parse(tmp_path / "a.svg").getroot())
+    assert _gold_strands(ET.parse(tmp_path / "b.svg").getroot()) == []
+
+
+def test_hub_markers_are_colored_by_kind(root):
+    assert _hub_fill(root, TRADE) == COLOR_ACCENT
+    assert _hub_fill(root, WAIVER) == COLOR_BAD
+    assert _hub_fill(root, MASHACK_SIGNING) == COLOR_FOREGROUND
+    assert _hub_fill(root, CONVERSION) == COLOR_FOREGROUND
+
+    # A draft selection is a hollow gold ring.
+    ring = _hub(root, FIRST_DRAFT).find(f'{SVG_NS}circle[@class="hub-marker"]')
+    assert ring.get("fill") == COLOR_BACKGROUND
+    assert ring.get("stroke") == COLOR_ACCENT
+
+
+def test_a_departure_ends_in_a_dot_of_the_strands_own_shade(root):
+    cap = next(
+        group
+        for group in root.findall(f'.//{SVG_NS}g[@class="exit"]')
+        if group.get("data-asset-id") == JJJ
+    )
+    dot = cap.find(f'{SVG_NS}circle[@class="exit-marker"]')
+    segment = _strand(root, JJJ).findall(f'{SVG_NS}path[@class="segment"]')[-1]
+
+    assert dot.get("fill") == segment.get("stroke")
+    assert dot.get("fill-opacity") == segment.get("stroke-opacity")
+    assert not root.findall(f'.//{SVG_NS}path[@class="exit-marker"]')
+
+
+def test_no_badges_and_no_lane_guide_lines(root):
+    assert not root.findall(f'.//{SVG_NS}g[@class="short-tenure-marker"]/{SVG_NS}rect')
+    assert not root.findall(f'.//{SVG_NS}g[@class="row"]')
+    for band in root.findall(f'.//{SVG_NS}g[@class="band"]'):
+        assert [line.get("class") for line in band.findall(f"{SVG_NS}line")] in (
+            [],
+            ["band-rule"],
+        )
 
 
 def test_a_trade_hub_converges_its_departures_and_diverges_its_arrivals(root, export):
@@ -332,11 +482,13 @@ def test_the_stack_closes_up_when_a_player_above_leaves(root, bands):
     shift = _shift_start(morant)
     after = _rank(bands, "roster", _y_at(morant, shift + TRANSITION + 1))
 
-    # Jaren Jackson Jr. sat directly above him and left in this trade; the knock-on shift waits
-    # a clear gap past the trade rather than starting at its hub.
+    # Jaren Jackson Jr. sat directly above him and left in this trade; the knock-on shift starts
+    # a fixed gap past the trade, not at its hub, and the Feb 5 trade's markers right after it
+    # do not hold it back.
     assert _y_at(_strand_points(root, JJJ), x - 5) < _y_at(morant, x - 5)
-    assert shift >= x + SHIFT_GAP - 0.01
+    assert shift == pytest.approx(x + SHIFT_GAP, abs=0.01)
     assert after == before - 1
+    assert _y_at(morant, x + 3 * SHIFT_GAP) == _y_at(morant, shift + TRANSITION + 1)
 
 
 def test_a_conversion_lifts_the_strand_out_of_the_two_way_band(root, bands):
@@ -445,7 +597,8 @@ def test_after_the_draft_the_2026_block_is_gone_and_every_block_below_moves_up_t
     assert all(len(offsets) == 2 for offsets in moves.values())
     shift_xs = {round(offsets[1][0], 2) for offsets in moves.values()}
     deltas = {offsets[1][1] - offsets[0][1] for offsets in moves.values()}
-    assert len(shift_xs) == 1 and shift_xs.pop() >= draft_x + SHIFT_GAP
+    # The blocks move up right after the last 2026 pick is used, not with a later roster shift.
+    assert len(shift_xs) == 1 and shift_xs.pop() == pytest.approx(draft_x + SHIFT_GAP, abs=0.01)
     assert len(deltas) == 1 and deltas.pop() < 0
 
     # The strands follow their blocks: every pick held across the shift rises by the same y.
@@ -453,7 +606,8 @@ def test_after_the_draft_the_2026_block_is_gone_and_every_block_below_moves_up_t
     for year in range(2027, 2033):
         for asset_id in blocks[year].get("data-slots").split():
             points = _strand_points(root, asset_id)
-            if _x_range(points)[1] >= PLOT_X1:
+            low, high = _x_range(points)
+            if low < draft_x - 1 and high >= PLOT_X1:
                 rises.add(round(_y_at(points, PLOT_X1) - _y_at(points, draft_x - 1), 2))
     assert len(rises) == 1
 
@@ -493,32 +647,95 @@ def test_hidden_players_and_their_nodes_are_not_drawn(root, export):
     assert not [node_id for node_id in hidden_nodes if node_id in hubs]
 
 
-def test_a_knock_on_shift_waits_a_clear_gap_past_the_node_that_caused_it(root):
-    # PJ Hall's waiver and Mashack's signing share one x; Prosper steps up into Hall's row,
-    # but only well clear of Mashack's signing marker.
+def test_a_two_way_swap_closes_up_at_the_node_so_the_band_stays_three_rows(root, bands):
+    # PJ Hall's waiver and Mashack's signing share one x; Prosper steps up into Hall's row right
+    # there, so Mashack enters the third row instead of a fourth.
     x = _node_x(root, WAIVER)
     assert _node_x(root, MASHACK_SIGNING) == pytest.approx(x)
     prosper = _strand_points(root, PROSPER)
+    mashack = _strand_points(root, MASHACK)
 
-    assert _shift_start(prosper) >= x + SHIFT_GAP - 0.01
-    assert _y_at(prosper, x + SHIFT_GAP - 1) == _y_at(prosper, x - 5)
+    assert _shift_start(prosper) == pytest.approx(x, abs=0.01)
+    assert _rank(bands, "two_way", _y_at(mashack, x + 1)) == TWO_WAY_ROWS - 1
 
 
-def test_the_two_way_band_never_exceeds_the_three_contracts_the_rules_allow(root, bands, export):
-    # Three rows by rule, plus at most one transient row where a same-day signing waits for
-    # the row a waived two-way left to close up.
-    assert 3 <= bands["two_way"][1] <= 4
+COMMAND = re.compile(r"([MLC])([^MLC]*)")
 
-    for node in export["nodes"]:
-        hub = [
-            group
-            for group in root.findall(f'.//{SVG_NS}g[@class="hub"]')
-            if group.get("data-node-id") == node["id"]
-        ]
-        if not hub:
-            continue
-        x = _hub_x(root, node["id"])
-        assert len(_stack_at(root, bands, x + 40, "two_way")) <= 3
+
+def _flat_runs(root, asset_id):
+    """[(x1, x2, y)] of every straight run of a strand (curves are left out)."""
+    runs = []
+    for path in _strand(root, asset_id).findall(f'{SVG_NS}path[@class="segment"]'):
+        cursor = None
+        for command, args in COMMAND.findall(path.get("d")):
+            points = [(float(x), float(y)) for x, y in POINT.findall(args)]
+            if command == "L" and cursor and abs(cursor[1] - points[-1][1]) < 0.01:
+                runs.append((cursor[0], points[-1][0], cursor[1]))
+            cursor = points[-1]
+    return runs
+
+
+def _resting_in_band(root, bands, x, band):
+    """Strands sitting still on a row of `band` at `x` (not passing through mid-curve)."""
+    found = []
+    for group in root.findall(f'.//{SVG_NS}g[@class="strand"]'):
+        asset_id = group.get("data-asset-id")
+        for x1, x2, y in _flat_runs(root, asset_id):
+            if x1 - 0.01 <= x <= x2 + 0.01 and _band_at(bands, y) == band:
+                found.append(asset_id)
+                break
+    return found
+
+
+def _assert_two_way_band_holds_three_rows(root, bands):
+    assert bands["two_way"][1] == TWO_WAY_ROWS
+    for hub in root.findall(f'.//{SVG_NS}g[@class="hub"]'):
+        x = _hub_x(root, hub.get("data-node-id"))
+        for probe in (x - 1, x + 1, x + TRANSITION, x + SHIFT_GAP + TRANSITION):
+            assert len(_resting_in_band(root, bands, probe, "two_way")) <= TWO_WAY_ROWS
+
+
+def test_the_two_way_band_never_exceeds_the_three_contracts_the_rules_allow(root, bands):
+    _assert_two_way_band_holds_three_rows(root, bands)
+
+
+@pytest.fixture
+def november(resolvable_inputs):
+    """The later feed capture (summer trades, Sep/Oct waivers), rendered."""
+    if not NOVEMBER_FEED.exists():
+        pytest.skip("the November feed capture is not on this machine")
+    snapshot, pick_events, corrections = resolvable_inputs
+    graph = build_graph(json.loads(NOVEMBER_FEED.read_text()), snapshot, pick_events, corrections)
+    export = build_export(graph, snapshot)
+    root = ET.fromstring(render_svg(export))
+    drawn = {
+        group.get("data-band"): (
+            float(group.get("data-top")),
+            float(group.get("data-rows")),
+            float(group.get("data-row-height")),
+        )
+        for group in root.findall(f'.//{SVG_NS}g[@class="band"]')
+    }
+    return export, root, drawn
+
+
+def test_the_roster_closes_up_after_the_autumn_waivers(november):
+    _, root, bands = november
+    # The window's last day moves a player out of the roster too late for its shift to fit on
+    # the page, so read the stack just before it.
+    end = PLOT_X1 - 0.5
+    held = _stack_at(root, bands, end, "roster")
+    ranks = sorted(
+        _rank(bands, "roster", _y_at(_strand_points(root, asset_id), end)) for asset_id in held
+    )
+
+    assert held
+    assert ranks == [float(rank) for rank in range(len(held))]
+
+
+def test_the_two_way_band_holds_three_rows_on_the_november_feed(november):
+    _, root, bands = november
+    _assert_two_way_band_holds_three_rows(root, bands)
 
 
 def test_synthetic_contract_void_and_draft_rights_get_their_family_colors(export):
@@ -581,6 +798,7 @@ def test_a_dropped_label_gets_a_numbered_marker_and_a_matching_legend_entry(root
         text.split(".", 1)[0] for text in legend_texts
     }
     first = markers[0]
+    assert first.find(f"{SVG_NS}text").text == first.get("data-number")
     entry = next(text for text in legend_texts if text.startswith(f"{first.get('data-number')}."))
     assert first.find(f"{SVG_NS}title").text in entry
     assert "→" in entry

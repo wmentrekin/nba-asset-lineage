@@ -21,7 +21,7 @@ from lineage.derive import (
 from lineage.export import run_export
 from lineage.fetch import FEED_URL, fetch_payload, store_payload
 from lineage.migrate import apply_migrations
-from lineage.render import run_render
+from lineage.render import DEFAULT_HIGHLIGHT, run_render
 from lineage.validate import run_validate
 
 VERBS = [
@@ -103,6 +103,14 @@ def build_parser() -> argparse.ArgumentParser:
                 "--out",
                 default=str(DEFAULT_RENDER_PATH),
                 help="Where to write graph.svg (default: exports/graph.svg)",
+            )
+            sub.add_argument(
+                "--highlight",
+                default=DEFAULT_HIGHLIGHT,
+                help=(
+                    "Asset id whose trade tree is drawn in gold, or 'none' "
+                    f"(default: {DEFAULT_HIGHLIGHT}, Jaren Jackson Jr.)"
+                ),
             )
         if verb == "load":
             sub.add_argument(
@@ -235,7 +243,12 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     if args.verb == "render":
-        run_render(pathlib.Path(args.in_path), pathlib.Path(args.out))
+        highlight = None if args.highlight == "none" else args.highlight
+        try:
+            run_render(pathlib.Path(args.in_path), pathlib.Path(args.out), highlight)
+        except ValueError as exc:
+            print(f"render failed: {exc}", file=sys.stderr)
+            return 1
         return 0
 
     if args.verb == "load":
