@@ -1,36 +1,43 @@
 [tools]
 python = "3.11"
-node = "22"
 uv = "latest"
 
 [tasks.setup]
-description = "Install Python dependencies with UV"
+description = "Install project dependencies"
 run = "uv sync"
 
-[tasks.db_check]
-description = "Run a minimal database connectivity check using local .env"
-run = "uv --cache-dir /tmp/uv-cache run python -m redesign_cli check-db"
+[tasks.check_db]
+description = "Confirm the app can connect to DATABASE_URL"
+run = "uv run lineage check-db"
 
-[tasks.frontend_setup]
-description = "Install frontend dependencies"
-run = "cd frontend && npm install"
+[tasks.migrate]
+description = "Apply the lineage schema"
+run = "uv run lineage migrate"
 
-[tasks.frontend_dev]
-description = "Run the Astro frontend in development mode"
-run = "cd frontend && npm run dev"
+[tasks.fetch]
+description = "Pull the raw player-movement feed and store it"
+run = "uv run lineage fetch --save-to exports/nba_player_movement.json"
 
-[tasks.frontend_build]
-description = "Build the Astro frontend"
-run = "cd frontend && npm run build"
+[tasks.derive]
+description = "Rebuild transaction/asset rows from raw payloads and data files"
+run = "uv run lineage derive"
 
-[tasks.frontend_check]
-description = "Type-check the Astro frontend"
-run = "cd frontend && npm run check"
+[tasks.validate]
+description = "Check the derived data against graph invariants"
+run = "uv run lineage validate"
 
-[tasks.frontend_test]
-description = "Run the frontend unit tests"
-run = "cd frontend && npm run test"
+[tasks.export]
+description = "Write graph.json"
+run = "uv run lineage export"
 
-[tasks.foundation_test]
-description = "Run the offline foundation Python test suite"
-run = "uv --cache-dir /tmp/uv-cache run pytest tests/foundation -q"
+[tasks.render]
+description = "Draw graph.svg from graph.json"
+run = "uv run lineage render"
+
+[tasks.load]
+description = "Run fetch, derive, validate, export, render in sequence"
+run = "uv run lineage load"
+
+[tasks.test]
+description = "Run the offline pytest suite"
+run = "uv run pytest"

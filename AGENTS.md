@@ -7,169 +7,62 @@ before starting substantial work; invoke it with `/work`.
 
 ## Purpose
 
-This repository is for building a Memphis Grizzlies asset-lineage system.
+This repository builds a simple, working, one-season Memphis Grizzlies asset-lineage pipeline:
+opening night 2025-26 through today. The prior multi-season, multi-table implementation was
+deleted in a reset (it remains in git history on `main`). Complexity gets added later, only once
+this smaller scope is proven correct.
 
-The repo is currently in a reset phase.
+## Scope rules
 
-The previous staged redesign implementation has been archived under `legacy/`
-and should not be treated as the active architecture.
+- Memphis only.
+- Window: 2025-26 opening night through the most recent load date.
+- Node kinds: trade, signing, waiver/release, two-way signing, two-way conversion, ten-day or
+  Exhibit-10 signing, draft selection, plus the virtual `baseline` opening-night node.
+- Assets (strands): players and Memphis-owned future draft picks.
+- Not in scope: G League moves, swap rights/cash/trade exceptions as strands, multi-season
+  history, any frontend.
 
-## Current Product Goal
+## Architecture
 
-The current target is intentionally narrow:
+- A single Python package, `src/lineage/`.
+- CLI verbs: `migrate`, `fetch`, `derive`, `validate`, `export`, `render`, `check-db`.
+- Raw feed payloads are stored verbatim in `source_record`.
+- `derive` is a pure function of raw payloads + `data/*.json` + code. It rebuilds all derived
+  tables inside one transaction, with fully deterministic row ordering.
+- Strands (per-asset holder timelines) are computed on demand by `lineage/timeline.py`; they are
+  never stored.
 
-- a Memphis-only Astro page
-- a 10-year asset evolution graph
-- transactions represented as graph nodes
-- player and pick continuity represented as graph strands
-- no narrative layer in the base output
-- no chaptering or editorial overlay requirements in the base output
+## Rules
 
-## Active Direction
-
-Work should currently focus on these questions, in order:
-
-1. What is the minimum truthful graph output?
-2. What exact source data is required to build it?
-3. What durable schema should exist in Supabase?
-4. How should the graph-ready export be shaped for Astro?
-
-Do not jump ahead into richer storytelling, layout, or editorial systems before
-the base lineage truth is stable.
-
-## Architecture Rule
-
-Treat the repo as having two tracks:
-
-### 1. Active Reset Track
-
-This is the current working direction.
-
-Primary active paths:
-
-- `src/foundation/`
-- `src/redesign_cli.py`
-- `src/db_config.py`
-- `frontend/`
-- `docs/foundation/`
-- `docs/frontend/`
-
-### 2. Legacy Archive Track
-
-Reference only.
-
-Archived under:
-
-- `legacy/src/`
-- `legacy/sql/`
-- `legacy/tests/`
-- `legacy/docs/`
-- `legacy/frontend-v1/`
-- `legacy/configs/`
-
-This material can be mined for useful assumptions or logic, but it is not the
-active target architecture.
-
-## Source of Truth Priority
-
-Use this order when making decisions:
-
-1. current reset intent expressed in repo-root docs
-2. active docs under `docs/foundation/` and `docs/frontend/`
-3. this `AGENTS.md`
-4. explicit user direction in the current thread
-5. archived `legacy/` material only when it does not conflict with the reset
-
-## Working Expectations
-
-### Preferred work now
-
-Prefer work that strengthens:
-
-- source-system definition
-- smaller lineage contracts
-- ingest/storage planning
-- durable identity and continuity rules
-- graph-ready export thinking
-- minimal frontend scaffolding
-
-### Avoid for now
-
-Avoid reintroducing:
-
-- chapter systems
-- editorial overlays
-- storytelling schema
-- large staged pipeline assumptions
-- frontend interaction complexity not required by the base graph
-
-## Subagent Rules
-
-- Keep orchestrator context thin.
-- Spawn short-lived subagents only when the task is clearly separable.
-- Keep write scopes disjoint.
-- Close subagents after completion.
-- Persist durable outcomes into repo files when appropriate.
-- Escalate instead of inventing source semantics or lineage rules.
+- Never hand-edit derived tables. Fix bad input via `data/corrections.json` and re-run `derive`.
+- Unparseable pick text in a transaction description fails the load loudly — it does not get
+  silently dropped or guessed at.
+- Escalate before any destructive database operation.
+- Python only, managed with `uv`. No Node, no frontend.
+- Keep the schema at five tables unless the user explicitly agrees to add one.
+- Docs live in `README.md`; keep it current when behavior changes.
 
 ## Commands
 
-Use `mise` tasks where possible.
-
-Current temporary task surface:
+Use `mise` tasks:
 
 ```bash
-mise run setup
-mise run db_check
-mise run frontend_setup
-mise run frontend_dev
-mise run frontend_check
-mise run frontend_test
-mise run frontend_build
+mise run setup      # uv sync
+mise run check_db   # confirm DATABASE_URL connectivity
+mise run migrate    # apply the lineage schema
+mise run fetch      # pull and store the raw feed
+mise run derive     # rebuild derived tables
+mise run validate   # check graph invariants
+mise run export     # write graph.json
+mise run render     # draw graph.svg
+mise run load       # fetch + derive + validate + export + render
+mise run test       # run the offline pytest suite
 ```
 
-These are scaffolding commands, not a frozen workflow.
+## Definition of done
 
-## Database and Environment Rules
+A task is done only when:
 
-Use local `.env` only.
-
-Do not assume the next durable Supabase schema is already defined.
-
-Before making DB-shape changes, confirm they support the reset-era minimum graph
-contract rather than a legacy or overbuilt staged design.
-
-Escalate before:
-
-- destructive DB operations
-- schema wipes
-- ambiguous live write operations
-- freezing SQL structure that has not been agreed to yet
-
-## Documentation Rules
-
-Update docs when changing:
-
-- the minimum graph contract
-- source-system assumptions
-- planned Supabase storage model
-- frontend/base-export boundaries
-- reset-era command surface
-
-Do not let stale staged-redesign language remain in active docs.
-
-## Definition of Done
-
-A reset-era task is done only if:
-
-- the intended reset scope is respected
-- implementation is coherent with the smaller target architecture
-- relevant validation has run
-- docs remain aligned with the reset direction
-- no silent architectural assumptions were introduced
-
-## Key Rule
-
-> The repo is starting over from the data foundation. Do not optimize for the
-> old staged redesign unless the user explicitly asks to restore something from
-> `legacy/`.
+- The offline pytest suite passes.
+- The Lineage Load workflow (fetch, derive, validate, export, render) is green in CI.
+- README.md reflects any changed behavior or commands.

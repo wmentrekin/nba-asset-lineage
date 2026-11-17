@@ -1,0 +1,99 @@
+# Contract: durable execution and handoff report maintained by $work
+
+artifact: implementation_report
+feature: "mvp-one-season-reset"
+mode: "large-initiative"
+status: verified
+owner_skill: work
+based_on: "docs/mvp-one-season-reset/plan.yaml"
+
+summary:
+  scope_executed: "B0 wipe + skeleton; B1 schema + migrate + live drop/apply; B2 fetch + CI workflow + first real capture; B3 parser/pick events/corrections/derive/timeline; B4 validate/export/render/load chain. RLS enabled at user request."
+  outcome: "B7 (owner feedback round 3): render v4 compacting tenure-ordered stack with a three-row two-way band and a compact sorted picks band; conversions and draft selections rise into the roster; export carries tenure_start/tier changes/pick sort_key; snapshot carries mem_since. Earlier B6: researched pick truth (2026 ORL 1st added; Boozer #3, Lopez #21, Saunders #32 unsigned as draft_rights; trade pick packages), Brandon Clarke contract_void node, render v3 with color-by-contract-type and color-by-kind hubs, full-season ordering, numbered legend. Earlier B5: 10-day contracts now expire via synthetic expiry nodes; render v2 draws Memphis tenure only on reusable slot lanes with hub connectors showing convergence/divergence at each transaction (1600x800). Earlier: repo reduced to a single Python package with seven CLI verbs and five Supabase tables. Offline load chain runs green on the captured 86-row Memphis fixture: 34 nodes, 81 movements, 61 strands, 0 validation errors, 16 warnings (uncurated picks, unverified snapshot rows)."
+
+task_batches_attempted: ["B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7"]
+task_batches_completed: ["B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7"]
+
+domains_touched: ["generalist-developer", "data-engineer"]
+
+model_usage:
+  tasks:
+    - {task_id: "T0.1", role: "generalist-developer", requested_tier: "fast", requested_model: "Claude Haiku 4.5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 37, wall_time_seconds: 162}
+    - {task_id: "T1.1+T2.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 27, wall_time_seconds: 135}
+    - {task_id: "T1.2", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: true, escalation_count: 0}
+    - {task_id: "T3.1", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: false, escalation_count: 0}
+    - {task_id: "T3.2", role: "data-engineer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 41, wall_time_seconds: 859}
+    - {task_id: "T4.1+T4.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 75, wall_time_seconds: 656}
+    - {task_id: "T5.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 58, wall_time_seconds: 347}
+    - {task_id: "T5.2", role: "generalist-developer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 38, wall_time_seconds: 689}
+    - {task_id: "T6.1", role: "orchestrator", requested_tier: "frontier", requested_model: "session model", actual_model: "session model", requested_reasoning: "high", actual_reasoning: "session default", accepted_first_attempt: false, escalation_count: 0}
+    - {task_id: "T6.2", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 106, wall_time_seconds: 808}
+    - {task_id: "T6.3", role: "generalist-developer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 59, wall_time_seconds: 740}
+    - {task_id: "T7.1", role: "data-engineer", requested_tier: "balanced", requested_model: "Claude Sonnet 5", actual_model: "Claude Sonnet 5", requested_reasoning: "medium", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 54, wall_time_seconds: 357}
+    - {task_id: "T7.2", role: "generalist-developer", requested_tier: "frontier", requested_model: "Claude Opus 5", actual_model: "Claude Opus (Agent model param)", requested_reasoning: "high", actual_reasoning: "inherited", accepted_first_attempt: true, escalation_count: 0, tool_calls: 45, wall_time_seconds: 945}
+  routing_notes:
+    - "T0.1 bumped fast->balanced because it rewrote AGENTS/README and deleted the whole tree."
+    - "T3.1 (snapshot) drafted from model knowledge, then corrected from the captured feed; 8/18 player rows verified by feed evidence, 10 await owner confirmation."
+    - "Two orchestrator-sized fixes after T3.2: Wells person_id resolved from the full feed; transaction.note column added (sql/0002)."
+
+pr:
+  number: 8
+  url: "https://github.com/wmentrekin/nba-asset-lineage/pull/8"
+
+changes:
+  files:
+    - "README.md, AGENTS.md, CLAUDE.md, pyproject.toml, uv.lock, mise.toml, .gitignore (rewritten)"
+    - "sql/0001_lineage.sql, sql/0002_rls_and_transaction_note.sql"
+    - "src/lineage/{__init__,cli,config,db,migrate,fetch,teams,snapshot,parse,picks,corrections,timeline,derive,validate,export,render}.py"
+    - "data/opening_snapshot_2025_26.json, data/pick_events.json, data/corrections.json"
+    - "tests/* (115 tests), tests/fixtures/nba_player_movement_mem_2025_26.json"
+    - ".github/workflows/lineage-load.yml (new), db-keepalive.yml (check-db verb), db-backup.yml (data dump added)"
+  modules: ["lineage"]
+  docs_updated: ["README.md", "AGENTS.md"]
+
+local_validation:
+  checks_run:
+    - "uv run pytest: 115 passed"
+    - "lineage load --feed-fixture ...: derive 34 tx / 81 movements; validate 0 errors, 16 warnings; export nodes=34 assets=61 strands=61; render graph.svg"
+    - "workflow YAML parses"
+  failures: []
+  skipped:
+    - "Live derive against Supabase runs only in CI (sandbox cannot reach the feed; CI run triggered by push d6ef26c)."
+
+review_summary:
+  status: addressed
+  key_findings:
+    - "render.py iterates a set when drawing node circles; SVG bytes vary across processes (blocking)."
+    - "validate W4 can never fire (blocking) — removed."
+    - "No tests for ContractConverted / AwardOnWaivers / rarer contract phrasings; Exhibit 10 never appears in the feed."
+    - "push trigger on work/** contradicts manual-only decision — removed."
+    - "mise tasks carried a sandbox --cache-dir; README fetch flags undocumented."
+
+test_summary:
+  status: passed_b7
+  checks_run:
+    - "pytest x2: 126 passed, stable"
+    - "offline load chain: 34 tx / 81 movements / 0 errors / 16 warnings"
+    - "export x2 byte-identical; render x2 NOT identical (PYTHONHASHSEED)"
+    - "CLI --help for all verbs; unknown Transaction_Type fails loudly; duplicate waive caught by E1; --strict exits 1"
+    - "pick_events dry-fill: pick strand MEM->USED, player DRAFT->MEM, note folds, W1/W2 drop"
+    - "graph.svg parses; 61 lanes / 34 nodes; text escaped"
+  failures:
+    - "render nondeterminism across processes"
+    - "check-db/migrate/derive traceback when DATABASE_URL missing"
+  gaps:
+    - "No live-DB exercise from the sandbox (covered by CI run 35297586232)."
+    - "A missing feed row (e.g. a dropped trade leg) is undetectable by validate — inherent to a single-source model."
+
+open_issues:
+  - "Render legibility (owner call): solo-departure hub marker overlaps the exit cap; numbered badges collide with markers in 10-day clusters; Mar 4 conversion curve crosses labels; Sep 8 connectors cross strands."
+  - "NOP 2026-09-08 second-round pick and swap: year/origin unverified (footnote only) — for the owner's later pick-audit pass."
+  - "Own 2nd-round picks 2027-2032 unverified (low confidence); RealGM/Spotrac tables unreachable from the sandbox."
+  - "10 snapshot player rows verified:false pending owner confirmation."
+  - "Draft-night swap-downs (#17 OKC, #21 DET) are footnotes, not nodes."
+  - "Stale remote branch claude/blissful-shannon-sve08l cannot be deleted from this sandbox."
+
+handoff:
+  current_state: pr_ready_for_review
+  next_owner: "owner"
+  next_action: "Review PR #8; fill data/pick_events.json (4 trades, 2 draft selections); confirm verified:false snapshot rows; confirm merge so docs/mvp-one-season-reset/ can be removed."
