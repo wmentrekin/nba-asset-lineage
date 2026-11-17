@@ -261,6 +261,15 @@ execution_batches:
         assigned_domain: "generalist-developer"
         owned_scope: ["src/lineage/render.py", "tests/test_render.py", "README.md render section"]
 
+  - id: "B10"
+    goal: "Render v6: restyle to the personal-site design system (owner, 2026-11-17)"
+    tasks:
+      - id: "T10.1"
+        title: "Design-system restyle + prompt shift timing + highlighted lineage"
+        objective: "Navy band (#1b2a5c) canvas with pale blue (#aebfe8) strands and gold (#f6b61c) accent per personal-site DESIGN.md; contract types by palette shade; trade markers gold, exits red #ef6b5e; Newsreader/Instrument Sans, Title Case, no pill badges or grid lines, round caps and dot end-caps like the project artwork; one lineage highlighted in gold (default seed Jaren Jackson Jr., CLI flag to change); knock-on shifts at a fixed gap after their own node."
+        assigned_domain: "generalist-developer"
+        owned_scope: ["src/lineage/render.py", "src/lineage/cli.py (render --highlight)", "tests/test_render.py", "README.md render section"]
+
 ordering_notes:
   - "B0 -> B1 -> B2 -> (user triggers workflow) -> B3 -> B4 -> PR -> verification."
   - "T1.2 (destructive drop) is a separate explicit user go, not covered by plan approval; routed above-minimum tier deliberately because it is irreversible."
